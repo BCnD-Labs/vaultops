@@ -1,3 +1,6 @@
+pub mod host_error;
+pub mod vault;
+
 use serde::Serialize;
 
 /// Basic facts about the running app, returned to the `host` interface.
@@ -14,7 +17,7 @@ fn app_info_value() -> AppInfo {
     }
 }
 
-/// The only native command for now. File operations arrive with task T03.
+/// Basic app facts. File commands arrive with tasks T04.2 and T04.3.
 #[tauri::command]
 fn app_info() -> AppInfo {
     app_info_value()
@@ -23,6 +26,7 @@ fn app_info() -> AppInfo {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(vault::VaultState::default())
         .invoke_handler(tauri::generate_handler![app_info])
         .run(tauri::generate_context!())
         .expect("error while running the VaultOps app");

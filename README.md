@@ -2,7 +2,13 @@
 
 *Working name.*
 
-A local-first notes app with version control built in. Notes are made of blocks, and you commit, push and revert changes to them the way you would with code. Everything stays on your machine: no account, no sync.
+A notes app and a local repo manager in one, with GitHub-style version control that works fully offline.
+
+- **Notes:** made of blocks, with their own version history. You commit, push and revert changes to a note the way you would with code.
+- **Code repos:** real git, local only, using the same workflow and screens: changes, commits, history, stash.
+- **Work tracking:** issues, projects and pull-request-style reviews, kept locally next to your notes and repos.
+
+Everything stays on your machine: no account, no sync.
 
 **Status:** early development, macOS first. Not ready for use yet.
 

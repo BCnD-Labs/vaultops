@@ -38,6 +38,10 @@ cargo test
 - File access stays inside the open vault folder: no `..`, no absolute paths from the frontend, no symlink escapes.
 - Never silently lose or overwrite user data. Writes are atomic (temp file, then rename); deletes move to trash.
 
+**Reuse before building**
+- Prefer an existing, maintained library, Tiptap/React Flow extension or official Tauri plugin over writing it from scratch; propose it to the maintainer (new dependencies need approval).
+- Only use code under permissive licenses (MIT, Apache-2.0, BSD, ISC). Never copy code from GPL, AGPL or source-available non-compete (for example FSL) projects; reading them to learn how a problem was solved is fine. MPL-2.0 code may only be used as an unmodified dependency, not copied in.
+
 **Ask the maintainer first**
 - Changes to the note file format, storage layout or history design.
 - New dependencies (npm or Cargo), and changes to CI.

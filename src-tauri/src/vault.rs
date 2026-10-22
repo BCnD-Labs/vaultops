@@ -135,31 +135,11 @@ pub fn check_relative(path: &str, allow_root: bool) -> Result<Vec<String>, HostE
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    /// A fresh folder under the system temp dir, removed on drop.
-    struct TempDir(PathBuf);
-    impl TempDir {
-        fn new() -> Self {
-            static N: AtomicUsize = AtomicUsize::new(0);
-            let dir = std::env::temp_dir().join(format!(
-                "vaultops-test-{}-{}",
-                std::process::id(),
-                N.fetch_add(1, Ordering::SeqCst)
-            ));
-            std::fs::create_dir_all(&dir).unwrap();
-            Self(dir.canonicalize().unwrap())
-        }
-    }
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
+    use crate::test_util::TempDir;
 
     fn setup() -> (TempDir, Vault) {
         let tmp = TempDir::new();
-        let root = tmp.0.join("vault");
+        let root = tmp.path().join("vault");
         std::fs::create_dir(&root).unwrap();
         let vault = Vault::open(&root).unwrap();
         (tmp, vault)
@@ -233,7 +213,7 @@ mod tests {
     fn refuses_symlinks_that_lead_outside() {
         use std::os::unix::fs::symlink;
         let (tmp, vault) = setup();
-        let outside = tmp.0.join("outside");
+        let outside = tmp.path().join("outside");
         std::fs::create_dir(&outside).unwrap();
         std::fs::write(outside.join("secret.txt"), "x").unwrap();
         symlink(&outside, vault.root().join("link")).unwrap();
@@ -253,7 +233,7 @@ mod tests {
     fn refuses_a_sibling_folder_with_a_similar_name() {
         use std::os::unix::fs::symlink;
         let (tmp, vault) = setup();
-        let evil = tmp.0.join("vault-evil");
+        let evil = tmp.path().join("vault-evil");
         std::fs::create_dir(&evil).unwrap();
         symlink(&evil, vault.root().join("evil")).unwrap();
         assert_eq!(code(vault.resolve("evil/x", false)), ErrorCode::InvalidPath);
@@ -274,7 +254,7 @@ mod tests {
     fn refuses_a_dangling_symlink() {
         use std::os::unix::fs::symlink;
         let (tmp, vault) = setup();
-        symlink(tmp.0.join("nowhere"), vault.root().join("dangling")).unwrap();
+        symlink(tmp.path().join("nowhere"), vault.root().join("dangling")).unwrap();
         assert_eq!(
             code(vault.resolve("dangling", false)),
             ErrorCode::InvalidPath

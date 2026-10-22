@@ -2,11 +2,11 @@
 
 *Working name.*
 
-A notes app and a local repo manager in one, with GitHub-style version control that works fully offline.
+A visual, offline way to manage your local git repos with a GitHub-style workflow, alongside version control for your notes. No terminal needed.
 
-- **Notes:** made of blocks, with their own version history. You commit, push and revert changes to a note the way you would with code.
-- **Code repos:** real git, local only, using the same workflow and screens: changes, commits, history, stash.
-- **Work tracking:** issues, projects and pull-request-style reviews, kept locally next to your notes and repos.
+- **Code repos:** your real git repos, managed visually: changes, commits, branches, history, stash. Local only.
+- **Work tracking:** issues, projects and pull-request-style reviews, the GitHub way, kept offline next to your repos.
+- **Notes:** made of blocks, with their own version history. Commit, push and revert a note the same way you would code.
 
 Everything stays on your machine: no account, no sync.
 

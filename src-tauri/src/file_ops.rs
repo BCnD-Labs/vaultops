@@ -19,7 +19,7 @@ use crate::vault::Vault;
 /// Prefix of temporary files; anything left by a crash can be cleaned up by name.
 pub const TEMP_PREFIX: &str = ".vaultops-tmp-";
 
-fn io(e: std::io::Error) -> HostError {
+pub(crate) fn io(e: std::io::Error) -> HostError {
     HostError::from_io(&e)
 }
 
@@ -52,7 +52,7 @@ pub fn write_text_atomic(vault: &Vault, path: &str, text: &str) -> Result<(), Ho
 }
 
 /// Open a folder inside the vault ("" is the vault itself).
-fn open_folder(dir: &Dir, rel: &Path) -> Result<Dir, HostError> {
+pub(crate) fn open_folder(dir: &Dir, rel: &Path) -> Result<Dir, HostError> {
     if rel.as_os_str().is_empty() {
         return dir.try_clone().map_err(io);
     }

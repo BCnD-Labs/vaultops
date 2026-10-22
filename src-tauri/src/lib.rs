@@ -1,4 +1,5 @@
 pub mod file_ops;
+pub mod folder_ops;
 pub mod host_error;
 #[cfg(test)]
 mod test_util;
@@ -60,6 +61,37 @@ fn write_text_atomic(
     with_vault(&state, |v| file_ops::write_text_atomic(v, &path, &text))
 }
 
+#[tauri::command(async)]
+fn list(
+    state: tauri::State<'_, VaultState>,
+    folder: String,
+) -> Result<Vec<folder_ops::DirEntry>, HostError> {
+    with_vault(&state, |v| folder_ops::list(v, &folder))
+}
+
+#[tauri::command(async)]
+fn make_folder(state: tauri::State<'_, VaultState>, path: String) -> Result<(), HostError> {
+    with_vault(&state, |v| folder_ops::make_folder(v, &path))
+}
+
+#[tauri::command(async)]
+fn kind_of(
+    state: tauri::State<'_, VaultState>,
+    path: String,
+) -> Result<Option<folder_ops::EntryKind>, HostError> {
+    with_vault(&state, |v| folder_ops::kind_of(v, &path))
+}
+
+/// Named `move_entry` because `move` is a Rust keyword.
+#[tauri::command(async)]
+fn move_entry(
+    state: tauri::State<'_, VaultState>,
+    from: String,
+    to: String,
+) -> Result<(), HostError> {
+    with_vault(&state, |v| folder_ops::move_entry(v, &from, &to))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -67,7 +99,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_info,
             read_text,
-            write_text_atomic
+            write_text_atomic,
+            list,
+            make_folder,
+            kind_of,
+            move_entry
         ])
         .run(tauri::generate_context!())
         .expect("error while running the VaultOps app");

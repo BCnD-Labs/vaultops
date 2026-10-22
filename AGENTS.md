@@ -44,7 +44,9 @@ cargo test
 - Anything that talks to a network or a git remote.
 
 **Workflow**
-- One task, one branch, one small pull request into `main`. `main` is protected: never push to it directly.
+- One small pull request into `main` per piece of work. `main` is protected: never push to it directly.
+- Pull request size: keep each one reviewable in one sitting (roughly under 400 changed lines, lock files aside). Split a task into one pull request per sub-issue when it has a security-sensitive or large part; keep small tasks, or parts that make no sense alone, in one pull request. Say which in the first pull request of the task.
+- Link the issue: `Closes #N` for the sub-issue (or task) the pull request finishes.
 - Pull requests are squash-merged. Commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`.
 - Before opening a pull request: `npm run check` and the Rust checks pass locally, and CI must be green before merge.
 - Pull request descriptions say what changed, what was tested and what was not.

@@ -1,23 +1,37 @@
 //! The open vault and the rule that every path stays inside it.
 //!
-//! The frontend only ever sends vault-relative paths (same rules as
-//! `src/core/vault-path`). `Vault::resolve` checks them again here, joins them
-//! to the canonical vault root and refuses anything that could reach outside:
-//! `..`, absolute paths, symlinks that lead out of the vault, and the vault's
-//! own `.git` folder (git hooks there are code that would run).
+//! The vault folder is opened once as a cap-std `Dir`, a handle that every
+//! file operation goes through. cap-std refuses any step that would leave the
+//! folder (`..`, absolute paths, symlinks pointing outside) in the same
+//! operation that touches the file, so there is no gap between check and use.
+//!
+//! On top of that, `Vault::resolve` checks the frontend's vault-relative path
+//! (same rules as `src/core/vault-path`) and keeps the vault's own `.git`
+//! folder off limits, also when reached through a symlink: git hooks there
+//! are code that would run.
 
+use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
+
+use cap_std::ambient_authority;
+use cap_std::fs::Dir;
 
 use crate::host_error::{ErrorCode, HostError};
 
 const MAX_PART_BYTES: usize = 255;
 
-/// The vault the app has open. Holds the canonical root path; it is never
+/// The vault the app has open. Neither the root path nor the handle is ever
 /// sent to the frontend.
-#[derive(Debug, Clone)]
 pub struct Vault {
     root: PathBuf,
+    dir: Dir,
+}
+
+impl std::fmt::Debug for Vault {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Vault").finish_non_exhaustive()
+    }
 }
 
 /// Tauri state: the open vault, if any.
@@ -29,9 +43,8 @@ pub struct VaultState(pub Mutex<Option<Vault>>);
 pub struct VaultPath {
     /// The vault-relative path parts, as given.
     pub parts: Vec<String>,
-    /// The full path on disk (root joined with the parts, not canonicalized,
-    /// so the name's capital letters are kept as given).
-    pub full: PathBuf,
+    /// The same path for use with `Vault::dir` (relative, capital letters as given).
+    pub rel: PathBuf,
 }
 
 impl Vault {
@@ -44,46 +57,63 @@ impl Vault {
                 "vault is not a folder",
             ));
         }
-        Ok(Self { root })
+        let dir = Dir::open_ambient_dir(&root, ambient_authority())
+            .map_err(|e| HostError::from_io(&e))?;
+        Ok(Self { root, dir })
     }
 
+    /// The canonical root path, for Rust-side use only (tests, git later).
     pub fn root(&self) -> &Path {
         &self.root
     }
 
-    /// Check a vault-relative path and resolve it inside the vault.
+    /// The sandboxed handle every file operation goes through.
+    pub fn dir(&self) -> &Dir {
+        &self.dir
+    }
+
+    /// Check a vault-relative path for use with `dir()`.
     /// `""` is the vault root and is only accepted when `allow_root` is true.
     pub fn resolve(&self, path: &str, allow_root: bool) -> Result<VaultPath, HostError> {
         let parts = check_relative(path, allow_root)?;
-        let mut full = self.root.clone();
+        let mut rel = PathBuf::new();
         for part in &parts {
-            full.push(part);
-            self.check_existing_component(&full)?;
+            rel.push(part);
+            if !self.check_existing(&rel)? {
+                // The rest of the path does not exist yet; nothing to follow.
+                break;
+            }
         }
-        Ok(VaultPath { parts, full })
+        let rel = parts.iter().collect();
+        Ok(VaultPath { parts, rel })
     }
 
-    /// If `path` exists and is a symlink, its target must be inside the vault.
-    /// A missing path is fine (it may be about to be created); its parent was
-    /// already checked by the previous step.
-    fn check_existing_component(&self, path: &Path) -> Result<(), HostError> {
-        let Ok(meta) = std::fs::symlink_metadata(path) else {
-            return Ok(());
-        };
-        if !meta.file_type().is_symlink() {
-            return Ok(());
+    /// If `rel` exists, where it really leads (after symlinks) must be inside
+    /// the vault and not inside `.git`. Returns whether it exists.
+    fn check_existing(&self, rel: &Path) -> Result<bool, HostError> {
+        match self.dir.symlink_metadata(rel) {
+            // Missing, or a file sits where a folder is expected: nothing more
+            // to follow; the operation itself reports the right error.
+            Err(e) if matches!(e.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) => {
+                return Ok(false);
+            }
+            Err(_) => return Err(HostError::invalid("path leads outside the vault")),
+            Ok(meta) if !meta.file_type().is_symlink() => return Ok(true),
+            Ok(_) => {}
         }
-        match path.canonicalize() {
-            Ok(target) if self.contains(&target) => Ok(()),
-            // A symlink pointing outside, or one that points nowhere.
-            _ => Err(HostError::invalid("path leads outside the vault")),
+        // A symlink: resolve it inside the sandbox. Pointing outside, or
+        // nowhere, is an error here.
+        let real = self
+            .dir
+            .canonicalize(rel)
+            .map_err(|_| HostError::invalid("path leads outside the vault"))?;
+        if real
+            .components()
+            .any(|c| matches!(c, Component::Normal(p) if p.eq_ignore_ascii_case(".git")))
+        {
+            return Err(HostError::invalid("the .git folder is off limits"));
         }
-    }
-
-    /// Whether a canonical path is the root or inside it. Compares whole path
-    /// parts, so a sibling like `vault-evil` is not inside `vault`.
-    fn contains(&self, canonical: &Path) -> bool {
-        canonical.starts_with(&self.root)
+        Ok(true)
     }
 }
 
@@ -154,7 +184,7 @@ mod tests {
         let (_tmp, vault) = setup();
         let p = vault.resolve("notes/Idea.vnote", false).unwrap();
         assert_eq!(p.parts, vec!["notes", "Idea.vnote"]);
-        assert_eq!(p.full, vault.root().join("notes").join("Idea.vnote"));
+        assert_eq!(p.rel, Path::new("notes").join("Idea.vnote"));
         assert!(vault.resolve("", true).unwrap().parts.is_empty());
     }
 
@@ -241,12 +271,59 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn refuses_a_symlink_into_the_git_folder() {
+        use std::os::unix::fs::symlink;
+        let (_tmp, vault) = setup();
+        std::fs::create_dir_all(vault.root().join(".git/hooks")).unwrap();
+        // Relative links, so cap-std would follow them; the .git rule must stop them.
+        symlink(".git", vault.root().join("alias")).unwrap();
+        symlink(".git/hooks", vault.root().join("hooks")).unwrap();
+        for bad in ["alias", "alias/hooks/pre-commit", "hooks/pre-commit"] {
+            assert_eq!(
+                code(vault.resolve(bad, false)),
+                ErrorCode::InvalidPath,
+                "{bad:?}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sandbox_blocks_escapes_even_without_resolve() {
+        use std::os::unix::fs::symlink;
+        let (tmp, vault) = setup();
+        let outside = tmp.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("secret.txt"), "x").unwrap();
+        symlink(&outside, vault.root().join("link")).unwrap();
+        // Going straight to the handle (skipping resolve) still cannot escape.
+        assert!(vault.dir().read_to_string("link/secret.txt").is_err());
+        assert!(vault.dir().read_to_string("../outside/secret.txt").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn allows_symlinks_that_stay_inside() {
         use std::os::unix::fs::symlink;
         let (_tmp, vault) = setup();
         std::fs::create_dir(vault.root().join("real")).unwrap();
-        symlink(vault.root().join("real"), vault.root().join("alias")).unwrap();
+        symlink("real", vault.root().join("alias")).unwrap();
         assert!(vault.resolve("alias/note.vnote", false).is_ok());
+    }
+
+    /// cap-std cannot check where an absolute link leads, so it refuses them,
+    /// even ones that point back inside the vault.
+    #[cfg(unix)]
+    #[test]
+    fn refuses_absolute_symlinks_even_inside() {
+        use std::os::unix::fs::symlink;
+        let (_tmp, vault) = setup();
+        std::fs::create_dir(vault.root().join("real")).unwrap();
+        symlink(vault.root().join("real"), vault.root().join("abs")).unwrap();
+        assert_eq!(
+            code(vault.resolve("abs/note.vnote", false)),
+            ErrorCode::InvalidPath
+        );
     }
 
     #[cfg(unix)]

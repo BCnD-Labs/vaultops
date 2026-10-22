@@ -1,13 +1,17 @@
 //! Reading and atomically writing text files inside the vault.
 //!
+//! Every operation goes through the vault's cap-std handle (`Vault::dir`),
+//! so it cannot reach outside the vault folder.
+//!
 //! Atomic write: the new text goes to a temporary file in the same folder,
 //! is flushed to disk, then renamed over the target in one step. A crash at
 //! any point leaves the old file or the new file, never a partial one.
 
-use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+use cap_std::fs::{Dir, MetadataExt, OpenOptions};
 
 use crate::host_error::{ErrorCode, HostError};
 use crate::vault::Vault;
@@ -15,49 +19,64 @@ use crate::vault::Vault;
 /// Prefix of temporary files; anything left by a crash can be cleaned up by name.
 pub const TEMP_PREFIX: &str = ".vaultops-tmp-";
 
+fn io(e: std::io::Error) -> HostError {
+    HostError::from_io(&e)
+}
+
 pub fn read_text(vault: &Vault, path: &str) -> Result<String, HostError> {
     let target = vault.resolve(path, false)?;
-    let meta = fs::metadata(&target.full).map_err(|e| HostError::from_io(&e))?;
+    let meta = vault.dir().metadata(&target.rel).map_err(io)?;
     if meta.is_dir() {
         return Err(HostError::new(ErrorCode::IsAFolder, "path is a folder"));
     }
-    let bytes = fs::read(&target.full).map_err(|e| HostError::from_io(&e))?;
+    let bytes = vault.dir().read(&target.rel).map_err(io)?;
     String::from_utf8(bytes).map_err(|_| HostError::new(ErrorCode::Io, "file is not UTF-8 text"))
 }
 
 pub fn write_text_atomic(vault: &Vault, path: &str, text: &str) -> Result<(), HostError> {
     let target = vault.resolve(path, false)?;
-    let parent = target
-        .full
-        .parent()
-        .ok_or_else(|| HostError::invalid("path has no folder"))?
-        .to_path_buf();
-    match fs::metadata(&parent) {
-        Ok(meta) if meta.is_dir() => {}
-        Ok(_) => {
-            return Err(HostError::new(
-                ErrorCode::NotAFolder,
-                "parent is not a folder",
-            ));
-        }
-        Err(_) => return Err(HostError::new(ErrorCode::NotFound, "folder not found")),
-    }
-    let final_path = existing_name_or(&parent, &target.full)?;
+    let (parent_parts, name) = target.parts.split_at(target.parts.len() - 1);
+    let parent_rel: PathBuf = parent_parts.iter().collect();
+    let parent = open_folder(vault.dir(), &parent_rel)?;
+    let name = existing_name_or(&parent, &name[0])?;
     let temp = write_temp(&parent, text.as_bytes())?;
-    if let Err(e) = fs::rename(&temp, &final_path) {
-        let _ = fs::remove_file(&temp);
-        return Err(HostError::from_io(&e));
+    if let Err(e) = parent.rename(&temp, &parent, &name) {
+        let _ = parent.remove_file(&temp);
+        return Err(io(e));
     }
-    sync_folder(&parent);
+    // Flush the folder entry so the rename itself survives a power loss.
+    if let Ok(handle) = parent.open(".") {
+        let _ = handle.sync_all();
+    }
     Ok(())
 }
 
-/// If an entry already exists at `target` (the Mac matches names ignoring
-/// capital letters and Unicode form), return its real name on disk so the
+/// Open a folder inside the vault ("" is the vault itself).
+fn open_folder(dir: &Dir, rel: &Path) -> Result<Dir, HostError> {
+    if rel.as_os_str().is_empty() {
+        return dir.try_clone().map_err(io);
+    }
+    match dir.metadata(rel) {
+        Ok(meta) if meta.is_dir() => dir.open_dir(rel).map_err(io),
+        Ok(_) => Err(HostError::new(
+            ErrorCode::NotAFolder,
+            "parent is not a folder",
+        )),
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            Err(HostError::new(ErrorCode::NotFound, "folder not found"))
+        }
+        Err(e) => Err(io(e)),
+    }
+}
+
+/// If an entry already exists under `name` (the Mac matches names ignoring
+/// capital letters and Unicode form), return its real name so the
 /// first-written name is kept. Refuses folders and symlinks.
-fn existing_name_or(parent: &Path, target: &Path) -> Result<PathBuf, HostError> {
-    let Ok(meta) = fs::symlink_metadata(target) else {
-        return Ok(target.to_path_buf());
+fn existing_name_or(parent: &Dir, name: &str) -> Result<String, HostError> {
+    let meta = match parent.symlink_metadata(name) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(name.to_owned()),
+        Err(e) => return Err(io(e)),
     };
     if meta.file_type().is_symlink() {
         return Err(HostError::invalid("cannot write through a symlink"));
@@ -65,23 +84,19 @@ fn existing_name_or(parent: &Path, target: &Path) -> Result<PathBuf, HostError> 
     if meta.is_dir() {
         return Err(HostError::new(ErrorCode::IsAFolder, "path is a folder"));
     }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let entries = fs::read_dir(parent).map_err(|e| HostError::from_io(&e))?;
-        for entry in entries.flatten() {
-            if let Ok(m) = entry.metadata()
-                && m.ino() == meta.ino()
-                && m.dev() == meta.dev()
-            {
-                return Ok(entry.path());
-            }
+    for entry in parent.entries().map_err(io)?.flatten() {
+        if let Ok(m) = entry.metadata()
+            && m.ino() == meta.ino()
+            && m.dev() == meta.dev()
+            && let Some(real) = entry.file_name().to_str()
+        {
+            return Ok(real.to_owned());
         }
     }
-    Ok(target.to_path_buf())
+    Ok(name.to_owned())
 }
 
-fn write_temp(parent: &Path, bytes: &[u8]) -> Result<PathBuf, HostError> {
+fn write_temp(parent: &Dir, bytes: &[u8]) -> Result<String, HostError> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     for _ in 0..16 {
         let nanos = std::time::SystemTime::now()
@@ -93,18 +108,20 @@ fn write_temp(parent: &Path, bytes: &[u8]) -> Result<PathBuf, HostError> {
             std::process::id(),
             COUNTER.fetch_add(1, Ordering::SeqCst)
         );
-        let temp = parent.join(name);
         // create_new never opens an existing file or follows a symlink.
-        let file = match OpenOptions::new().write(true).create_new(true).open(&temp) {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        let mut file = match parent.open_with(&name, &options) {
             Ok(f) => f,
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(HostError::from_io(&e)),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(io(e)),
         };
-        return match fill(file, bytes) {
-            Ok(()) => Ok(temp),
+        let written = file.write_all(bytes).and_then(|()| file.sync_all());
+        return match written {
+            Ok(()) => Ok(name),
             Err(e) => {
-                let _ = fs::remove_file(&temp);
-                Err(HostError::from_io(&e))
+                let _ = parent.remove_file(&name);
+                Err(io(e))
             }
         };
     }
@@ -114,25 +131,11 @@ fn write_temp(parent: &Path, bytes: &[u8]) -> Result<PathBuf, HostError> {
     ))
 }
 
-fn fill(mut file: File, bytes: &[u8]) -> std::io::Result<()> {
-    file.write_all(bytes)?;
-    file.sync_all()
-}
-
-/// Flush the folder entry so the rename itself survives a power loss.
-fn sync_folder(folder: &Path) {
-    #[cfg(unix)]
-    if let Ok(dir) = File::open(folder) {
-        let _ = dir.sync_all();
-    }
-    #[cfg(not(unix))]
-    let _ = folder;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_util::TempDir;
+    use std::fs;
 
     fn setup() -> (TempDir, Vault) {
         let tmp = TempDir::new();
@@ -211,11 +214,8 @@ mod tests {
         let (tmp, vault) = setup();
         // A symlink inside the vault to another file inside the vault.
         fs::write(vault.root().join("real.vnote"), "original").unwrap();
-        symlink(
-            vault.root().join("real.vnote"),
-            vault.root().join("alias.vnote"),
-        )
-        .unwrap();
+        // Relative, so it passes the path check and reaches the write's own rule.
+        symlink("real.vnote", vault.root().join("alias.vnote")).unwrap();
         assert_eq!(
             code(write_text_atomic(&vault, "alias.vnote", "x")),
             ErrorCode::InvalidPath

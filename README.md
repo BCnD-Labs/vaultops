@@ -18,4 +18,4 @@ Copyright © 2026 BCnD Labs.
 
 VaultOps is free software under the [GNU Affero General Public License v3.0](LICENSE).
 
-For other licensing, or to discuss contributing (contributor docs are shared on request), contact **bcndlabs@pm.me**.
+For other licensing, or to discuss contributing (contributor files available by request), contact **bcndlabs@pm.me**.

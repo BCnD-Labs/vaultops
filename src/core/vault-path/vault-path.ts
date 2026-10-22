@@ -1,7 +1,8 @@
 /**
  * Vault-relative paths: the only kind of path app code passes to the host.
  * Forward slashes, no leading slash, no `.` or `..`, no empty parts,
- * no control characters, no backslashes, each part at most 255 UTF-8 bytes.
+ * no control characters, no backslashes, each part at most 255 UTF-8 bytes,
+ * and never the `.git` folder (any capitalization).
  * The vault root is the empty string and is only accepted where allowed.
  */
 
@@ -33,6 +34,8 @@ export function checkVaultPath(
 			return { ok: false, reason: "path has a . or .. part" };
 		if (new TextEncoder().encode(part).length > MAX_PART_BYTES)
 			return { ok: false, reason: "a path part is longer than 255 bytes" };
+		if (part.toLowerCase() === ".git")
+			return { ok: false, reason: "the .git folder is off limits" };
 	}
 	return { ok: true, path, parts };
 }

@@ -24,6 +24,8 @@ describe("checkVaultPath", () => {
 		["a\nb", "control"],
 		[`${"x".repeat(256)}`, "255 bytes"],
 		[`${"é".repeat(128)}`, "255 bytes"],
+		[".git/hooks/pre-commit", ".git folder"],
+		["sub/.GIT/config", ".git folder"],
 	])("rejects %j (%s)", (path, why) => {
 		const r = checkVaultPath(path);
 		expect(r.ok).toBe(false);
@@ -40,6 +42,7 @@ describe("checkVaultPath", () => {
 
 	it("accepts dotfiles that are not . or ..", () => {
 		expect(checkVaultPath(".vaultops/config.json").ok).toBe(true);
+		expect(checkVaultPath(".gitignore").ok).toBe(true);
 	});
 });
 

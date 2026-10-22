@@ -44,12 +44,14 @@ fn with_vault<T>(
     f(vault)
 }
 
-#[tauri::command]
+/// Runs off the main thread so a large file never freezes the window.
+#[tauri::command(async)]
 fn read_text(state: tauri::State<'_, VaultState>, path: String) -> Result<String, HostError> {
     with_vault(&state, |v| file_ops::read_text(v, &path))
 }
 
-#[tauri::command]
+/// Runs off the main thread so a large file never freezes the window.
+#[tauri::command(async)]
 fn write_text_atomic(
     state: tauri::State<'_, VaultState>,
     path: String,

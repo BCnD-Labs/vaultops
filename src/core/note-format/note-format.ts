@@ -144,11 +144,16 @@ function collectInlineIds(
 	}
 }
 
-export function findIdProblems(note: Note): Problem[] {
+/**
+ * Report id and tree problems without changing anything.
+ * `lineNumbers[i]` is the file line of `note.blocks[i]`; when omitted, lines
+ * count from the block order (header = 1, first block = 2).
+ */
+export function findIdProblems(note: Note, lineNumbers?: number[]): Problem[] {
 	const problems: Problem[] = [];
 	const seen = new Set<string>();
 	note.blocks.forEach((block, index) => {
-		const line = index + 2;
+		const line = lineNumbers?.[index] ?? index + 2;
 		const id = block.id;
 		const validId = typeof id === "string" && id !== "" ? id : undefined;
 		const base = validId === undefined ? {} : { blockId: validId };
@@ -233,6 +238,7 @@ export function parseNote(text: string): ParseResult {
 	}
 
 	const blocks: Block[] = [];
+	const blockLines: number[] = [];
 	for (let i = 1; i < lines.length; i++) {
 		const line = i + 1;
 		let value: unknown;
@@ -262,9 +268,10 @@ export function parseNote(text: string): ParseResult {
 			continue;
 		}
 		blocks.push(value as unknown as Block);
+		blockLines.push(line);
 	}
 
 	const note: Note = { header, blocks };
-	problems.push(...findIdProblems(note));
+	problems.push(...findIdProblems(note, blockLines));
 	return { note, skippedLines, problems };
 }

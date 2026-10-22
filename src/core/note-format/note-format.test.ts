@@ -248,3 +248,18 @@ describe("serialize output", () => {
 		expect(text).not.toContain("\r");
 	});
 });
+
+describe("line numbers after a skipped line", () => {
+	it("reports id problems at their real file line", () => {
+		const text = [
+			'{"format":"vaultops-note","v":1,"noteId":"n1"}',
+			'{"id":"a","type":"paragraph","parent":null}',
+			"not json",
+			'{"id":"a","type":"paragraph","parent":null}',
+		].join("\n");
+		const result = parseNote(text);
+		expect(result.skippedLines).toEqual([3]);
+		const dup = result.problems.find((p) => p.kind === "duplicate-id");
+		expect(dup?.line).toBe(4);
+	});
+});

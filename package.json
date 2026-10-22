@@ -1,0 +1,24 @@
+{
+	"name": "vaultops",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"license": "AGPL-3.0-only",
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"test": "vitest run --passWithNoTests",
+		"test:watch": "vitest",
+		"check": "npm run typecheck && npm run lint && npm run test"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.2",
+		"@types/node": "^26.6.5",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.5"
+	}
+}

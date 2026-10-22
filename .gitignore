@@ -1,0 +1,21 @@
+# Local only: planning docs and experiments never go to GitHub
+private/
+spikes/
+
+# Dependencies and build output
+node_modules/
+dist/
+target/
+coverage/
+*.tsbuildinfo
+
+# Logs and local env
+*.log
+.env
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/

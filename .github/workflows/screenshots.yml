@@ -1,0 +1,99 @@
+name: App screenshots
+
+# Builds the app on a macOS machine for each pull request that touches the app,
+# takes a screenshot of the window, stores it on the `ci-screenshots` branch and
+# posts it as a comment on the pull request (one comment, updated each run).
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "src-tauri/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - ".github/workflows/screenshots.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Screenshot (macOS)
+    # Pull requests from forks get no write token; skip them.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-latest
+    permissions:
+      contents: write # push images to the ci-screenshots branch
+      pull-requests: write # post the comment
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+
+      - name: Build the app (release-style, debug symbols)
+        run: npx tauri build --debug --no-bundle
+
+      - name: Open the app and take a screenshot
+        run: |
+          mkdir -p shots
+          ./src-tauri/target/debug/vaultops > shots/app.log 2>&1 &
+          APP=$!
+          sleep 20
+          screencapture -x shots/window.png
+          kill $APP || true
+          test -s shots/window.png
+
+      - name: Store the screenshot on the ci-screenshots branch
+        run: |
+          short=${SHA:0:7}
+          dir="pr-$PR"
+          git init -q store && cd store
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          if git fetch -q --depth 1 origin ci-screenshots; then
+            git checkout -q -b ci-screenshots FETCH_HEAD
+          else
+            git checkout -q --orphan ci-screenshots
+          fi
+          mkdir -p "$dir"
+          cp ../shots/window.png "$dir/$short.png"
+          git add "$dir/$short.png"
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" \
+            commit -qm "Screenshot for #$PR at $short"
+          git push -q origin ci-screenshots
+          echo "URL=https://github.com/${{ github.repository }}/blob/ci-screenshots/$dir/$short.png?raw=true" >> "$GITHUB_ENV"
+
+      - name: Post or update the comment on the pull request
+        run: |
+          marker="<!-- vaultops-screenshots -->"
+          body="$marker
+          **App screenshot** (macOS, commit ${SHA:0:7})
+
+          ![VaultOps window]($URL)
+
+          _Updated automatically on each push to this pull request._"
+          existing=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$existing" -f body="$body" > /dev/null
+          else
+            gh api -X POST "repos/${{ github.repository }}/issues/$PR/comments" -f body="$body" > /dev/null
+          fi

@@ -53,5 +53,6 @@ cargo test
 - Link the issue: `Closes #N` for the sub-issue (or task) the pull request finishes.
 - Pull requests are squash-merged. Commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`.
 - Before opening a pull request: `npm run check` and the Rust checks pass locally, and CI must be green before merge.
-- Pull request descriptions say what changed, what was tested and what was not.
+- Commit messages are technical: what changed in the code and why, in developer terms.
+- Pull request descriptions are written for a non-developer reader: what changed for the app or the project, in plain words, then what was tested and what was not. Add screenshots when the change is visible (the screenshot check posts them automatically for app changes).
 - No `Co-Authored-By` trailers, session links or "Generated with" footers in commits or pull requests.

@@ -30,6 +30,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
+CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names that differ only in capital letters), so the maintainer runs `cargo test` on the Mac before each release and after changes to file or folder code.
+
 ## Rules
 
 **Architecture**

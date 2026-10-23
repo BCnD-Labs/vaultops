@@ -1,0 +1,92 @@
+name: Maintenance
+
+# Buttons for chores, started by hand from the Actions tab (or the GitHub app):
+# Actions -> Maintenance -> Run workflow -> pick a task.
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "What to run"
+        required: true
+        type: choice
+        options:
+          - test-build
+          - apply-issue-updates
+      dry_run:
+        description: "Only show what would change (issue updates)"
+        required: false
+        type: boolean
+        default: true
+      changes_file:
+        description: "Issue changes file in .github/maintenance/"
+        required: false
+        default: "issue-updates-2026-10-22.json"
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    name: Test build (private draft release)
+    if: inputs.task == 'test-build'
+    runs-on: macos-latest
+    permissions:
+      contents: write # create and replace the draft release
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+
+      - name: Build the app bundle
+        run: npx tauri build --bundles app
+
+      - name: Zip it
+        run: |
+          app=$(ls -d src-tauri/target/release/bundle/macos/*.app | head -1)
+          ditto -c -k --keepParent "$app" VaultOps-test-build.zip
+
+      - name: Replace the private draft release
+        run: |
+          short=${GITHUB_SHA:0:7}
+          day=$(date -u +%Y-%m-%d)
+          # Remove earlier test-build drafts (drafts are visible only to people with write access).
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft and (.name | startswith("TEST BUILD"))) | .id' |
+            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          gh release create "test-build-$day-$short" VaultOps-test-build.zip \
+            --draft --target "$GITHUB_SHA" \
+            --title "TEST BUILD - not for use ($day, $short)" \
+            --notes "Private test build of commit $short, made by the Maintenance workflow. Unsigned: on first open, right-click the app and choose Open. Do not publish this release."
+
+  apply-issue-updates:
+    name: Apply issue updates
+    if: inputs.task == 'apply-issue-updates'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CHANGES: ${{ inputs.changes_file }}
+      DRY: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Apply
+        run: |
+          case "$CHANGES" in */*|*..*) echo "changes_file must be a plain file name"; exit 1;; esac
+          args=(".github/maintenance/$CHANGES")
+          if [ "$DRY" = "true" ]; then args+=(--dry-run); fi
+          python3 .github/maintenance/apply_issue_updates.py "${args[@]}"

@@ -1,0 +1,279 @@
+{
+ "description": "Phase 1 plan changes of 2026-10-22, applied to the GitHub issues by the Maintenance workflow (apply-issue-updates).",
+ "edit": {
+  "T05": {
+   "title": "Vault open and create",
+   "what": "Turn a chosen folder into a vault and open existing vaults.",
+   "done": [
+    "An empty folder becomes a vault with `.vaultops/` holding `config.json` (format version) and empty `pending/`, `history/`, `archive/`, `trash/`, `index/`",
+    "Reopening an existing vault changes nothing on disk, except removing leftover `.vaultops-tmp-*` files from interrupted writes",
+    "A vault with a newer format version opens read-only with a warning",
+    "`.vaultops/` never appears in the note list"
+   ],
+   "needs": [
+    "T03"
+   ]
+  },
+  "T05.2": {
+   "title": "Choose a vault folder",
+   "what": "Let the user pick a folder with the system folder picker, using the official Tauri `dialog` plugin (approved).",
+   "done": [
+    "Picking a folder opens or creates the vault",
+    "Cancelling the picker changes nothing"
+   ]
+  },
+  "T08": {
+   "title": "Trash",
+   "what": "Delete moves a note to `.vaultops/trash/<timestamp>/<original relative path>`: the folder name holds the deletion time and the inner path holds where it came from, so no separate record is needed. Restore puts it back; delete forever only from Trash.",
+   "done": [
+    "Delete, restore, restore into a missing folder (goes to the vault root), restore with a name clash (\" 2\", including a capital-letter-only clash)",
+    "No code path erases a note outside Trash",
+    "Trash is never emptied automatically"
+   ],
+   "needs": [
+    "T06"
+   ]
+  },
+  "T08.2": {
+   "title": "Delete to trash, restore, delete forever",
+   "what": "Implement delete, restore and delete forever on the Host using the trash layout above.",
+   "done": [
+    "All T08 acceptance tests pass on the fake host and the real host",
+    "Delete forever asks for confirmation"
+   ]
+  },
+  "T09": {
+   "title": "Editor setup and block ids",
+   "what": "Tiptap editor with a permanent id on every block-level node.",
+   "done": [
+    "Block types: paragraph, heading 1 and 2, bullet list, numbered list, flat task (checkbox only), code, quote; inline: text marks, links, date chip",
+    "Only these block types in this phase (tables come before the first public release)",
+    "A schema test fails when any block node type lacks an id",
+    "Duplicate ids are replaced on load"
+   ],
+   "needs": [
+    "T01"
+   ]
+  },
+  "T09.1": {
+   "title": "Add the editor and the block schema with ids",
+   "what": "Add Tiptap (approved) with its UniqueID extension covering a single `BLOCK_TYPES` list. Use stock Tiptap extensions wherever they exist.",
+   "done": [
+    "Schema test over `BLOCK_TYPES`",
+    "Load with duplicate ids gives unique ids"
+   ]
+  },
+  "T09.2": {
+   "title": "Flat task block, text marks and inline date chip",
+   "what": "A task block holding inline text and a checkbox (stock Tiptap task item where it fits); the standard text marks (bold, italic, strikethrough, inline code); an inline date node with no id. Builds on T09.1.",
+   "done": [
+    "Task toggles and survives save and reload",
+    "Each mark survives save and reload",
+    "Date chip has no id and survives save and reload"
+   ]
+  },
+  "T12": {
+   "title": "Slash menu",
+   "what": "`/` at the start of a block or after a space opens a 9-item menu, built on Tiptap's `Suggestion` utility.",
+   "done": [
+    "Items: paragraph, heading 1, heading 2, bullet, numbered, task, code, quote, inline date",
+    "Opens in both positions, not mid-word",
+    "Each item inserts the right block with an id",
+    "No other items, including no separate \"task list\" item (several tasks in a row are a list)",
+    "A \"Link to note\" entry is added once note links (T22) exist"
+   ],
+   "needs": [
+    "T09"
+   ]
+  },
+  "T14": {
+   "title": "Pull an item out of a list",
+   "what": "Converting a list item pulls it out as its own block and splits the list in two.",
+   "done": [
+    "Allowed targets: text, heading, task",
+    "Item ids kept; one undo step",
+    "Tests: first, middle, last and only item; nested items; undo restores the original list",
+    "A list shows as one block on screen while each item keeps its own id in the file"
+   ],
+   "needs": [
+    "T13"
+   ]
+  },
+  "T15": {
+   "title": "Nesting rule",
+   "what": "Nothing nests inside a list item or quote beyond what the editor already allows.",
+   "done": [
+    "Each disallowed nesting is refused through paste, conversion and drag",
+    "Nested list items, and paragraphs inside list items and quotes, still work"
+   ],
+   "needs": [
+    "T13"
+   ]
+  },
+  "T17": {
+   "title": "Drag handle and moving blocks within a note",
+   "what": "Hover handle beside a block with a \"Turn into\" menu; drag reorders blocks.",
+   "done": [
+    "Reorder keeps ids",
+    "Paste of 18 blocks gives 18 unique ids",
+    "Real mouse drag in a headless browser and on macOS"
+   ],
+   "needs": [
+    "T09",
+    "T13"
+   ]
+  },
+  "T17.1": {
+   "title": "Drag handle and \"Turn into\" menu",
+   "what": "Handle shows beside the hovered block, using Tiptap's drag-handle extension; its click menu offers \"Turn into\".",
+   "done": [
+    "Handle appears beside the hovered block",
+    "Menu runs conversions through T13"
+   ]
+  },
+  "T19": {
+   "title": "Note view and basic app shell",
+   "what": "The main window: sidebar plus note view with a title field and the editor.",
+   "done": [
+    "Create, edit, quit, reopen: the edit is there",
+    "New note command",
+    "The last vault reopens at launch",
+    "Window size and position are remembered, using the official Tauri `window-state` plugin (approved)"
+   ],
+   "needs": [
+    "T10",
+    "T18"
+   ]
+  },
+  "T22.1": {
+   "title": "Link node and picker",
+   "what": "Note links use Tiptap's `Mention` node with the target's `noteId` as its id; the picker reuses the slash menu's `Suggestion` setup, opened by a keyboard shortcut and a \"Link to note\" slash entry.",
+   "done": [
+    "Pick and insert",
+    "Slash entry added to the menu"
+   ],
+   "decision": "Keyboard shortcut for the picker"
+  },
+  "T23": {
+   "title": "Backlinks",
+   "what": "A backlinks panel (note links only), computed in memory when the vault opens and kept up to date while it is open. No saved index in this phase; `.vaultops/index/` stays reserved.",
+   "done": [
+    "Backlinks are correct after opening a vault, adding a link, removing a link, renaming and trashing a note",
+    "Nothing is written to `.vaultops/index/`"
+   ],
+   "needs": [
+    "T22"
+   ]
+  },
+  "T23.1": {
+   "title": "Backlink map in memory",
+   "what": "Build a map of which notes link to which, from the notes scanned on open; update it on save, rename and trash.",
+   "done": [
+    "Map equals a fresh scan after each change",
+    "Opening a vault with many notes stays within the T27 performance budget"
+   ]
+  },
+  "T27": {
+   "title": "Performance: many cards and large notes",
+   "what": "Measure on macOS: open time, memory and typing delay with 10, 50 and 100 cards; a 1,000-block note; a 100,000-character block; autosave on both. (Merged from T30.)",
+   "done": [
+    "Numbers reported for each case, measured as keystroke-to-paint and open-to-first-paint time",
+    "Single-note target: under about 50 ms to paint and under 500 ms to open, or follow-up issues filed",
+    "Maintainer sets the many-card pass line from the numbers"
+   ],
+   "decision": "Pass line for many-card performance",
+   "needs": [
+    "T25",
+    "T10",
+    "T11"
+   ]
+  },
+  "T28": {
+   "title": "Core invariant tests and broken-file fixtures",
+   "what": "One test per rule that protects future version history: permanent block ids; ordered block list; notes tracked by `noteId`; `.vaultops/` reserved; a format version in every file. Plus fixture files: corrupt line, missing id, duplicate id, newer format version, truncated file, unknown block type, and awkward titles (`a/b`, a leading dot, a 500-character title, a capital-letter-only clash). (Merged from T29.1.)",
+   "done": [
+    "Each invariant test fails against a deliberately broken version of the rule",
+    "Automated tests load each fixture without crashing or writing"
+   ],
+   "needs": [
+    "T06",
+    "T07",
+    "T08",
+    "T15",
+    "T17"
+   ]
+  },
+  "T31": {
+   "title": "macOS walk-through",
+   "what": "Full manual pass on the real macOS app.",
+   "done": [
+    "Create, edit, convert, drag, save, quit, reopen; delete and restore; paste; conversion menus; properties and tags; capital-letter-only rename; cross-card move; native file drops",
+    "Walk each broken-file fixture from T28 in the real app (merged from T29.2); the checklist is committed",
+    "The pass is run with the network off and no account",
+    "Written report lists every step as passed, failed or not tested"
+   ],
+   "needs": [
+    "T04",
+    "T05",
+    "T06",
+    "T07",
+    "T08",
+    "T09",
+    "T10",
+    "T11",
+    "T12",
+    "T13",
+    "T14",
+    "T15",
+    "T17",
+    "T18",
+    "T19",
+    "T20",
+    "T21",
+    "T22",
+    "T23",
+    "T24",
+    "T25",
+    "T26",
+    "T27",
+    "T28"
+   ]
+  }
+ },
+ "defer": {
+  "T13a": "Deferred out of phase 1 to the \"Before public release\" milestone (plan change 2026-10-22). Tables return then, with this one-way rule.",
+  "T16": "Deferred out of phase 1 to the \"Before public release\" milestone (plan change 2026-10-22). Stock indent and outdent ship in phase 1.",
+  "T20a": "Deferred out of phase 1 to the \"Before public release\" milestone (plan change 2026-10-22). Select and multi-select come with databases.",
+  "T20a.1": "Deferred out of phase 1 to the \"Before public release\" milestone (plan change 2026-10-22).",
+  "T20a.2": "Deferred out of phase 1 to the \"Before public release\" milestone (plan change 2026-10-22).",
+  "T20a.3": "Deferred out of phase 1 to the \"Before public release\" milestone (plan change 2026-10-22)."
+ },
+ "close": {
+  "T08.1": [
+   "completed",
+   "Decided 2026-10-22: `.vaultops/trash/<timestamp>/<original relative path>`. See T08."
+  ],
+  "T30": [
+   "not_planned",
+   "Merged into T27 (performance)."
+  ],
+  "T29.1": [
+   "not_planned",
+   "Merged into T28 (invariant tests and fixtures)."
+  ],
+  "T29.2": [
+   "not_planned",
+   "Merged into T31 (macOS walk-through)."
+  ],
+  "T29": [
+   "not_planned",
+   "Split between T28 (fixtures) and T31 (manual checklist)."
+  ]
+ },
+ "unlabel": [
+  "T05.2",
+  "T09.1"
+ ],
+ "deferMilestone": "Before public release",
+ "deferLabel": "deferred"
+}

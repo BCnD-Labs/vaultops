@@ -1,0 +1,106 @@
+{
+	"description": "Vault-relative path cases shared by the TypeScript and Rust path checks. Both must agree on every case.",
+	"cases": [
+		{
+			"path": "notes/Ideas/a b.vnote",
+			"ok": true,
+			"parts": ["notes", "Ideas", "a b.vnote"]
+		},
+		{
+			"path": ".vaultops/config.json",
+			"ok": true,
+			"parts": [".vaultops", "config.json"]
+		},
+		{
+			"path": ".gitignore",
+			"ok": true,
+			"parts": [".gitignore"]
+		},
+		{
+			"path": "café/日本 😀.vnote",
+			"ok": true,
+			"parts": ["café", "日本 😀.vnote"]
+		},
+		{
+			"path": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+			"ok": true,
+			"parts": [
+				"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+			]
+		},
+		{
+			"path": "",
+			"ok": true,
+			"allowRoot": true,
+			"parts": []
+		},
+		{
+			"path": "",
+			"ok": false
+		},
+		{
+			"path": "/etc/passwd",
+			"ok": false
+		},
+		{
+			"path": "../x",
+			"ok": false
+		},
+		{
+			"path": "a/../../x",
+			"ok": false
+		},
+		{
+			"path": "a/./b",
+			"ok": false
+		},
+		{
+			"path": ".",
+			"ok": false
+		},
+		{
+			"path": "a//b",
+			"ok": false
+		},
+		{
+			"path": "a/",
+			"ok": false
+		},
+		{
+			"path": "a\\b",
+			"ok": false
+		},
+		{
+			"path": "a\u0000b",
+			"ok": false
+		},
+		{
+			"path": "a\nb",
+			"ok": false
+		},
+		{
+			"path": "ab",
+			"ok": false
+		},
+		{
+			"path": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+			"ok": false
+		},
+		{
+			"path": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+			"ok": false
+		},
+		{
+			"path": ".git",
+			"ok": false
+		},
+		{
+			"path": ".git/hooks/pre-commit",
+			"ok": false
+		},
+		{
+			"path": "sub/.GIT/config",
+			"ok": false
+		}
+	]
+}

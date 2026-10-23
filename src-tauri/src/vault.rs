@@ -219,6 +219,23 @@ mod tests {
         );
     }
 
+    /// The same cases the TypeScript checker runs; both sides must agree.
+    #[test]
+    fn agrees_with_the_shared_path_cases() {
+        let data: serde_json::Value =
+            serde_json::from_str(include_str!("../../test-fixtures/vault-paths.json")).unwrap();
+        for case in data["cases"].as_array().unwrap() {
+            let path = case["path"].as_str().unwrap();
+            let allow_root = case["allowRoot"].as_bool().unwrap_or(false);
+            let result = check_relative(path, allow_root);
+            assert_eq!(result.is_ok(), case["ok"].as_bool().unwrap(), "{path:?}");
+            if let (Ok(parts), Some(expected)) = (&result, case["parts"].as_array()) {
+                let expected: Vec<&str> = expected.iter().map(|p| p.as_str().unwrap()).collect();
+                assert_eq!(parts, &expected, "{path:?}");
+            }
+        }
+    }
+
     #[test]
     fn refuses_the_git_folder_in_any_case() {
         let (_tmp, vault) = setup();

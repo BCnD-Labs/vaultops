@@ -164,6 +164,10 @@ def post(repo, title, body, dry):
         return
     if dry:
         print("would create issue:", title, "\n", body, sep="")
+        summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary_file:  # show the preview on the run's page in GitHub
+            with open(summary_file, "a", encoding="utf-8") as out:
+                out.write(f"# Dry run: would post\n\n**{title}**\n\n{body}")
         return
     labels = [x["name"] for x in gh(f"repos/{repo}/labels?per_page=100")]
     if LABEL not in labels:

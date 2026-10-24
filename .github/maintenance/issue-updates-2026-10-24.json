@@ -13,10 +13,7 @@
 				"Tested with dry runs before merge"
 			],
 			"milestone": "Project tooling",
-			"close": [
-				"completed",
-				"Done in #101."
-			]
+			"close": ["completed", "Done in #101."]
 		},
 		"A2": {
 			"title": "Pull request rule checker",
@@ -66,9 +63,7 @@
 				"The PR rule checker passes on a pull request made from the template"
 			],
 			"milestone": "Project tooling",
-			"labels": [
-				"documentation"
-			]
+			"labels": ["documentation"]
 		},
 		"A7": {
 			"title": "Agent handoff: who works on what",

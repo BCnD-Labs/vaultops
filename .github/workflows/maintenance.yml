@@ -13,8 +13,9 @@ on:
         options:
           - test-build
           - apply-issue-updates
+          - weekly-update
       dry_run:
-        description: "Only show what would change (issue updates)"
+        description: "Only show what would change (issue updates, weekly update)"
         required: false
         type: boolean
         default: true
@@ -22,6 +23,12 @@ on:
         description: "Issue changes file in .github/maintenance/"
         required: false
         default: "issue-updates-2026-10-22.json"
+      start_date:
+        description: "Weekly update: first day, YYYY-MM-DD (Chicago time)"
+        required: false
+      end_date:
+        description: "Weekly update: last day, YYYY-MM-DD (Chicago time)"
+        required: false
 
 permissions:
   contents: read
@@ -90,3 +97,27 @@ jobs:
           args=(".github/maintenance/$CHANGES")
           if [ "$DRY" = "true" ]; then args+=(--dry-run); fi
           python3 .github/maintenance/apply_issue_updates.py "${args[@]}"
+
+  weekly-update:
+    name: Weekly update for a date range
+    if: inputs.task == 'weekly-update'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      START: ${{ inputs.start_date }}
+      END: ${{ inputs.end_date }}
+      DRY: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test the script
+        run: python3 -m unittest discover -s .github/maintenance
+      - name: Post
+        run: |
+          args=(--start "$START" --end "$END")
+          if [ "$DRY" = "true" ]; then args+=(--dry-run); fi
+          python3 .github/maintenance/weekly_update.py "${args[@]}"

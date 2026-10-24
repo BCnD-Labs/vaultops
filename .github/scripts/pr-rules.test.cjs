@@ -1,7 +1,7 @@
 // Run: node --test .github/scripts/
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { checkBody, stripFooter, countLines } = require("./pr-rules.cjs");
+const { checkBody, stripFooter, countLines, isBot } = require("./pr-rules.cjs");
 
 const GOOD = `Adds a weekly issue.
 
@@ -83,4 +83,11 @@ test("lock files are left out of the size", () => {
 		{ filename: "docs/b.md", additions: 10, deletions: 0 },
 	];
 	assert.equal(countLines(files), 360);
+});
+
+test("only Dependabot skips the description rules", () => {
+	assert.equal(isBot({ user: { login: "dependabot[bot]" } }), true);
+	assert.equal(isBot({ user: { login: "github-actions[bot]" } }), false);
+	assert.equal(isBot({ user: { login: "T3rdfurgisun" } }), false);
+	assert.equal(isBot({}), false);
 });

@@ -20,11 +20,13 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.2",
+		"@ckeditor/ckeditor5-utils": "^49.0.0",
 		"@tauri-apps/cli": "^2.12.4",
 		"@types/node": "^26.6.5",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
 		"@vitejs/plugin-react": "^6.1.2",
+		"lodash": "^4.17.15",
 		"typescript": "^7.0.2",
 		"vite": "^8.3.5",
 		"vitest": "^5.0.5"

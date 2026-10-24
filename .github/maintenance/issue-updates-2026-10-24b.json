@@ -25,6 +25,17 @@
 			],
 			"needs": ["A7"],
 			"milestone": "Project tooling"
+		},
+		"A9": {
+			"title": "Reports for the note vault",
+			"what": "Write the project's GitHub activity as Markdown notes on a `reports` branch, which Blake's note vault pulls with git (Obsidian git plugin). One note per merged pull request: date, issue, milestone, its plain-words description, Tested / Not tested, every check result including failures with their dates, and its screenshot embedded. The weekly update is also written as a note that links to that week's pull request notes, so backlinks connect them. Notes are compiled from the pull requests' own words, never written by AI. Properties at the top of each note so Obsidian, SiYuan or VaultOps can sort and filter. Screenshot cleanup only deletes a screenshot after its report note has a copy. This is a live test of VaultOps' own repo-link idea.",
+			"done": [
+				"Merging a pull request adds its note (with the screenshot) to the reports branch",
+				"The weekly update also lands as a note linking that week's pull request notes",
+				"Screenshot cleanup skips screenshots that are not yet copied into a report",
+				"Tested by pulling the reports branch into a test vault and checking links and images"
+			],
+			"milestone": "Project tooling"
 		}
 	}
 }

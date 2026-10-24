@@ -20,7 +20,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.2",
-		"@ckeditor/ckeditor5-utils": "^49.0.0",
+		"@ckeditor/ckeditor5-utils": "^41.0.0",
 		"@tauri-apps/cli": "^2.12.4",
 		"@types/node": "^26.6.5",
 		"@types/react": "^19.3.0",

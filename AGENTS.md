@@ -42,7 +42,7 @@ CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names
 
 **Reuse before building**
 - Prefer an existing, maintained library, Tiptap/React Flow extension or official Tauri plugin over writing it from scratch; propose it to the maintainer (new dependencies need approval).
-- Only use code under permissive licenses (MIT, Apache-2.0, BSD, ISC). Never copy code from GPL, AGPL or source-available non-compete (for example FSL) projects; reading them to learn how a problem was solved is fine. MPL-2.0 code may only be used as an unmodified dependency, not copied in.
+- Only use code under permissive licenses (MIT, Apache-2.0, BSD, ISC). Never copy code from GPL, AGPL or source-available non-compete (for example FSL) projects; reading them to learn how a problem was solved is fine. MPL-2.0 code may only be used as an unmodified dependency, not copied in. Dependencies may also use Unicode-3.0, Zlib or Apache-2.0 with the LLVM exception (permissive licenses Tauri's crates already use). The Dependency review check enforces this list on every pull request.
 
 **Ask the maintainer first**
 - Changes to the note file format, storage layout or history design.

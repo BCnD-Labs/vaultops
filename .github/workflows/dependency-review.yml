@@ -1,0 +1,42 @@
+name: Dependency review
+
+# On each pull request that changes dependencies (npm or Cargo), checks the
+# added or changed packages with GitHub's dependency-review-action:
+#   - licenses must be on the allowed list below (a package licensed
+#     "MIT OR GPL" passes on its MIT side);
+#   - known security problems rated high or critical fail the check.
+# MPL-2.0 is allowed only as an unmodified dependency: installing it is fine,
+# copying its code into this repo is not (see AGENTS.md).
+# Unicode-3.0, Zlib and Apache-2.0 WITH LLVM-exception are permissive licenses
+# already used by Tauri's Rust crates (approved 2026-10-24).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Dependency review (licenses, security)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # comment when the check fails
+    steps:
+      - uses: actions/dependency-review-action@v5
+        with:
+          license-check: true
+          allow-licenses: >-
+            MIT,
+            Apache-2.0,
+            BSD-2-Clause,
+            BSD-3-Clause,
+            ISC,
+            MPL-2.0,
+            Unicode-3.0,
+            Zlib,
+            Apache-2.0 WITH LLVM-exception
+          vulnerability-check: true
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

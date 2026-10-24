@@ -37,6 +37,9 @@ jobs:
             Unicode-3.0,
             Zlib,
             Apache-2.0 WITH LLVM-exception
+          # Check dev tools too (the default is runtime only): the license rule
+          # covers all code in the repo, not just what ships in the app.
+          fail-on-scopes: runtime, development, unknown
           vulnerability-check: true
           fail-on-severity: high
           comment-summary-in-pr: on-failure

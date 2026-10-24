@@ -64,6 +64,17 @@
 			],
 			"milestone": "Project tooling",
 			"labels": ["documentation"]
+		},
+		"A7": {
+			"title": "Agent handoff: who works on what",
+			"what": "Let Blake hand sets of issues to different agents (Claude, Codex, others) and see at a glance what is free, assigned, in progress, in review or paused, using labels and pull requests that every agent can read and change (the Roadmap board's Status field needs GraphQL, which agents cannot use). Labels: `ready` (free to pick up), `agent:claude` / `agent:codex` (assigned by Blake), `paused` (with a comment saying why; `needs decision` works the same way). In progress = a draft pull request with \"Closes #N\"; in review = that pull request marked ready. Blake's direct instruction always overrides the labels: an agent told to take an issue labeled for another agent takes it and moves the label to itself.",
+			"done": [
+				"The labels exist with short descriptions",
+				"AGENTS.md says: take only issues labeled `ready` plus your agent label with no linked open pull request, unless Blake says otherwise; open a draft pull request with \"Closes #N\" first; move the label when told to take another agent's issue",
+				"The issue health report flags stale claims (a draft pull request with no activity for a few days)",
+				"Tested by labeling an issue for one agent and having another agent take it on Blake's instruction"
+			],
+			"milestone": "Project tooling"
 		}
 	}
 }

@@ -12,6 +12,8 @@ Everything stays on your machine: no account, no sync.
 
 **Status:** early development, macOS first. Not ready for use yet.
 
+**Where we are:** see the [milestones](https://github.com/BCnD-Labs/vaultops/milestones) for what's done and what's next, and the [roadmap](https://github.com/orgs/BCnD-Labs/projects) for rough dates. Want to help? Read [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Copyright © 2026 BCnD Labs.

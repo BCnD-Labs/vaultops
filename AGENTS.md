@@ -52,8 +52,9 @@ CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names
 **Workflow**
 - One small pull request into `main` per piece of work. `main` is protected: never push to it directly.
 - Pull request size: keep each one reviewable in one sitting (roughly under 400 changed lines, lock files aside). Split a task into one pull request per sub-issue when it has a security-sensitive or large part; keep small tasks, or parts that make no sense alone, in one pull request. Say which in the first pull request of the task.
-- Link the issue: `Closes #N` for the sub-issue (or task) the pull request finishes.
-- Pull requests are squash-merged. Commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`.
+- Link the issue: `Closes #N` for the sub-issue (or task) the pull request finishes, or `Part of #N` when it only does part of one.
+- Every pull request has a **Based on** line: the existing library, official doc or known pattern the change follows, or "new code, because nothing fit: <why>". Fill in `.github/pull_request_template.md`; the PR rules check enforces the issue link, Based on, Tested and Not tested.
+- Pull requests are squash-merged. Commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`, `ci:`.
 - Before opening a pull request: `npm run check` and the Rust checks pass locally, and CI must be green before merge.
 - Commit messages are technical: what changed in the code and why, in developer terms.
 - Pull request descriptions are written for a non-developer reader: what changed for the app or the project, in plain words, then what was tested and what was not. Add screenshots when the change is visible (the screenshot check posts them automatically for app changes).

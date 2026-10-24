@@ -81,9 +81,25 @@ function report(errors, warnings) {
 	return `${lines.join("\n")}\n`;
 }
 
+const BOTS = new Set(["dependabot[bot]"]);
+
+function isBot(pr) {
+	return BOTS.has(pr.user?.login);
+}
+
 async function run({ github, context, core }) {
 	const { owner, repo } = context.repo;
 	const pr = context.payload.pull_request;
+	// Dependabot writes its own descriptions, and its runs get a read-only token.
+	// Its updates are still covered by CI and the Dependency review check.
+	if (isBot(pr)) {
+		await core.summary
+			.addRaw(
+				"**Pull request rules:** skipped for Dependabot (CI and Dependency review still apply).\n",
+			)
+			.write();
+		return;
+	}
 	const canWrite =
 		pr.head.repo && pr.head.repo.full_name === `${owner}/${repo}`;
 	// Re-read the description: the event payload can be older than an earlier run's cleanup.
@@ -164,4 +180,12 @@ async function run({ github, context, core }) {
 	if (errors.length) core.setFailed(errors.join("\n"));
 }
 
-module.exports = { run, checkBody, stripFooter, countLines, report, MARKER };
+module.exports = {
+	isBot,
+	run,
+	checkBody,
+	stripFooter,
+	countLines,
+	report,
+	MARKER,
+};

@@ -43,6 +43,7 @@ async function call<T>(
 export const tauriHost: Host = {
 	appInfo: () => call<AppInfo>("app_info"),
 	chooseVault: () => call<string | null>("choose_vault"),
+	currentVault: () => call<string | null>("current_vault"),
 	readText: (path) => call<string>("read_text", { path }),
 	writeTextAtomic: (path, text) =>
 		call<void>("write_text_atomic", { path, text }),

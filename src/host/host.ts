@@ -50,6 +50,9 @@ export interface Host {
 	 */
 	chooseVault(): Promise<string | null>;
 
+	/** The open vault's folder name, or null when none is open. */
+	currentVault(): Promise<string | null>;
+
 	/** Read a UTF-8 text file. */
 	readText(path: string): Promise<string>;
 

@@ -22,3 +22,6 @@ coverage/
 
 # Python
 __pycache__/
+
+# Agents workflow scratch files
+/.agent/

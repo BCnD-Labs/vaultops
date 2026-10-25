@@ -7,7 +7,7 @@ Sections (all optional): "create" (new issues, keyed like "A1", created as
 "A1: <title>"; may name a milestone, labels, and a "close" [reason, note] to
 create them already closed), "edit", "defer", "close", "unlabel"; plus
 "milestones" ({title: description}) and "labels" ({name: {color, description}})
-to create if missing.
+to create if missing; "addLabels" ({key: [label, ...]}) adds labels to issues.
 
 Safe to run again: each step checks the issue's current state first, so a
 finished step is skipped (no repeated issues, comments, labels or edits).
@@ -24,7 +24,7 @@ import urllib.parse
 REPO = os.environ["GITHUB_REPOSITORY"]
 DRY = "--dry-run" in sys.argv
 DATA = json.load(open(sys.argv[1], encoding="utf-8"))
-for section in ("create", "edit", "defer", "close", "unlabel", "milestones", "labels"):
+for section in ("create", "edit", "defer", "close", "unlabel", "milestones", "labels", "addLabels"):
     DATA.setdefault(section, {})
 KEY = re.compile(r"^[A-Z][A-Za-z0-9.]*$")  # "T04.1", "T13a", "A3"
 
@@ -79,12 +79,16 @@ def body_for(item, numbers):
 def main():
     issues = all_issues()
     numbers = {k: v["number"] for k, v in issues.items()}
-    wanted = set(DATA["edit"]) | set(DATA["defer"]) | set(DATA["close"]) | set(DATA["unlabel"])
+    wanted = (set(DATA["edit"]) | set(DATA["defer"]) | set(DATA["close"]) | set(DATA["unlabel"])
+              | set(DATA["addLabels"]))
     missing = sorted(wanted - set(issues))
     if missing:
         sys.exit(f"Issues not found by title: {missing}")
 
     labels = [x["name"] for x in gh(f"repos/{REPO}/labels?per_page=100")]
+    unknown = sorted({n for names in DATA["addLabels"].values() for n in names} - set(labels) - set(DATA["labels"]))
+    if unknown:
+        sys.exit(f"labels do not exist yet: {unknown} (apply the file that creates them first); nothing changed")
     for name, spec in DATA["labels"].items():
         if name not in labels:
             def make_label(n=name, spec=spec):
@@ -169,6 +173,13 @@ def main():
         label = urllib.parse.quote("needs decision")
         act(f"remove 'needs decision' from #{issue['number']} ({key})", lambda n=issue["number"]: gh(
             f"repos/{REPO}/issues/{n}/labels/{label}", "-X", "DELETE"))
+
+    for key, names in DATA["addLabels"].items():
+        issue = issues[key]
+        missing = [n for n in names if n not in {x["name"] for x in issue["labels"]}]
+        if missing:
+            act(f"add {missing} to #{issue['number']} ({key})", lambda n=issue["number"], m=missing: gh(
+                f"repos/{REPO}/issues/{n}/labels", "-X", "POST", body={"labels": m}))
 
     print("Dry run: nothing changed." if DRY else "Done.")
 

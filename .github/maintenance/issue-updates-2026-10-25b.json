@@ -1,0 +1,30 @@
+{
+	"description": "Briefs for T06.2 and T06.3 written into their issues and queued for Codex after #18 (one pull request at a time, oldest first).",
+	"edit": {
+		"T06.2": {
+			"title": "Note repository: create, load, save, list",
+			"what": "Create, load, save and list notes through the `Host`, as pure TypeScript. Part of #20 (T06). **Starts after #18 is merged** (it uses #18's `.vaultops/` path helper).\n\n## Brief\n\n**Where:** `src/core/notes/repository.ts`, tests in `src/core/notes/repository.test.ts` on `MemoryHost`. Use the existing `parseNote`, `prepareSave` (`src/core/note-format/`), `fileNameFor` and `NOTE_EXT` (`src/core/file-name/`), and #18's `.vaultops/` helper in `src/core/vault/`.\n\n**Behavior:**\n1. `createNote(host, folder = \"\", title = \"Untitled\")`: a new `noteId` from `crypto.randomUUID()` (built in, no dependency), header `{ format, v: NOTE_FORMAT_VERSION, noteId, title }` with the exact title, no blocks. The file name comes from `fileNameFor(title, <names already in the folder>)`, so a clash gets \" 2\". Written through `prepareSave` and `host.writeTextAtomic`. Returns the vault-relative path and the note. Creating a note adds no history entry.\n2. `loadNote(host, path)`: reads and parses, returning the note plus any problems and skipped lines as `parseNote` reports them. Never writes.\n3. `saveNote(host, path, note)`: runs `prepareSave`; if it refuses, return the problems and write nothing (the file on disk stays byte-for-byte the same). Otherwise write atomically.\n4. `listNotes(host, folder = \"\")`: the `.vnote` files directly in that folder (not recursive), sorted by name. Never anything inside `.vaultops/` (an empty list if the folder itself is inside it). Folders and other files are left out.\n\n**Out of scope:** renaming on title change and moving (T07, #24), trash (#27), the \"changed on disk\" check, recursive listing, any UI. If something needs a decision, stop and say so.\n\n**Tests:** create, save, reload gives an equal note; the title is kept exactly in the header while the file name is cleaned (`a/b` gives `a-b.vnote`); two notes titled \"Note\" get `Note.vnote` and `Note 2.vnote`; a refused save (duplicate block ids) leaves the file byte-for-byte unchanged; `listNotes` skips folders, non-`.vnote` files and everything in `.vaultops/`.",
+			"done": [
+				"Create, save, reload gives the same note",
+				"A refused save leaves the file on disk untouched",
+				"List returns notes only, never `.vaultops/` content",
+				"`npm run check` passes"
+			],
+			"needs": ["T05.1"]
+		},
+		"T06.3": {
+			"title": "Vault scan with a health report",
+			"what": "Scan the whole vault for notes and report damaged files, without ever changing one. Part of #20 (T06). **Starts after #22 is merged.**\n\n## Brief\n\n**Where:** `src/core/notes/scan.ts`, tests in `src/core/notes/scan.test.ts` on `MemoryHost`. Reuse #22's repository functions and #18's `.vaultops/` helper.\n\n**Behavior:**\n1. `scanVault(host)`: walks every folder from the vault root, skipping `.vaultops/`, and reads every `.vnote` file.\n2. Each file lands in exactly one group: **good** (parses with no problems and no skipped lines); **truncated** (some lines skipped: its complete blocks are still returned so nothing is lost, but it is reported and must not be rewritten until Blake confirms); **newer format** (written by a newer app version); **corrupt** (no usable header or unreadable). Each report entry gives the path, the group and a short plain reason.\n3. **Duplicate `noteId`** (for example a note copied in Finder): both files stay readable and both are reported as duplicates of each other. Never change an id automatically.\n4. Returns `{ notes, report }`. Never writes, moves or deletes anything.\n\n**Out of scope:** fixing or rewriting files, \"give this copy a new id\" (#26), the health list UI, indexes. If something needs a decision, stop and say so.\n\n**Tests:** a vault with one good, one corrupt, one truncated and one newer-format note: the good one is in `notes`, the other three are reported with the right group, and every file is byte-for-byte unchanged afterwards (compare the text of every file before and after). Two files with the same `noteId` are both readable and both reported. Notes in subfolders are found; nothing in `.vaultops/` is read.",
+			"done": [
+				"A folder with one good, one corrupt, one truncated and one newer-format note: the good one loads, the others are reported, none is modified",
+				"Duplicate `noteId`s are reported and both files stay readable",
+				"`npm run check` passes"
+			],
+			"needs": ["T06.2"]
+		}
+	},
+	"addLabels": {
+		"T06.2": ["ready", "agent:codex"],
+		"T06.3": ["ready", "agent:codex"]
+	}
+}

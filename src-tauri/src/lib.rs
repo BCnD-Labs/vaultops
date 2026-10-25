@@ -5,7 +5,7 @@ pub mod host_error;
 mod test_util;
 pub mod vault;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
@@ -84,10 +84,12 @@ fn kind_of(
     with_vault(&state, |v| folder_ops::kind_of(v, &path))
 }
 
-/// Open `path` as the vault, replacing the open one only if it succeeds.
+/// Open `path` as the vault, replacing the open one only if it succeeds, and
+/// remove leftover temporary files from interrupted writes.
 /// Returns the folder's name for display.
 fn open_vault_at(state: &VaultState, path: &Path) -> Result<String, HostError> {
     let vault = Vault::open(path)?;
+    file_ops::remove_leftover_temps(&vault)?;
     let name = vault
         .root()
         .file_name()
@@ -99,6 +101,48 @@ fn open_vault_at(state: &VaultState, path: &Path) -> Result<String, HostError> {
         .map_err(|_| HostError::new(ErrorCode::Io, "vault state is unavailable"))?;
     *guard = Some(vault);
     Ok(name)
+}
+
+/// The file in the app's own settings folder that remembers the last vault.
+const LAST_VAULT_FILE: &str = "last-vault.txt";
+
+fn last_vault_file(app: &tauri::AppHandle) -> Option<PathBuf> {
+    use tauri::Manager;
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join(LAST_VAULT_FILE))
+}
+
+/// Remember the open vault's location for the next launch. Best effort: a
+/// failure only means the vault isn't reopened automatically.
+fn remember_vault(file: &Path, root: &Path) {
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(file, root.to_string_lossy().as_bytes());
+}
+
+/// The remembered vault location, if any.
+fn remembered_vault(file: &Path) -> Option<PathBuf> {
+    let text = std::fs::read_to_string(file).ok()?;
+    let text = text.trim();
+    (!text.is_empty()).then(|| PathBuf::from(text))
+}
+
+/// The open vault's folder name, or `None` when no vault is open.
+#[tauri::command(async)]
+fn current_vault(state: tauri::State<'_, VaultState>) -> Result<Option<String>, HostError> {
+    let guard = state
+        .0
+        .lock()
+        .map_err(|_| HostError::new(ErrorCode::Io, "vault state is unavailable"))?;
+    Ok(guard.as_ref().map(|v| {
+        v.root()
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    }))
 }
 
 /// Let the user choose the vault folder with the system picker and open it.
@@ -121,7 +165,11 @@ fn choose_vault(
     let path = picked
         .into_path()
         .map_err(|_| HostError::invalid("that folder can't be used as a vault"))?;
-    open_vault_at(&state, &path).map(Some)
+    let name = open_vault_at(&state, &path)?;
+    if let Some(file) = last_vault_file(&app) {
+        remember_vault(&file, &path);
+    }
+    Ok(Some(name))
 }
 
 /// Named `move_entry` because `move` is a Rust keyword.
@@ -139,9 +187,18 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(VaultState::default())
+        .setup(|app| {
+            // Reopen the last vault. If it moved or is gone, start with none.
+            use tauri::Manager;
+            if let Some(path) = last_vault_file(app.handle()).and_then(|f| remembered_vault(&f)) {
+                let _ = open_vault_at(&app.state::<VaultState>(), &path);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             app_info,
             choose_vault,
+            current_vault,
             read_text,
             write_text_atomic,
             list,
@@ -179,6 +236,30 @@ mod tests {
         std::fs::write(first.path().join("file.txt"), "x").unwrap();
         assert!(open_vault_at(&state, &first.path().join("file.txt")).is_err());
         assert!(with_vault(&state, |v| Ok(v.root().ends_with("Notes"))).unwrap());
+    }
+
+    #[test]
+    fn opening_a_vault_removes_leftover_temp_files() {
+        let tmp = test_util::TempDir::new();
+        let root = tmp.path().join("Notes");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::write(root.join(".vaultops-tmp-1-2-3"), "x").unwrap();
+        std::fs::write(root.join("a.vnote"), "x").unwrap();
+        open_vault_at(&VaultState::default(), &root).unwrap();
+        assert!(!root.join(".vaultops-tmp-1-2-3").exists());
+        assert!(root.join("a.vnote").exists());
+    }
+
+    #[test]
+    fn remembers_the_last_vault_for_the_next_launch() {
+        let tmp = test_util::TempDir::new();
+        let file = tmp.path().join("config/last-vault.txt");
+        assert_eq!(remembered_vault(&file), None);
+        let root = tmp.path().join("My Notes é");
+        remember_vault(&file, &root);
+        assert_eq!(remembered_vault(&file), Some(root));
+        std::fs::write(&file, "  \n").unwrap();
+        assert_eq!(remembered_vault(&file), None);
     }
 
     #[test]

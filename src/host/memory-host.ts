@@ -40,6 +40,10 @@ export class MemoryHost implements Host {
 		return "Memory vault";
 	}
 
+	async currentVault(): Promise<string | null> {
+		return "Memory vault";
+	}
+
 	async readText(path: string): Promise<string> {
 		const node = this.find(this.parts(path));
 		if (!node) throw new HostError("not-found", "file not found");

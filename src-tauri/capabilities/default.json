@@ -8,6 +8,7 @@
 		"core:window:default",
 		"allow-app-info",
 		"allow-choose-vault",
+		"allow-current-vault",
 		"allow-read-text",
 		"allow-write-text-atomic",
 		"allow-list",

@@ -22,6 +22,7 @@ describe("tauriHost", () => {
 		await tauriHost.kindOf("b");
 		await tauriHost.appInfo();
 		await tauriHost.chooseVault();
+		await tauriHost.currentVault();
 		expect(invoke.mock.calls).toEqual([
 			["read_text", { path: "a.vnote" }],
 			["write_text_atomic", { path: "a.vnote", text: "text" }],
@@ -31,6 +32,7 @@ describe("tauriHost", () => {
 			["kind_of", { path: "b" }],
 			["app_info", undefined],
 			["choose_vault", undefined],
+			["current_vault", undefined],
 		]);
 	});
 

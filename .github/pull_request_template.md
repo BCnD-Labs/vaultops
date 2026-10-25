@@ -11,6 +11,10 @@ Closes #
 
 **Based on:** <!-- the existing library, official doc or known pattern this follows, or "new code, because nothing fit: <why>" -->
 
+**Choices I made:** <!-- decisions the brief didn't cover, or "none" -->
+
+<!-- If the work needs something Blake must approve (dependency, CI, note format or storage, network), add a "**Decision needed:**" section with options A, B, C and the `needs decision` label. -->
+
 **Tested:**
 -
 

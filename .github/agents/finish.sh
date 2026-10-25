@@ -34,3 +34,7 @@ git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPO
 url=$(gh pr create --base main --head "$BRANCH" --title "$(head -1 .agent/commit-message.txt)" \
   --body-file .agent/pr-body.md --label "agent:$AGENT")
 echo "Opened $url" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+if grep -qi '^\*\*decision needed' .agent/pr-body.md || grep -qi '^#* *decision needed' .agent/pr-body.md; then
+  gh pr edit "$url" --add-label "needs decision"
+  echo "Marked it 'needs decision' for Blake (not a failure, nothing on hold)." | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+fi

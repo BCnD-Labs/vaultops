@@ -13,8 +13,9 @@ def issue(n, milestone=None, labels=(), sub=None):
             "labels": [{"name": x} for x in labels], "sub_issues_summary": sub}
 
 
-def pull(n, created, draft=False):
+def pull(n, created, draft=False, updated=None, labels=()):
     return {"number": n, "title": f"PR {n}", "created_at": created, "draft": draft,
+            "updated_at": updated or created, "labels": [{"name": x} for x in labels],
             "user": {"login": "codex"}}
 
 
@@ -39,7 +40,7 @@ class Health(unittest.TestCase):
     def test_report(self):
         report = h.render([issue(5), issue(6, "M1", sub={"total": 2, "completed": 2})],
                           [pull(7, "2026-10-18T12:00:00Z", draft=True)], NOW, 3)
-        self.assertIn("3 item(s) need a look.", report)
+        self.assertIn("4 item(s) need a look.", report)
         self.assertIn("- #5 Issue 5", report)
         self.assertIn("- #7 PR 7 (open 6 days, draft, by codex)", report)
         self.assertIn("- #6 Issue 6 (2 of 2 done)", report)
@@ -47,7 +48,18 @@ class Health(unittest.TestCase):
     def test_clean_report(self):
         report = h.render([issue(1, "M1")], [], NOW, 3)
         self.assertIn("Nothing needs attention.", report)
-        self.assertEqual(report.count("None."), 3)
+        self.assertEqual(report.count("None."), 5)
+
+    def test_holds_cover_issues_and_pull_requests(self):
+        found = h.holds([issue(3, "M1", labels=["hold"]), issue(4, "M1")],
+                        [pull(9, "2026-10-24T08:00:00Z", labels=["hold"]), pull(8, "2026-10-24T08:00:00Z")])
+        self.assertEqual([x["number"] for x in found], [3, 9])
+
+    def test_stale_claims_are_idle_drafts_only(self):
+        pulls = [pull(1, "2026-10-10T12:00:00Z", draft=True, updated="2026-10-20T12:00:00Z"),
+                 pull(2, "2026-10-10T12:00:00Z", draft=True, updated="2026-10-23T12:00:00Z"),
+                 pull(3, "2026-10-10T12:00:00Z", draft=False, updated="2026-10-20T12:00:00Z")]
+        self.assertEqual([p["number"] for p in h.stale_claims(pulls, NOW, 3)], [1])
 
 
 if __name__ == "__main__":

@@ -32,6 +32,17 @@ cargo test
 
 CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names that differ only in capital letters), so the maintainer runs `cargo test` on the Mac before each release and after changes to file or folder code.
 
+## Team and handoff
+
+Several agents work on this repo. Status lives in labels and pull requests, so any agent (and any person) can see who has what.
+
+- **Roles.** Blake, the maintainer, has the final say: he approves merges, decides product questions and is the only one who removes `hold`. Claude coordinates: writes briefs into issues, assigns them with labels, reviews builder pull requests and posts a verdict (merge, send back, or maintainer's call), and takes security-sensitive, Rust native, CI and testing work. Codex and Gemini build from briefs.
+- **Labels.** `ready` = has a brief and can be picked up. `agent:claude`, `agent:codex`, `agent:gemini` = who it is assigned to. `paused` = parked on purpose, with a comment saying why (`needs decision` works the same way). `hold` = a problem or open question.
+- **Before starting work:** (1) if any open issue or pull request has `hold`, stop and start nothing new; (2) if you already have an open pull request, finish that first; (3) otherwise take the oldest open issue labeled `ready` plus your own agent label, with no open pull request linked to it.
+- **While working:** open a **draft** pull request with `Closes #N` early, so the claim shows on the issue. Mark it ready for review when CI is green.
+- **When something goes wrong** (a check fails and you can't fix it, the brief doesn't cover a decision, or a review disputes the work): add `hold` to the pull request, comment what is needed, and stop. Work in progress stays parked; nothing is deleted.
+- **Maintainer's word wins.** If Blake tells you to take an issue labeled for another agent, take it and move the agent label to yourself.
+
 ## Rules
 
 **Architecture**

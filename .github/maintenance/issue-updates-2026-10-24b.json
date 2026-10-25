@@ -1,5 +1,5 @@
 {
-	"description": "Agent team model agreed 2026-10-24: A7 updated with roles and the hold rule; A8 added for agent buttons. Applied by the Maintenance workflow (apply-issue-updates).",
+	"description": "Agent team model agreed 2026-10-24: team labels, A7 updated with roles and the hold rule, A8 agent buttons, A9 vault reports. Applied by the Maintenance workflow (apply-issue-updates).",
 	"edit": {
 		"A7": {
 			"title": "Agent handoff: who works on what",
@@ -36,6 +36,32 @@
 				"Tested by pulling the reports branch into a test vault and checking links and images"
 			],
 			"milestone": "Project tooling"
+		}
+	},
+	"labels": {
+		"ready": {
+			"color": "0e8a16",
+			"description": "Has a brief and can be picked up"
+		},
+		"hold": {
+			"color": "b60205",
+			"description": "Problem or open question: no agent starts new work until Blake clears it"
+		},
+		"paused": {
+			"color": "fbca04",
+			"description": "Parked on purpose; a comment says why"
+		},
+		"agent:claude": {
+			"color": "d97757",
+			"description": "Assigned to Claude"
+		},
+		"agent:codex": {
+			"color": "1f6feb",
+			"description": "Assigned to Codex"
+		},
+		"agent:gemini": {
+			"color": "8250df",
+			"description": "Assigned to Gemini"
 		}
 	}
 }

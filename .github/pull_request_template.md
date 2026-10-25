@@ -11,6 +11,8 @@ Closes #
 
 **Based on:** <!-- the existing library, official doc or known pattern this follows, or "new code, because nothing fit: <why>" -->
 
+**Choices I made:** <!-- decisions the brief didn't cover, or "none" -->
+
 **Tested:**
 -
 

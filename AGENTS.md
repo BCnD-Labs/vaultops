@@ -12,7 +12,7 @@ VaultOps (working name) is a macOS desktop app built with Tauri 2: a visual, off
   - `src/core/`: pure logic with no editor, window or disk access. Tests sit next to the code as `*.test.ts`.
   - `src/host/`: the only door to native code (files, git, dialogs).
 - `src-tauri/`: the Rust side and its native commands.
-- Planning docs (spec, decision records, task list) are private and not in this repo. Each task comes with a brief from the maintainer. If a task needs a decision the brief doesn't cover, stop and ask instead of choosing.
+- Planning docs (spec, decision records, task list) are private and not in this repo. Each task comes with a brief in its issue. If the brief doesn't cover a decision, make the most reasonable choice, keep going, and list it under **Choices I made** in the pull request; if it turns out wrong, it becomes a new issue.
 - `private/` and `spikes/` may exist locally; both are git-ignored. Spike code is experimental: read it for reference, never copy it in.
 
 ## Commands
@@ -43,7 +43,8 @@ Several agents work on this repo. Status lives in labels and pull requests, so a
 - **Labels.** `ready` = has a brief and can be picked up. `agent:claude`, `agent:codex`, `agent:gemini` = who it is assigned to. `paused` = parked on purpose, with a comment saying why (`needs decision` works the same way). `hold` = a problem or open question.
 - **Before starting work:** (1) if any open issue or pull request has `hold`, stop and start nothing new; (2) if you already have an open pull request, finish that first; (3) otherwise take the oldest open issue labeled `ready` plus your own agent label, with no open pull request linked to it.
 - **While working:** open a **draft** pull request with `Closes #N` early, so the claim shows on the issue. Mark it ready for review when CI is green.
-- **When something goes wrong** (a check fails and you can't fix it, the brief doesn't cover a decision, or a review disputes the work): add `hold` to the pull request, comment what is needed, and stop. Work in progress stays parked; nothing is deleted.
+- **Builders don't stop to ask.** Small gaps in a brief are decided by the builder and listed under **Choices I made** in the pull request. Anything on the "Ask the maintainer first" list below is left out of the change and flagged in the pull request instead of waiting.
+- **When something goes wrong** (a check fails and you can't fix it, or a review disputes the work): add `hold` to the pull request, comment what is needed, and stop. Work in progress stays parked; nothing is deleted.
 - **Maintainer's word wins.** If Blake tells you to take an issue labeled for another agent, take it and move the agent label to yourself.
 
 ## Rules

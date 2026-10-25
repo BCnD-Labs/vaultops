@@ -1,0 +1,175 @@
+name: Agents
+
+# Buttons that send an agent to work: Actions -> Agents -> Run workflow.
+#   claude: runs on GitHub's machines (works with the Mac closed).
+#   codex, gemini: run on Blake's Mac (self-hosted runner labeled
+#   vaultops-agents), using their command-line tools already signed in there.
+# Every build follows AGENTS.md "Team and handoff": nothing starts while
+# anything is on hold, and an agent with an open pull request finishes it
+# first. Builders edit files only; this workflow commits, pushes and opens the
+# pull request (with AGENTS_TOKEN, so CI runs on it). Only people with write
+# access can press these buttons; nothing here runs on comments or forks.
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Who"
+        required: true
+        type: choice
+        options: [claude, codex, gemini]
+      task:
+        description: "next = their oldest ready issue; issue = the number below; review = Claude reviews open agent pull requests"
+        required: true
+        type: choice
+        options: [next, issue, review]
+      issue:
+        description: "Issue number (for task 'issue'; optional for 'review')"
+        required: false
+      note:
+        description: "Extra instruction (optional)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agents-${{ inputs.agent }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Check holds and pick the issue
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      pull-requests: read
+    outputs:
+      proceed: ${{ steps.gate.outputs.proceed }}
+      issue: ${{ steps.gate.outputs.issue }}
+      branch: ${{ steps.gate.outputs.branch }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/agents
+      - name: Test the gate
+        run: python3 -m unittest discover -s .github/agents
+      - id: gate
+        name: Gate
+        env:
+          AGENT: ${{ inputs.agent }}
+          TASK: ${{ inputs.task }}
+          ISSUE: ${{ inputs.issue }}
+        run: python3 .github/agents/agent_gate.py "$AGENT" "$TASK" "$ISSUE"
+
+  claude-build:
+    name: Claude builds
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true' && inputs.agent == 'claude' && inputs.task != 'review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      AGENT: claude
+      ISSUE: ${{ needs.gate.outputs.issue }}
+      BRANCH: ${{ needs.gate.outputs.branch }}
+      NOTE: ${{ inputs.note }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install Tauri's Linux system libraries (for Rust checks)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Prepare the brief
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/agents/prepare.py build "$AGENT" "$ISSUE" "$NOTE"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: "Read .agent/prompt.md and follow it exactly."
+          claude_args: >-
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(npm run check),Bash(npm test:*),Bash(npm run format),Bash(npm run typecheck),Bash(cargo fmt:*),Bash(cargo clippy:*),Bash(cargo test:*),Bash(git status:*),Bash(git diff:*)"
+      - name: Commit, push and open the pull request
+        env:
+          GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}
+        run: .github/agents/finish.sh
+
+  claude-review:
+    name: Claude reviews
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true' && inputs.agent == 'claude' && inputs.task == 'review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      actions: read
+      checks: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ inputs.issue }}
+      NOTE: ${{ inputs.note }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Prepare the review
+        run: python3 .github/agents/prepare.py review claude "$ISSUE" "$NOTE"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: "Read .agent/prompt.md and follow it exactly."
+          claude_args: >-
+            --allowedTools "Read,Write,Glob,Grep,Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)"
+
+  mac-build:
+    name: ${{ inputs.agent }} builds on the Mac
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true' && (inputs.agent == 'codex' || inputs.agent == 'gemini') && inputs.task != 'review'
+    runs-on: [self-hosted, macOS, vaultops-agents]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      AGENT: ${{ inputs.agent }}
+      ISSUE: ${{ needs.gate.outputs.issue }}
+      BRANCH: ${{ needs.gate.outputs.branch }}
+      NOTE: ${{ inputs.note }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      - run: npm ci
+      - name: Prepare the brief
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/agents/prepare.py build "$AGENT" "$ISSUE" "$NOTE"
+      - name: Run Codex (its sandbox allows edits and commands in this folder, no network)
+        if: inputs.agent == 'codex'
+        run: codex exec --sandbox workspace-write --cd "$GITHUB_WORKSPACE" "Read .agent/prompt.md and follow it exactly."
+      - name: Run Gemini (file edits only, no commands)
+        if: inputs.agent == 'gemini'
+        run: gemini --approval-mode auto_edit --prompt "Read .agent/prompt.md and follow it exactly."
+      - name: Commit, push and open the pull request
+        env:
+          GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}
+        run: .github/agents/finish.sh

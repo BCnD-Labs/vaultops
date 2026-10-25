@@ -56,6 +56,46 @@ describe("openVault", () => {
 			expect(await host.list(`.vaultops/${folder}`)).toEqual([]);
 	});
 
+	it.each([".DS_Store", ".localized", "._metadata"])(
+		"creates a vault alongside the system file %s without changing it",
+		async (name) => {
+			const host = new MemoryHost();
+			await host.writeTextAtomic(name, "system metadata");
+			expect((await openVault(host)).status).toBe("created");
+			expect(await host.readText(name)).toBe("system metadata");
+			expect(await host.readText(configPath)).toBe(configText);
+			for (const folder of folders)
+				expect(await host.list(`.vaultops/${folder}`)).toEqual([]);
+			const spies = watchWrites(host);
+			expect((await openVault(host)).status).toBe("opened");
+			expectNoWrites(spies);
+		},
+	);
+
+	it.each(["keep.txt", ".env", ".gitkeep", ".DS_Store.backup"])(
+		"does not ignore the user file %s alongside system metadata",
+		async (name) => {
+			const host = new MemoryHost();
+			await host.writeTextAtomic(".DS_Store", "system metadata");
+			await host.writeTextAtomic(name, "user data");
+			const spies = watchWrites(host);
+			expect((await openVault(host)).status).toBe("not-a-vault");
+			expectNoWrites(spies);
+			expect(await host.readText(name)).toBe("user data");
+		},
+	);
+
+	it.each([".DS_Store", ".localized", "._metadata", "notes"])(
+		"does not ignore a folder named %s",
+		async (name) => {
+			const host = new MemoryHost();
+			await host.makeFolder(name);
+			const spies = watchWrites(host);
+			expect((await openVault(host)).status).toBe("not-a-vault");
+			expectNoWrites(spies);
+		},
+	);
+
 	it("reopens an existing vault without writing, preserving its contents", async () => {
 		const host = await existingVault();
 		await host.writeTextAtomic(".vaultops/history/keep", "history data");

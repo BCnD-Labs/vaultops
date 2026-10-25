@@ -4,6 +4,8 @@ name: Agents
 #   claude: runs on GitHub's machines (works with the Mac closed).
 #   codex, gemini: run on Blake's Mac (self-hosted runner labeled
 #   vaultops-agents), using their command-line tools already signed in there.
+# Roles, not names: whoever the repo variable COORDINATOR names (default
+# claude) is the only one the review task runs for, and never on its own work.
 # Every build follows AGENTS.md "Team and handoff": nothing starts while
 # anything is on hold, and an agent with an open pull request finishes it
 # first. Builders edit files only; this workflow commits, pushes and opens the
@@ -19,12 +21,12 @@ on:
         type: choice
         options: [claude, codex, gemini]
       task:
-        description: "next = their oldest ready issue; issue = the number below; review = Claude reviews open agent pull requests"
+        description: "next = their oldest ready issue; issue = the number below; review = the coordinator reviews open agent pull requests"
         required: true
         type: choice
         options: [next, issue, review]
       issue:
-        description: "Issue number (for task 'issue'; optional for 'review')"
+        description: "Issue number for 'issue', or one pull request number for 'review' (optional)"
         required: false
       note:
         description: "Extra instruction (optional)"
@@ -63,6 +65,7 @@ jobs:
           AGENT: ${{ inputs.agent }}
           TASK: ${{ inputs.task }}
           ISSUE: ${{ inputs.issue }}
+          COORDINATOR: ${{ vars.COORDINATOR }}
         run: python3 .github/agents/agent_gate.py "$AGENT" "$TASK" "$ISSUE"
 
   claude-build:
@@ -112,7 +115,7 @@ jobs:
         run: .github/agents/finish.sh
 
   claude-review:
-    name: Claude reviews
+    name: Claude reviews (as coordinator)
     needs: gate
     if: needs.gate.outputs.proceed == 'true' && inputs.agent == 'claude' && inputs.task == 'review'
     runs-on: ubuntu-latest
@@ -130,7 +133,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Prepare the review
+      - name: Collect the pull requests to review
         run: python3 .github/agents/prepare.py review claude "$ISSUE" "$NOTE"
       - uses: anthropics/claude-code-action@v1
         with:
@@ -138,31 +141,41 @@ jobs:
           github_token: ${{ github.token }}
           prompt: "Read .agent/prompt.md and follow it exactly."
           claude_args: >-
-            --allowedTools "Read,Write,Glob,Grep,Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh issue view:*)"
+            --allowedTools "Read,Write,Glob,Grep"
+      - name: Post the verdicts
+        run: python3 .github/agents/post_reviews.py claude
 
-  mac-build:
-    name: ${{ inputs.agent }} builds on the Mac
+  mac:
+    name: ${{ inputs.agent }} ${{ inputs.task == 'review' && 'reviews' || 'builds' }} on the Mac
     needs: gate
-    if: needs.gate.outputs.proceed == 'true' && (inputs.agent == 'codex' || inputs.agent == 'gemini') && inputs.task != 'review'
+    if: needs.gate.outputs.proceed == 'true' && (inputs.agent == 'codex' || inputs.agent == 'gemini')
     runs-on: [self-hosted, macOS, vaultops-agents]
     timeout-minutes: 60
     permissions:
       contents: read
+      issues: write
+      pull-requests: write
+      checks: read
     env:
       AGENT: ${{ inputs.agent }}
       ISSUE: ${{ needs.gate.outputs.issue }}
       BRANCH: ${{ needs.gate.outputs.branch }}
       NOTE: ${{ inputs.note }}
+      MODE: ${{ inputs.task == 'review' && 'review' || 'build' }}
+      WANTED: ${{ inputs.issue }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
           clean: true
-      - run: npm ci
-      - name: Prepare the brief
+      - if: env.MODE == 'build'
+        run: npm ci
+      - name: Prepare the brief or the review
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .github/agents/prepare.py build "$AGENT" "$ISSUE" "$NOTE"
+        run: |
+          if [ "$MODE" = build ]; then target="$ISSUE"; else target="$WANTED"; fi
+          python3 .github/agents/prepare.py "$MODE" "$AGENT" "$target" "$NOTE"
       - name: Run Codex (its sandbox allows edits and commands in this folder, no network)
         if: inputs.agent == 'codex'
         run: codex exec --sandbox workspace-write --cd "$GITHUB_WORKSPACE" "Read .agent/prompt.md and follow it exactly."
@@ -170,6 +183,12 @@ jobs:
         if: inputs.agent == 'gemini'
         run: gemini --approval-mode auto_edit --prompt "Read .agent/prompt.md and follow it exactly."
       - name: Commit, push and open the pull request
+        if: env.MODE == 'build'
         env:
           GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}
         run: .github/agents/finish.sh
+      - name: Post the verdicts
+        if: env.MODE == 'review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/agents/post_reviews.py "$AGENT"

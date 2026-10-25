@@ -34,7 +34,11 @@ class Gate(unittest.TestCase):
     def test_a_hold_never_blocks_a_review(self):
         ok, _, _ = g.decide("claude", "review", [issue(40, "hold")], [])
         self.assertTrue(ok)
+
+    def test_only_the_coordinator_reviews_whoever_it_is(self):
         self.assertFalse(g.decide("codex", "review", [], [])[0])
+        self.assertTrue(g.decide("codex", "review", [], [], coordinator="codex")[0])
+        self.assertFalse(g.decide("claude", "review", [], [], coordinator="codex")[0])
 
     def test_one_open_pull_request_per_agent(self):
         issues = [issue(18, "ready", "agent:codex"), issue(19, "ready", "agent:codex")]

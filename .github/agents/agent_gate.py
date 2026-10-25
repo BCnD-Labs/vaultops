@@ -5,7 +5,7 @@ Usage: agent_gate.py <agent> <task> [issue]
   agent: claude | codex | gemini
   task:  next   (oldest open issue labeled `ready` + `agent:<agent>`)
          issue  (the given issue number: Blake's choice overrides the labels)
-         review (Claude only: review open pull requests; never blocked by a hold)
+         review (the coordinator reviews open agent pull requests; never blocked by a hold)
 
 Follows AGENTS.md "Team and handoff": no new work while anything is on hold,
 and an agent with an open pull request finishes it first. Writes the result to
@@ -48,13 +48,13 @@ def linked_issues(pulls):
     return {int(n) for p in pulls for n in LINK.findall(p.get("body") or "")}
 
 
-def decide(agent, task, issues, pulls, wanted=None):
+def decide(agent, task, issues, pulls, wanted=None, coordinator="claude"):
     """Return (proceed, issue or None, reason)."""
     if agent not in AGENTS:
         return False, None, f"unknown agent {agent!r}"
     if task == "review":
-        return (True, None, "review open pull requests") if agent == "claude" else (
-            False, None, "only Claude reviews")
+        return (True, None, "review open pull requests as coordinator") if agent == coordinator else (
+            False, None, f"only the coordinator reviews (currently {coordinator}; repo variable COORDINATOR)")
     held = sorted(x["number"] for x in issues + pulls if "hold" in labels(x))
     if held:
         return False, None, "on hold: " + ", ".join(f"#{n}" for n in held) + \
@@ -85,7 +85,8 @@ def main():
     repo = os.environ["GITHUB_REPOSITORY"]
     issues = [i for i in all_pages(f"repos/{repo}/issues?state=open") if "pull_request" not in i]
     pulls = all_pages(f"repos/{repo}/pulls?state=open")
-    proceed, issue, reason = decide(agent, task, issues, pulls, wanted)
+    coordinator = (os.environ.get("COORDINATOR") or "claude").strip().lower()
+    proceed, issue, reason = decide(agent, task, issues, pulls, wanted, coordinator)
 
     line = (f"**{agent}** may start: {reason}" + (f" → #{issue['number']} {issue['title']}" if issue else "")
             if proceed else f"**{agent}** will not start: {reason}.")

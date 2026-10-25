@@ -42,6 +42,7 @@ async function call<T>(
 /** The real host: forwards each call to a Rust command in src-tauri/src/lib.rs. */
 export const tauriHost: Host = {
 	appInfo: () => call<AppInfo>("app_info"),
+	chooseVault: () => call<string | null>("choose_vault"),
 	readText: (path) => call<string>("read_text", { path }),
 	writeTextAtomic: (path, text) =>
 		call<void>("write_text_atomic", { path, text }),

@@ -28,7 +28,10 @@ fi
 
 git switch -q -c "$BRANCH"
 git add -A
-git -c user.name="${AGENT^} (VaultOps agents)" -c user.email="vaultops-agents@users.noreply.github.com" \
+# Commit as the repo owner's account (its private GitHub noreply address) so a
+# squash merge by that account adds no "Co-authored-by" lines; the agent:<name>
+# label and the <agent>/ branch name show which agent built it.
+git -c user.name="BCnD-Labs" -c user.email="342127827+BCnD-Labs@users.noreply.github.com" \
   commit -q -F .agent/commit-message.txt
 git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
 url=$(gh pr create --base main --head "$BRANCH" --title "$(head -1 .agent/commit-message.txt)" \

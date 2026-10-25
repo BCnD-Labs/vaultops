@@ -32,6 +32,20 @@ cargo test
 
 CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names that differ only in capital letters), so the maintainer runs `cargo test` on the Mac before each release and after changes to file or folder code.
 
+## Team and handoff
+
+Several agents work on this repo. Status lives in labels and pull requests, so any agent (and any person) can see who has what.
+
+- **Roles, not names.** Roles belong to the job, and any agent can hold any of them; Blake decides who holds which.
+  - **Maintainer** (always Blake): final say, approves merges, decides product questions, the only one who removes `hold`, and assigns the roles.
+  - **Coordinator** (currently Claude; set by the repo variable `COORDINATOR`): writes briefs into issues, assigns them with agent labels, reviews pull requests and posts a verdict (merge, send back, or maintainer's call). A coordinator never reviews its own pull request.
+  - **Builder** (any agent, the coordinator included): builds from the brief in an issue labeled with its name.
+- **Labels.** `ready` = has a brief and can be picked up. `agent:claude`, `agent:codex`, `agent:gemini` = who it is assigned to. `paused` = parked on purpose, with a comment saying why (`needs decision` works the same way). `hold` = a problem or open question.
+- **Before starting work:** (1) if any open issue or pull request has `hold`, stop and start nothing new; (2) if you already have an open pull request, finish that first; (3) otherwise take the oldest open issue labeled `ready` plus your own agent label, with no open pull request linked to it.
+- **While working:** open a **draft** pull request with `Closes #N` early, so the claim shows on the issue. Mark it ready for review when CI is green.
+- **When something goes wrong** (a check fails and you can't fix it, the brief doesn't cover a decision, or a review disputes the work): add `hold` to the pull request, comment what is needed, and stop. Work in progress stays parked; nothing is deleted.
+- **Maintainer's word wins.** If Blake tells you to take an issue labeled for another agent, take it and move the agent label to yourself.
+
 ## Rules
 
 **Architecture**

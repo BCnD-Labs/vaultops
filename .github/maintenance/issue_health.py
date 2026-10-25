@@ -2,6 +2,8 @@
 """Issue health report (Maintenance button). Read-only: it changes nothing.
 
 Lists:
+  - anything labeled "hold" (agents start no new work while one exists),
+  - draft pull requests with no activity for --days (stale claims),
   - open issues with no milestone (weekly updates aside),
   - pull requests open longer than --days (default 3),
   - tasks whose sub-issues are all closed but which are still open.
@@ -55,6 +57,18 @@ def finished_tasks(issues):
     return done
 
 
+def holds(issues, pulls):
+    """Open issues and pull requests labeled hold."""
+    return sorted([x for x in issues + pulls if "hold" in labels(x)], key=lambda x: x["number"])
+
+
+def stale_claims(pulls, now, days):
+    """Draft pull requests (work in progress) not updated for `days`."""
+    cutoff = now - timedelta(days=days)
+    return [p for p in pulls if p.get("draft")
+            and datetime.fromisoformat(p["updated_at"].replace("Z", "+00:00")) < cutoff]
+
+
 def stale_pulls(pulls, now, days):
     cutoff = now - timedelta(days=days)
     return [p for p in pulls
@@ -68,6 +82,11 @@ def age(stamp, now):
 
 def render(issues, pulls, now, days):
     sections = [
+        ("On hold: no agent starts new work until these are cleared", holds(issues, pulls),
+         lambda x: f"- #{x['number']} {x['title']}"),
+        (f"Stale claims: draft pull requests idle more than {days} days", stale_claims(pulls, now, days),
+         lambda p: f"- #{p['number']} {p['title']} (last activity {age(p['updated_at'], now)} ago, "
+                   f"by {p['user']['login']})"),
         ("Issues with no milestone", no_milestone(issues),
          lambda i: f"- #{i['number']} {i['title']}"),
         (f"Pull requests open more than {days} days", stale_pulls(pulls, now, days),

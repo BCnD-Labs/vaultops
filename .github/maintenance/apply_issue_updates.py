@@ -6,7 +6,8 @@ Usage: apply_issue_updates.py <changes.json> [--dry-run]
 Sections (all optional): "create" (new issues, keyed like "A1", created as
 "A1: <title>"; may name a milestone, labels, and a "close" [reason, note] to
 create them already closed), "edit", "defer", "close", "unlabel"; plus
-"milestones" ({title: description}) to create if missing.
+"milestones" ({title: description}) and "labels" ({name: {color, description}})
+to create if missing.
 
 Safe to run again: each step checks the issue's current state first, so a
 finished step is skipped (no repeated issues, comments, labels or edits).
@@ -23,7 +24,7 @@ import urllib.parse
 REPO = os.environ["GITHUB_REPOSITORY"]
 DRY = "--dry-run" in sys.argv
 DATA = json.load(open(sys.argv[1], encoding="utf-8"))
-for section in ("create", "edit", "defer", "close", "unlabel", "milestones"):
+for section in ("create", "edit", "defer", "close", "unlabel", "milestones", "labels"):
     DATA.setdefault(section, {})
 KEY = re.compile(r"^[A-Z][A-Za-z0-9.]*$")  # "T04.1", "T13a", "A3"
 
@@ -84,6 +85,14 @@ def main():
         sys.exit(f"Issues not found by title: {missing}")
 
     labels = [x["name"] for x in gh(f"repos/{REPO}/labels?per_page=100")]
+    for name, spec in DATA["labels"].items():
+        if name not in labels:
+            def make_label(n=name, spec=spec):
+                gh(f"repos/{REPO}/labels", "-X", "POST",
+                   body={"name": n, "color": spec["color"], "description": spec.get("description", "")})
+                labels.append(n)
+            act(f"create label {name!r}", make_label)
+
     milestones = {m["title"]: m["number"] for m in gh(f"repos/{REPO}/milestones?state=all&per_page=100")}
     for title, description in DATA["milestones"].items():
         if title not in milestones:

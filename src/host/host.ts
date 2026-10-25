@@ -18,13 +18,17 @@ export interface DirEntry {
 	kind: EntryKind;
 }
 
-export type HostErrorCode =
-	| "not-found"
-	| "already-exists"
-	| "not-a-folder"
-	| "is-a-folder"
-	| "invalid-path"
-	| "io";
+/** Every error code; the Rust side uses the same list (test-fixtures/host-error-codes.json). */
+export const HOST_ERROR_CODES = [
+	"not-found",
+	"already-exists",
+	"not-a-folder",
+	"is-a-folder",
+	"invalid-path",
+	"io",
+] as const;
+
+export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];
 
 /** Errors carry a code and a short message, never an absolute path. */
 export class HostError extends Error {

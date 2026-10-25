@@ -1,7 +1,17 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
-	"description": "Permissions for the main window",
+	"description": "Permissions for the main window: window basics and the app's own file commands (all limited to the open vault in Rust). Nothing that reaches the network.",
 	"windows": ["main"],
-	"permissions": ["core:event:default", "core:window:default"]
+	"permissions": [
+		"core:event:default",
+		"core:window:default",
+		"allow-app-info",
+		"allow-read-text",
+		"allow-write-text-atomic",
+		"allow-list",
+		"allow-make-folder",
+		"allow-kind-of",
+		"allow-move-entry"
+	]
 }

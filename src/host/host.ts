@@ -43,6 +43,13 @@ export class HostError extends Error {
 export interface Host {
 	appInfo(): Promise<AppInfo>;
 
+	/**
+	 * Let the user choose the vault folder with the system picker and make it
+	 * the open vault. Resolves to the folder's name, or null if cancelled
+	 * (then nothing changes). The folder's location never leaves the host.
+	 */
+	chooseVault(): Promise<string | null>;
+
 	/** Read a UTF-8 text file. */
 	readText(path: string): Promise<string>;
 

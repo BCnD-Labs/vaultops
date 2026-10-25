@@ -35,6 +35,11 @@ export class MemoryHost implements Host {
 		return { name: "vaultops", version: "0.0.0-memory" };
 	}
 
+	/** The in-memory host is its own vault; "choosing" it just names it. */
+	async chooseVault(): Promise<string | null> {
+		return "Memory vault";
+	}
+
 	async readText(path: string): Promise<string> {
 		const node = this.find(this.parts(path));
 		if (!node) throw new HostError("not-found", "file not found");

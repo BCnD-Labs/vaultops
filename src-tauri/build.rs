@@ -3,6 +3,7 @@
 // there can't be called from the window.
 const COMMANDS: &[&str] = &[
     "app_info",
+    "choose_vault",
     "read_text",
     "write_text_atomic",
     "list",

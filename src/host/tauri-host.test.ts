@@ -21,6 +21,7 @@ describe("tauriHost", () => {
 		await tauriHost.makeFolder("b");
 		await tauriHost.kindOf("b");
 		await tauriHost.appInfo();
+		await tauriHost.chooseVault();
 		expect(invoke.mock.calls).toEqual([
 			["read_text", { path: "a.vnote" }],
 			["write_text_atomic", { path: "a.vnote", text: "text" }],
@@ -29,6 +30,7 @@ describe("tauriHost", () => {
 			["make_folder", { path: "b" }],
 			["kind_of", { path: "b" }],
 			["app_info", undefined],
+			["choose_vault", undefined],
 		]);
 	});
 
@@ -39,6 +41,10 @@ describe("tauriHost", () => {
 		]);
 		invoke.mockResolvedValueOnce(null);
 		expect(await tauriHost.kindOf("missing")).toBeNull();
+		invoke.mockResolvedValueOnce("Notes");
+		expect(await tauriHost.chooseVault()).toBe("Notes");
+		invoke.mockResolvedValueOnce(null);
+		expect(await tauriHost.chooseVault()).toBeNull();
 	});
 
 	it("turns Rust errors into HostErrors with the same code", async () => {

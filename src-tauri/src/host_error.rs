@@ -50,3 +50,43 @@ impl std::fmt::Display for HostError {
 }
 
 impl std::error::Error for HostError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The TypeScript side checks the same file (src/host/tauri-host.test.ts).
+    #[test]
+    fn error_codes_match_the_shared_list() {
+        let shared: Vec<String> =
+            serde_json::from_str(include_str!("../../test-fixtures/host-error-codes.json"))
+                .unwrap();
+        let ours: Vec<String> = [
+            ErrorCode::NotFound,
+            ErrorCode::AlreadyExists,
+            ErrorCode::NotAFolder,
+            ErrorCode::IsAFolder,
+            ErrorCode::InvalidPath,
+            ErrorCode::Io,
+        ]
+        .iter()
+        .map(|code| {
+            serde_json::to_value(code)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+        assert_eq!(ours, shared);
+    }
+
+    #[test]
+    fn errors_reach_the_frontend_as_code_and_message() {
+        let value = serde_json::to_value(HostError::new(ErrorCode::NotFound, "not found")).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({ "code": "not-found", "message": "not found" })
+        );
+    }
+}

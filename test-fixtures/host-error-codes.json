@@ -1,0 +1,8 @@
+[
+	"not-found",
+	"already-exists",
+	"not-a-folder",
+	"is-a-folder",
+	"invalid-path",
+	"io"
+]

@@ -1,0 +1,22 @@
+{
+	"description": "Work session clock-in / clock-out buttons (A10), agreed 2026-10-26.",
+	"labels": {
+		"work-session": {
+			"color": "0052cc",
+			"description": "Blake's work session log (open = clocked in)"
+		}
+	},
+	"create": {
+		"A10": {
+			"title": "Work sessions: start and end buttons with a catch-up and blog ideas",
+			"what": "Two Maintenance buttons for Blake's own work log, usable from phone or Mac.\n\n**Start work session:** opens an issue \"Work session N\" (numbered automatically, label `work-session`; an open one means clocked in). Its first comment is a short catch-up that doesn't depend on how long it's been: the **last 8 merged pull requests** (button input, 5 to 10), each with its plain-words description; anything on `hold` or labeled `needs decision`; and the next `ready` issues.\n\n**End work session:** finds the open session issue and posts everything since it was opened: pull requests merged, issues opened and closed, checks that failed and anything put on hold, compiled from the pull requests' own words (no AI writing). Then a short **Blog ideas** section written by the coordinator: a few topics drawn from that session's pull requests and reviews (problems hit, fixes found, decisions made), each with one or two suggested phrasings Blake can reuse. Clearly labeled as suggestions; no summary, no full drafts. Then the issue closes.\n\nLater: each session also lands as a note in the vault (with A9), and sessions can be planned ahead (\"session 3 = tasks 6 to 10\") by attaching issues.\n\nReuse: the weekly update script's date-range report (#101) and the Agents workflow's Claude job (#121) for the blog ideas.",
+			"done": [
+				"Start posts the last N merged pull requests (default 8), holds, needs-decision items and next ready issues",
+				"End posts everything since the session started, then blog topic ideas with suggested phrasing, then closes the session",
+				"Sessions are numbered automatically and work from the phone",
+				"Tested with a real start and end on GitHub"
+			],
+			"milestone": "Project tooling"
+		}
+	}
+}

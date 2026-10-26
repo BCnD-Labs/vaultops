@@ -20,7 +20,17 @@ function damaged(problem: string): VaultResult {
 /** Detect, create or open the folder already selected on the host. */
 export async function openVault(host: Host): Promise<VaultResult> {
 	const entries = await host.list("");
-	if (entries.length === 0) {
+	// Finder metadata and AppleDouble sidecars do not make a folder a used vault.
+	// Only ignore files: a folder with one of these names may hold user data.
+	if (
+		entries.every(
+			(entry) =>
+				entry.kind === "file" &&
+				(entry.name === ".DS_Store" ||
+					entry.name === ".localized" ||
+					entry.name.startsWith("._")),
+		)
+	) {
 		await host.makeFolder(ROOT);
 		for (const folder of FOLDERS) await host.makeFolder(`${ROOT}/${folder}`);
 		await host.writeTextAtomic(

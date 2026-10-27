@@ -7,10 +7,13 @@ name: Agents
 # Roles, not names: whoever the repo variable COORDINATOR names (default
 # claude) is the only one the review task runs for, and never on its own work.
 # Every build follows AGENTS.md "Team and handoff": nothing starts while
-# anything is on hold, and an agent with an open pull request finishes it
-# first. Builders edit files only; this workflow commits, pushes and opens the
-# pull request (with AGENTS_TOKEN, so CI runs on it). Only people with write
-# access can press these buttons; nothing here runs on comments or forks.
+# anything is on hold, an agent has at most 3 open pull requests, and an issue
+# waits while its "Depends on" issues are open. "next" starts up to `count`
+# tasks one after another, each its own pull request; the run's Summary page
+# says in plain words what started and why anything did not. Builders edit
+# files only; this workflow commits, pushes and opens the pull request (with
+# AGENTS_TOKEN, so CI runs on it). Only people with write access can press
+# these buttons; nothing here runs on comments or forks.
 
 on:
   workflow_dispatch:
@@ -21,10 +24,17 @@ on:
         type: choice
         options: [claude, codex, gemini]
       task:
-        description: "next = their oldest ready issue; issue = the number below; review = the coordinator reviews open agent pull requests"
+        description: "next = the next ready issues (up to the count below); issue = the number below; review = the coordinator reviews open agent pull requests"
         required: true
         type: choice
+        default: next
         options: [next, issue, review]
+      count:
+        description: "How many tasks for 'next' (fewer start if something is in the way)"
+        required: false
+        type: choice
+        default: "3"
+        options: ["3", "2", "1"]
       issue:
         description: "Issue number for 'issue', or one pull request number for 'review' (optional)"
         required: false
@@ -41,15 +51,14 @@ concurrency:
 
 jobs:
   gate:
-    name: Check holds and pick the issue
+    name: Check holds and pick the issues
     runs-on: ubuntu-latest
     permissions:
-      issues: read
+      issues: write # comments on an issue skipped because it waits for another
       pull-requests: read
     outputs:
       proceed: ${{ steps.gate.outputs.proceed }}
-      issue: ${{ steps.gate.outputs.issue }}
-      branch: ${{ steps.gate.outputs.branch }}
+      tasks: ${{ steps.gate.outputs.tasks }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -65,44 +74,63 @@ jobs:
           AGENT: ${{ inputs.agent }}
           TASK: ${{ inputs.task }}
           ISSUE: ${{ inputs.issue }}
+          COUNT: ${{ inputs.count }}
           COORDINATOR: ${{ vars.COORDINATOR }}
-        run: python3 .github/agents/agent_gate.py "$AGENT" "$TASK" "$ISSUE"
+          GATE_COMMENTS: "true"
+        run: python3 .github/agents/agent_gate.py "$AGENT" "$TASK" "$ISSUE" "$COUNT"
 
   claude-build:
-    name: Claude builds
+    name: "Claude builds #${{ matrix.issue }}"
     needs: gate
+    # Evaluated before the matrix, so an empty task list never reaches it.
     if: needs.gate.outputs.proceed == 'true' && inputs.agent == 'claude' && inputs.task != 'review'
     runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1 # one after another, so a hold from task 1 stops task 2
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.gate.outputs.tasks) }}
     permissions:
       contents: read
       issues: read
       pull-requests: read
     env:
       AGENT: claude
-      ISSUE: ${{ needs.gate.outputs.issue }}
-      BRANCH: ${{ needs.gate.outputs.branch }}
+      ISSUE: ${{ matrix.issue }}
+      BRANCH: ${{ matrix.branch }}
       NOTE: ${{ inputs.note }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - id: recheck
+        name: Check nothing went on hold since the run started
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/agents/agent_gate.py --recheck "$ISSUE"
+      - if: steps.recheck.outputs.proceed == 'true'
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
+      - if: steps.recheck.outputs.proceed == 'true'
+        run: npm ci
       - name: Install Tauri's Linux system libraries (for Rust checks)
+        if: steps.recheck.outputs.proceed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - if: steps.recheck.outputs.proceed == 'true'
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
       - name: Prepare the brief
+        if: steps.recheck.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .github/agents/prepare.py build "$AGENT" "$ISSUE" "$NOTE"
-      - uses: anthropics/claude-code-action@v1
+      - if: steps.recheck.outputs.proceed == 'true'
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
@@ -110,6 +138,7 @@ jobs:
           claude_args: >-
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(npm run check),Bash(npm test:*),Bash(npm run format),Bash(npm run typecheck),Bash(cargo fmt:*),Bash(cargo clippy:*),Bash(cargo test:*),Bash(git status:*),Bash(git diff:*)"
       - name: Commit, push and open the pull request
+        if: steps.recheck.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}
         run: .github/agents/finish.sh
@@ -145,10 +174,59 @@ jobs:
       - name: Post the verdicts
         run: python3 .github/agents/post_reviews.py claude
 
-  mac:
-    name: ${{ inputs.agent }} ${{ inputs.task == 'review' && 'reviews' || 'builds' }} on the Mac
+  mac-build:
+    name: "${{ inputs.agent }} builds #${{ matrix.issue }} on the Mac"
     needs: gate
-    if: needs.gate.outputs.proceed == 'true' && (inputs.agent == 'codex' || inputs.agent == 'gemini')
+    if: needs.gate.outputs.proceed == 'true' && (inputs.agent == 'codex' || inputs.agent == 'gemini') && inputs.task != 'review'
+    runs-on: [self-hosted, macOS, vaultops-agents]
+    timeout-minutes: 60
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.gate.outputs.tasks) }}
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    env:
+      AGENT: ${{ inputs.agent }}
+      ISSUE: ${{ matrix.issue }}
+      BRANCH: ${{ matrix.branch }}
+      NOTE: ${{ inputs.note }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      - id: recheck
+        name: Check nothing went on hold since the run started
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/agents/agent_gate.py --recheck "$ISSUE"
+      - if: steps.recheck.outputs.proceed == 'true'
+        run: npm ci
+      - name: Prepare the brief
+        if: steps.recheck.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/agents/prepare.py build "$AGENT" "$ISSUE" "$NOTE"
+      - name: Run Codex (its sandbox allows edits and commands in this folder, no network)
+        if: steps.recheck.outputs.proceed == 'true' && inputs.agent == 'codex'
+        run: codex exec --sandbox workspace-write --cd "$GITHUB_WORKSPACE" "Read .agent/prompt.md and follow it exactly."
+      - name: Run Gemini (file edits only, no commands)
+        if: steps.recheck.outputs.proceed == 'true' && inputs.agent == 'gemini'
+        run: gemini --approval-mode auto_edit --prompt "Read .agent/prompt.md and follow it exactly."
+      - name: Commit, push and open the pull request
+        if: steps.recheck.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}
+        run: .github/agents/finish.sh
+
+  mac-review:
+    name: "${{ inputs.agent }} reviews on the Mac (as coordinator)"
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true' && (inputs.agent == 'codex' || inputs.agent == 'gemini') && inputs.task == 'review'
     runs-on: [self-hosted, macOS, vaultops-agents]
     timeout-minutes: 60
     permissions:
@@ -158,37 +236,21 @@ jobs:
       checks: read
     env:
       AGENT: ${{ inputs.agent }}
-      ISSUE: ${{ needs.gate.outputs.issue }}
-      BRANCH: ${{ needs.gate.outputs.branch }}
       NOTE: ${{ inputs.note }}
-      MODE: ${{ inputs.task == 'review' && 'review' || 'build' }}
       WANTED: ${{ inputs.issue }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
           clean: true
-      - if: env.MODE == 'build'
-        run: npm ci
-      - name: Prepare the brief or the review
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$MODE" = build ]; then target="$ISSUE"; else target="$WANTED"; fi
-          python3 .github/agents/prepare.py "$MODE" "$AGENT" "$target" "$NOTE"
+      - name: Collect the pull requests to review
+        run: python3 .github/agents/prepare.py review "$AGENT" "$WANTED" "$NOTE"
       - name: Run Codex (its sandbox allows edits and commands in this folder, no network)
         if: inputs.agent == 'codex'
         run: codex exec --sandbox workspace-write --cd "$GITHUB_WORKSPACE" "Read .agent/prompt.md and follow it exactly."
       - name: Run Gemini (file edits only, no commands)
         if: inputs.agent == 'gemini'
         run: gemini --approval-mode auto_edit --prompt "Read .agent/prompt.md and follow it exactly."
-      - name: Commit, push and open the pull request
-        if: env.MODE == 'build'
-        env:
-          GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}
-        run: .github/agents/finish.sh
       - name: Post the verdicts
-        if: env.MODE == 'review'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: python3 .github/agents/post_reviews.py "$AGENT"

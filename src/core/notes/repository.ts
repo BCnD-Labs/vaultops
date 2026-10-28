@@ -17,6 +17,9 @@ export async function createNote(
 	folder = "",
 	title = "Untitled",
 ): Promise<{ path: string; note: Note }> {
+	if (isInsideVaultOps(folder)) {
+		throw new Error("Notes can't be created inside the .vaultops folder.");
+	}
 	const entries = await host.list(folder);
 	const name = fileNameFor(
 		title,
@@ -57,7 +60,10 @@ export async function saveNote(
 export async function listNotes(host: Host, folder = ""): Promise<string[]> {
 	if (isInsideVaultOps(folder)) return [];
 	return (await host.list(folder))
-		.filter((entry) => entry.kind === "file" && entry.name.endsWith(NOTE_EXT))
+		.filter(
+			(entry) =>
+				entry.kind === "file" && entry.name.toLowerCase().endsWith(NOTE_EXT),
+		)
 		.map((entry) => (folder === "" ? entry.name : `${folder}/${entry.name}`))
 		.sort();
 }

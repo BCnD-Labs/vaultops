@@ -144,4 +144,48 @@ describe("note repository", () => {
 		vi.spyOn(host, "writeTextAtomic").mockRejectedValue(error);
 		await expect(saveNote(host, path, note)).rejects.toBe(error);
 	});
+
+	it("refuses to create a note inside .vaultops, in any letter case, without writing", async () => {
+		const host = new MemoryHost();
+		await openVault(host);
+		const write = vi.spyOn(host, "writeTextAtomic");
+		for (const folder of [
+			".vaultops",
+			".vaultops/sub",
+			".VAULTOPS",
+			".VaultOps/deep/er",
+		]) {
+			await expect(createNote(host, folder)).rejects.toThrow(".vaultops");
+		}
+		expect(write).not.toHaveBeenCalled();
+	});
+
+	it("still creates notes in normal folders, including ones that only look similar", async () => {
+		const host = new MemoryHost();
+		await openVault(host);
+		await host.makeFolder("Projects");
+		await host.makeFolder("vaultops-notes");
+		expect((await createNote(host, "Projects")).path).toBe(
+			"Projects/Untitled.vnote",
+		);
+		expect((await createNote(host, "vaultops-notes")).path).toBe(
+			"vaultops-notes/Untitled.vnote",
+		);
+	});
+
+	it("lists .vnote files whatever the letter case of the ending", async () => {
+		const host = new MemoryHost();
+		await openVault(host);
+		for (const name of [
+			"a.vnote",
+			"B.VNOTE",
+			"c.VNote",
+			"d.vnote.txt",
+			"e.vnot",
+			"f.txt",
+		]) {
+			await host.writeTextAtomic(name, "x");
+		}
+		expect(await listNotes(host)).toEqual(["B.VNOTE", "a.vnote", "c.VNote"]);
+	});
 });

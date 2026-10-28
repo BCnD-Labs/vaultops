@@ -159,13 +159,49 @@ describe("openVault", () => {
 		expect(await host.readText(configPath)).toBe(configText);
 	});
 
-	it("reports a missing config without creating one", async () => {
-		const host = new MemoryHost();
-		await host.makeFolder(".vaultops");
-		const spies = watchWrites(host);
-		expect((await openVault(host)).status).toBe("damaged");
-		expectNoWrites(spies);
-		expect(await host.list(".vaultops")).toEqual([]);
+	it("finishes a creation that stopped before the config was written", async () => {
+		for (const done of [0, 2, 5]) {
+			const host = new MemoryHost();
+			await host.makeFolder(".vaultops");
+			for (const folder of folders.slice(0, done)) {
+				await host.makeFolder(`.vaultops/${folder}`);
+			}
+			await host.writeTextAtomic(".DS_Store", "finder");
+			const result = await openVault(host);
+			expect(result.status).toBe("created");
+			expect(await host.readText(configPath)).toBe(configText);
+			for (const folder of folders) {
+				expect(await host.kindOf(`.vaultops/${folder}`)).toBe("folder");
+			}
+		}
+	});
+
+	it("does not treat a populated or unexpected entry as an unfinished creation", async () => {
+		const cases: Array<(host: MemoryHost) => Promise<void>> = [
+			// a note beside the metadata folder
+			(h) => h.writeTextAtomic("note.vnote", "keep"),
+			// a stray file inside .vaultops
+			(h) => h.writeTextAtomic(".vaultops/other.txt", "keep"),
+			// an unknown folder inside .vaultops
+			(h) => h.makeFolder(".vaultops/mystery"),
+			// a reserved folder that holds data
+			async (h) => {
+				await h.makeFolder(".vaultops/history");
+				await h.writeTextAtomic(".vaultops/history/a.json", "keep");
+			},
+			// a folder (not a file) at the root, even an empty one
+			(h) => h.makeFolder("Projects"),
+		];
+		for (const setup of cases) {
+			const host = new MemoryHost();
+			await host.makeFolder(".vaultops");
+			await setup(host);
+			const spies = watchWrites(host);
+			const result = await openVault(host);
+			expect(result.status).toBe("damaged");
+			expectNoWrites(spies);
+			expect(await host.kindOf(configPath)).toBeNull();
+		}
 	});
 
 	it("leaves a non-empty folder without vault metadata untouched", async () => {

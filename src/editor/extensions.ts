@@ -2,6 +2,7 @@ import type { Extensions } from "@tiptap/core";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { BLOCK_TYPES } from "./blocks";
+import { SlashMenu } from "./slash-menu";
 import { TaskBlock } from "./task-block";
 
 /**
@@ -21,6 +22,7 @@ export function createExtensions(): Extensions {
 			trailingNode: false,
 		}),
 		TaskBlock,
+		SlashMenu,
 		UniqueID.configure({
 			attributeName: "id",
 			types: [...BLOCK_TYPES],

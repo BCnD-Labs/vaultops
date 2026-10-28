@@ -60,3 +60,38 @@
 	text-decoration: line-through;
 	opacity: 0.6;
 }
+
+.slash-menu {
+	position: fixed;
+	z-index: 20;
+	min-width: 12rem;
+	padding: 4px;
+	background: var(--bg, #fff);
+	color: var(--text, #1c1c1e);
+	border: 1px solid var(--line, #dcdce1);
+	border-radius: 8px;
+	box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+
+.slash-menu-item {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 6px 10px;
+	border: 0;
+	border-radius: 6px;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.slash-menu-item[aria-selected="true"],
+.slash-menu-item:hover {
+	background: var(--line, #dcdce1);
+}
+
+.slash-menu-empty {
+	padding: 6px 10px;
+	color: var(--muted, #6b6b73);
+}

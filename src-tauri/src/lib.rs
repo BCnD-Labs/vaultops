@@ -1,6 +1,7 @@
 pub mod file_ops;
 pub mod folder_ops;
 pub mod host_error;
+pub mod log_file;
 #[cfg(test)]
 mod test_util;
 pub mod vault;
@@ -172,6 +173,20 @@ fn choose_vault(
     Ok(Some(name))
 }
 
+/// Append lines to the app's own log file in the app's log folder. The window
+/// sends only text: where it goes is decided here, never by the caller, and it
+/// is never inside a vault. Logging is best effort, so a failure is a plain
+/// `io` error the window can ignore.
+#[tauri::command(async)]
+fn append_log(app: tauri::AppHandle, lines: String) -> Result<(), HostError> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
+    log_file::append(&dir, &lines).map_err(|e| HostError::from_io(&e))
+}
+
 /// Named `move_entry` because `move` is a Rust keyword.
 #[tauri::command(async)]
 fn move_entry(
@@ -204,7 +219,8 @@ pub fn run() {
             list,
             make_folder,
             kind_of,
-            move_entry
+            move_entry,
+            append_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running the VaultOps app");

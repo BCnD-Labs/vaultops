@@ -15,6 +15,7 @@
 		"allow-list",
 		"allow-make-folder",
 		"allow-kind-of",
-		"allow-move-entry"
+		"allow-move-entry",
+		"allow-append-log"
 	]
 }

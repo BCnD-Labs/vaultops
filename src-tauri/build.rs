@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "make_folder",
     "kind_of",
     "move_entry",
+    "append_log",
 ];
 
 fn main() {

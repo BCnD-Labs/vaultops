@@ -23,6 +23,8 @@ npm run tauri dev      # run the app (first Rust build takes a few minutes)
 npm run check          # typecheck + lint + tests (TypeScript)
 npm test               # tests only
 npm run format         # auto-fix formatting and lint where possible
+npm run shots          # Mac only: build, open the app, save a screenshot to shots/
+npm run mac-check      # Mac only: npm run check plus the Rust checks (run before releases)
 
 cd src-tauri
 cargo fmt --check
@@ -30,7 +32,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names that differ only in capital letters), so the maintainer runs `cargo test` on the Mac before each release and after changes to file or folder code.
+CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names that differ only in capital letters), so the maintainer runs `npm run mac-check` on the Mac before each release and after changes to file or folder code.
 
 ## Team and handoff
 

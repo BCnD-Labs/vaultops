@@ -1,0 +1,82 @@
+{
+	"description": "Daily-driver cut: briefs for the editor (T09), editor and note blocks (T10), autosave (T11) and the real window (T19), grouped two issues per pull request and chained so the Agents button builds them in order. Non-cut ready issues T07.2 and T08.2 are deferred until the app is in daily use.",
+	"edit": {
+		"T09.1": {
+			"title": "Add the editor and the block schema with ids (with T09.2)",
+			"what": "Add the Tiptap editor as a React component with permanent block ids, plus the flat task block and the standard text marks. Built **together with T09.2 (#32) in one pull request**; the pull request says `Closes #31, closes #32`. Tiptap 3 and React Flow are already installed (#144). Add no dependencies; if something is missing, build the rest and describe it under **Decision needed**. No reading or writing files here (T10 does that), and the date chip, table, slash menu, drag handle and links are not part of this.\n\n## Brief\n\n**Where:** new folder `src/editor/`. Pure logic stays free of React so it tests without a browser; there is no DOM test library in the repo, so do not add one.\n- `blocks.ts`: `BLOCK_TYPES`, the single list of block-level node names that carry an id: `paragraph`, `heading` (levels 1 and 2 only), `bulletList`, `orderedList`, `listItem`, `taskBlock`, `codeBlock`, `blockquote`. A table (and its row and cell nodes) is added later with T13a because it needs another dependency.\n- `extensions.ts`: the extension list. `StarterKit` with the pieces this phase does not use turned off (horizontal rule, underline, link; and the trailing-node feature if StarterKit has it, because it adds an empty paragraph to the end of every document that would then be saved into notes; if you keep it, say so under Choices). `UniqueID.configure({ types: BLOCK_TYPES, attributeName: \"id\", generateID: () => crypto.randomUUID() })`.\n- `taskBlock.ts`: a custom node, not Tiptap's task list wrapper. Group `block`, content `inline*`, one attribute `checked` (boolean, default false). It renders a checkbox before the text and toggling it changes `checked` as one undo step. Enter at the end of a task starts another task; Enter on an empty task turns it into a paragraph.\n- Marks: bold, italic, strikethrough and inline code, with Tiptap's stock keyboard shortcuts.\n- `ids.ts`: pure `ensureUniqueIds(doc)` that returns the document with an id on every block in `BLOCK_TYPES` that has none and a new id for every repeated one (the first keeps its id). Found while testing: `UniqueID` does not repair the content passed to the editor at load, so loading must go through this function; the save guard stays as the second line.\n- `NoteEditor.tsx`: React component with props `doc` (Tiptap JSON) and `onChange(doc)`, using `useEditor` and `EditorContent` from `@tiptap/react`. It does no file access. Minimal styling in `src/editor/editor.css` (no outline on focus, readable spacing, checkbox aligned with the text, works in light and dark). Do not mount it in the app yet; T10.2 does.\n\n**Tests (Vitest, no DOM):**\n- Schema check with `getSchema(extensions)`: every block-level node (and `listItem`) is in `BLOCK_TYPES` and has an `id` attribute; the check fails when a node is added to the extensions without being listed; inline nodes such as the hard break have no `id`.\n- `ensureUniqueIds`: missing ids filled, repeats replaced, first keeps its id, nested blocks included, inline content untouched.\n- A document with an unchecked task, a checked task and each of the four marks survives `Node.fromJSON(schema, doc).toJSON()` unchanged.\n\n**Out of scope:** date chip (later), table, slash menu (T12), drag handle (T17), links, saving.\n\n**Not testable here:** that blocks typed in the app get ids (UniqueID does it at runtime); list it under Not tested, the Mac check covers it later.",
+			"done": [
+				"Schema test covers every block-level node and fails if one is missing from `BLOCK_TYPES` or lacks an `id`; inline nodes have none",
+				"`ensureUniqueIds` gives every block a unique id and keeps the first of a repeated one",
+				"Checked and unchecked tasks and each text mark survive the schema round trip unchanged",
+				"`npm run check` passes"
+			]
+		},
+		"T09.2": {
+			"title": "Flat task block, text marks and inline date chip (built with T09.1)",
+			"what": "Built together with T09.1 (#31): same pull request, which closes both. The task block, the four text marks and their tests are described in #31. Do not start this one separately.",
+			"done": ["Built and closed by the pull request for #31"]
+		},
+		"T10.1": {
+			"title": "Document-to-blocks mapping (with T10.2)",
+			"what": "Convert between the editor document and note blocks, and open and save a note in the editor. Built **together with T10.2 (#35) in one pull request** that says `Closes #34, closes #35`. No new dependencies, no change to the note format. Builds on T09 (#31/#32, merged first).\n\n## Brief\n\n**The format** (from the decision record): a note is a header line, then one block per line: `{\"id\",\"type\",\"parent\",\"attrs\"?,\"content\"?}`. Every block-level node is one block with its own id. `parent` is the id of the block it sits in (or `null`); a block and its children are contiguous lines in order. Inline content (text, marks, hard breaks) stays in the block's `content`. Container blocks (`bulletList`, `orderedList`, `listItem`, `blockquote`) have no `content`; their children are the lines that follow. The note files must keep their exact existing shape: use `serializeNote`/`parseNote` and the `Block` type in `src/core/note-format/`.\n\n**Where:** `src/editor/doc-blocks.ts` (pure) and tests next to it; `src/editor/note-io.ts` for open and save over the `Host`; wire it into `src/app/App.tsx` minimally.\n\n**Mapping (`doc-blocks.ts`):**\n1. `docToBlocks(doc)` and `blocksToDoc(blocks)`, both using the node names in `BLOCK_TYPES` (`src/editor/blocks.ts`). `id` comes from the node's `id` attribute; other attributes go to `attrs`, and an attribute equal to its schema default is left out (read defaults from `getSchema`) so a note that was not edited re-saves to identical bytes.\n2. Loading runs `ensureUniqueIds` (from T09) on the document before it reaches the editor.\n3. **A note is only editable if every block is fully understood:** known `type`, keys only from `id, type, parent, attrs, content`, and `attrs` only with attributes the node declares. A note with anything else (a block type from a newer app, extra fields) opens **read-only with a notice** and is never written. Same for a note the scan or parser flagged (skipped lines, newer version, damaged); the existing rule \"damaged notes are never rewritten\" stands.\n\n**Open and save (`note-io.ts`):**\n- `openNote(host, path)`: `loadNote`, then `{ editable, doc, notice }` as above.\n- `saveDoc(host, path, loaded, doc)`: new note = the loaded header unchanged (unknown header fields kept) + `docToBlocks(doc)`, saved with `saveNote` so the save guard applies. If the guard refuses, nothing is written and the problems come back for the screen to show. The title is not edited here (T19).\n- In `App.tsx`: clicking a note in the list opens it in `NoteEditor` below the list, with a plain Save button and Cmd+S. T11 replaces the button with autosave. Show the notice for read-only notes and the guard's problems for refused saves.\n\n**Tests (Vitest, `MemoryHost`):**\n- A fixture with every block type, a nested list (a list inside a list item) and every mark maps both ways with ids unchanged; `docToBlocks(blocksToDoc(blocks))` equals the blocks.\n- A 1,000-block document maps back unchanged.\n- Save then reload gives an equal document and the same ids; re-saving an unedited note gives identical bytes.\n- A refused save (duplicate or missing id) leaves the file's bytes untouched and returns the problems.\n- A note with an unknown block type, an unknown field, a skipped line or a newer version opens read-only and a save attempt does not write.\n\n**Out of scope:** autosave (T11), title edits and rename (T19, T07.1), folders, the new layout (T19).\n\n**Not tested:** how the editor looks in the real window (the screenshot check shows it).",
+			"done": [
+				"Every block type and nesting maps both ways; a 1,000-block document maps back unchanged",
+				"Save then reload gives an equal document with the same ids; an unedited note re-saves to identical bytes",
+				"A save refused by the guard leaves the file untouched and is reported on screen",
+				"A note with anything the editor does not fully understand opens read-only and is never written",
+				"`npm run check` passes"
+			],
+			"needs": ["#31"]
+		},
+		"T10.2": {
+			"title": "Open and save notes in the editor (built with T10.1)",
+			"what": "Built together with T10.1 (#34): same pull request, which closes both. Opening and saving a note in the editor is described in #34. Do not start this one separately.",
+			"done": ["Built and closed by the pull request for #34"]
+		},
+		"T11.1": {
+			"title": "Autosave timing and flush on quit (with T11.2)",
+			"what": "Autosave with a visible state, and save when you leave. Built **together with T11.2 (#38) in one pull request** that says `Closes #37, closes #38`. No new dependencies. Builds on T10 (#34/#35, merged first).\n\n## Brief\n\n**Behavior:** save about 650 ms after the last edit, and immediately on losing focus, switching notes, the window being hidden, and quitting. A failed save never discards an edit: the edits stay in memory, a persistent \"not saved\" state shows until a save succeeds, and saving is retried.\n\n**Where:** `src/editor/autosave.ts` (pure, no React, timers injectable so tests use fake time) and its test; a small status component beside the editor; `src/host/` for the quit hook; wire into `App.tsx`.\n\n**Controller:** `createAutosave({ save, delayMs = 650 })` with `change(doc)`, `flush()`, `retry()` and `subscribe(listener)`.\n- States: `saved`, `dirty`, `saving`, `failed(reason)`.\n- Changes within the delay become one save of the latest document. Only one save runs at a time; an edit during a save triggers another save afterward with the latest document.\n- `flush()` saves now if there is anything unsaved and resolves when done (also resolves if there was nothing to save); it reports whether the last save succeeded.\n- A failed save goes to `failed`, keeps the document, retries by itself (2 s, 5 s, 15 s, then every 30 s) and on `retry()`; success returns to `saved`.\n- The save function is `saveDoc` from T10, so the save guard still applies; a guard refusal is a `failed` state with its message, not a retry loop that hides it.\n\n**Quit:** add `onCloseRequested(handler)` to the `Host` interface (`src/host/host.ts`): the handler runs (and is awaited) before the window closes. `MemoryHost` records it and gets `simulateClose()` for tests; the Tauri host uses the window close-requested event (prevent the close, run the handler, then close). If the window needs a permission added in `src-tauri/capabilities/`, add it (no Rust code should be needed; the Rust checks must still pass). If the flush on quit fails, keep the window open and show the not-saved state; a second close request closes it (list this under Choices).\n\n**Screen:** a one-line status near the editor with `role=\"status\"`: \"Saved\", \"Saving…\", \"Not saved. Retrying…\" with a Retry button. The failed state is clearly visible (color and text, not color alone). Remove the Save button from T10.2 or keep it as \"Save now\" calling `flush()`.\n\n**Tests (Vitest, fake timers, `MemoryHost`):**\n- Two changes within 650 ms make one save with the latest document; one change saves after 650 ms.\n- `flush()` saves immediately and waits; with nothing pending it does nothing.\n- An edit during an in-flight save is saved afterward, none lost.\n- A host whose `writeText` fails: the document stays, state is `failed`, a later success returns to `saved`, and the saved file has the edit.\n- Quit during a pending delay (`simulateClose()`) saves first; quit with a failing save does not close.\n\n**Out of scope:** the changed-on-disk check (T11.3): until it exists, edit a vault from one place at a time.\n\n**Not tested:** blur, hidden-window and real Mac quit behavior (check on the Mac).",
+			"done": [
+				"Changes within 650 ms become one save; edits during a save are saved afterward, none lost",
+				"Quitting during a pending save flushes first",
+				"A failing host keeps the edits, shows \"not saved\" until a save succeeds, and retries",
+				"`npm run check` and the Rust checks pass"
+			],
+			"needs": ["#34"]
+		},
+		"T11.2": {
+			"title": "Save failure state and retry (built with T11.1)",
+			"what": "Built together with T11.1 (#37): same pull request, which closes both. The \"not saved\" state, retry and its tests are described in #37. Do not start this one separately.",
+			"done": ["Built and closed by the pull request for #37"]
+		},
+		"T19.1": {
+			"title": "App layout and note view (with T19.2)",
+			"what": "The real window: a note list beside the note, a title field above the editor, new note, and reopening where you left off. Built **together with T19.2 (#57) in one pull request** that says `Closes #56, closes #57`. No new dependencies. Builds on T10 and T11 (merged first) and T07.1 (#25, rename).\n\n## Brief\n\n**Where:** `src/app/` (App, a small `app.css` replacing the inline styles), tests for the pure parts next to them.\n\n**Layout:**\n- Left sidebar: the vault name, the note list (title, sorted by title ignoring case; read-only notes marked), a **New note** button and **Choose vault…**.\n- Main pane: a title field above `NoteEditor`; the status line from T11.\n- Selecting a note flushes the current one first (T11 `flush()`); if that flush fails, stay on the current note and show the not-saved state.\n- Simple, calm styling that follows light and dark system settings; usable at the app's default window size and a narrow one.\n\n**Title and rename:** editing the title saves the header title through the same autosave path as the body; once saved, the file is renamed with `renameNote` from T07.1 (`src/core/notes/rename.ts`), and the list and the open path update. A failed rename keeps the title and shows the notice T07.1 returns. Read-only notes have a read-only title.\n\n**New note and reopen (T19.2):** New note creates \"Untitled\" (`createNote`), selects it and focuses the title. The last vault already reopens at launch (#132/#133): keep that working. Also reopen the last note: remember its path wherever the host already keeps the last vault; if there is no such place, open the first note in the list. A missing remembered note is not an error.\n\n**Tests (Vitest, `MemoryHost`):** a fixture note shows its exact title and every block in order (through `blocksToDoc`); create, edit, quit (`simulateClose()`), reopen keeps the edit; a title change renames the file and keeps `noteId` and content; switching notes with a failing save stays put; sorting ignores case; the remembered note missing falls back to the first.\n\n**Out of scope:** folders (T18), properties, tags, search, trash screen, read-only mode details (T19.3).\n\n**Not tested:** appearance on the Mac (the screenshot check posts it).",
+			"done": [
+				"Opening a fixture note shows its exact title and every block in order",
+				"Create, edit, quit, reopen keeps the edit",
+				"Editing the title renames the file and keeps `noteId` and content",
+				"The last vault and the last note reopen at launch",
+				"`npm run check` passes"
+			],
+			"needs": ["#25", "#37"]
+		},
+		"T19.2": {
+			"title": "New note and reopen last vault (built with T19.1)",
+			"what": "Built together with T19.1 (#56): same pull request, which closes both. New note, rename wiring and reopen-last are described in #56. Do not start this one separately.",
+			"done": ["Built and closed by the pull request for #56"]
+		}
+	},
+	"addLabels": {
+		"T09.1": ["ready"],
+		"T10.1": ["ready"],
+		"T11.1": ["ready"],
+		"T19.1": ["ready"],
+		"T07.2": ["deferred"],
+		"T08.2": ["deferred"]
+	},
+	"removeLabels": {
+		"T07.2": ["ready"],
+		"T08.2": ["ready"]
+	}
+}

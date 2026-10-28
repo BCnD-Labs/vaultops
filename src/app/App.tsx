@@ -4,6 +4,7 @@ import { NoteEditor } from "../editor/NoteEditor";
 import { type OpenedNote, openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
 import { SaveStatus } from "../editor/SaveStatus";
+import { saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { browserLastNote, pickInitialNote } from "./last-note";
@@ -210,6 +211,29 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	// A note changed on disk while it was open: take the disk version...
+	const loadDisk = async () => {
+		const path = livePathRef.current ?? opened?.path;
+		if (!path) return;
+		autosave.discard();
+		await show(path, vaultName);
+	};
+
+	// ...or keep my edits as a separate note, leaving the file alone.
+	const saveCopy = async () => {
+		const draft = autosave.peek();
+		if (!opened || !draft) return;
+		const path = livePathRef.current ?? opened.path;
+		const result = await saveAsCopy(host, { ...opened, path }, draft);
+		if (!result.ok) {
+			setError(`The copy was not saved: ${result.message}`);
+			return;
+		}
+		autosave.discard();
+		setView(await loadVault(host));
+		await show(result.path, vaultName);
+	};
+
 	const editor = opened && (
 		<>
 			<input
@@ -229,7 +253,12 @@ export function App({ host }: { host: Host }) {
 			/>
 			<div className="status-line">
 				{opened.editable && (
-					<SaveStatus state={autosave.state} onRetry={autosave.retry} />
+					<SaveStatus
+						state={autosave.state}
+						onRetry={autosave.retry}
+						onLoadDisk={loadDisk}
+						onSaveCopy={saveCopy}
+					/>
 				)}{" "}
 				{confirmTrash ? (
 					<span>

@@ -1,7 +1,9 @@
-import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NoteEditor } from "../editor/NoteEditor";
-import { type OpenedNote, openNote, saveDoc } from "../editor/note-io";
+import { type OpenedNote, openNote } from "../editor/note-io";
+import { createQuitGuard } from "../editor/quit";
+import { SaveStatus } from "../editor/SaveStatus";
+import { useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { chooseAndLoad, loadVault, newNote, type VaultView } from "./session";
 
@@ -11,47 +13,60 @@ export function App({ host }: { host: Host }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [opened, setOpened] = useState<OpenedNote | null>(null);
-	const [saveMessage, setSaveMessage] = useState<string | null>(null);
-	const latest = useRef<JSONContent | null>(null);
+	const autosave = useAutosave(host, opened);
+	const flushRef = useRef(autosave.flush);
+	flushRef.current = autosave.flush;
+
+	// Leaving a note (open another, change vault) first saves it; if that
+	// fails the note stays open so nothing typed is lost.
+	const settle = useCallback(async () => {
+		if (await flushRef.current()) return true;
+		setError("This note is not saved yet. Retry saving before leaving it.");
+		return false;
+	}, []);
 
 	const open = useCallback(
 		async (path: string) => {
+			if (!(await settle())) return;
 			try {
-				const next = await openNote(host, path);
-				latest.current = next.doc;
-				setSaveMessage(null);
-				setOpened(next);
+				setError(null);
+				setOpened(await openNote(host, path));
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			}
 		},
-		[host],
+		[host, settle],
 	);
 
-	// T11 replaces this button with autosave.
-	const save = useCallback(async () => {
-		if (!opened) return;
-		const result = await saveDoc(host, opened, latest.current ?? opened.doc);
-		if (result.ok) {
-			setOpened({ ...opened, note: result.note });
-			setSaveMessage("Saved");
-		} else {
-			setSaveMessage(`Not saved: ${result.message}`);
-		}
-	}, [host, opened]);
-
-	const saveRef = useRef(save);
-	saveRef.current = save;
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
 				event.preventDefault();
-				void saveRef.current();
+				void flushRef.current();
 			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, []);
+
+	// Saving on quit: the window waits for the save, and stays open if it fails.
+	useEffect(() => {
+		let remove: (() => void) | undefined;
+		let gone = false;
+		host
+			.onCloseRequested(createQuitGuard(() => flushRef.current()))
+			.then((off) => {
+				if (gone) off();
+				else remove = off;
+			})
+			.catch(() =>
+				setError("Saving on quit is unavailable. Save before closing."),
+			);
+		return () => {
+			gone = true;
+			remove?.();
+		};
+	}, [host]);
 
 	const run = useCallback(async (task: () => Promise<VaultView | null>) => {
 		setBusy(true);
@@ -85,7 +100,8 @@ export function App({ host }: { host: Host }) {
 				<button
 					type="button"
 					disabled={busy}
-					onClick={() => {
+					onClick={async () => {
+						if (!(await settle())) return;
 						setOpened(null);
 						run(() => chooseAndLoad(host));
 					}}
@@ -147,15 +163,11 @@ export function App({ host }: { host: Host }) {
 						key={opened.path}
 						doc={opened.doc}
 						editable={opened.editable}
-						onChange={(doc) => {
-							latest.current = doc;
-							setSaveMessage(null);
-						}}
+						onChange={autosave.change}
 					/>
-					<button type="button" disabled={!opened.editable} onClick={save}>
-						Save
-					</button>{" "}
-					<span role="status">{saveMessage}</span>
+					{opened.editable && (
+						<SaveStatus state={autosave.state} onRetry={autosave.retry} />
+					)}
 				</section>
 			)}
 		</main>

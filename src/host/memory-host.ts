@@ -121,6 +121,24 @@ export class MemoryHost implements Host {
 		return this.find(this.parts(path, true))?.kind ?? null;
 	}
 
+	private readonly closeHandlers = new Set<() => Promise<boolean>>();
+
+	async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
+		this.closeHandlers.add(handler);
+		return () => {
+			this.closeHandlers.delete(handler);
+		};
+	}
+
+	/** Test helper: ask the "window" to close. Resolves true if it would close. */
+	async simulateClose(): Promise<boolean> {
+		let allowed = true;
+		for (const handler of [...this.closeHandlers]) {
+			if (!(await handler())) allowed = false;
+		}
+		return allowed;
+	}
+
 	private parts(path: string, allowRoot = false): string[] {
 		const check = checkVaultPath(path, { allowRoot });
 		if (!check.ok) throw new HostError("invalid-path", check.reason);

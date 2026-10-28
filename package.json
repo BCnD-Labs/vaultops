@@ -16,7 +16,9 @@
 		"format": "biome check --write .",
 		"test": "vitest run --passWithNoTests",
 		"test:watch": "vitest",
-		"check": "npm run typecheck && npm run lint && npm run test"
+		"check": "npm run typecheck && npm run lint && npm run test",
+		"shots": "bash scripts/shots.sh",
+		"mac-check": "bash scripts/mac-check.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.2",

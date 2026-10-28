@@ -1,7 +1,7 @@
 name: PR rules
 
-# Checks each pull request against the AGENTS.md rules: links its issue, has
-# Tested / Not tested sections and a "Based on" line (red X if missing), stays
+# Checks each pull request against the AGENTS.md rules: links its issue and has
+# Tested / Not tested sections (red X if missing), stays
 # roughly under 400 changed lines, lock files aside (warning only), and removes
 # "Generated with Claude Code" footers and session links from the description.
 # Logic and tests: .github/scripts/pr-rules.cjs. Pull requests from forks get a

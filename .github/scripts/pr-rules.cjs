@@ -2,7 +2,7 @@
 // actions/github-script. Rules come from AGENTS.md:
 //   - roughly under 400 changed lines, lock files aside (warning only)
 //   - links its issue: "Closes #N" (or Fixes/Resolves) or "Part of #N"
-//   - has a "Tested" and a "Not tested" section, and a "Based on" line
+//   - has a "Tested" and a "Not tested" section
 //   - no "Generated with Claude Code" footers or session links (removed automatically)
 
 const MARKER = "<!-- vaultops-pr-rules -->";
@@ -32,11 +32,6 @@ const RULES = [
 	{
 		test: label("not tested"),
 		message: 'Add a "Not tested" section (say "nothing" if everything was).',
-	},
-	{
-		test: label("based on"),
-		message:
-			'Add a "Based on" line: the library, official doc or known pattern this follows, or "new code, because nothing fit: …".',
 	},
 ];
 

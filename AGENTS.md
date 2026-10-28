@@ -34,18 +34,14 @@ CI runs the Rust checks on Linux. Some tests only check anything on a Mac (names
 
 ## Team and handoff
 
-Several agents work on this repo. Status lives in labels and pull requests, so any agent (and any person) can see who has what.
+Claude and Codex build; Blake (the maintainer) decides product questions and merges. Gemini does not build: it writes the recap (Actions -> Recap). Status lives in labels and pull requests.
 
-- **Roles, not names.** Roles belong to the job, and any agent can hold any of them; Blake decides who holds which.
-  - **Maintainer** (always Blake): final say, approves merges, decides product questions, the only one who removes `hold`, and assigns the roles.
-  - **Coordinator** (currently Claude; set by the repo variable `COORDINATOR`): writes briefs into issues, marks them `ready` (adding an agent label only to reserve one for a specific agent), reviews pull requests and posts a verdict (merge, send back, or maintainer's call). A coordinator never reviews its own pull request.
-  - **Builder** (any agent, the coordinator included): builds from the brief in a `ready` issue that carries its name or no agent label.
-- **Labels.** `ready` = has a brief and can be picked up. `agent:claude`, `agent:codex`, `agent:gemini` = reserved for that agent (optional: an issue without one can go to any agent). A "Depends on" section in an issue lists issues that must be closed first. `paused` = parked on purpose, with a comment saying why (`needs decision` works the same way). `hold` = a problem or open question.
-- **Before starting work:** (1) if any open issue or pull request has `hold`, stop and start nothing new; (2) you may have up to 3 open pull requests; with 3 open, finish one first; (3) otherwise take the oldest open issue labeled `ready` that has no agent label or your own, whose "Depends on" issues are all closed, with no open pull request linked to it. The Agents button's `next` does this for up to 3 issues in a row, one pull request each.
-- **While working:** open a **draft** pull request with `Closes #N` early, so the claim shows on the issue. Mark it ready for review when CI is green.
-- **Builders don't stop to ask.** Small gaps in a brief are decided by the builder and listed under **Choices I made** in the pull request. If the job needs something on the "Ask the maintainer first" list below, build everything else, then describe it under **Decision needed** in the pull request (options A, B, C) and add the `needs decision` label. That isn't a failure and puts nothing on hold; Blake decides and the work continues.
-- **When something goes wrong** (a check fails and you can't fix it, or a review disputes the work): add `hold` to the pull request, comment what is needed, and stop. Work in progress stays parked; nothing is deleted.
-- **Maintainer's word wins.** If Blake tells you to take an issue labeled for another agent, take it and move the agent label to yourself.
+- **Labels.** `ready` = has a brief and can be picked up by any builder. A "Depends on" section in an issue lists issues that must be closed first. `needs decision` and `paused` = leave it alone until Blake clears the label (a comment says why). `deferred` = not now.
+- **Starting work.** Take the oldest open `ready` issue whose "Depends on" issues are all closed and that has no open pull request. The Agents button (Actions -> Agents: pick claude or codex, `next`, and 1 to 3 issues) does this for you, one pull request per issue; it also works from the GitHub mobile app. Codex runs on Blake's Mac, so the Mac must be on and awake.
+- **Builders don't stop to ask.** Small gaps in a brief are decided by the builder and listed under **Choices I made** in the pull request. If the job needs something on the "Ask the maintainer first" list below, build everything else, then describe it under **Decision needed** (options A, B, C) and add the `needs decision` label.
+- **If a run can't finish** (nothing changed, the brief can't be met, or it touches CI or dependencies): the issue gets a comment and the `needs decision` label, nothing is pushed, and the next issue still runs.
+- **Review.** There is no review step. CI must be green and Blake merges. A pull request that fails CI is left as it is for Blake or the next session to fix.
+- **Maintainer's word wins.** If Blake names an issue, take it whatever its labels.
 
 ## Rules
 
@@ -56,7 +52,7 @@ Several agents work on this repo. Status lives in labels and pull requests, so a
 - Never silently lose or overwrite user data. Writes are atomic (temp file, then rename); deletes move to trash.
 
 **Reuse before building**
-- Prefer an existing, maintained library, Tiptap/React Flow extension or official Tauri plugin over writing it from scratch; propose it to the maintainer (new dependencies need approval).
+- Prefer an existing, maintained library, Tiptap/React Flow extension or official Tauri plugin over writing it from scratch; propose it to the maintainer (new dependencies need approval). Say which one you used in the pull request when it matters.
 - Only use code under permissive licenses (MIT, Apache-2.0, BSD, ISC). Never copy code from GPL, AGPL or source-available non-compete (for example FSL) projects; reading them to learn how a problem was solved is fine. MPL-2.0 code may only be used as an unmodified dependency, not copied in. Dependencies may also use Unicode-3.0, Zlib or Apache-2.0 with the LLVM exception (permissive licenses Tauri's crates already use). The Dependency review check enforces this list on every pull request.
 
 **Ask the maintainer first**
@@ -66,11 +62,10 @@ Several agents work on this repo. Status lives in labels and pull requests, so a
 
 **Workflow**
 - One small pull request into `main` per piece of work. `main` is protected: never push to it directly.
-- Pull request size: keep each one reviewable in one sitting (roughly under 400 changed lines, lock files aside). Split a task into one pull request per sub-issue when it has a security-sensitive or large part; keep small tasks, or parts that make no sense alone, in one pull request. Say which in the first pull request of the task.
-- Link the issue: `Closes #N` for the sub-issue (or task) the pull request finishes, or `Part of #N` when it only does part of one.
-- Every pull request has a **Based on** line: the existing library, official doc or known pattern the change follows, or "new code, because nothing fit: <why>". Fill in `.github/pull_request_template.md`; the PR rules check enforces the issue link, Based on, Tested and Not tested.
+- Pull request size: keep each one reviewable in one sitting (roughly under 400 changed lines, lock files aside). A pull request may group up to 3 related issues that would otherwise be separate pull requests, as long as it stays reviewable; keep security-sensitive or large parts on their own.
+- Link the issue: `Closes #N` for each issue the pull request finishes (up to 3), or `Part of #N` when it only does part of one. Fill in `.github/pull_request_template.md`; the PR rules check enforces the issue link, Tested and Not tested.
 - Pull requests are squash-merged. Commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`, `ci:`.
 - Before opening a pull request: `npm run check` and the Rust checks pass locally, and CI must be green before merge.
 - Commit messages are technical: what changed in the code and why, in developer terms.
-- Pull request descriptions are written for a non-developer reader: what changed for the app or the project, in plain words, then what was tested and what was not. Add screenshots when the change is visible (the screenshot check posts them automatically for app changes).
+- Pull request descriptions are lean and written for a non-developer reader: what changed for the app or the project, in plain words; **Choices I made** or **Decision needed** only if there are any; then **Tested** and **Not tested**. Don't restate the brief. Add screenshots when the change is visible (the screenshot check posts them automatically for app changes).
 - No `Co-Authored-By` trailers, session links or "Generated with" footers in commits or pull requests.

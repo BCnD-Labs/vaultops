@@ -7,8 +7,6 @@ const GOOD = `Adds a weekly issue.
 
 Closes #12
 
-Based on: the existing issue-update script.
-
 **Tested:** dry runs.
 **Not tested:** the timer.
 `;
@@ -19,18 +17,18 @@ test("a complete description passes", () => {
 
 test("headings and list items count as sections", () => {
 	const body =
-		"Part of #4\n\n## Based on\nTauri docs\n\n## Tested\n- x\n\n## Not tested\n- y";
+		"Part of #4\n\n## Tested\n- x\n\n## Not tested\n- y";
 	assert.deepEqual(checkBody(body), []);
 });
 
 test("each missing piece is reported", () => {
 	const errors = checkBody("Just a description.");
-	assert.equal(errors.length, 4);
+	assert.equal(errors.length, 3);
 	assert.match(errors[0], /Closes #N/);
 });
 
 test("'Not tested' alone does not count as 'Tested'", () => {
-	const errors = checkBody("Closes #1\nBased on: x\n**Not tested:** all");
+	const errors = checkBody("Closes #1\n**Not tested:** all");
 	assert.equal(errors.length, 1);
 	assert.match(errors[0], /"Tested"/);
 });
@@ -48,14 +46,6 @@ test("closing keywords and 'Part of' link the issue; a bare number does not", ()
 			/Link/.test(e),
 		),
 	);
-});
-
-test("'based on' mid-sentence is not a Based on line", () => {
-	const body = GOOD.replace(
-		"Based on: the existing issue-update script.",
-		"This is based on nothing.",
-	);
-	assert.equal(checkBody(body).length, 1);
 });
 
 test("Claude Code footers and session links are removed", () => {

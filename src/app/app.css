@@ -213,3 +213,60 @@ body {
 	white-space: pre-wrap;
 	word-break: break-word;
 }
+
+.crash-report {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	display: grid;
+	place-items: center;
+	background: rgb(0 0 0 / 45%);
+}
+
+.crash-report-box {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: min(720px, calc(100vw - 48px));
+	max-height: calc(100vh - 48px);
+	padding: 16px;
+	overflow: auto;
+	background: var(--panel);
+	color: var(--text);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: 0 10px 40px rgb(0 0 0 / 35%);
+	font-size: 13px;
+}
+
+.crash-report-box h2,
+.crash-report-box h3,
+.crash-report-box p {
+	margin: 0;
+}
+
+.crash-report-box label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.crash-report-log {
+	margin: 0;
+	max-height: 220px;
+	padding: 8px;
+	overflow: auto;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.crash-report-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}

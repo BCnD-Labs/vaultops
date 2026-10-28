@@ -91,4 +91,19 @@ export interface Host {
 	 * in a vault). Best effort: callers must not depend on it succeeding.
 	 */
 	appendLog(lines: string): Promise<void>;
+
+	/**
+	 * The app's own small files, kept outside any vault (settings folder). Only
+	 * the names in `APP_FILE_NAMES` work. Reads resolve to null when the file
+	 * doesn't exist yet; writes are atomic.
+	 */
+	readAppFile(name: AppFileName): Promise<string | null>;
+	writeAppFile(name: AppFileName, text: string): Promise<void>;
+
+	/** The last lines of the app's log file ("" when there is none yet). */
+	readLogTail(maxLines: number): Promise<string>;
 }
+
+/** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */
+export const APP_FILE_NAMES = ["session.json", "crash-report.txt"] as const;
+export type AppFileName = (typeof APP_FILE_NAMES)[number];

@@ -1,3 +1,4 @@
+pub mod app_files;
 pub mod file_ops;
 pub mod folder_ops;
 pub mod host_error;
@@ -187,6 +188,40 @@ fn append_log(app: tauri::AppHandle, lines: String) -> Result<(), HostError> {
     log_file::append(&dir, &lines).map_err(|e| HostError::from_io(&e))
 }
 
+/// Read one of the app's own small files (see `app_files::ALLOWED`) from the
+/// app's settings folder. `None` when it doesn't exist yet.
+#[tauri::command(async)]
+fn read_app_file(app: tauri::AppHandle, name: String) -> Result<Option<String>, HostError> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|_| HostError::new(ErrorCode::Io, "settings folder is unavailable"))?;
+    app_files::read(&dir, &name).map_err(|e| HostError::from_io(&e))
+}
+
+/// Replace one of the app's own small files atomically.
+#[tauri::command(async)]
+fn write_app_file(app: tauri::AppHandle, name: String, text: String) -> Result<(), HostError> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|_| HostError::new(ErrorCode::Io, "settings folder is unavailable"))?;
+    app_files::write(&dir, &name, &text).map_err(|e| HostError::from_io(&e))
+}
+
+/// The last lines of the app's log file, for the crash report.
+#[tauri::command(async)]
+fn read_log_tail(app: tauri::AppHandle, max_lines: usize) -> Result<String, HostError> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
+    app_files::log_tail(&dir, max_lines).map_err(|e| HostError::from_io(&e))
+}
+
 /// Named `move_entry` because `move` is a Rust keyword.
 #[tauri::command(async)]
 fn move_entry(
@@ -220,7 +255,10 @@ pub fn run() {
             make_folder,
             kind_of,
             move_entry,
-            append_log
+            append_log,
+            read_app_file,
+            write_app_file,
+            read_log_tail
         ])
         .run(tauri::generate_context!())
         .expect("error while running the VaultOps app");

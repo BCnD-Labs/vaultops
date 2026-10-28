@@ -85,4 +85,10 @@ export interface Host {
 	 * register it, so the app can warn that saving on quit is unavailable.
 	 */
 	onCloseRequested(handler: () => Promise<boolean>): Promise<() => void>;
+
+	/**
+	 * Append lines to the app's own log file (kept in the app's log folder, never
+	 * in a vault). Best effort: callers must not depend on it succeeding.
+	 */
+	appendLog(lines: string): Promise<void>;
 }

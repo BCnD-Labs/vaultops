@@ -121,6 +121,13 @@ export class MemoryHost implements Host {
 		return this.find(this.parts(path, true))?.kind ?? null;
 	}
 
+	/** Test helper: everything sent to the log, in order. */
+	readonly logLines: string[] = [];
+
+	async appendLog(lines: string): Promise<void> {
+		this.logLines.push(lines);
+	}
+
 	private readonly closeHandlers = new Set<() => Promise<boolean>>();
 
 	async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {

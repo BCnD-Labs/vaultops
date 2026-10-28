@@ -176,4 +176,32 @@ describe("createAutosave", () => {
 		await auto.flush();
 		expect(seen).toEqual([]);
 	});
+
+	it("a conflict waits for the person: no automatic retry, the edit is kept, an explicit retry tries again", async () => {
+		const { auto, save } = setup([
+			{ ok: false, message: "changed on disk", conflict: true },
+		]);
+		auto.change(doc("mine"));
+		await vi.advanceTimersByTimeAsync(650);
+		expect(auto.getState()).toEqual({
+			kind: "failed",
+			reason: "changed on disk",
+			conflict: true,
+		});
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(save).toHaveBeenCalledTimes(1);
+		expect(auto.peek()).toEqual(doc("mine"));
+		expect(await auto.retry()).toBe(true); // the conflict is gone now
+	});
+
+	it("discard drops the unsaved value on purpose and goes back to saved", async () => {
+		const { auto, save } = setup([{ ok: false, message: "x", conflict: true }]);
+		auto.change(doc("mine"));
+		await auto.flush();
+		auto.discard();
+		expect(auto.peek()).toBeNull();
+		expect(auto.getState().kind).toBe("saved");
+		await vi.advanceTimersByTimeAsync(60000);
+		expect(save).toHaveBeenCalledTimes(1);
+	});
 });

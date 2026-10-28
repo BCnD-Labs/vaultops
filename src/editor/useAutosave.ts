@@ -43,7 +43,12 @@ export function useAutosave(
 				if (!result.ok) return result;
 				// Build the next save on what was just written, at its new path.
 				const oldPath = note.path;
-				note = { ...note, path: result.path, note: result.note };
+				note = {
+					...note,
+					path: result.path,
+					note: result.note,
+					baseText: result.text,
+				};
 				savedRef.current?.({
 					oldPath,
 					path: result.path,
@@ -72,6 +77,8 @@ export function useAutosave(
 		() => current.current?.retry() ?? Promise.resolve(true),
 		[],
 	);
+	const peek = useCallback(() => current.current?.peek() ?? null, []);
+	const discard = useCallback(() => current.current?.discard(), []);
 	const change = useCallback((draft: Draft) => {
 		current.current?.change(draft);
 	}, []);
@@ -89,5 +96,5 @@ export function useAutosave(
 		};
 	}, [flush]);
 
-	return { state, change, flush, retry };
+	return { state, change, flush, retry, peek, discard };
 }

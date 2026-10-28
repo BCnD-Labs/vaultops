@@ -3,8 +3,9 @@ import {
 	describeSaveProblems,
 	type Note,
 	type ParseResult,
+	parseNote,
 } from "../core/note-format";
-import { loadNote, saveNote } from "../core/notes/repository";
+import { saveNote } from "../core/notes/repository";
 import type { Host } from "../host/host";
 import { blocksToDoc, checkBlocks, docToBlocks } from "./doc-blocks";
 import { ensureUniqueIds } from "./ids";
@@ -18,11 +19,17 @@ export interface OpenedNote {
 	/** False for a note this version must not rewrite; `notice` says why. */
 	editable: boolean;
 	notice?: string;
+	/**
+	 * The file's exact text when it was read or last written by this app. Before
+	 * each save the file is compared with it, so a change made elsewhere is never
+	 * overwritten.
+	 */
+	baseText: string | null;
 }
 
 export type SaveOutcome =
-	| { ok: true; note: Note }
-	| { ok: false; message: string };
+	| { ok: true; note: Note; text: string }
+	| { ok: false; message: string; conflict?: boolean };
 
 const EMPTY: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
@@ -45,13 +52,15 @@ function whyReadOnly(parsed: ParseResult): string | null {
  * be shown at all) and is never written.
  */
 export async function openNote(host: Host, path: string): Promise<OpenedNote> {
-	const parsed = await loadNote(host, path);
+	const baseText = await host.readText(path);
+	const parsed = parseNote(baseText);
 	if (!parsed.note) {
 		return {
 			path,
 			note: null,
 			doc: EMPTY,
 			editable: false,
+			baseText,
 			notice: "This file isn't a readable note, so it was left alone.",
 		};
 	}
@@ -63,6 +72,7 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 			note,
 			doc: EMPTY,
 			editable: false,
+			baseText,
 			notice: `This note has ${understood.reason}, which this version can't show or edit. Nothing was changed.`,
 		};
 	}
@@ -73,6 +83,7 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 		note,
 		doc,
 		editable: readOnly === null,
+		baseText,
 		...(readOnly === null ? {} : { notice: readOnly }),
 	};
 }
@@ -102,7 +113,7 @@ export async function saveDoc(
 		if (!check.ok) {
 			return { ok: false, message: describeSaveProblems(check.problems) };
 		}
-		return { ok: true, note };
+		return { ok: true, note, text: check.text };
 	} catch (error) {
 		return {
 			ok: false,

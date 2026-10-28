@@ -1,11 +1,13 @@
 /** What a save reports: either it worked, or why not (in plain words). */
-export type SaveResult = { ok: true } | { ok: false; message: string };
+export type SaveResult =
+	| { ok: true }
+	| { ok: false; message: string; conflict?: boolean };
 
 export type AutosaveState =
 	| { kind: "saved" }
 	| { kind: "dirty" }
 	| { kind: "saving" }
-	| { kind: "failed"; reason: string };
+	| { kind: "failed"; reason: string; conflict?: boolean };
 
 export interface AutosaveOptions<T> {
 	/** Writes the document; must resolve (not throw) with the outcome. A throw counts as a failure. */
@@ -23,6 +25,10 @@ export interface Autosave<T> {
 	flush(): Promise<boolean>;
 	/** Try again right away after a failure. */
 	retry(): Promise<boolean>;
+	/** The unsaved value, if any (kept until a save succeeds or `discard`). */
+	peek(): T | null;
+	/** Throw away the unsaved value on purpose (the person chose the disk version or a copy). */
+	discard(): void;
 	getState(): AutosaveState;
 	subscribe(listener: (state: AutosaveState) => void): () => void;
 	/** Stop timers (the unsaved document stays unsaved: flush first). */
@@ -96,8 +102,13 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 				pending ??= doc;
 				failures += 1;
 				ok = false;
-				setState({ kind: "failed", reason: outcome.message });
-				scheduleRetry();
+				setState({
+					kind: "failed",
+					reason: outcome.message,
+					...(outcome.conflict ? { conflict: true } : {}),
+				});
+				// A conflict waits for the person's choice; other failures retry.
+				if (!outcome.conflict) scheduleRetry();
 				break;
 			}
 			return ok;
@@ -128,6 +139,13 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 		retry() {
 			clearTimeout(retryTimer);
 			return flush();
+		},
+		peek: () => pending,
+		discard() {
+			clearTimers();
+			pending = null;
+			failures = 0;
+			setState(SAVED);
 		},
 		getState: () => state,
 		subscribe(listener) {

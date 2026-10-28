@@ -1,0 +1,109 @@
+{
+	"description": "Get M1 ready for the Agents button: briefs for T07.1, T07.2 and T08.2, a new T08.3 for delete forever, the three Codex follow-ups opened to any agent (#137 after #136, same file), and finished issues closed. No agent labels: the button picks the agent.",
+	"create": {
+		"T08.3": {
+			"title": "Delete forever from Trash",
+			"milestone": "M1 Format and storage",
+			"what": "Permanently remove one entry from `.vaultops/trash/`. Needs a new `Host` method and a Rust command that refuse any path outside `.vaultops/trash/`, so it touches the native side and is kept separate from T08.2. Part of #27 (T08). The confirmation prompt is UI and belongs to the Trash screen (T24.1).",
+			"done": [
+				"Deleting anything outside `.vaultops/trash/` is refused on the fake host and the real host",
+				"Deleting a trashed note removes it and its empty timestamp folder",
+				"`npm run check` and the Rust checks pass"
+			],
+			"needs": ["T08.2"]
+		}
+	},
+	"edit": {
+		"T07.1": {
+			"title": "Rename on title edit, and move between folders",
+			"what": "Pure TypeScript over the `Host` interface: renaming a note when its title changes, and moving a note to another folder. No UI, no Rust, no new dependencies. Part of #24 (T07).\n\n## Brief\n\n**Where:** new module `src/core/notes/rename.ts`, tests in `src/core/notes/rename.test.ts` (Vitest, on `MemoryHost` from `src/host/memory-host.ts`). Use `fileNameFor` from `src/core/file-name/file-name.ts` and `saveNote`/`loadNote` from `src/core/notes/repository.ts`. Keep it in its own file so it does not collide with other work on `repository.ts`.\n\n**Behavior:**\n1. `renameNote(host, path, note, newTitle)`: save the note with the new title in its header first (through `saveNote`, so the save guard still applies), then move the file to `fileNameFor(newTitle, names in the folder except this file)`. Return the new path.\n2. A change that only differs in capital letters (\"note\" to \"Note\") still renames the file. `host.move` already allows that case.\n3. A clash with another file gets \" 2\", \" 3\" (that is what `fileNameFor` does).\n4. If the move fails, the title stays saved in the header, the file keeps its old name, and the result says so with a short notice (for example `{ path, renamed: false, notice }`). Never lose the title edit.\n5. `moveNote(host, path, folder)`: move the file into another folder, keeping its name, or the next free name if one is taken there. `noteId` and content never change.\n6. Refuse a destination inside `.vaultops/` (`isInsideVaultOps`) and a note that is read-only from the scan. Write nothing in those cases.\n\n**Out of scope:** UI, duplicate `noteId` handling (T07.2), folder operations (T18), Rust.\n\n**Tests:** rename keeps `noteId` and blocks; capital-letter-only rename changes the file name; clash gets \" 2\"; a host whose `move` fails leaves the old file name and a header with the new title, and reports it; move to another folder, including a name clash there; destinations inside `.vaultops/` are refused with no writes.",
+			"done": [
+				"Rename and move keep `noteId` and content",
+				"A capital-letter-only title change still renames the file",
+				"A rename into an existing name gets \" 2\"",
+				"A failed rename keeps the new title in the header and the old file name, and reports it",
+				"`npm run check` passes"
+			],
+			"note": "On the real Mac file system the capital-letter-only rename is checked later by the Mac test button; the fake host already behaves like the Mac."
+		},
+		"T07.2": {
+			"title": "Duplicate noteId warning and \"give this copy a new id\"",
+			"what": "Pure TypeScript over the `Host` interface: the action behind \"give this copy a new id\" for two files with the same `noteId` (for example a copy made in Finder). No UI, no Rust, no new dependencies. Part of #24 (T07).\n\n## Brief\n\n**Where:** new module `src/core/notes/duplicate-id.ts`, tests in `src/core/notes/duplicate-id.test.ts` (Vitest, on `MemoryHost`). Detection already exists: `scanVault` in `src/core/notes/scan.ts` fills `duplicateOf` and marks both copies read-only. Reuse it; do not change how scan reports duplicates.\n\n**Behavior:**\n1. `giveNewId(host, path)`: load the note, check (by scanning or by an argument the caller passes from a scan) that its `noteId` really is used by another file, then save it with a fresh `crypto.randomUUID()` as `noteId`. Only the header's `noteId` changes; title, props and every block stay byte-for-byte the same when written back.\n2. Refuse, writing nothing, when the note is not a duplicate, when it is damaged, truncated or from a newer format (only notes that read cleanly can be rewritten), or when the path is inside `.vaultops/`.\n3. Never run automatically: nothing calls it except the user's action (UI comes later).\n4. After the action, a new scan shows no duplicate for either file, and both are no longer read-only.\n\n**Out of scope:** UI, rename and move (T07.1), Rust.\n\n**Tests:** two copies with the same id: the action changes only the chosen file's `noteId`, the other file is untouched; the rest of the chosen file's text is unchanged; refused for a non-duplicate, a truncated copy and a newer-format copy; a rescan reports no duplicates.",
+			"done": [
+				"Duplicates are found on scan (already built; covered again here)",
+				"The action changes only the chosen file's `noteId`",
+				"It refuses damaged, truncated and newer-format notes and writes nothing",
+				"`npm run check` passes"
+			]
+		},
+		"T08.2": {
+			"title": "Delete to trash and restore",
+			"what": "Pure TypeScript over the `Host` interface: moving a note to the vault's Trash and putting it back, using the layout decided in T08.1. Uses `host.move` only: nothing is erased. Delete forever is T08.3. No UI, no Rust, no new dependencies. Part of #27 (T08).\n\n## Brief\n\n**Where:** new module `src/core/notes/trash.ts`, tests in `src/core/notes/trash.test.ts` (Vitest, on `MemoryHost`).\n\n**Layout (decided in T08.1):** a deleted note moves to `.vaultops/trash/<timestamp>/<original relative path>`. The timestamp is UTC with no colons, for example `2026-10-27T15-04-05-123Z`; if that folder already exists, add \" 2\", \" 3\". No separate record file.\n\n**Behavior:**\n1. `trashNote(host, path)`: create the folders it needs (`host.makeFolder`), then `host.move` the note there. Refuse paths inside `.vaultops/`.\n2. `listTrash(host)`: every trashed note with its original path and deletion time, read from the folder layout, newest first.\n3. `restoreNote(host, trashPath)`: move it back to its original path. If the original folder no longer exists, restore to the vault root. If the name is taken, use the next free name with \" 2\" (compared the way `fileNameFor` compares: capital letters and Unicode form count as the same). Remove the timestamp folder once it is empty only if `Host` can already do that; otherwise leave it (T08.3 adds removal).\n4. Nothing here ever erases a file. Trash is never emptied automatically.\n\n**Out of scope:** delete forever (T08.3), the Trash screen and its confirmation (T24.1), Rust.\n\n**Tests:** delete then restore gives the same text at the same path; restore when the folder is gone goes to the root; restore with a name clash and with a capital-letter-only clash gets \" 2\"; two deletes in the same millisecond do not collide; deleting from inside `.vaultops/` is refused; `listTrash` shows original paths and times.",
+			"done": [
+				"Delete, restore, restore into a missing folder (vault root), restore with a name clash (\" 2\", including a capital-letter-only clash)",
+				"No code path erases a note",
+				"`npm run check` passes"
+			]
+		},
+		"#135": {
+			"title": "Recover interrupted vault creation when config.json is missing",
+			"what": "An interrupted creation leaves `.vaultops/` present but `config.json` missing, and the folder stays damaged forever.\n\nUpdate `src/core/vault/vault.ts` to recognize an unfinished creation containing only empty reserved folders and safely finish creating the vault. Preserve existing data and keep genuinely damaged or populated vaults protected.",
+			"done": [
+				"Missing config plus only empty reserved folders can finish creation",
+				"A populated or unexpected entry is not overwritten or mistaken for an unfinished creation",
+				"Regression tests added and `npm run check` passes"
+			],
+			"note": "Follow-up from the T05 review. One pull request, from the latest `main`."
+		},
+		"#136": {
+			"title": "Refuse note creation inside the reserved .vaultops folder",
+			"what": "`createNote()` currently permits creating a note inside `.vaultops/`.\n\nUpdate `src/core/notes/repository.ts` to refuse destinations inside the reserved metadata folder, using the existing vault path and reserved-folder rules (`isInsideVaultOps`).",
+			"done": [
+				"Direct and nested destinations within `.vaultops/` are refused without writes",
+				"Case variants follow the existing name comparison rules",
+				"Normal note destinations still work",
+				"Regression tests added and `npm run check` passes"
+			],
+			"note": "Follow-up from the T06 review. One pull request, from the latest `main`."
+		},
+		"#137": {
+			"title": "List notes with case-insensitive .vnote extensions",
+			"what": "`listNotes()` misses files such as `Note.VNOTE`.\n\nUpdate `src/core/notes/repository.ts` to compare the `.vnote` suffix without regard to letter case.",
+			"done": [
+				"Lowercase, uppercase and mixed-case `.vnote` endings are included",
+				"Non-note file endings remain excluded",
+				"Regression tests added and `npm run check` passes"
+			],
+			"needs": ["#136"],
+			"note": "Follow-up from the T06 review. Waits for #136 because both change `repository.ts`. One pull request, from the latest `main`."
+		}
+	},
+	"close": {
+		"T03": [
+			"completed",
+			"Done in #9 (same task as #10, which is already closed). Closed while tidying the task list for the Agents button."
+		],
+		"T04": [
+			"completed",
+			"All four parts are merged (T04.1 to T04.4). Closed while tidying the task list for the Agents button."
+		],
+		"T05.2": [
+			"completed",
+			"Built in #132 and #133: the system folder picker (official Tauri dialog plugin) opens or creates the vault, and cancelling changes nothing."
+		],
+		"T06": ["completed", "All three parts are merged (T06.1 to T06.3)."]
+	},
+	"addLabels": {
+		"T07.1": ["ready"],
+		"T07.2": ["ready"],
+		"T08.2": ["ready"],
+		"#135": ["ready"],
+		"#136": ["ready"],
+		"#137": ["ready"]
+	},
+	"removeLabels": {
+		"#135": ["agent:codex"],
+		"#136": ["agent:codex"],
+		"#137": ["agent:codex"]
+	}
+}

@@ -24,7 +24,8 @@ import urllib.parse
 REPO = os.environ["GITHUB_REPOSITORY"]
 DRY = "--dry-run" in sys.argv
 DATA = json.load(open(sys.argv[1], encoding="utf-8"))
-for section in ("create", "edit", "defer", "close", "unlabel", "milestones", "labels", "addLabels"):
+for section in ("create", "edit", "defer", "close", "unlabel", "milestones", "labels", "addLabels",
+                "removeLabels"):
     DATA.setdefault(section, {})
 KEY = re.compile(r"^[A-Z][A-Za-z0-9.]*$")  # "T04.1", "T13a", "A3"
 
@@ -55,6 +56,8 @@ def all_issues():
         if not items:
             return found
         for issue in items:
+            if "pull_request" not in issue:
+                found[f"#{issue['number']}"] = issue
             title = issue["title"]
             key = title.split(": ", 1)[0]
             if "pull_request" in issue or ": " not in title or not KEY.match(key):
@@ -69,7 +72,8 @@ def body_for(item, numbers):
     if item.get("decision"):
         lines += ["", f"**Needs a maintainer decision:** {item['decision']}."]
     if item.get("needs"):
-        refs = [f"#{numbers[n]} ({n})" if n in numbers else f"{n} (done)" for n in item["needs"]]
+        refs = [n if n.startswith("#") else f"#{numbers[n]} ({n})" if n in numbers else f"{n} (done)"
+                for n in item["needs"]]
         lines += ["", "## Depends on", ", ".join(refs)]
     if item.get("note"):
         lines += ["", item["note"]]
@@ -80,7 +84,7 @@ def main():
     issues = all_issues()
     numbers = {k: v["number"] for k, v in issues.items()}
     wanted = (set(DATA["edit"]) | set(DATA["defer"]) | set(DATA["close"]) | set(DATA["unlabel"])
-              | set(DATA["addLabels"]))
+              | set(DATA["addLabels"]) | set(DATA["removeLabels"]))
     missing = sorted(wanted - set(issues))
     if missing:
         sys.exit(f"Issues not found by title: {missing}")
@@ -140,7 +144,8 @@ def main():
 
     for key, item in DATA["edit"].items():
         issue = issues[key]
-        title, body = f"{key}: {item['title']}", body_for(item, numbers)
+        title = item["title"] if key.startswith("#") else f"{key}: {item['title']}"
+        body = body_for(item, numbers)
         if issue["title"] != title or (issue["body"] or "") != body:
             act(f"edit #{issue['number']} {title}", lambda n=issue["number"], t=title, b=body: gh(
                 f"repos/{REPO}/issues/{n}", "-X", "PATCH", body={"title": t, "body": b}))
@@ -180,6 +185,12 @@ def main():
         if missing:
             act(f"add {missing} to #{issue['number']} ({key})", lambda n=issue["number"], m=missing: gh(
                 f"repos/{REPO}/issues/{n}/labels", "-X", "POST", body={"labels": m}))
+
+    for key, names in DATA["removeLabels"].items():
+        issue = issues[key]
+        for name in [n for n in names if n in {x["name"] for x in issue["labels"]}]:
+            act(f"remove {name!r} from #{issue['number']} ({key})", lambda n=issue["number"], m=name: gh(
+                f"repos/{REPO}/issues/{n}/labels/{urllib.parse.quote(m)}", "-X", "DELETE"))
 
     print("Dry run: nothing changed." if DRY else "Done.")
 

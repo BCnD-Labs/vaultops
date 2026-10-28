@@ -1,5 +1,6 @@
 import { checkVaultPath, nameKey } from "../core/vault-path/vault-path";
 import {
+	type AppFileName,
 	type AppInfo,
 	type DirEntry,
 	type EntryKind,
@@ -126,6 +127,21 @@ export class MemoryHost implements Host {
 
 	async appendLog(lines: string): Promise<void> {
 		this.logLines.push(lines);
+	}
+
+	private readonly appFiles = new Map<string, string>();
+
+	async readAppFile(name: AppFileName): Promise<string | null> {
+		return this.appFiles.get(name) ?? null;
+	}
+
+	async writeAppFile(name: AppFileName, text: string): Promise<void> {
+		this.appFiles.set(name, text);
+	}
+
+	async readLogTail(maxLines: number): Promise<string> {
+		const lines = this.logLines.join("\n").split("\n");
+		return lines.slice(-maxLines).join("\n");
 	}
 
 	private readonly closeHandlers = new Set<() => Promise<boolean>>();

@@ -12,6 +12,9 @@ const COMMANDS: &[&str] = &[
     "kind_of",
     "move_entry",
     "append_log",
+    "read_app_file",
+    "write_app_file",
+    "read_log_tail",
 ];
 
 fn main() {

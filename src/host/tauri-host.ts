@@ -55,6 +55,9 @@ export const tauriHost: Host = {
 	// The close is prevented unless the handler says it is fine; Tauri closes the
 	// window itself afterwards when nothing prevented it.
 	appendLog: (lines) => call<void>("append_log", { lines }),
+	readAppFile: (name) => call<string | null>("read_app_file", { name }),
+	writeAppFile: (name, text) => call<void>("write_app_file", { name, text }),
+	readLogTail: (maxLines) => call<string>("read_log_tail", { maxLines }),
 	onCloseRequested: (handler) =>
 		getCurrentWindow().onCloseRequested(async (event) => {
 			if (!(await handler())) event.preventDefault();

@@ -94,5 +94,8 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		},
 		// Not wrapped: logging the log write would never stop.
 		appendLog: (lines) => host.appendLog(lines),
+		readAppFile: (name) => host.readAppFile(name),
+		writeAppFile: (name, text) => host.writeAppFile(name, text),
+		readLogTail: (n) => host.readLogTail(n),
 	};
 }

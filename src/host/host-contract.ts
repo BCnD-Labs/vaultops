@@ -21,6 +21,20 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 			host = makeHost();
 		});
 
+		it("keeps the app's own files apart from the vault", async () => {
+			expect(await host.readAppFile("session.json")).toBeNull();
+			await host.writeAppFile("session.json", "one");
+			await host.writeAppFile("session.json", "two");
+			expect(await host.readAppFile("session.json")).toBe("two");
+			expect(await host.list("")).toEqual([]);
+		});
+
+		it("reads the end of the log", async () => {
+			expect(await host.readLogTail(5)).toBe("");
+			await host.appendLog("a\nb\nc");
+			expect(await host.readLogTail(2)).toBe("b\nc");
+		});
+
 		it("writes, reads and overwrites a file", async () => {
 			await host.writeTextAtomic("a.vnote", "one");
 			expect(await host.readText("a.vnote")).toBe("one");

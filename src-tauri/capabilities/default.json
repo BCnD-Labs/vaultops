@@ -16,6 +16,9 @@
 		"allow-make-folder",
 		"allow-kind-of",
 		"allow-move-entry",
-		"allow-append-log"
+		"allow-append-log",
+		"allow-read-app-file",
+		"allow-write-app-file",
+		"allow-read-log-tail"
 	]
 }

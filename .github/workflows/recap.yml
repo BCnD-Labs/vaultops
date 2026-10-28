@@ -1,0 +1,80 @@
+name: Recap
+
+# "What changed lately": Actions -> Recap -> Run workflow (also works from the
+# GitHub mobile app). An agent reads the last merged pull requests and writes a
+# short recap grouped by theme, shown on the run's Summary page. It changes no
+# files and posts nothing else.
+#   gemini: runs on Blake's Mac (self-hosted runner labeled vaultops-agents; the
+#           Mac has to be on and awake). Default, to save Claude's usage.
+#   claude: runs on GitHub's machines.
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Who writes the recap"
+        required: true
+        type: choice
+        default: gemini
+        options: [gemini, claude]
+      count:
+        description: "How many merged pull requests to cover"
+        required: true
+        type: choice
+        default: "12"
+        options: ["10", "12", "15"]
+
+permissions:
+  contents: read
+
+jobs:
+  claude-recap:
+    name: Claude writes the recap
+    if: inputs.agent == 'claude'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test the script
+        run: python3 -m unittest discover -s .github/recap
+      - name: Collect the pull requests
+        run: python3 .github/recap/recap.py collect "${{ inputs.count }}"
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: "Read .agent/prompt.md and follow it exactly."
+          claude_args: >-
+            --allowedTools "Read,Write,Glob,Grep"
+      - name: Show the recap
+        run: python3 .github/recap/recap.py publish
+
+  gemini-recap:
+    name: Gemini writes the recap on the Mac
+    if: inputs.agent == 'gemini'
+    runs-on: [self-hosted, macOS, vaultops-agents]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          clean: true
+      - name: Test the script
+        run: python3 -m unittest discover -s .github/recap
+      - name: Collect the pull requests
+        run: python3 .github/recap/recap.py collect "${{ inputs.count }}"
+      - name: Run Gemini (file edits only, no commands)
+        run: gemini --approval-mode auto_edit --prompt "Read .agent/prompt.md and follow it exactly."
+      - name: Show the recap
+        run: python3 .github/recap/recap.py publish

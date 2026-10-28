@@ -48,12 +48,7 @@ class Health(unittest.TestCase):
     def test_clean_report(self):
         report = h.render([issue(1, "M1")], [], NOW, 3)
         self.assertIn("Nothing needs attention.", report)
-        self.assertEqual(report.count("None."), 5)
-
-    def test_holds_cover_issues_and_pull_requests(self):
-        found = h.holds([issue(3, "M1", labels=["hold"]), issue(4, "M1")],
-                        [pull(9, "2026-10-24T08:00:00Z", labels=["hold"]), pull(8, "2026-10-24T08:00:00Z")])
-        self.assertEqual([x["number"] for x in found], [3, 9])
+        self.assertEqual(report.count("None."), 4)
 
     def test_stale_claims_are_idle_drafts_only(self):
         pulls = [pull(1, "2026-10-10T12:00:00Z", draft=True, updated="2026-10-20T12:00:00Z"),

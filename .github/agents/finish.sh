@@ -1,43 +1,43 @@
 #!/usr/bin/env bash
-# After a builder run: commit, push and open the pull request, or put the issue
-# on hold with a comment when the agent stopped, changed nothing, or touched
-# files it must not. Needs AGENT, ISSUE, BRANCH, GH_TOKEN (a token whose pull
+# After a builder run: commit, push and open the pull request, or comment on
+# the issue and mark it "needs decision" (so the next button skips it) when the
+# agent stopped, changed nothing, or touched files it must not. Needs AGENT, ISSUE, BRANCH, GH_TOKEN (a token whose pull
 # requests trigger CI) and GITHUB_REPOSITORY.
 set -euo pipefail
 
-hold() {
+stop() {
   gh issue comment "$ISSUE" --body "**${AGENT^} stopped and needs Blake:** $1"
-  gh issue edit "$ISSUE" --add-label hold
-  echo "Put #$ISSUE on hold: $1" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+  gh issue edit "$ISSUE" --add-label "needs decision"
+  echo "Stopped on #$ISSUE (marked needs decision): $1" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
   exit 0
 }
 
 if [ -s .agent/blocked.md ]; then
-  hold "$(cat .agent/blocked.md)"
+  stop "$(cat .agent/blocked.md)"
 fi
 if [ -z "$(git status --porcelain)" ]; then
-  hold "the run finished without changing any files."
+  stop "the run finished without changing any files."
 fi
 if [ -n "$(git status --porcelain -- .github package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock)" ]; then
   git status --porcelain -- .github package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-  hold "the change touches CI or dependencies, which need Blake's approval first. Nothing was pushed."
+  stop "the change touches CI or dependencies, which need Blake's approval first. Nothing was pushed."
 fi
 if [ ! -s .agent/commit-message.txt ] || [ ! -s .agent/pr-body.md ]; then
-  hold "the run did not write its commit message and pull request description. Nothing was pushed."
+  stop "the run did not write its commit message and pull request description. Nothing was pushed."
 fi
 
 git switch -q -c "$BRANCH"
 git add -A
 # Commit as the repo owner's account (its private GitHub noreply address) so a
-# squash merge by that account adds no "Co-authored-by" lines; the agent:<name>
-# label and the <agent>/ branch name show which agent built it.
+# squash merge by that account adds no "Co-authored-by" lines; the <agent>/
+# branch name shows which agent built it.
 git -c user.name="BCnD-Labs" -c user.email="342127827+BCnD-Labs@users.noreply.github.com" \
   commit -q -F .agent/commit-message.txt
 git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
 url=$(gh pr create --base main --head "$BRANCH" --title "$(head -1 .agent/commit-message.txt)" \
-  --body-file .agent/pr-body.md --label "agent:$AGENT")
+  --body-file .agent/pr-body.md)
 echo "Opened $url" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 if grep -qi '^\*\*decision needed' .agent/pr-body.md || grep -qi '^#* *decision needed' .agent/pr-body.md; then
   gh pr edit "$url" --add-label "needs decision"
-  echo "Marked it 'needs decision' for Blake (not a failure, nothing on hold)." | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+  echo "Marked it 'needs decision' for Blake (not a failure)." | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 fi

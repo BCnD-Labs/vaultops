@@ -6,6 +6,7 @@
 	"permissions": [
 		"core:event:default",
 		"core:window:default",
+		"core:window:allow-destroy",
 		"allow-app-info",
 		"allow-choose-vault",
 		"allow-current-vault",

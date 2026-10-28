@@ -77,4 +77,12 @@ export interface Host {
 
 	/** What is at a path, or null if nothing is. */
 	kindOf(path: string): Promise<EntryKind | null>;
+
+	/**
+	 * Run `handler` (and wait for it) when the window is asked to close. It
+	 * resolves true to let the window close, false to keep it open. Resolves to
+	 * a function that removes the handler; rejects if the shell could not
+	 * register it, so the app can warn that saving on quit is unavailable.
+	 */
+	onCloseRequested(handler: () => Promise<boolean>): Promise<() => void>;
 }

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
 	type AppInfo,
 	type DirEntry,
@@ -51,4 +52,10 @@ export const tauriHost: Host = {
 	list: (folder) => call<DirEntry[]>("list", { folder }),
 	makeFolder: (path) => call<void>("make_folder", { path }),
 	kindOf: (path) => call<EntryKind | null>("kind_of", { path }),
+	// The close is prevented unless the handler says it is fine; Tauri closes the
+	// window itself afterwards when nothing prevented it.
+	onCloseRequested: (handler) =>
+		getCurrentWindow().onCloseRequested(async (event) => {
+			if (!(await handler())) event.preventDefault();
+		}),
 };

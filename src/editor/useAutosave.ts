@@ -1,39 +1,57 @@
-import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Host } from "../host/host";
 import { type Autosave, type AutosaveState, createAutosave } from "./autosave";
-import { type OpenedNote, saveDoc } from "./note-io";
+import type { OpenedNote } from "./note-io";
+import { type Draft, saveDraft } from "./save-draft";
 
 const SAVED: AutosaveState = { kind: "saved" };
+
+export interface SavedInfo {
+	/** The note's path before and after this save (they differ after a rename). */
+	oldPath: string;
+	path: string;
+	title: string;
+	titleChanged: boolean;
+	notice?: string;
+}
 
 /**
  * Autosave for the open note. Edits are saved after a short pause, and also
  * when the window loses focus or is hidden. `flush` saves right now and says
- * whether everything is on disk.
+ * whether everything is on disk. A new autosave starts for each `opened` value.
  */
-export function useAutosave(host: Host, opened: OpenedNote | null) {
+export function useAutosave(
+	host: Host,
+	opened: OpenedNote | null,
+	onSaved?: (info: SavedInfo) => void,
+) {
 	const [state, setState] = useState<AutosaveState>(SAVED);
-	const current = useRef<Autosave | null>(null);
-	const openedRef = useRef(opened);
-	openedRef.current = opened;
-	const path = opened?.path ?? null;
-	const editable = opened?.editable ?? false;
+	const current = useRef<Autosave<Draft> | null>(null);
+	const savedRef = useRef(onSaved);
+	savedRef.current = onSaved;
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: a new autosave per note (path), not per object identity; the note itself is read through the ref.
 	useEffect(() => {
-		let note = openedRef.current;
-		if (!note?.editable) {
+		if (!opened?.editable) {
 			current.current = null;
 			setState(SAVED);
 			return;
 		}
-		const auto = createAutosave({
-			save: async (doc) => {
-				// Each successful save returns the note as written, so the next
-				// save builds on it instead of on the version first opened.
-				const result = await saveDoc(host, note as OpenedNote, doc);
-				if (result.ok) note = { ...(note as OpenedNote), note: result.note };
-				return result;
+		let note: OpenedNote = opened;
+		const auto = createAutosave<Draft>({
+			save: async (draft) => {
+				const result = await saveDraft(host, note, draft);
+				if (!result.ok) return result;
+				// Build the next save on what was just written, at its new path.
+				const oldPath = note.path;
+				note = { ...note, path: result.path, note: result.note };
+				savedRef.current?.({
+					oldPath,
+					path: result.path,
+					title: draft.title,
+					titleChanged: result.titleChanged,
+					...(result.notice ? { notice: result.notice } : {}),
+				});
+				return { ok: true };
 			},
 		});
 		current.current = auto;
@@ -44,7 +62,7 @@ export function useAutosave(host: Host, opened: OpenedNote | null) {
 			auto.dispose();
 			if (current.current === auto) current.current = null;
 		};
-	}, [host, path, editable]);
+	}, [host, opened]);
 
 	const flush = useCallback(
 		() => current.current?.flush() ?? Promise.resolve(true),
@@ -54,8 +72,8 @@ export function useAutosave(host: Host, opened: OpenedNote | null) {
 		() => current.current?.retry() ?? Promise.resolve(true),
 		[],
 	);
-	const change = useCallback((doc: JSONContent) => {
-		current.current?.change(doc);
+	const change = useCallback((draft: Draft) => {
+		current.current?.change(draft);
 	}, []);
 
 	useEffect(() => {

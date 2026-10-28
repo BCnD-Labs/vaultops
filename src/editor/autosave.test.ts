@@ -14,7 +14,7 @@ function setup(results: SaveOutcome[] = []) {
 	const saved: unknown[] = [];
 	const save = vi.fn(async (d: unknown) => {
 		saved.push(d);
-		return results.shift() ?? { ok: true as const, note: {} as never };
+		return results.shift() ?? { ok: true as const };
 	});
 	const auto = createAutosave({ save });
 	return { auto, save, saved };
@@ -40,7 +40,7 @@ describe("createAutosave", () => {
 		const auto = createAutosave({
 			save: () =>
 				new Promise((resolve) => {
-					release = () => resolve({ ok: true, note: {} as never });
+					release = () => resolve({ ok: true });
 				}),
 		});
 		auto.subscribe((s) => states.push(s.kind));
@@ -90,7 +90,7 @@ describe("createAutosave", () => {
 		const save = vi
 			.fn()
 			.mockRejectedValueOnce(new Error("boom"))
-			.mockResolvedValue({ ok: true, note: {} });
+			.mockResolvedValue({ ok: true });
 		const auto = createAutosave({ save });
 		auto.change(doc("a"));
 		expect(await auto.flush()).toBe(false);
@@ -108,7 +108,7 @@ describe("createAutosave", () => {
 					firstStarted = true;
 					slow.change(doc("second"));
 				}
-				return { ok: true, note: {} as never };
+				return { ok: true };
 			},
 		});
 		slow.change(doc("first"));
@@ -155,7 +155,7 @@ describe("createAutosave", () => {
 				max = Math.max(max, running);
 				await new Promise((r) => setTimeout(r, 100));
 				running -= 1;
-				return { ok: true, note: {} as never };
+				return { ok: true };
 			},
 		});
 		auto.change(doc("a"));

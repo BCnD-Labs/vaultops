@@ -65,3 +65,21 @@ describe("vault session", () => {
 		expect(view.messages.some((m) => m.startsWith("broken.vnote:"))).toBe(true);
 	});
 });
+
+describe("note list order", () => {
+	it("sorts by title ignoring case, then path", async () => {
+		const { compareRows } = await import("./session");
+		const rows = [
+			{ path: "z.vnote", title: "banana", readOnly: false },
+			{ path: "a.vnote", title: "Cherry", readOnly: false },
+			{ path: "m.vnote", title: "Apple", readOnly: false },
+			{ path: "b.vnote", title: "apple", readOnly: false },
+		].sort(compareRows);
+		expect(rows.map((r) => r.path)).toEqual([
+			"b.vnote",
+			"m.vnote",
+			"z.vnote",
+			"a.vnote",
+		]);
+	});
+});

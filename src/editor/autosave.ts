@@ -1,5 +1,5 @@
-import type { JSONContent } from "@tiptap/core";
-import type { SaveOutcome } from "./note-io";
+/** What a save reports: either it worked, or why not (in plain words). */
+export type SaveResult = { ok: true } | { ok: false; message: string };
 
 export type AutosaveState =
 	| { kind: "saved" }
@@ -7,18 +7,18 @@ export type AutosaveState =
 	| { kind: "saving" }
 	| { kind: "failed"; reason: string };
 
-export interface AutosaveOptions {
+export interface AutosaveOptions<T> {
 	/** Writes the document; must resolve (not throw) with the outcome. A throw counts as a failure. */
-	save: (doc: JSONContent) => Promise<SaveOutcome>;
+	save: (value: T) => Promise<SaveResult>;
 	/** Quiet time after the last edit before saving. */
 	delayMs?: number;
 	/** Waits before automatic retries after a failure; the last one repeats. */
 	retryDelaysMs?: number[];
 }
 
-export interface Autosave {
-	/** Remember the latest document and save it after the quiet time. */
-	change(doc: JSONContent): void;
+export interface Autosave<T> {
+	/** Remember the latest value and save it after the quiet time. */
+	change(value: T): void;
 	/** Save now if anything is unsaved. Resolves true when everything is saved. */
 	flush(): Promise<boolean>;
 	/** Try again right away after a failure. */
@@ -38,12 +38,12 @@ const SAVING: AutosaveState = { kind: "saving" };
  * memory until a save of it (or of something newer) succeeds; a failed save
  * leaves the "failed" state in place and retries by itself.
  */
-export function createAutosave(options: AutosaveOptions): Autosave {
+export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 	const delayMs = options.delayMs ?? 650;
 	const retryDelays = options.retryDelaysMs ?? [2000, 5000, 15000, 30000];
 
 	let state: AutosaveState = SAVED;
-	let pending: JSONContent | null = null;
+	let pending: T | null = null;
 	let draining: Promise<boolean> | null = null;
 	let failures = 0;
 	let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -77,7 +77,7 @@ export function createAutosave(options: AutosaveOptions): Autosave {
 				const doc = pending;
 				pending = null;
 				setState(SAVING);
-				let outcome: SaveOutcome;
+				let outcome: SaveResult;
 				try {
 					outcome = await options.save(doc);
 				} catch (error) {
@@ -118,8 +118,8 @@ export function createAutosave(options: AutosaveOptions): Autosave {
 	}
 
 	return {
-		change(doc) {
-			pending = doc;
+		change(value) {
+			pending = value;
 			if (state.kind === "saved") setState(DIRTY);
 			clearTimeout(debounce);
 			debounce = setTimeout(() => void drain(), delayMs);

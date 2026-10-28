@@ -16,8 +16,7 @@ test("a complete description passes", () => {
 });
 
 test("headings and list items count as sections", () => {
-	const body =
-		"Part of #4\n\n## Tested\n- x\n\n## Not tested\n- y";
+	const body = "Part of #4\n\n## Tested\n- x\n\n## Not tested\n- y";
 	assert.deepEqual(checkBody(body), []);
 });
 

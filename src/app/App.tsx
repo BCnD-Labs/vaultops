@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { trashNote } from "../core/notes/trash";
 import { NoteEditor } from "../editor/NoteEditor";
 import { type OpenedNote, openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
@@ -30,10 +31,13 @@ export function App({ host }: { host: Host }) {
 	const focusTitle = useRef(false);
 	const lastNotes = useRef(browserLastNote());
 	const autoOpened = useRef(false);
+	const livePathRef = useRef<string | null>(null);
+	const [confirmTrash, setConfirmTrash] = useState(false);
 	const vaultName = view?.name ?? null;
 
 	const onSaved = useCallback((info: SavedInfo) => {
 		setNotice(info.notice ?? null);
+		livePathRef.current = info.path;
 		setLivePath(info.path);
 		if (!info.titleChanged) return;
 		setView((v) =>
@@ -77,7 +81,9 @@ export function App({ host }: { host: Host }) {
 				titleRef.current = text;
 				setTitle(text);
 				setNotice(next.notice ?? null);
+				livePathRef.current = path;
 				setLivePath(path);
+				setConfirmTrash(false);
 				setOpened(next);
 				if (vault) lastNotes.current.set(vault, path);
 			} catch (e) {
@@ -182,6 +188,28 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	// Moves the open note to the vault's trash (nothing is erased).
+	const moveToTrash = async () => {
+		if (!opened || !view) return;
+		setConfirmTrash(false);
+		if (!(await settle())) return;
+		// Read after the save: a title change may just have renamed the file.
+		const path = livePathRef.current ?? opened.path;
+		setBusy(true);
+		try {
+			setOpened(null);
+			await trashNote(host, path);
+			const next = await loadVault(host);
+			autoOpened.current = false;
+			setView(next);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+			await show(path, vaultName);
+		} finally {
+			setBusy(false);
+		}
+	};
+
 	const editor = opened && (
 		<>
 			<input
@@ -202,6 +230,26 @@ export function App({ host }: { host: Host }) {
 			<div className="status-line">
 				{opened.editable && (
 					<SaveStatus state={autosave.state} onRetry={autosave.retry} />
+				)}{" "}
+				{confirmTrash ? (
+					<span>
+						Move this note to the trash?{" "}
+						<button type="button" onClick={moveToTrash}>
+							Move to trash
+						</button>{" "}
+						<button type="button" onClick={() => setConfirmTrash(false)}>
+							Cancel
+						</button>
+					</span>
+				) : (
+					<button
+						type="button"
+						className="link-button"
+						disabled={busy}
+						onClick={() => setConfirmTrash(true)}
+					>
+						Move to trash
+					</button>
 				)}
 			</div>
 			{notice && (

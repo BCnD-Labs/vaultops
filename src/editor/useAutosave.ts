@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
 import { type Autosave, type AutosaveState, createAutosave } from "./autosave";
 import type { OpenedNote } from "./note-io";
@@ -39,8 +40,30 @@ export function useAutosave(
 		let note: OpenedNote = opened;
 		const auto = createAutosave<Draft>({
 			save: async (draft) => {
+				const started = performance.now();
 				const result = await saveDraft(host, note, draft);
-				if (!result.ok) return result;
+				const logger = getLogger();
+				const ms = Math.round(performance.now() - started);
+				if (!result.ok) {
+					const conflict = "conflict" in result && result.conflict === true;
+					logger.count(conflict ? "save-conflicts" : "save-failures");
+					logger.log({
+						kind: "save",
+						name: conflict ? "conflict" : "failed",
+						ms,
+						ok: false,
+						detail: { reason: result.message },
+					});
+					return result;
+				}
+				logger.count("saves");
+				logger.log({
+					kind: "save",
+					name: "written",
+					ms,
+					ok: true,
+					detail: { renamed: result.titleChanged },
+				});
 				// Build the next save on what was just written, at its new path.
 				const oldPath = note.path;
 				note = {

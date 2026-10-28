@@ -54,6 +54,7 @@ export const tauriHost: Host = {
 	kindOf: (path) => call<EntryKind | null>("kind_of", { path }),
 	// The close is prevented unless the handler says it is fine; Tauri closes the
 	// window itself afterwards when nothing prevented it.
+	appendLog: (lines) => call<void>("append_log", { lines }),
 	onCloseRequested: (handler) =>
 		getCurrentWindow().onCloseRequested(async (event) => {
 			if (!(await handler())) event.preventDefault();

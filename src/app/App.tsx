@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { trashNote } from "../core/notes/trash";
+import { DebugPanel } from "../debug/DebugPanel";
+import { getLogger } from "../debug/index";
 import { NoteEditor } from "../editor/NoteEditor";
 import { type OpenedNote, openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
@@ -33,6 +35,8 @@ export function App({ host }: { host: Host }) {
 	const lastNotes = useRef(browserLastNote());
 	const autoOpened = useRef(false);
 	const livePathRef = useRef<string | null>(null);
+	const [showDebug, setShowDebug] = useState(false);
+	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [confirmTrash, setConfirmTrash] = useState(false);
 	const vaultName = view?.name ?? null;
 
@@ -73,7 +77,15 @@ export function App({ host }: { host: Host }) {
 		async (path: string, vault: string | null) => {
 			try {
 				setError(null);
+				const started = performance.now();
 				const next = await openNote(host, path);
+				getLogger().log({
+					kind: "perf",
+					name: "note-open",
+					ms: Math.round(performance.now() - started),
+					ok: true,
+					detail: { editable: next.editable },
+				});
 				docRef.current = next.doc;
 				const text =
 					typeof next.note?.header.title === "string"
@@ -104,6 +116,15 @@ export function App({ host }: { host: Host }) {
 
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
+			if (
+				(event.metaKey || event.ctrlKey) &&
+				event.shiftKey &&
+				event.key.toLowerCase() === "d"
+			) {
+				event.preventDefault();
+				setShowDebug((v) => !v);
+				return;
+			}
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
 				event.preventDefault();
 				void flushRef.current();
@@ -147,6 +168,13 @@ export function App({ host }: { host: Host }) {
 			setBusy(false);
 		}
 	}, []);
+
+	useEffect(() => {
+		host
+			.appInfo()
+			.then(setAppInfo)
+			.catch(() => {});
+	}, [host]);
 
 	useEffect(() => {
 		run(() => loadVault(host));
@@ -292,6 +320,7 @@ export function App({ host }: { host: Host }) {
 				editable={opened.editable}
 				onChange={(doc) => {
 					docRef.current = doc;
+					getLogger().count("edits");
 					autosave.change({ doc, title: titleRef.current });
 				}}
 			/>
@@ -300,6 +329,13 @@ export function App({ host }: { host: Host }) {
 
 	return (
 		<div className="app">
+			{showDebug && (
+				<DebugPanel
+					logger={getLogger()}
+					app={appInfo}
+					onClose={() => setShowDebug(false)}
+				/>
+			)}
 			<aside className="sidebar">
 				<h1>{view?.name ?? "VaultOps"}</h1>
 				<div className="sidebar-actions">

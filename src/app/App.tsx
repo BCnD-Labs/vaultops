@@ -3,17 +3,56 @@ import { NoteEditor } from "../editor/NoteEditor";
 import { type OpenedNote, openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
 import { SaveStatus } from "../editor/SaveStatus";
-import { useAutosave } from "../editor/useAutosave";
+import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
-import { chooseAndLoad, loadVault, newNote, type VaultView } from "./session";
+import { browserLastNote, pickInitialNote } from "./last-note";
+import {
+	chooseAndLoad,
+	compareRows,
+	createAndLoad,
+	loadVault,
+	type VaultView,
+} from "./session";
+import "./app.css";
 
-/** The first real window: choose a vault, see its notes, add a note. */
+/** The window: notes on the left, the open note on the right. */
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [opened, setOpened] = useState<OpenedNote | null>(null);
-	const autosave = useAutosave(host, opened);
+	const [livePath, setLivePath] = useState<string | null>(null);
+	const [title, setTitle] = useState("");
+	const [notice, setNotice] = useState<string | null>(null);
+	const docRef = useRef(opened?.doc ?? null);
+	const titleRef = useRef("");
+	const titleInput = useRef<HTMLInputElement>(null);
+	const focusTitle = useRef(false);
+	const lastNotes = useRef(browserLastNote());
+	const autoOpened = useRef(false);
+	const vaultName = view?.name ?? null;
+
+	const onSaved = useCallback((info: SavedInfo) => {
+		setNotice(info.notice ?? null);
+		setLivePath(info.path);
+		if (!info.titleChanged) return;
+		setView((v) =>
+			v
+				? {
+						...v,
+						notes: v.notes
+							.map((n) =>
+								n.path === info.oldPath
+									? { ...n, path: info.path, title: info.title }
+									: n,
+							)
+							.sort(compareRows),
+					}
+				: v,
+		);
+	}, []);
+
+	const autosave = useAutosave(host, opened, onSaved);
 	const flushRef = useRef(autosave.flush);
 	flushRef.current = autosave.flush;
 
@@ -25,17 +64,35 @@ export function App({ host }: { host: Host }) {
 		return false;
 	}, []);
 
-	const open = useCallback(
-		async (path: string) => {
-			if (!(await settle())) return;
+	const show = useCallback(
+		async (path: string, vault: string | null) => {
 			try {
 				setError(null);
-				setOpened(await openNote(host, path));
+				const next = await openNote(host, path);
+				docRef.current = next.doc;
+				const text =
+					typeof next.note?.header.title === "string"
+						? next.note.header.title
+						: path;
+				titleRef.current = text;
+				setTitle(text);
+				setNotice(next.notice ?? null);
+				setLivePath(path);
+				setOpened(next);
+				if (vault) lastNotes.current.set(vault, path);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			}
 		},
-		[host, settle],
+		[host],
+	);
+
+	const open = useCallback(
+		async (path: string) => {
+			if (!(await settle())) return;
+			await show(path, vaultName);
+		},
+		[settle, show, vaultName],
 	);
 
 	useEffect(() => {
@@ -73,7 +130,10 @@ export function App({ host }: { host: Host }) {
 		setError(null);
 		try {
 			const next = await task();
-			if (next) setView(next);
+			if (next) {
+				autoOpened.current = false;
+				setView(next);
+			}
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -85,91 +145,149 @@ export function App({ host }: { host: Host }) {
 		run(() => loadVault(host));
 	}, [host, run]);
 
-	return (
-		<main
-			style={{
-				fontFamily: "system-ui, sans-serif",
-				padding: 24,
-				maxWidth: 720,
-			}}
-		>
-			<header style={{ display: "flex", gap: 12, alignItems: "center" }}>
-				<h1 style={{ margin: 0, flex: 1, fontSize: 22 }}>
-					{view?.name ?? "VaultOps"}
-				</h1>
-				<button
-					type="button"
-					disabled={busy}
-					onClick={async () => {
-						if (!(await settle())) return;
-						setOpened(null);
-						run(() => chooseAndLoad(host));
-					}}
-				>
-					Choose vault…
-				</button>
-				<button
-					type="button"
-					disabled={busy || !view?.writable}
-					onClick={() => view && run(() => newNote(host, view))}
-				>
-					New note
-				</button>
-			</header>
+	// After a vault loads: reopen the note that was open last (or the first one).
+	useEffect(() => {
+		if (!view || autoOpened.current || opened || view.status === "none") return;
+		autoOpened.current = true;
+		const paths = view.notes.map((n) => n.path);
+		const pick = pickInitialNote(
+			paths,
+			view.name ? lastNotes.current.get(view.name) : null,
+		);
+		if (pick) void show(pick, view.name);
+	}, [view, opened, show]);
 
-			{view?.status === "none" && (
-				<p>No vault is open. Choose a folder to start.</p>
-			)}
-			{error && <p role="alert">Something went wrong: {error}</p>}
-			{view?.messages.map((m) => (
-				<p key={m} style={{ color: "#8a5a00" }}>
-					{m}
+	useEffect(() => {
+		if (opened && focusTitle.current) {
+			focusTitle.current = false;
+			titleInput.current?.focus();
+			titleInput.current?.select();
+		}
+	}, [opened]);
+
+	const startNote = async () => {
+		if (!view || !(await settle())) return;
+		setBusy(true);
+		try {
+			const made = await createAndLoad(host, view);
+			setView(made.view);
+			if (made.path) {
+				focusTitle.current = true;
+				await show(made.path, made.view.name);
+			}
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const editor = opened && (
+		<>
+			<input
+				ref={titleInput}
+				className="title-field"
+				aria-label="Title"
+				value={title}
+				readOnly={!opened.editable}
+				onChange={(event) => {
+					const next = event.target.value;
+					titleRef.current = next;
+					setTitle(next);
+					if (docRef.current) {
+						autosave.change({ doc: docRef.current, title: next });
+					}
+				}}
+			/>
+			<div className="status-line">
+				{opened.editable && (
+					<SaveStatus state={autosave.state} onRetry={autosave.retry} />
+				)}
+			</div>
+			{notice && (
+				<p role="status" className="notice">
+					{notice}
 				</p>
-			))}
-
-			{view && view.status !== "none" && (
-				<section>
-					<h2 style={{ fontSize: 16 }}>Notes ({view.notes.length})</h2>
-					{view.notes.length === 0 ? (
-						<p>No notes yet.</p>
-					) : (
-						<ul>
-							{view.notes.map((n) => (
-								<li key={n.path} title={n.path}>
-									<button type="button" onClick={() => open(n.path)}>
-										{n.title}
-										{n.readOnly && " (read-only)"}
-									</button>
-								</li>
-							))}
-						</ul>
-					)}
-				</section>
 			)}
+			<NoteEditor
+				key={opened.path}
+				doc={opened.doc}
+				editable={opened.editable}
+				onChange={(doc) => {
+					docRef.current = doc;
+					autosave.change({ doc, title: titleRef.current });
+				}}
+			/>
+		</>
+	);
 
-			{opened && (
-				<section aria-label="Open note">
-					<h2 style={{ fontSize: 16 }}>
-						{typeof opened.note?.header.title === "string"
-							? opened.note.header.title
-							: opened.path}
-					</h2>
-					{opened.notice && (
-						<p role="status" style={{ color: "#8a5a00" }}>
-							{opened.notice}
-						</p>
-					)}
-					<NoteEditor
-						key={opened.path}
-						doc={opened.doc}
-						editable={opened.editable}
-						onChange={autosave.change}
-					/>
-					{opened.editable && (
-						<SaveStatus state={autosave.state} onRetry={autosave.retry} />
-					)}
-				</section>
-			)}
-		</main>
+	return (
+		<div className="app">
+			<aside className="sidebar">
+				<h1>{view?.name ?? "VaultOps"}</h1>
+				<div className="sidebar-actions">
+					<button
+						type="button"
+						disabled={busy || !view?.writable}
+						onClick={startNote}
+					>
+						New note
+					</button>
+					<button
+						type="button"
+						disabled={busy}
+						onClick={async () => {
+							if (!(await settle())) return;
+							setOpened(null);
+							run(() => chooseAndLoad(host));
+						}}
+					>
+						Choose vault…
+					</button>
+				</div>
+				{view?.messages.map((m) => (
+					<p key={m} className="notice">
+						{m}
+					</p>
+				))}
+				{view && view.status !== "none" && (
+					<ul className="note-list">
+						{view.notes.map((n) => (
+							<li key={n.path} title={n.path}>
+								<button
+									type="button"
+									aria-current={n.path === livePath}
+									onClick={() => open(n.path)}
+								>
+									{n.title}
+									{n.readOnly && (
+										<span className="read-only-tag"> read-only</span>
+									)}
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
+				{view && view.status !== "none" && view.notes.length === 0 && (
+					<p className="read-only-tag">No notes yet.</p>
+				)}
+			</aside>
+			<main className="pane">
+				{error && (
+					<p role="alert" className="notice">
+						Something went wrong: {error}
+					</p>
+				)}
+				{view?.status === "none" && (
+					<p className="empty-pane">
+						No vault is open. Choose a folder to start.
+					</p>
+				)}
+				{editor}
+				{!opened && view && view.status !== "none" && (
+					<p className="empty-pane">Pick a note, or start a new one.</p>
+				)}
+			</main>
+		</div>
 	);
 }

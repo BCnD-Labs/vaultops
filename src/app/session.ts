@@ -19,6 +19,14 @@ export interface VaultView {
 	notes: NoteRow[];
 }
 
+/** Notes by title, ignoring case; the path settles ties. */
+export function compareRows(a: NoteRow, b: NoteRow): number {
+	return (
+		a.title.toLowerCase().localeCompare(b.title.toLowerCase()) ||
+		a.path.localeCompare(b.path)
+	);
+}
+
 const EMPTY: VaultView = {
 	name: null,
 	status: "none",
@@ -67,7 +75,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 				typeof n.note.header.title === "string" ? n.note.header.title : n.path,
 			readOnly: n.readOnly,
 		}))
-		.sort((a, b) => a.path.localeCompare(b.path));
+		.sort(compareRows);
 	return {
 		name,
 		status: result.status,
@@ -88,4 +96,14 @@ export async function newNote(host: Host, view: VaultView): Promise<VaultView> {
 	if (!view.writable) return view;
 	await createNote(host, "", "Untitled");
 	return loadVault(host);
+}
+
+/** Like `newNote`, but also says which file was created so it can be opened. */
+export async function createAndLoad(
+	host: Host,
+	view: VaultView,
+): Promise<{ view: VaultView; path: string | null }> {
+	if (!view.writable) return { view, path: null };
+	const { path } = await createNote(host, "", "Untitled");
+	return { view: await loadVault(host), path };
 }

@@ -270,3 +270,29 @@ body {
 	gap: 8px;
 	align-items: center;
 }
+
+.maintainer-section {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: flex-start;
+}
+
+.maintainer-section h3,
+.maintainer-section p {
+	margin: 0;
+}
+
+.maintainer-text {
+	align-self: stretch;
+	margin: 0;
+	max-height: 200px;
+	padding: 8px;
+	overflow: auto;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	font-family: ui-monospace, monospace;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}

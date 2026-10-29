@@ -105,5 +105,10 @@ export interface Host {
 }
 
 /** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */
-export const APP_FILE_NAMES = ["session.json", "crash-report.txt"] as const;
+export const APP_FILE_NAMES = [
+	"session.json",
+	"crash-report.txt",
+	"maintainer.json",
+	"unsaved-recovery.txt",
+] as const;
 export type AppFileName = (typeof APP_FILE_NAMES)[number];

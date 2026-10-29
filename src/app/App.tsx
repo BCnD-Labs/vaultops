@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { trashNote } from "../core/notes/trash";
+import { parseMaintainer } from "../core/session/maintainer";
+import { buildRecoveryText } from "../core/session/recovery";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
+import { MaintainerPanel } from "../debug/MaintainerPanel";
 import { NoteEditor } from "../editor/NoteEditor";
 import { type OpenedNote, openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
@@ -36,6 +39,9 @@ export function App({ host }: { host: Host }) {
 	const autoOpened = useRef(false);
 	const livePathRef = useRef<string | null>(null);
 	const [showDebug, setShowDebug] = useState(false);
+	const [maintainer, setMaintainer] = useState(false);
+	const maintainerRef = useRef(false);
+	const [showMaintainer, setShowMaintainer] = useState(false);
 	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [confirmTrash, setConfirmTrash] = useState(false);
 	const vaultName = view?.name ?? null;
@@ -122,7 +128,7 @@ export function App({ host }: { host: Host }) {
 				event.key.toLowerCase() === "d"
 			) {
 				event.preventDefault();
-				setShowDebug((v) => !v);
+				if (maintainerRef.current) setShowDebug((v) => !v);
 				return;
 			}
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
@@ -139,7 +145,26 @@ export function App({ host }: { host: Host }) {
 		let remove: (() => void) | undefined;
 		let gone = false;
 		host
-			.onCloseRequested(createQuitGuard(() => flushRef.current()))
+			.onCloseRequested(
+				createQuitGuard(
+					() => flushRef.current(),
+					// Closing with edits that could not be saved: keep their text.
+					async () => {
+						const doc = docRef.current;
+						if (!doc) return true;
+						await host.writeAppFile(
+							"unsaved-recovery.txt",
+							buildRecoveryText({
+								path: livePathRef.current,
+								title: titleRef.current,
+								doc,
+								now: new Date(),
+							}),
+						);
+						return true;
+					},
+				),
+			)
 			.then((off) => {
 				if (gone) off();
 				else remove = off;
@@ -168,6 +193,18 @@ export function App({ host }: { host: Host }) {
 			setBusy(false);
 		}
 	}, []);
+
+	// The maintainer switch: a small file on the maintainer's own computer.
+	useEffect(() => {
+		host
+			.readAppFile("maintainer.json")
+			.then((text) => {
+				const on = parseMaintainer(text);
+				maintainerRef.current = on;
+				setMaintainer(on);
+			})
+			.catch(() => {});
+	}, [host]);
 
 	useEffect(() => {
 		host
@@ -336,6 +373,16 @@ export function App({ host }: { host: Host }) {
 					onClose={() => setShowDebug(false)}
 				/>
 			)}
+			{showMaintainer && (
+				<MaintainerPanel
+					host={host}
+					onOpenDebug={() => {
+						setShowMaintainer(false);
+						setShowDebug(true);
+					}}
+					onClose={() => setShowMaintainer(false)}
+				/>
+			)}
 			<aside className="sidebar">
 				<h1>{view?.name ?? "VaultOps"}</h1>
 				<div className="sidebar-actions">
@@ -357,6 +404,11 @@ export function App({ host }: { host: Host }) {
 					>
 						Choose vault…
 					</button>
+					{maintainer && (
+						<button type="button" onClick={() => setShowMaintainer(true)}>
+							Developer
+						</button>
+					)}
 				</div>
 				{view?.messages.map((m) => (
 					<p key={m} className="notice">

@@ -18,7 +18,8 @@
 		"test:watch": "vitest",
 		"check": "npm run typecheck && npm run lint && npm run test",
 		"shots": "bash scripts/shots.sh",
-		"mac-check": "bash scripts/mac-check.sh"
+		"mac-check": "bash scripts/mac-check.sh",
+		"open": "bash scripts/open-vaultops.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.2",

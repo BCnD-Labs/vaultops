@@ -3,9 +3,9 @@ import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
 import {
 	checkPreviousSession,
-	markCleanExit,
 	markCleanOnClose,
 	type PreviousCrash,
+	pageWasReloaded,
 } from "./app/session-marker";
 import { CrashReport } from "./debug/CrashReport";
 import { installErrorCapture } from "./debug/capture";
@@ -32,17 +32,20 @@ void host
 		}),
 	)
 	.catch(() => {});
+// A clean quit is recorded by the close handler (markCleanOnClose), which the
+// window waits for. Nothing is written here: a write started while the page is
+// unloading may never run, or may land after the next page's marker.
 const onBeforeUnload = () => {
 	void logger.flush();
-	// A reload keeps the process alive; a real quit records this in the close handler.
-	void markCleanExit(baseHost);
 };
 window.addEventListener("beforeunload", onBeforeUnload);
 
 // Looked at once, before anything renders (StrictMode would run an effect twice).
 const previousRun: Promise<PreviousCrash | null> = baseHost
 	.appInfo()
-	.then((info) => checkPreviousSession(baseHost, info.version))
+	.then((info) =>
+		checkPreviousSession(baseHost, info.version, new Date(), pageWasReloaded()),
+	)
 	.catch(() => null);
 
 function Root() {

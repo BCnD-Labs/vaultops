@@ -23,6 +23,16 @@ pub fn valid_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
 }
 
+/// Whether `folder` is the same as `root` or inside it (both resolved first, so
+/// links and `..` can't hide it). A folder that can't be resolved counts as
+/// inside, so the answer errs on the safe side.
+pub fn is_inside(folder: &Path, root: &Path) -> bool {
+    match (folder.canonicalize(), root.canonicalize()) {
+        (Ok(folder), Ok(root)) => folder.starts_with(root),
+        _ => true,
+    }
+}
+
 /// Write the report into `dir` atomically (the folder must already exist).
 /// An existing report with the same name is replaced.
 pub fn write(dir: &Path, name: &str, text: &str) -> io::Result<()> {
@@ -114,6 +124,24 @@ mod tests {
         assert!(write(&tmp.0, "../x.txt", "x").is_err());
         assert!(write(&tmp.0, "r.txt", &"x".repeat(MAX_REPORT_BYTES + 1)).is_err());
         assert_eq!(fs::read_dir(&tmp.0).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn a_folder_in_or_equal_to_the_vault_is_inside() {
+        let tmp = Tmp::new();
+        let vault = tmp.0.join("vault");
+        let nested = vault.join("reports");
+        let outside = tmp.0.join("elsewhere");
+        for d in [&vault, &nested, &outside] {
+            fs::create_dir_all(d).unwrap();
+        }
+        assert!(is_inside(&vault, &vault));
+        assert!(is_inside(&nested, &vault));
+        assert!(is_inside(&vault.join("reports/../reports"), &vault));
+        assert!(!is_inside(&outside, &vault));
+        // The vault inside the reports folder is fine.
+        assert!(!is_inside(&tmp.0, &vault));
+        assert!(is_inside(&tmp.0.join("missing"), &vault));
     }
 
     #[test]

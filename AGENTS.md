@@ -24,6 +24,7 @@ npm run check          # typecheck + lint + tests (TypeScript)
 npm test               # tests only
 npm run format         # auto-fix formatting and lint where possible
 npm run shots          # Mac only: build, open the app, save a screenshot to shots/
+npm run open           # Mac only: update to main and open the app (file watcher off)
 npm run mac-check      # Mac only: npm run check plus the Rust checks (run before releases)
 
 cd src-tauri

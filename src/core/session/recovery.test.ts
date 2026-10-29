@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildRecoveryText, docToPlainText } from "./recovery";
+import {
+	buildRecoveryText,
+	docToPlainText,
+	joinRecovery,
+	MAX_RECOVERY_CHARS,
+} from "./recovery";
 
 const p = (text: string) => ({
 	type: "paragraph",
@@ -71,5 +76,25 @@ describe("buildRecoveryText", () => {
 				now: new Date(),
 			}),
 		).toContain("(not saved yet)");
+	});
+});
+
+describe("joinRecovery", () => {
+	it("puts the new copy first and keeps the older ones", () => {
+		expect(joinRecovery("new\n", "old\n")).toBe(
+			"new\n\n----------------\n\nold\n",
+		);
+	});
+
+	it("is just the new copy when nothing older is kept", () => {
+		expect(joinRecovery("new", null)).toBe("new");
+		expect(joinRecovery("new", "  \n")).toBe("new");
+	});
+
+	it("cuts the oldest text, never the new copy, when too big", () => {
+		const fresh = "n".repeat(100);
+		const joined = joinRecovery(fresh, "o".repeat(MAX_RECOVERY_CHARS));
+		expect(joined.startsWith(fresh)).toBe(true);
+		expect(joined.length).toBeLessThanOrEqual(MAX_RECOVERY_CHARS + 30);
 	});
 });

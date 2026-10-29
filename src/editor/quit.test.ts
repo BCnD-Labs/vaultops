@@ -42,6 +42,18 @@ describe("createQuitGuard", () => {
 		expect(await guard()).toBe(true);
 	});
 
+	it("starts over after a successful save", async () => {
+		const flush = vi
+			.fn()
+			.mockResolvedValueOnce(false)
+			.mockResolvedValueOnce(true)
+			.mockResolvedValue(false);
+		const guard = createQuitGuard(flush, vi.fn().mockResolvedValue(true));
+		expect(await guard()).toBe(false); // first failed ask: stays open
+		expect(await guard()).toBe(true); // saved after all
+		expect(await guard()).toBe(false); // a later failure again stays open first
+	});
+
 	it("does not keep a copy when the save worked", async () => {
 		const keepCopy = vi.fn().mockResolvedValue(true);
 		const guard = createQuitGuard(vi.fn().mockResolvedValue(true), keepCopy);

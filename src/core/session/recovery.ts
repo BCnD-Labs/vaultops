@@ -51,3 +51,16 @@ export function buildRecoveryText(input: RecoveryInput): string {
 		"",
 	].join("\n");
 }
+
+/** Most characters kept in the recovery file (it holds up to 8 MB of bytes). */
+export const MAX_RECOVERY_CHARS = 2_000_000;
+
+/**
+ * Add a new copy in front of the older ones, so closing twice never replaces
+ * the first text. The oldest copies are cut when the file would get too big.
+ */
+export function joinRecovery(fresh: string, older: string | null): string {
+	if (older === null || older.trim() === "") return fresh;
+	const room = Math.max(0, MAX_RECOVERY_CHARS - fresh.length);
+	return `${fresh}\n----------------\n\n${older.slice(0, room)}`;
+}

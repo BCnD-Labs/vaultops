@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { trashNote } from "../core/notes/trash";
 import { parseMaintainer } from "../core/session/maintainer";
-import { buildRecoveryText } from "../core/session/recovery";
+import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
@@ -152,15 +152,27 @@ export function App({ host }: { host: Host }) {
 					async () => {
 						const doc = docRef.current;
 						if (!doc) return true;
-						await host.writeAppFile(
-							"unsaved-recovery.txt",
-							buildRecoveryText({
-								path: livePathRef.current,
-								title: titleRef.current,
-								doc,
-								now: new Date(),
-							}),
-						);
+						const fresh = buildRecoveryText({
+							path: livePathRef.current,
+							title: titleRef.current,
+							doc,
+							now: new Date(),
+						});
+						// Earlier copies stay: closing twice must not replace the first.
+						const older = await host
+							.readAppFile("unsaved-recovery.txt")
+							.catch(() => null);
+						try {
+							await host.writeAppFile(
+								"unsaved-recovery.txt",
+								joinRecovery(fresh, older),
+							);
+						} catch {
+							setError(
+								"Could not keep a copy of the unsaved text. Copy it out of the note before closing.",
+							);
+							return false;
+						}
 						return true;
 					},
 				),

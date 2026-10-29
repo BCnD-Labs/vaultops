@@ -250,7 +250,10 @@ fn reports_folder_path(app: &tauri::AppHandle) -> Option<PathBuf> {
 /// stays on the Rust side; the window learns only the folder's name, or `None`
 /// when the picker was cancelled (nothing changes then).
 #[tauri::command(async)]
-fn choose_reports_folder(app: tauri::AppHandle) -> Result<Option<String>, HostError> {
+fn choose_reports_folder(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VaultState>,
+) -> Result<Option<String>, HostError> {
     use tauri_plugin_dialog::DialogExt;
     let Some(picked) = app
         .dialog()
@@ -263,6 +266,13 @@ fn choose_reports_folder(app: tauri::AppHandle) -> Result<Option<String>, HostEr
     let path = picked
         .into_path()
         .map_err(|_| HostError::invalid("that folder can't be used"))?;
+    // Reports must not land in the vault (they would be mixed with the notes).
+    if let Ok(guard) = state.0.lock()
+        && let Some(vault) = guard.as_ref()
+        && reports::is_inside(&path, vault.root())
+    {
+        return Err(HostError::invalid("choose a folder outside the vault"));
+    }
     let file = reports_folder_file(&app)
         .ok_or_else(|| HostError::new(ErrorCode::Io, "settings folder is unavailable"))?;
     remember_vault(&file, &path);

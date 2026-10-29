@@ -7,6 +7,7 @@
 use std::fs;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::log_file::LOG_NAME;
 
@@ -17,8 +18,19 @@ pub const ALLOWED: &[&str] = &[
     "maintainer.json",
     "unsaved-recovery.txt",
 ];
-/// One file never holds more than this.
+/// One file never holds more than this, except the unsaved-text copy (below).
 pub const MAX_FILE_BYTES: usize = 256 * 1024;
+/// The text kept when the window closes with unsaved edits may be a whole
+/// (large) note, so it gets a bigger limit.
+pub const MAX_RECOVERY_BYTES: usize = 8 * 1024 * 1024;
+
+fn max_bytes(name: &str) -> usize {
+    if name == "unsaved-recovery.txt" {
+        MAX_RECOVERY_BYTES
+    } else {
+        MAX_FILE_BYTES
+    }
+}
 /// The tail read looks at most this far back from the end of the log.
 const TAIL_WINDOW: u64 = 128 * 1024;
 /// And returns at most this many lines.
@@ -45,14 +57,20 @@ pub fn read(dir: &Path, name: &str) -> io::Result<Option<String>> {
 /// Replace or create the file atomically.
 pub fn write(dir: &Path, name: &str, text: &str) -> io::Result<()> {
     check_name(name)?;
-    if text.len() > MAX_FILE_BYTES {
+    if text.len() > max_bytes(name) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "file too large",
         ));
     }
     fs::create_dir_all(dir)?;
-    let temp = dir.join(format!("{name}.tmp"));
+    // Commands run in parallel: every write gets its own temporary file.
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    let temp = dir.join(format!(
+        "{name}.{}.{}.tmp",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
     let mut file = fs::File::create(&temp)?;
     file.write_all(text.as_bytes())?;
     file.sync_all()?;
@@ -120,7 +138,17 @@ mod tests {
         write(&dir, "session.json", "one").unwrap();
         write(&dir, "session.json", "two").unwrap();
         assert_eq!(read(&dir, "session.json").unwrap().as_deref(), Some("two"));
-        assert!(!dir.join("session.json.tmp").exists());
+        let leftovers = fs::read_dir(&dir)
+            .unwrap()
+            .filter(|e| {
+                e.as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .ends_with(".tmp")
+            })
+            .count();
+        assert_eq!(leftovers, 0);
     }
 
     #[test]
@@ -141,6 +169,41 @@ mod tests {
         assert_eq!(
             read(&tmp.0, "crash-report.txt").unwrap().as_deref(),
             Some("keep")
+        );
+    }
+
+    #[test]
+    fn the_unsaved_text_copy_may_be_larger_than_other_files() {
+        let tmp = Tmp::new();
+        let big = "x".repeat(MAX_FILE_BYTES + 1);
+        assert!(write(&tmp.0, "crash-report.txt", &big).is_err());
+        write(&tmp.0, "unsaved-recovery.txt", &big).unwrap();
+        let too_big = "x".repeat(MAX_RECOVERY_BYTES + 1);
+        assert!(write(&tmp.0, "unsaved-recovery.txt", &too_big).is_err());
+    }
+
+    #[test]
+    fn parallel_writes_of_the_same_file_do_not_clash() {
+        let tmp = Tmp::new();
+        let dir = tmp.0.clone();
+        let handles: Vec<_> = (0..8)
+            .map(|i| {
+                let dir = dir.clone();
+                std::thread::spawn(move || {
+                    for _ in 0..20 {
+                        write(&dir, "session.json", &format!("writer {i}")).unwrap();
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert!(
+            read(&dir, "session.json")
+                .unwrap()
+                .unwrap()
+                .starts_with("writer")
         );
     }
 

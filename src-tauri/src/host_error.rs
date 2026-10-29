@@ -38,6 +38,7 @@ impl HostError {
             ErrorKind::AlreadyExists => Self::new(ErrorCode::AlreadyExists, "already exists"),
             ErrorKind::NotADirectory => Self::new(ErrorCode::NotAFolder, "not a folder"),
             ErrorKind::IsADirectory => Self::new(ErrorCode::IsAFolder, "is a folder"),
+            ErrorKind::InvalidInput => Self::invalid("not allowed"),
             _ => Self::new(ErrorCode::Io, "file system error"),
         }
     }
@@ -79,6 +80,12 @@ mod tests {
         })
         .collect();
         assert_eq!(ours, shared);
+    }
+
+    #[test]
+    fn invalid_input_is_reported_as_invalid_not_as_a_disk_fault() {
+        let error = std::io::Error::new(std::io::ErrorKind::InvalidInput, "too large");
+        assert_eq!(HostError::from_io(&error).code, ErrorCode::InvalidPath);
     }
 
     #[test]

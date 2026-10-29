@@ -42,6 +42,17 @@ describe("checkPreviousSession", () => {
 		expect(await checkPreviousSession(host, "0.1.0")).toBeNull();
 	});
 
+	it("does not call a page reload a crash, and keeps the new run marked running", async () => {
+		const host = new MemoryHost();
+		await checkPreviousSession(host, "0.1.0");
+		expect(
+			await checkPreviousSession(host, "0.1.0", new Date(), true),
+		).toBeNull();
+		expect(await host.readAppFile("session.json")).toContain('"running"');
+		// Without a reload the same marker still means a crash.
+		expect(await checkPreviousSession(host, "0.1.0")).not.toBeNull();
+	});
+
 	it("gives no report and does not throw when the app's files fail", async () => {
 		const host = new MemoryHost();
 		host.readAppFile = async () => {

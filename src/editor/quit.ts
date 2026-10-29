@@ -18,7 +18,10 @@ export function createQuitGuard(
 		} catch {
 			saved = false;
 		}
-		if (saved) return true;
+		if (saved) {
+			asks = 0;
+			return true;
+		}
 		asks += 1;
 		if (asks === 1) return false;
 		if (!keepCopy) return true;

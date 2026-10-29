@@ -1,5 +1,6 @@
 //! A few small files the app keeps for itself, outside any vault: the session
-//! marker used to notice a crash, and the last crash report. Only the names in
+//! marker used to notice a crash, the last crash report, the maintainer switch
+//! and the text kept when the window is closed with unsaved edits. Only the names in
 //! `ALLOWED` can be read or written, so the window can never pick a path. Writes
 //! are atomic (temporary file, then rename). Also reads the end of the log file.
 
@@ -10,7 +11,12 @@ use std::path::Path;
 use crate::log_file::LOG_NAME;
 
 /// The only file names the window may use.
-pub const ALLOWED: &[&str] = &["session.json", "crash-report.txt"];
+pub const ALLOWED: &[&str] = &[
+    "session.json",
+    "crash-report.txt",
+    "maintainer.json",
+    "unsaved-recovery.txt",
+];
 /// One file never holds more than this.
 pub const MAX_FILE_BYTES: usize = 256 * 1024;
 /// The tail read looks at most this far back from the end of the log.

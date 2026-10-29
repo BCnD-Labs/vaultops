@@ -343,7 +343,10 @@ pub fn run() {
             // exit and close the window the normal way instead: the window's close
             // handler saves (and may keep the window open if saving fails). Once
             // the window is gone the exit is requested again and goes through.
-            if let tauri::RunEvent::ExitRequested { api, code: None, .. } = event {
+            if let tauri::RunEvent::ExitRequested {
+                api, code: None, ..
+            } = event
+            {
                 use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
                     api.prevent_exit();

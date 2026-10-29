@@ -58,6 +58,9 @@ export const tauriHost: Host = {
 	readAppFile: (name) => call<string | null>("read_app_file", { name }),
 	writeAppFile: (name, text) => call<void>("write_app_file", { name, text }),
 	readLogTail: (maxLines) => call<string>("read_log_tail", { maxLines }),
+	chooseReportsFolder: () => call<string | null>("choose_reports_folder"),
+	reportsFolder: () => call<string | null>("reports_folder"),
+	writeReport: (name, text) => call<void>("write_report", { name, text }),
 	onCloseRequested: (handler) =>
 		getCurrentWindow().onCloseRequested(async (event) => {
 			if (!(await handler())) event.preventDefault();

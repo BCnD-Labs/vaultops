@@ -102,6 +102,19 @@ export interface Host {
 
 	/** The last lines of the app's log file ("" when there is none yet). */
 	readLogTail(maxLines: number): Promise<string>;
+
+	/**
+	 * The maintainer's reports folder: a folder chosen with the system picker
+	 * where report files are dropped so they can be read outside the app. The
+	 * folder's location never leaves the host. `chooseReportsFolder` resolves to
+	 * the folder's name, or null if cancelled; `reportsFolder` to the current
+	 * folder's name, or null when none is chosen (or it has gone). `writeReport`
+	 * writes a plain `.txt` file (letters, digits, - _ . only) and fails when no
+	 * folder is chosen.
+	 */
+	chooseReportsFolder(): Promise<string | null>;
+	reportsFolder(): Promise<string | null>;
+	writeReport(name: string, text: string): Promise<void>;
 }
 
 /** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */

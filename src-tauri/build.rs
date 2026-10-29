@@ -15,6 +15,9 @@ const COMMANDS: &[&str] = &[
     "read_app_file",
     "write_app_file",
     "read_log_tail",
+    "choose_reports_folder",
+    "reports_folder",
+    "write_report",
 ];
 
 fn main() {

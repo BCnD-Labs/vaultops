@@ -97,5 +97,8 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		readAppFile: (name) => host.readAppFile(name),
 		writeAppFile: (name, text) => host.writeAppFile(name, text),
 		readLogTail: (n) => host.readLogTail(n),
+		chooseReportsFolder: () => host.chooseReportsFolder(),
+		reportsFolder: () => host.reportsFolder(),
+		writeReport: (name, text) => host.writeReport(name, text),
 	};
 }

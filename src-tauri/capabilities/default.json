@@ -19,6 +19,9 @@
 		"allow-append-log",
 		"allow-read-app-file",
 		"allow-write-app-file",
-		"allow-read-log-tail"
+		"allow-read-log-tail",
+		"allow-choose-reports-folder",
+		"allow-reports-folder",
+		"allow-write-report"
 	]
 }

@@ -29,6 +29,18 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 			expect(await host.list("")).toEqual([]);
 		});
 
+		it("only writes reports once a reports folder is chosen, under safe names", async () => {
+			expect(await host.reportsFolder()).toBeNull();
+			await expectCode(host.writeReport("r.txt", "x"), "invalid-path");
+			expect(await host.chooseReportsFolder()).not.toBeNull();
+			expect(await host.reportsFolder()).not.toBeNull();
+			await host.writeReport("r.txt", "x");
+			for (const bad of ["../r.txt", "a/b.txt", "r.md", ".r.txt", ""]) {
+				await expectCode(host.writeReport(bad, "x"), "invalid-path");
+			}
+			expect(await host.list("")).toEqual([]);
+		});
+
 		it("reads the end of the log", async () => {
 			expect(await host.readLogTail(5)).toBe("");
 			await host.appendLog("a\nb\nc");

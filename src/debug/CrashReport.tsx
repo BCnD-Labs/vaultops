@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PreviousCrash } from "../app/session-marker";
 import { buildCrashReport } from "../core/session/crash";
+import { reportFileName } from "../core/session/report-bundle";
 import type { Host } from "../host/host";
 
 /**
@@ -14,7 +15,7 @@ export function CrashReport({
 	onClose,
 }: {
 	crash: PreviousCrash;
-	host: Pick<Host, "writeAppFile">;
+	host: Pick<Host, "writeAppFile" | "reportsFolder" | "writeReport">;
 	onClose: () => void;
 }) {
 	const [notes, setNotes] = useState("");
@@ -31,8 +32,18 @@ export function CrashReport({
 	};
 	const save = async () => {
 		try {
-			await host.writeAppFile("crash-report.txt", text());
-			setStatus("Saved in the app's settings folder as crash-report.txt");
+			const report = text();
+			await host.writeAppFile("crash-report.txt", report);
+			// With a reports folder chosen (maintainer mode), a copy goes there too.
+			const folder = await host.reportsFolder().catch(() => null);
+			if (folder !== null) {
+				await host.writeReport(reportFileName(new Date(), "crash"), report);
+				setStatus(
+					`Saved, and a copy was put in the reports folder "${folder}"`,
+				);
+			} else {
+				setStatus("Saved in the app's settings folder as crash-report.txt");
+			}
 		} catch {
 			setStatus("Could not save the report");
 		}

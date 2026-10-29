@@ -30,6 +30,20 @@ describe("logger", () => {
 		expect(lines.map((l) => JSON.parse(l).name)).toEqual(["one", "two"]);
 	});
 
+	it("writes errors right away and other lines within a quarter of a second", async () => {
+		const sink = vi.fn().mockResolvedValue(undefined);
+		const log = createLogger({ sink });
+		log.log({ kind: "app", name: "quiet" });
+		log.log({ kind: "error", name: "boom", ok: false });
+		await vi.advanceTimersByTimeAsync(0);
+		expect(sink).toHaveBeenCalledTimes(1);
+		expect(String(sink.mock.calls[0]?.[0])).toContain("boom");
+		expect(String(sink.mock.calls[0]?.[0])).toContain("quiet");
+		log.log({ kind: "app", name: "later" });
+		await vi.advanceTimersByTimeAsync(250);
+		expect(sink).toHaveBeenCalledTimes(2);
+	});
+
 	it("a failing file only bumps a counter; the app keeps going", async () => {
 		const sink = vi.fn().mockRejectedValue(new Error("disk"));
 		const log = createLogger({ sink, flushMs: 10 });

@@ -59,7 +59,7 @@ const MAX_BATCH_CHARS = 200_000;
  */
 export function createLogger(options: LoggerOptions = {}): Logger {
 	const capacity = options.capacity ?? 2000;
-	const flushMs = options.flushMs ?? 2000;
+	const flushMs = options.flushMs ?? 250;
 	const maxPending = options.maxPending ?? 5000;
 	const now = options.now ?? Date.now;
 
@@ -149,7 +149,9 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 					pending.splice(0, over);
 					droppedCount += over;
 				}
-				schedule();
+				// Errors are what a crash report needs most: write them right away.
+				if (full.kind === "error") void flush();
+				else schedule();
 			}
 			notify();
 		},

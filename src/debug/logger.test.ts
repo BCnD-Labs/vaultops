@@ -44,6 +44,30 @@ describe("logger", () => {
 		expect(sink).toHaveBeenCalledTimes(2);
 	});
 
+	it("an error storm makes one write at a time and keeps the waiting lines capped", async () => {
+		let release: () => void = () => {};
+		const sink = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					release = resolve;
+				}),
+		);
+		const log = createLogger({ sink, maxPending: 10 });
+		for (let i = 0; i < 100; i++) {
+			log.log({ kind: "error", name: `e${i}`, ok: false });
+		}
+		await vi.advanceTimersByTimeAsync(0);
+		expect(sink).toHaveBeenCalledTimes(1);
+		expect(log.dropped()).toBe(89);
+		release();
+		await vi.advanceTimersByTimeAsync(0);
+		// Everything that waited goes out in one more write, not one per error.
+		expect(sink).toHaveBeenCalledTimes(2);
+		release();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(sink).toHaveBeenCalledTimes(2);
+	});
+
 	it("a failing file only bumps a counter; the app keeps going", async () => {
 		const sink = vi.fn().mockRejectedValue(new Error("disk"));
 		const log = createLogger({ sink, flushMs: 10 });

@@ -19,7 +19,9 @@ export interface BundleInput {
 /**
  * Everything worth reading about the app's state in one text file. It never
  * includes note text: the debug report and log carry paths and sizes only, and
- * the text kept at quit is deliberately left out.
+ * the text kept at quit is deliberately left out. (A captured error message
+ * could still quote text a parser choked on, so the maintainer reads a report
+ * before sharing it.)
  */
 export function bundleReport(input: BundleInput): string {
 	return [

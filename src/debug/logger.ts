@@ -49,7 +49,9 @@ export interface LoggerOptions {
 }
 
 // One write call may carry at most 256 KB; stay well under it.
-const MAX_BATCH_CHARS = 200_000;
+// The native side accepts 256 KB per call. Lengths here count characters, and a
+// character can take up to 3 bytes, so stay well under a third of that.
+const MAX_BATCH_CHARS = 80_000;
 
 /**
  * Cheap on purpose: recording an event is one array write and one counter
@@ -92,6 +94,26 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 			timer = undefined;
 			void flush();
 		}, flushMs);
+	}
+
+	// Errors are written at once, but never more than one such write at a time:
+	// lines that arrive while it runs wait in `pending` (which is capped) and go
+	// out together afterwards.
+	let urgentRunning = false;
+	let urgentAgain = false;
+	function flushUrgent() {
+		if (urgentRunning) {
+			urgentAgain = true;
+			return;
+		}
+		urgentRunning = true;
+		void flush().finally(() => {
+			urgentRunning = false;
+			if (urgentAgain) {
+				urgentAgain = false;
+				flushUrgent();
+			}
+		});
 	}
 
 	function flush(): Promise<void> {
@@ -150,7 +172,7 @@ export function createLogger(options: LoggerOptions = {}): Logger {
 					droppedCount += over;
 				}
 				// Errors are what a crash report needs most: write them right away.
-				if (full.kind === "error") void flush();
+				if (full.kind === "error") flushUrgent();
 				else schedule();
 			}
 			notify();

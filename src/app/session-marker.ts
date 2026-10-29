@@ -18,18 +18,21 @@ export interface PreviousCrash {
 /**
  * Called once at start. Reads the marker the last run left, then writes a new
  * "running" marker. Resolves to the details when the last run did not exit
- * cleanly, otherwise null. Never throws: if the app's files can't be used,
+ * cleanly (and this is not just a page reload), otherwise null. Never throws: if the app's files can't be used,
  * there is simply no crash report.
  */
 export async function checkPreviousSession(
 	host: Host,
 	version: string,
 	now: Date = new Date(),
+	reloaded = false,
 ): Promise<PreviousCrash | null> {
 	let found: PreviousCrash | null = null;
 	try {
 		const previous = parseMarker(await host.readAppFile("session.json"));
-		if (previous?.state === "running") {
+		// A page reload (hot reload in development) keeps the same process alive,
+		// so the earlier "running" marker is not a crash.
+		if (previous?.state === "running" && !reloaded) {
 			found = {
 				startedAt: previous.startedAt,
 				version: previous.version,
@@ -45,6 +48,18 @@ export async function checkPreviousSession(
 		// Without the marker the next start just shows no report.
 	}
 	return found;
+}
+
+/** Whether this page load is a reload of the same window (not a fresh start). */
+export function pageWasReloaded(): boolean {
+	try {
+		const entry = performance.getEntriesByType("navigation")[0] as
+			| PerformanceNavigationTiming
+			| undefined;
+		return entry?.type === "reload";
+	} catch {
+		return false;
+	}
 }
 
 /** Record a clean exit. Best effort. */

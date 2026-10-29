@@ -135,7 +135,8 @@ function Reports({
 				<span role="status">{status}</span>
 			</div>
 			<p>
-				Reports hold the log and debug details, never the text of your notes.
+				Reports hold the log and debug details. Note text is kept out on
+				purpose, but look over error messages before sharing a report.
 			</p>
 		</section>
 	);

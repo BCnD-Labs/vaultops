@@ -376,6 +376,8 @@ export function App({ host }: { host: Host }) {
 			{showMaintainer && (
 				<MaintainerPanel
 					host={host}
+					logger={getLogger()}
+					app={appInfo}
 					onOpenDebug={() => {
 						setShowMaintainer(false);
 						setShowDebug(true);

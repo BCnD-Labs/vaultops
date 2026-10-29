@@ -3,6 +3,7 @@ pub mod file_ops;
 pub mod folder_ops;
 pub mod host_error;
 pub mod log_file;
+pub mod reports;
 #[cfg(test)]
 mod test_util;
 pub mod vault;
@@ -222,6 +223,67 @@ fn read_log_tail(app: tauri::AppHandle, max_lines: usize) -> Result<String, Host
     app_files::log_tail(&dir, max_lines).map_err(|e| HostError::from_io(&e))
 }
 
+/// The file in the settings folder that remembers the reports folder.
+const REPORTS_FOLDER_FILE: &str = "reports-folder.txt";
+
+fn reports_folder_file(app: &tauri::AppHandle) -> Option<PathBuf> {
+    use tauri::Manager;
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|dir| dir.join(REPORTS_FOLDER_FILE))
+}
+
+fn folder_name(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// The chosen reports folder, if it is set and still exists.
+fn reports_folder_path(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let path = remembered_vault(&reports_folder_file(app)?)?;
+    path.is_dir().then_some(path)
+}
+
+/// Let the maintainer pick the reports folder with the system picker. The path
+/// stays on the Rust side; the window learns only the folder's name, or `None`
+/// when the picker was cancelled (nothing changes then).
+#[tauri::command(async)]
+fn choose_reports_folder(app: tauri::AppHandle) -> Result<Option<String>, HostError> {
+    use tauri_plugin_dialog::DialogExt;
+    let Some(picked) = app
+        .dialog()
+        .file()
+        .set_title("Choose a folder for VaultOps reports")
+        .blocking_pick_folder()
+    else {
+        return Ok(None);
+    };
+    let path = picked
+        .into_path()
+        .map_err(|_| HostError::invalid("that folder can't be used"))?;
+    let file = reports_folder_file(&app)
+        .ok_or_else(|| HostError::new(ErrorCode::Io, "settings folder is unavailable"))?;
+    remember_vault(&file, &path);
+    Ok(Some(folder_name(&path)))
+}
+
+/// The reports folder's name, or `None` when none is chosen or it is gone.
+#[tauri::command(async)]
+fn reports_folder(app: tauri::AppHandle) -> Result<Option<String>, HostError> {
+    Ok(reports_folder_path(&app).map(|p| folder_name(&p)))
+}
+
+/// Write one report file (see `reports::valid_name`) into the reports folder.
+#[tauri::command(async)]
+fn write_report(app: tauri::AppHandle, name: String, text: String) -> Result<(), HostError> {
+    let Some(dir) = reports_folder_path(&app) else {
+        return Err(HostError::invalid("no reports folder is chosen"));
+    };
+    reports::write(&dir, &name, &text).map_err(|e| HostError::from_io(&e))
+}
+
 /// Named `move_entry` because `move` is a Rust keyword.
 #[tauri::command(async)]
 fn move_entry(
@@ -258,7 +320,10 @@ pub fn run() {
             append_log,
             read_app_file,
             write_app_file,
-            read_log_tail
+            read_log_tail,
+            choose_reports_folder,
+            reports_folder,
+            write_report
         ])
         .run(tauri::generate_context!())
         .expect("error while running the VaultOps app");

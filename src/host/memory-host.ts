@@ -144,6 +144,35 @@ export class MemoryHost implements Host {
 		return lines.slice(-maxLines).join("\n");
 	}
 
+	/** Test helpers: what the picker "chooses" next, and the reports written. */
+	nextReportsFolder: string | null = "Reports";
+	readonly reports = new Map<string, string>();
+	private reportsFolderName: string | null = null;
+
+	async chooseReportsFolder(): Promise<string | null> {
+		if (this.nextReportsFolder !== null) {
+			this.reportsFolderName = this.nextReportsFolder;
+		}
+		return this.nextReportsFolder;
+	}
+
+	async reportsFolder(): Promise<string | null> {
+		return this.reportsFolderName;
+	}
+
+	async writeReport(name: string, text: string): Promise<void> {
+		if (this.reportsFolderName === null) {
+			throw new HostError("invalid-path", "no reports folder is chosen");
+		}
+		if (
+			!/^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.txt$/.test(name) ||
+			name.includes("..")
+		) {
+			throw new HostError("invalid-path", "not a valid report name");
+		}
+		this.reports.set(name, text);
+	}
+
 	private readonly closeHandlers = new Set<() => Promise<boolean>>();
 
 	async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {

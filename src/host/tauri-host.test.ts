@@ -23,6 +23,9 @@ describe("tauriHost", () => {
 		await tauriHost.appInfo();
 		await tauriHost.chooseVault();
 		await tauriHost.currentVault();
+		await tauriHost.chooseReportsFolder();
+		await tauriHost.reportsFolder();
+		await tauriHost.writeReport("r.txt", "text");
 		expect(invoke.mock.calls).toEqual([
 			["read_text", { path: "a.vnote" }],
 			["write_text_atomic", { path: "a.vnote", text: "text" }],
@@ -33,6 +36,9 @@ describe("tauriHost", () => {
 			["app_info", undefined],
 			["choose_vault", undefined],
 			["current_vault", undefined],
+			["choose_reports_folder", undefined],
+			["reports_folder", undefined],
+			["write_report", { name: "r.txt", text: "text" }],
 		]);
 	});
 

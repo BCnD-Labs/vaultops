@@ -87,12 +87,10 @@ fn kind_of(
     with_vault(&state, |v| folder_ops::kind_of(v, &path))
 }
 
-/// Open `path` as the vault, replacing the open one only if it succeeds, and
-/// remove leftover temporary files from interrupted writes.
+/// Open `path` as the vault, replacing the open one only if it succeeds.
 /// Returns the folder's name for display.
 fn open_vault_at(state: &VaultState, path: &Path) -> Result<String, HostError> {
     let vault = Vault::open(path)?;
-    file_ops::remove_leftover_temps(&vault)?;
     let name = vault
         .root()
         .file_name()

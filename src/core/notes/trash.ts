@@ -98,6 +98,27 @@ export async function listTrash(host: Host): Promise<TrashedNote[]> {
 }
 
 /**
+ * Delete one trashed note forever. This is the only way the app erases a
+ * note, and it works only on a note inside the trash: anything else is refused
+ * before the host is asked. The confirmation prompt belongs to the Trash screen.
+ */
+export async function deleteForever(
+	host: Host,
+	trashPath: string,
+): Promise<void> {
+	const parts = trashPath.split("/");
+	const inTrash =
+		checkVaultPath(trashPath).ok &&
+		parts[0] === ".vaultops" &&
+		parts[1] === "trash" &&
+		parts.length >= 4;
+	if (!inTrash || (await host.kindOf(trashPath)) !== "file") {
+		throw new Error("That item is not in the trash.");
+	}
+	await host.removeTrashed(trashPath);
+}
+
+/**
  * Put a trashed note back at its original path. A missing folder means the
  * vault root; a taken name gets " 2", " 3" (compared the way the Mac does).
  */

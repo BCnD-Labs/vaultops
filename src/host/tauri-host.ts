@@ -52,6 +52,7 @@ export const tauriHost: Host = {
 	list: (folder) => call<DirEntry[]>("list", { folder }),
 	makeFolder: (path) => call<void>("make_folder", { path }),
 	kindOf: (path) => call<EntryKind | null>("kind_of", { path }),
+	removeTrashed: (path) => call<void>("remove_trashed", { path }),
 	// The close is prevented unless the handler says it is fine; Tauri closes the
 	// window itself afterwards when nothing prevented it.
 	appendLog: (lines) => call<void>("append_log", { lines }),

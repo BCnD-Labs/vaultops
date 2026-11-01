@@ -77,6 +77,7 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		list: timed("list", (f: string) => host.list(f)),
 		makeFolder: timed("makeFolder", (p: string) => host.makeFolder(p)),
 		kindOf: timed("kindOf", (p: string) => host.kindOf(p)),
+		removeTrashed: timed("removeTrashed", (p: string) => host.removeTrashed(p)),
 		onCloseRequested: async (handler) => {
 			logger.log({ kind: "app", name: "close-handler-registered" });
 			return host.onCloseRequested(async () => {

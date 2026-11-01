@@ -20,6 +20,7 @@ describe("tauriHost", () => {
 		await tauriHost.list("");
 		await tauriHost.makeFolder("b");
 		await tauriHost.kindOf("b");
+		await tauriHost.removeTrashed(".vaultops/trash/t/a.vnote");
 		await tauriHost.appInfo();
 		await tauriHost.chooseVault();
 		await tauriHost.currentVault();
@@ -33,6 +34,7 @@ describe("tauriHost", () => {
 			["list", { folder: "" }],
 			["make_folder", { path: "b" }],
 			["kind_of", { path: "b" }],
+			["remove_trashed", { path: ".vaultops/trash/t/a.vnote" }],
 			["app_info", undefined],
 			["choose_vault", undefined],
 			["current_vault", undefined],

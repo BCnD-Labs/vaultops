@@ -79,6 +79,16 @@ export interface Host {
 	kindOf(path: string): Promise<EntryKind | null>;
 
 	/**
+	 * Delete one note forever, then any folders it leaves empty (never
+	 * `.vaultops/trash` itself). The only call that erases a note, so it is narrow:
+	 * it works only on a file inside a time folder of `.vaultops/trash/`, spelled
+	 * exactly so, and refuses (`invalid-path`) everything else, including a path
+	 * reached through a symlink. A folder fails with `is-a-folder`, a missing
+	 * note with `not-found`.
+	 */
+	removeTrashed(path: string): Promise<void>;
+
+	/**
 	 * Run `handler` (and wait for it) when the window is asked to close. It
 	 * resolves true to let the window close, false to keep it open. Resolves to
 	 * a function that removes the handler; rejects if the shell could not

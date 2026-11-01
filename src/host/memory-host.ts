@@ -20,6 +20,9 @@ interface FolderNode {
 }
 type Node = FileNode | FolderNode;
 
+/** Folders above a trashed note: `.vaultops`, `trash`, then the time folder. */
+const TRASH_DEPTH = 3;
+
 /**
  * An in-memory host for tests. It behaves like the Mac's default file system:
  * names that differ only in capital letters or Unicode form are the same entry,
@@ -120,6 +123,35 @@ export class MemoryHost implements Host {
 
 	async kindOf(path: string): Promise<EntryKind | null> {
 		return this.find(this.parts(path, true))?.kind ?? null;
+	}
+
+	async removeTrashed(path: string): Promise<void> {
+		const parts = this.parts(path);
+		if (
+			parts.length <= TRASH_DEPTH ||
+			parts[0] !== ".vaultops" ||
+			parts[1] !== "trash"
+		) {
+			throw new HostError(
+				"invalid-path",
+				"only a note inside .vaultops/trash can be deleted forever",
+			);
+		}
+		const node = this.find(parts);
+		if (!node) throw new HostError("not-found", "note not found");
+		if (node.kind === "folder")
+			throw new HostError("is-a-folder", "path is a folder");
+		this.folderAt(parts.slice(0, -1)).children.delete(
+			nameKey(parts[parts.length - 1] as string),
+		);
+		// Remove the folders it left empty, innermost first, never `.vaultops/trash`.
+		for (let len = parts.length - 1; len >= TRASH_DEPTH; len--) {
+			const folder = this.folderAt(parts.slice(0, len));
+			if (folder.children.size > 0) break;
+			this.folderAt(parts.slice(0, len - 1)).children.delete(
+				nameKey(parts[len - 1] as string),
+			);
+		}
 	}
 
 	/** Test helper: everything sent to the log, in order. */

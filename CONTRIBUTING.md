@@ -23,7 +23,7 @@ Thanks for your interest in VaultOps. It's early, built mostly by one person, an
 
 ## Checks on every pull request
 
-CI (TypeScript and Rust), PR rules (description and size), Dependency review (licenses and security) and, for app changes, an automatic screenshot. All must pass before merge.
+CI (TypeScript and Rust), PR rules (description and size), and Dependency review (licenses and security). All must pass before merge.
 
 ## License
 

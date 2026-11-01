@@ -23,7 +23,6 @@ npm run tauri dev      # run the app (first Rust build takes a few minutes)
 npm run check          # typecheck + lint + tests (TypeScript)
 npm test               # tests only
 npm run format         # auto-fix formatting and lint where possible
-npm run shots          # Mac only: build, open the app, save a screenshot to shots/
 npm run open           # Mac only: update to main and open the app (file watcher off)
 npm run mac-check      # Mac only: npm run check plus the Rust checks (run before releases)
 
@@ -70,5 +69,5 @@ Claude and Codex build; Blake (the maintainer) decides product questions and mer
 - Pull requests are squash-merged. Commit prefixes: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`, `ci:`.
 - Before opening a pull request: `npm run check` and the Rust checks pass locally, and CI must be green before merge.
 - Commit messages are technical: what changed in the code and why, in developer terms.
-- Pull request descriptions are lean and written for a non-developer reader: what changed for the app or the project, in plain words; **Choices I made** or **Decision needed** only if there are any; then **Tested** and **Not tested**. Don't restate the brief. Add screenshots when the change is visible (the screenshot check posts them automatically for app changes).
+- Pull request descriptions are lean and written for a non-developer reader: what changed for the app or the project, in plain words; **Choices I made** or **Decision needed** only if there are any; then **Tested** and **Not tested**. Don't restate the brief.
 - No `Co-Authored-By` trailers, session links or "Generated with" footers in commits or pull requests.

@@ -15,10 +15,9 @@ on:
           - apply-issue-updates
           - weekly-update
           - issue-health
-          - screenshot-cleanup
           - mac-test
       dry_run:
-        description: "Only show what would change (issue updates, weekly update, screenshot cleanup)"
+        description: "Only show what would change (issue updates, weekly update)"
         required: false
         type: boolean
         default: true
@@ -142,28 +141,6 @@ jobs:
         run: python3 -m unittest discover -s .github/maintenance
       - name: Report (shown on this run's summary page)
         run: python3 .github/maintenance/issue_health.py
-
-  screenshot-cleanup:
-    name: Delete screenshots of merged pull requests
-    if: inputs.task == 'screenshot-cleanup'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # commit the removal to the ci-screenshots branch
-      pull-requests: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-      DRY: ${{ inputs.dry_run }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Test the script
-        run: python3 -m unittest discover -s .github/maintenance
-      - name: Clean up (shown on this run's summary page)
-        run: |
-          args=()
-          if [ "$DRY" = "true" ]; then args+=(--dry-run); fi
-          python3 .github/maintenance/screenshot_cleanup.py "${args[@]}"
 
   mac-test:
     # On demand only, never a required check: Mac machines can queue for a

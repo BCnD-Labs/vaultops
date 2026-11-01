@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { MemoryHost } from "../../host/memory-host";
 import { openVault } from "../vault/vault";
 import { createNote } from "./repository";
-import { deleteForever, listTrash, restoreNote, trashNote } from "./trash";
+import {
+	deleteForever,
+	listTrash,
+	restoreNote,
+	trashFolder,
+	trashNote,
+} from "./trash";
 
 async function vault() {
 	const host = new MemoryHost();
@@ -152,6 +158,82 @@ describe("trash", () => {
 				await expect(deleteForever(host, bad)).rejects.toThrow();
 			}
 			expect(remove).not.toHaveBeenCalled();
+			expect(await host.kindOf(path)).toBe("file");
+		});
+	});
+
+	describe("trashFolder", () => {
+		it("moves the whole folder to the trash and its notes can be restored", async () => {
+			const host = await vault();
+			await host.makeFolder("Class/Week 1");
+			const a = await createNote(host, "Class", "Syllabus");
+			const b = await createNote(host, "Class/Week 1", "Lecture");
+			const { trashPath } = await trashFolder(host, "Class", T1);
+			expect(trashPath).toBe(".vaultops/trash/2026-10-27T15-04-05-123Z/Class");
+			expect(await host.kindOf("Class")).toBeNull();
+			const listed = await listTrash(host);
+			expect(listed.map((t) => t.originalPath).sort()).toEqual([
+				"Class/Syllabus.vnote",
+				"Class/Week 1/Lecture.vnote",
+			]);
+			// The folder is gone, so a note comes back to the vault root, unchanged.
+			const first = listed.find((t) => t.originalPath === a.path);
+			expect(first).toBeDefined();
+			const restored = await restoreNote(
+				host,
+				(first as { trashPath: string }).trashPath,
+			);
+			expect(restored.path).toBe("Syllabus.vnote");
+			expect(await host.kindOf(b.path)).toBeNull();
+		});
+
+		it("restores into the folder again when it has been recreated", async () => {
+			const host = await vault();
+			await host.makeFolder("Class");
+			const { path } = await createNote(host, "Class", "Syllabus");
+			await trashFolder(host, "Class", T1);
+			await host.makeFolder("Class");
+			const [item] = await listTrash(host);
+			expect(
+				(await restoreNote(host, (item as { trashPath: string }).trashPath))
+					.path,
+			).toBe(path);
+		});
+
+		it("keeps an empty folder out of the way without erasing anything", async () => {
+			const host = await vault();
+			await host.makeFolder("Empty");
+			await trashFolder(host, "Empty", T1);
+			expect(await host.kindOf("Empty")).toBeNull();
+			expect(
+				await host.kindOf(".vaultops/trash/2026-10-27T15-04-05-123Z/Empty"),
+			).toBe("folder");
+		});
+
+		it("does not collide when two deletions share a millisecond", async () => {
+			const host = await vault();
+			await host.makeFolder("A");
+			await host.makeFolder("B");
+			const a = await trashFolder(host, "A", T1);
+			const b = await trashFolder(host, "B", T1);
+			expect(a.trashPath).not.toBe(b.trashPath);
+		});
+
+		it("refuses the root, .vaultops, a note and a missing folder, moving nothing", async () => {
+			const host = await vault();
+			const { path } = await createNote(host, "", "Plan");
+			const move = vi.spyOn(host, "move");
+			for (const bad of [
+				"",
+				".vaultops",
+				".VAULTOPS/trash",
+				path,
+				"Nowhere",
+				"../x",
+			]) {
+				await expect(trashFolder(host, bad, T1), bad).rejects.toThrow();
+			}
+			expect(move).not.toHaveBeenCalled();
 			expect(await host.kindOf(path)).toBe("file");
 		});
 	});

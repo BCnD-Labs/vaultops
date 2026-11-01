@@ -52,13 +52,41 @@ export async function trashNote(
 	if ((await host.kindOf(path)) !== "file") {
 		throw new Error("That note was not found.");
 	}
+	const target = join(await newTrashFolder(host, now), path);
+	await host.makeFolder(split(target).folder);
+	await host.move(path, target);
+	return { trashPath: target };
+}
+
+/** A fresh time folder inside the trash, so two deletions never share one. */
+async function newTrashFolder(host: Host, now: Date): Promise<string> {
 	await host.makeFolder(TRASH);
 	const base = stamp(now);
 	let folder = `${TRASH}/${base}`;
 	for (let n = 2; (await host.kindOf(folder)) !== null; n++) {
 		folder = `${TRASH}/${base} ${n}`;
 	}
-	const target = join(folder, path);
+	return folder;
+}
+
+/**
+ * Move a whole folder, with everything in it, to `.vaultops/trash/<time>/<its
+ * path>`. One rename, so nothing is half-moved and nothing is erased. Each
+ * note inside can then be restored from the trash with its original path. The
+ * vault root and anything inside `.vaultops/` are refused.
+ */
+export async function trashFolder(
+	host: Host,
+	path: string,
+	now: Date = new Date(),
+): Promise<{ trashPath: string }> {
+	if (path === "" || !checkVaultPath(path).ok || isInsideVaultOps(path)) {
+		throw new Error("That folder can't be moved to the trash.");
+	}
+	if ((await host.kindOf(path)) !== "folder") {
+		throw new Error("That folder was not found.");
+	}
+	const target = join(await newTrashFolder(host, now), path);
 	await host.makeFolder(split(target).folder);
 	await host.move(path, target);
 	return { trashPath: target };

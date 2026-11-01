@@ -63,7 +63,9 @@ describe("vault session", () => {
 		await host.writeTextAtomic("broken.vnote", "not json\n");
 		const view = await loadVault(host);
 		expect(view.notes).toEqual([]);
-		expect(view.messages.some((m) => m.startsWith("broken.vnote:"))).toBe(true);
+		expect(view.report).toContainEqual(
+			expect.objectContaining({ path: "broken.vnote", group: "corrupt" }),
+		);
 	});
 });
 

@@ -6,6 +6,7 @@ import {
 	parseNote,
 } from "../core/note-format";
 import { saveNote } from "../core/notes/repository";
+import { scanVault } from "../core/notes/scan";
 import type { Host } from "../host/host";
 import { blocksToDoc, checkBlocks, docToBlocks } from "./doc-blocks";
 import { ensureUniqueIds } from "./ids";
@@ -18,6 +19,7 @@ export interface OpenedNote {
 	doc: JSONContent;
 	/** False for a note this version must not rewrite; `notice` says why. */
 	editable: boolean;
+	canAllowEditing?: boolean;
 	notice?: string;
 	/**
 	 * The file's exact text when it was read or last written by this app. Before
@@ -77,15 +79,34 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 		};
 	}
 	const doc = ensureUniqueIds(blocksToDoc(note.blocks));
-	const readOnly = whyReadOnly(parsed);
+	const duplicate = (await scanVault(host)).report.find((e) => e.path === path)
+		?.duplicateOf.length;
+	const readOnly = duplicate
+		? "This note has the same note id as another file, so it is read-only."
+		: whyReadOnly(parsed);
 	return {
 		path,
 		note,
 		doc,
 		editable: readOnly === null,
+		canAllowEditing:
+			!duplicate &&
+			parsed.skippedLines.length > 0 &&
+			parsed.problems.every(
+				(p) =>
+					(p.kind === "invalid-json" || p.kind === "bad-block") &&
+					parsed.skippedLines.includes(p.line),
+			),
 		baseText,
 		...(readOnly === null ? {} : { notice: readOnly }),
 	};
+}
+
+/** Explicit consent applies only to this opening of a safely readable truncated note. */
+export function allowEditing(opened: OpenedNote): OpenedNote {
+	return opened.canAllowEditing
+		? { ...opened, editable: true, canAllowEditing: false, notice: undefined }
+		: opened;
 }
 
 /**
@@ -95,6 +116,7 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 export function lockedForReadOnlyVault(opened: OpenedNote): OpenedNote {
 	return {
 		...opened,
+		canAllowEditing: false,
 		editable: false,
 		notice:
 			opened.notice ?? "This vault is read-only, so this note can't be edited.",

@@ -56,7 +56,7 @@ export async function scanVault(host: Host): Promise<{
 			} else if (parsed.skippedLines.length > 0) {
 				entry.group = "truncated";
 				entry.reason =
-					"Some lines could not be read; complete blocks were kept. Do not rewrite until Blake confirms.";
+					"Some lines could not be read, so only the complete blocks are shown. Nothing is changed unless you choose to edit it.";
 			} else if (parsed.problems.length > 0) {
 				entry.reason =
 					"The note has block or ID problems; its blocks were kept.";

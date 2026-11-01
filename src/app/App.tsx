@@ -10,8 +10,14 @@ import {
 } from "../core/notes/folders";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { moveNote } from "../core/notes/rename";
-import { tagsOf } from "../core/notes/tags";
-import { trashFolder, trashNote } from "../core/notes/trash";
+import {
+	deleteForever,
+	listTrash,
+	restoreNote,
+	type TrashedNote,
+	trashFolder,
+	trashNote,
+} from "../core/notes/trash";
 import { buildTree } from "../core/notes/tree";
 import { parseMaintainer } from "../core/session/maintainer";
 import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
@@ -20,6 +26,7 @@ import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
 import { NoteEditor } from "../editor/NoteEditor";
 import {
+	allowEditing,
 	lockedForReadOnlyVault,
 	type OpenedNote,
 	openNote,
@@ -30,6 +37,7 @@ import { type Draft, saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
+import { HealthScreen, healthLabel } from "./HealthScreen";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { NoteTree, type TreeActions } from "./NoteTree";
 import { PropertiesPanel } from "./PropertiesPanel";
@@ -41,12 +49,18 @@ import {
 	type VaultView,
 } from "./session";
 import { TaggedNotes, TagIndex } from "./TagBrowser";
+import { TrashScreen } from "./TrashScreen";
 import "../ui/theme.css";
 import "./app.css";
 
 /** The window: notes on the left, the open note on the right. */
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
+	const [screen, setScreen] = useState<"note" | "trash" | "health">("note");
+	const [trash, setTrash] = useState<TrashedNote[]>([]);
+	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+	const [confirmEditing, setConfirmEditing] = useState(false);
+	const [screenNotice, setScreenNotice] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
@@ -98,9 +112,26 @@ export function App({ host }: { host: Host }) {
 			const row = v?.notes.find((n) => n.path === info.oldPath);
 			if (!v || !row) return v;
 			const sameTags = row.tags.join("\n") === info.tags.join("\n");
-			if (!info.titleChanged && sameTags) return v;
+			const repaired = v.report.some(
+				(e) => e.path === info.oldPath && e.group === "truncated",
+			);
+			if (!info.titleChanged && sameTags && !repaired) return v;
 			return {
 				...v,
+				report: v.report.map((e) =>
+					e.path === info.oldPath
+						? {
+								...e,
+								path: info.path,
+								...(repaired
+									? {
+											group: "good" as const,
+											reason: "The note was read without problems.",
+										}
+									: {}),
+							}
+						: e,
+				),
 				notes: v.notes
 					.map((n) =>
 						n.path === info.oldPath
@@ -151,6 +182,8 @@ export function App({ host }: { host: Host }) {
 				propsRef.current = loaded;
 				setProps(loaded);
 				setConfirmTrash(false);
+				setConfirmEditing(false);
+				setScreen("note");
 				setOpened(next);
 				if (vault) lastNotes.current.set(vault, path);
 			} catch (e) {
@@ -279,7 +312,14 @@ export function App({ host }: { host: Host }) {
 
 	// After a vault loads: reopen the note that was open last (or the first one).
 	useEffect(() => {
-		if (!view || autoOpened.current || opened || view.status === "none") return;
+		if (
+			!view ||
+			screen !== "note" ||
+			autoOpened.current ||
+			opened ||
+			view.status === "none"
+		)
+			return;
 		autoOpened.current = true;
 		const paths = view.notes.map((n) => n.path);
 		const pick = pickInitialNote(
@@ -287,7 +327,7 @@ export function App({ host }: { host: Host }) {
 			view.name ? lastNotes.current.get(view.name) : null,
 		);
 		if (pick) void show(pick, view.name);
-	}, [view, opened, show]);
+	}, [view, opened, show, screen]);
 
 	useEffect(() => {
 		if (opened && focusTitle.current) {
@@ -296,6 +336,52 @@ export function App({ host }: { host: Host }) {
 			titleInput.current?.select();
 		}
 	}, [opened]);
+
+	const navigate = async (next: "trash" | "health" | "note") => {
+		if (!(await settle())) return;
+		setBusy(true);
+		try {
+			if (next === "trash") setTrash(await listTrash(host));
+			if (next === "health") setView(await loadVault(host));
+			if (
+				next === "note" &&
+				view?.report.some((e) => e.path === livePathRef.current)
+			)
+				await show(livePathRef.current as string, vaultName);
+			else {
+				autoOpened.current = true;
+				setOpened(null);
+			}
+			setConfirmDelete(null);
+			setScreenNotice(null);
+			setScreen(next);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const changeTrash = async (path: string, restore: boolean) => {
+		if (!writable || busy || (!restore && confirmDelete !== path)) return;
+		setBusy(true);
+		try {
+			let message = "Note deleted forever.";
+			if (restore)
+				message = `Restored to ${(await restoreNote(vaultHost, path)).path}.`;
+			else await deleteForever(vaultHost, path);
+			const entries = await listTrash(host);
+			const next = await loadVault(host);
+			setTrash(entries);
+			setView(next);
+			setConfirmDelete(null);
+			setScreenNotice(message);
+		} catch (e) {
+			setScreenNotice(e instanceof Error ? e.message : String(e));
+		} finally {
+			setBusy(false);
+		}
+	};
 
 	const startNote = async () => {
 		if (!view || !(await settle())) return;
@@ -498,6 +584,40 @@ export function App({ host }: { host: Host }) {
 					{notice}
 				</p>
 			)}
+			{opened.canAllowEditing &&
+				(confirmEditing ? (
+					<div className="tree-confirm">
+						<p>
+							Some lines of this note could not be read. If you edit it, those
+							lines will be lost when it saves.
+						</p>
+						<Button
+							size="sm"
+							onClick={() => {
+								setOpened(allowEditing(opened));
+								setNotice(null);
+								setConfirmEditing(false);
+							}}
+						>
+							Allow editing
+						</Button>{" "}
+						<Button
+							size="sm"
+							variant="secondary"
+							onClick={() => setConfirmEditing(false)}
+						>
+							Keep read-only
+						</Button>
+					</div>
+				) : (
+					<Button
+						size="sm"
+						variant="secondary"
+						onClick={() => setConfirmEditing(true)}
+					>
+						Allow editing
+					</Button>
+				))}
 			<PropertiesPanel
 				props={props}
 				editable={opened.editable}
@@ -555,6 +675,7 @@ export function App({ host }: { host: Host }) {
 						onClick={async () => {
 							if (!(await settle())) return;
 							setOpened(null);
+							setScreen("note");
 							setTagFilter(null);
 							run(() => chooseAndLoad(host));
 						}}
@@ -571,6 +692,26 @@ export function App({ host }: { host: Host }) {
 						</Button>
 					)}
 				</div>
+				{view && view.status !== "none" && (
+					<div className="sidebar-actions">
+						<Button
+							size="sm"
+							variant="secondary"
+							disabled={busy}
+							onClick={() => navigate("trash")}
+						>
+							Trash
+						</Button>
+						<Button
+							size="sm"
+							variant="secondary"
+							disabled={busy}
+							onClick={() => navigate("health")}
+						>
+							{healthLabel(view.report)}
+						</Button>
+					</div>
+				)}
 				{view?.messages.map((m) => (
 					<p key={m} className="notice">
 						{m}
@@ -625,8 +766,38 @@ export function App({ host }: { host: Host }) {
 						No vault is open. Choose a folder to start.
 					</p>
 				)}
-				{editor}
-				{!opened && view && view.status !== "none" && (
+				{screen !== "note" && (
+					<>
+						<Button
+							size="sm"
+							variant="secondary"
+							disabled={busy}
+							onClick={() => navigate("note")}
+						>
+							Back to notes
+						</Button>
+						{screenNotice && (
+							<p role="status" className="notice">
+								{screenNotice}
+							</p>
+						)}
+					</>
+				)}
+				{screen === "trash" && (
+					<TrashScreen
+						entries={trash}
+						disabled={busy || !writable}
+						confirming={confirmDelete}
+						onConfirm={setConfirmDelete}
+						onRestore={(p) => void changeTrash(p, true)}
+						onDelete={(p) => void changeTrash(p, false)}
+					/>
+				)}
+				{screen === "health" && view && (
+					<HealthScreen report={view.report} onOpen={open} />
+				)}
+				{screen === "note" && editor}
+				{screen === "note" && !opened && view && view.status !== "none" && (
 					<p className="empty-pane">Pick a note, or start a new one.</p>
 				)}
 			</main>

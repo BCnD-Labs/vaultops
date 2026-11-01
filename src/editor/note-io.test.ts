@@ -4,7 +4,13 @@ import { createNote, saveNote } from "../core/notes/repository";
 import { openVault } from "../core/vault/vault";
 import { HostError } from "../host/host";
 import { MemoryHost } from "../host/memory-host";
-import { openNote, saveDoc } from "./note-io";
+import {
+	allowEditing,
+	lockedForReadOnlyVault,
+	openNote,
+	saveDoc,
+} from "./note-io";
+import { saveDraft } from "./save-draft";
 
 const text = (value: string) => [{ type: "text", text: value }] as never;
 
@@ -182,4 +188,69 @@ describe("notes that must not be written", () => {
 		expect(opened.note).toBeNull();
 		expect((await saveDoc(host, opened, opened.doc)).ok).toBe(false);
 	});
+});
+
+describe("consent to edit a truncated note", () => {
+	it("writes nothing until consent, then saves edits with complete blocks", async () => {
+		const { host, path, note } = await withNote(BLOCKS);
+		await host.writeTextAtomic(path, `${serializeNote(note)}{broken\n`);
+		const write = vi.spyOn(host, "writeTextAtomic");
+		const opened = await openNote(host, path);
+		const draft = { title: "Sample", doc: opened.doc };
+		expect(opened.editable).toBe(false);
+		expect((await saveDraft(host, opened, draft)).ok).toBe(false);
+		expect(write).not.toHaveBeenCalled();
+		expect(allowEditing(lockedForReadOnlyVault(opened)).editable).toBe(false);
+		const editable = allowEditing(opened);
+		expect(editable.editable).toBe(true);
+		const edited = structuredClone(draft.doc);
+		edited.content?.push({
+			type: "paragraph",
+			attrs: { id: "added" },
+			content: [{ type: "text", text: "Edited" }],
+		});
+		expect(
+			(await saveDraft(host, editable, { ...draft, doc: edited })).ok,
+		).toBe(true);
+		expect(write).toHaveBeenCalledTimes(1);
+		expect((await openNote(host, path)).note?.blocks).toEqual([
+			...note.blocks,
+			{
+				id: "added",
+				type: "paragraph",
+				parent: null,
+				content: [{ type: "text", text: "Edited" }],
+			},
+		]);
+	});
+
+	it("forgets consent when reopening without an edit", async () => {
+		const { host, path, note } = await withNote(BLOCKS);
+		await host.writeTextAtomic(path, `${serializeNote(note)}bad\n`);
+		expect(allowEditing(await openNote(host, path)).editable).toBe(true);
+		expect((await openNote(host, path)).editable).toBe(false);
+	});
+
+	it.each(["corrupt", "newer", "duplicate", "block ids", "unknown block"])(
+		"never unlocks %s notes, even with skipped lines",
+		async (kind) => {
+			const { host, path, note } = await withNote(BLOCKS);
+			if (kind === "newer") note.header.v = 2;
+			if (kind === "duplicate")
+				await host.writeTextAtomic("Copy.vnote", serializeNote(note));
+			if (kind === "block ids")
+				note.blocks.push(note.blocks[0] as Note["blocks"][number]);
+			if (kind === "unknown block")
+				note.blocks.push({ id: "future", type: "future", parent: null });
+			await host.writeTextAtomic(
+				path,
+				kind === "corrupt" ? "bad\n" : `${serializeNote(note)}bad\n`,
+			);
+			const write = vi.spyOn(host, "writeTextAtomic");
+			const opened = allowEditing(await openNote(host, path));
+			expect(opened.editable).toBe(false);
+			expect((await saveDoc(host, opened, opened.doc)).ok).toBe(false);
+			expect(write).not.toHaveBeenCalled();
+		},
+	);
 });

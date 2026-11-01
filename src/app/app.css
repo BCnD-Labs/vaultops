@@ -578,3 +578,14 @@ body {
 .tag-index .tag-button[aria-pressed="true"] .read-only-tag {
 	color: inherit;
 }
+
+.vault-row {
+	padding: 12px 0;
+	border-bottom: 1px solid var(--line);
+	overflow-wrap: anywhere;
+}
+
+.vault-row p {
+	margin: 4px 0;
+	color: var(--muted);
+}

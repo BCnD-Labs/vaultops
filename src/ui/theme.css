@@ -2,8 +2,7 @@
  * Design tokens for the shared UI components (shadcn/ui on Tailwind).
  *
  * Every color, border, shadow and radius the components use is a variable
- * here, so a new design (for example one drawn in Figma) is a change to this
- * file only. Soft neutral borders and a quiet blue accent keep the UI calm.
+ * in themes/default.css. This file only loads themes, fonts and utility mappings.
  *
  * Tailwind's reset (preflight) is left out on purpose, so the screens that
  * already exist keep their current look. Only theme and utilities are loaded.
@@ -11,6 +10,7 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+@import "./themes/default.css";
 
 /*
  * App font: Atkinson Hyperlegible Next (variable weight, normal and italic),
@@ -35,45 +35,6 @@
 		format("woff2");
 }
 
-:root {
-	--font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
-	--background: #ffffff;
-	--foreground: #1c1c1e;
-	--primary: #3b5bdb;
-	--primary-foreground: #ffffff;
-	--secondary: #f4f4f6;
-	--secondary-foreground: #1c1c1e;
-	--muted: #f4f4f6;
-	--muted-foreground: #6b6b73;
-	--accent: #edf0ff;
-	--accent-foreground: #1c1c1e;
-	--destructive: #ff5a6e;
-	--destructive-foreground: #1c1c1e;
-	--border: #dcdce1;
-	--ring: #3b5bdb;
-	--radius: 0.5rem;
-	--shadow-offset: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #1b1b1f;
-		--foreground: #ececf0;
-		--primary: #8da2ff;
-		--primary-foreground: #1c1c1e;
-		--secondary: #25252b;
-		--secondary-foreground: #ececf0;
-		--muted: #25252b;
-		--muted-foreground: #9a9aa5;
-		--accent: #2c3350;
-		--accent-foreground: #ececf0;
-		--destructive: #ff6b81;
-		--destructive-foreground: #1c1c1e;
-		--border: #3a3a42;
-		--ring: #8da2ff;
-	}
-}
-
 @theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -90,7 +51,18 @@
 	--color-border: var(--border);
 	--color-ring: var(--ring);
 
-	--radius-sm: calc(var(--radius) - 2px);
-	--radius-md: var(--radius);
-	--radius-lg: calc(var(--radius) + 2px);
+	--radius-sm: var(--radius-control);
+	--radius-md: var(--radius-control);
+	--radius-lg: var(--radius-container);
+	--spacing: var(--space-unit);
+	--text-sm: var(--font-size-ui);
+	--text-xs: var(--font-size-small);
+	--radius-DEFAULT: var(--radius-control);
+	--radius-full: var(--radius-round);
+	--shadow-sm: var(--elevation-1);
+	--shadow-md: var(--elevation-2);
+	--shadow-lg: var(--elevation-3);
+	--default-transition-duration: var(--motion-normal);
+	--color-primary-container: var(--primary-container);
+	--color-on-primary-container: var(--on-primary-container);
 }

@@ -23,7 +23,7 @@ export function SaveStatus({
 
 	if (state.kind === "failed" && state.conflict) {
 		return (
-			<span role="alert" style={{ color: "var(--bad, #b00020)" }}>
+			<span role="alert" style={{ color: "var(--bad)" }}>
 				Not saved: {state.reason}{" "}
 				{keepEditing ? (
 					<button type="button" onClick={() => setKeepEditing(false)}>
@@ -47,7 +47,7 @@ export function SaveStatus({
 	}
 	if (state.kind === "failed") {
 		return (
-			<span role="alert" style={{ color: "var(--bad, #b00020)" }}>
+			<span role="alert" style={{ color: "var(--bad)" }}>
 				Not saved: {state.reason}{" "}
 				<button type="button" onClick={onRetry}>
 					Retry

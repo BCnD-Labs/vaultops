@@ -16,12 +16,17 @@ import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
 import { NoteEditor } from "../editor/NoteEditor";
-import { type OpenedNote, openNote } from "../editor/note-io";
+import {
+	lockedForReadOnlyVault,
+	type OpenedNote,
+	openNote,
+} from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
 import { SaveStatus } from "../editor/SaveStatus";
 import { saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
+import { readOnlyHost } from "../host/read-only-host";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { NoteTree, type TreeActions } from "./NoteTree";
 import {
@@ -39,7 +44,21 @@ export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [opened, setOpened] = useState<OpenedNote | null>(null);
+	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
+	// Opening a vault may create it, so loading and choosing a vault use `host`.
+	// Everything that changes notes and folders goes through `vaultHost`, which
+	// refuses every write unless the vault is writable. Even a missed check in a
+	// screen cannot change a read-only vault.
+	const writable = view?.writable === true;
+	const vaultHost = useMemo(
+		() => (writable ? host : readOnlyHost(host)),
+		[host, writable],
+	);
+	const opened = useMemo(
+		() =>
+			openedNote && !writable ? lockedForReadOnlyVault(openedNote) : openedNote,
+		[openedNote, writable],
+	);
 	const [livePath, setLivePath] = useState<string | null>(null);
 	const tree = useMemo(
 		() => (view ? buildTree(view.folders, view.notes) : []),
@@ -84,7 +103,7 @@ export function App({ host }: { host: Host }) {
 		);
 	}, []);
 
-	const autosave = useAutosave(host, opened, onSaved);
+	const autosave = useAutosave(vaultHost, opened, onSaved);
 	const flushRef = useRef(autosave.flush);
 	flushRef.current = autosave.flush;
 
@@ -270,7 +289,7 @@ export function App({ host }: { host: Host }) {
 		if (!view || !(await settle())) return;
 		setBusy(true);
 		try {
-			const made = await createAndLoad(host, view);
+			const made = await createAndLoad(vaultHost, view);
 			setView(made.view);
 			if (made.path) {
 				focusTitle.current = true;
@@ -293,7 +312,7 @@ export function App({ host }: { host: Host }) {
 		setBusy(true);
 		try {
 			setOpened(null);
-			await trashNote(host, path);
+			await trashNote(vaultHost, path);
 			const next = await loadVault(host);
 			autoOpened.current = false;
 			setView(next);
@@ -344,11 +363,11 @@ export function App({ host }: { host: Host }) {
 	const treeActions: TreeActions = {
 		createFolder: (parent, name) =>
 			void changeTree(null, async () => ({
-				notice: (await createFolder(host, parent, name)).notice,
+				notice: (await createFolder(vaultHost, parent, name)).notice,
 			})),
 		renameFolder: (path, name) =>
 			void changeTree(path, async () => {
-				const r = await renameFolder(host, path, name);
+				const r = await renameFolder(vaultHost, path, name);
 				return {
 					notice: r.notice,
 					follow: (p) => movedPath(p, path, r.path),
@@ -356,19 +375,19 @@ export function App({ host }: { host: Host }) {
 			}),
 		deleteFolder: (path) =>
 			void changeTree(path, async () => {
-				await trashFolder(host, path);
+				await trashFolder(vaultHost, path);
 				return {};
 			}),
 		move: (item, into) =>
 			void changeTree(item.path, async () => {
 				if (item.kind === "folder") {
-					const r = await moveFolder(host, item.path, into);
+					const r = await moveFolder(vaultHost, item.path, into);
 					return {
 						notice: r.notice,
 						follow: (p) => movedPath(p, item.path, r.path),
 					};
 				}
-				const r = await moveNote(host, item.path, into, {
+				const r = await moveNote(vaultHost, item.path, into, {
 					readOnly: item.readOnly,
 				});
 				return { notice: r.notice, follow: () => r.path };
@@ -388,7 +407,7 @@ export function App({ host }: { host: Host }) {
 		const draft = autosave.peek();
 		if (!opened || !draft) return;
 		const path = livePathRef.current ?? opened.path;
-		const result = await saveAsCopy(host, { ...opened, path }, draft);
+		const result = await saveAsCopy(vaultHost, { ...opened, path }, draft);
 		if (!result.ok) {
 			setError(`The copy was not saved: ${result.message}`);
 			return;
@@ -435,14 +454,16 @@ export function App({ host }: { host: Host }) {
 						</button>
 					</span>
 				) : (
-					<button
-						type="button"
-						className="link-button"
-						disabled={busy}
-						onClick={() => setConfirmTrash(true)}
-					>
-						Move to trash
-					</button>
+					writable && (
+						<button
+							type="button"
+							className="link-button"
+							disabled={busy}
+							onClick={() => setConfirmTrash(true)}
+						>
+							Move to trash
+						</button>
+					)
 				)}
 			</div>
 			{notice && (

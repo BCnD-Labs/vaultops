@@ -89,6 +89,19 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 }
 
 /**
+ * The note as it must be shown in a vault the app may not change: not editable,
+ * so nothing is saved, renamed or moved. Its own notice, if any, is kept.
+ */
+export function lockedForReadOnlyVault(opened: OpenedNote): OpenedNote {
+	return {
+		...opened,
+		editable: false,
+		notice:
+			opened.notice ?? "This vault is read-only, so this note can't be edited.",
+	};
+}
+
+/**
  * Save the document into the note: the loaded header is kept unchanged and the
  * blocks come from the document. Goes through the save guard; if it refuses, or
  * the host fails, nothing is written and the message says why.

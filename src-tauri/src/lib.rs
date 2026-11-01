@@ -311,8 +311,21 @@ fn remove_trashed(state: tauri::State<'_, VaultState>, path: String) -> Result<(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Remember the window's size, position and maximized/full-screen state between
+    // launches. With no saved state the window keeps the size from tauri.conf.json.
+    // Visibility and decorations are left to the config. No capability permission
+    // is needed: the plugin works from Rust, and its commands stay closed to the page.
+    let window_state = tauri_plugin_window_state::Builder::default()
+        .with_state_flags(
+            tauri_plugin_window_state::StateFlags::SIZE
+                | tauri_plugin_window_state::StateFlags::POSITION
+                | tauri_plugin_window_state::StateFlags::MAXIMIZED
+                | tauri_plugin_window_state::StateFlags::FULLSCREEN,
+        )
+        .build();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(window_state)
         .manage(VaultState::default())
         .setup(|app| {
             // Reopen the last vault. If it moved or is gone, start with none.

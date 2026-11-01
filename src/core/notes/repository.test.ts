@@ -21,12 +21,12 @@ describe("note repository", () => {
 				),
 				title: "Untitled",
 			},
-			blocks: [],
+			blocks: [{ id: expect.any(String), type: "paragraph", parent: null }],
 		});
-		expect(write).toHaveBeenCalledTimes(1);
-		expect(write.mock.calls[0]?.[0]).toBe(path);
+		expect(write).toHaveBeenCalledTimes(2);
+		expect(write.mock.calls[1]?.[0]).toBe(path);
 		expect(await host.list(".vaultops/history")).toEqual([]);
-		expect(await host.list(".vaultops/pending")).toEqual([]);
+		expect(await host.list(".vaultops/pending")).toHaveLength(1);
 
 		note.blocks.push({
 			id: "block-1",
@@ -74,7 +74,7 @@ describe("note repository", () => {
 		const write = vi.spyOn(host, "writeTextAtomic");
 		expect(await saveNote(host, path, note)).toEqual({
 			ok: false,
-			problems: [expect.objectContaining({ kind: "duplicate-id", line: 3 })],
+			problems: [expect.objectContaining({ kind: "duplicate-id", line: 4 })],
 		});
 		expect(write).not.toHaveBeenCalled();
 		expect(await host.readText(path)).toBe(before);

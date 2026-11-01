@@ -1,5 +1,6 @@
 import type { Host } from "../../host/host";
 import { fileNameFor, NOTE_EXT } from "../file-name/file-name";
+import { saveWithPending } from "../history/pending";
 import {
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
@@ -11,11 +12,12 @@ import {
 } from "../note-format";
 import { isInsideVaultOps } from "../vault/vault";
 
-/** Create an empty note without adding history or changing its title. */
+/** Create a note whose initial blocks are new, uncommitted changes. */
 export async function createNote(
 	host: Host,
 	folder = "",
 	title = "Untitled",
+	initial?: Partial<Note>,
 ): Promise<{ path: string; note: Note }> {
 	if (isInsideVaultOps(folder)) {
 		throw new Error("Notes can't be created inside the .vaultops folder.");
@@ -30,13 +32,16 @@ export async function createNote(
 		header: {
 			format: NOTE_FORMAT,
 			v: NOTE_FORMAT_VERSION,
+			...initial?.header,
 			noteId: crypto.randomUUID(),
 			title,
 		},
-		blocks: [],
+		blocks: initial?.blocks ?? [
+			{ id: crypto.randomUUID(), type: "paragraph", parent: null },
+		],
 	};
-	const result = await saveNote(host, path, note);
-	if (!result.ok) throw new Error("Empty note failed the save check");
+	const result = await saveWithPending(host, path, note, []);
+	if (!result.ok) throw new Error("New note failed the save check");
 	return { path, note };
 }
 

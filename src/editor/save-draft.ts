@@ -6,7 +6,7 @@ import {
 } from "../core/note-format";
 import { type Props, withProps } from "../core/notes/properties";
 import { renameNote } from "../core/notes/rename";
-import { createNote, saveNote } from "../core/notes/repository";
+import { createNote } from "../core/notes/repository";
 import { type Host, HostError } from "../host/host";
 import { docToBlocks } from "./doc-blocks";
 import { type OpenedNote, saveDoc } from "./note-io";
@@ -120,7 +120,6 @@ export async function saveAsCopy(
 		const cut = current.path.lastIndexOf("/");
 		const folder = cut === -1 ? "" : current.path.slice(0, cut);
 		const title = `${draft.title || "Untitled"} (copy)`;
-		const { path } = await createNote(host, folder, title);
 		let header: Note["header"] = {
 			...(current.note?.header ?? {
 				format: NOTE_FORMAT,
@@ -131,9 +130,7 @@ export async function saveAsCopy(
 		};
 		if (draft.props !== undefined) header = withProps(header, draft.props);
 		const note: Note = { header, blocks: docToBlocks(draft.doc) };
-		const check = await saveNote(host, path, note);
-		if (!check.ok)
-			return { ok: false, message: "The copy could not be saved." };
+		const { path } = await createNote(host, folder, title, note);
 		return { ok: true, path };
 	} catch (error) {
 		return {

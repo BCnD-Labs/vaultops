@@ -109,10 +109,14 @@ function stringifyWithLead(obj: Obj, lead: string[]): string {
 	return stringifyEntries([...entries, ...rest]);
 }
 
+export function serializeBlock(block: Block): string {
+	return stringifyWithLead(block, ["id", "type", "parent"]);
+}
+
 export function serializeNote(note: Note): string {
 	const lines = [stringifyWithLead(note.header, ["format", "v", "noteId"])];
 	for (const block of note.blocks) {
-		lines.push(stringifyWithLead(block, ["id", "type", "parent"]));
+		lines.push(serializeBlock(block));
 	}
 	return `${lines.join("\n")}\n`;
 }

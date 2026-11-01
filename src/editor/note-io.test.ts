@@ -212,7 +212,8 @@ describe("consent to edit a truncated note", () => {
 		expect(
 			(await saveDraft(host, editable, { ...draft, doc: edited })).ok,
 		).toBe(true);
-		expect(write).toHaveBeenCalledTimes(1);
+		// The note itself is written once; saving also records its pending change.
+		expect(write.mock.calls.filter(([p]) => p === path)).toHaveLength(1);
 		expect((await openNote(host, path)).note?.blocks).toEqual([
 			...note.blocks,
 			{

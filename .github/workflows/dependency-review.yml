@@ -9,6 +9,8 @@ name: Dependency review
 # copying its code into this repo is not (see AGENTS.md).
 # Unicode-3.0, Zlib and Apache-2.0 WITH LLVM-exception are permissive licenses
 # already used by Tauri's Rust crates (approved 2026-10-24).
+# 0BSD ("BSD Zero Clause", more permissive than MIT) is needed by tslib, which
+# the Radix UI packages depend on.
 
 on:
   pull_request:
@@ -36,6 +38,7 @@ jobs:
             MPL-2.0,
             Unicode-3.0,
             Zlib,
+            0BSD,
             Apache-2.0 WITH LLVM-exception
           # Check dev tools too (the default is runtime only): the license rule
           # covers all code in the repo, not just what ships in the app.

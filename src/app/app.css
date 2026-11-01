@@ -439,3 +439,142 @@ body {
 	white-space: pre-wrap;
 	word-break: break-word;
 }
+
+.props {
+	margin: 0 0 12px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--line);
+	font-size: 14px;
+}
+
+.props summary {
+	cursor: pointer;
+	color: var(--muted);
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 6px;
+}
+
+.prop-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 32px;
+}
+
+.prop-name {
+	flex: none;
+	width: 120px;
+	color: var(--muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.prop-row > input:not([type="checkbox"]),
+.prop-row > .chips {
+	flex: 1;
+	min-width: 0;
+}
+
+.props input:not([type="checkbox"]),
+.props select {
+	font: inherit;
+	padding: 3px 6px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--bg);
+	color: inherit;
+}
+
+.prop-add {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 4px 1px 8px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: var(--panel);
+}
+
+.chip-label {
+	background: none;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	padding: 0;
+}
+
+.chip-label:hover {
+	text-decoration: underline;
+}
+
+.chip-remove {
+	display: inline-flex;
+	background: none;
+	border: 0;
+	padding: 2px;
+	border-radius: 50%;
+	color: var(--muted);
+	cursor: pointer;
+}
+
+.chip-remove:hover {
+	background: var(--line);
+	color: inherit;
+}
+
+.props .chip-input {
+	width: 90px;
+	border-style: dashed;
+	border-radius: 999px;
+}
+
+.tag-index {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.tag-index .tag-button {
+	padding: 1px 8px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: var(--bg);
+	font-size: 13px;
+}
+
+.tag-index .tag-button[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--bg);
+}
+
+.tagged-title {
+	margin: 0 0 4px;
+	font-size: 13px;
+}
+
+.tagged .note-list {
+	margin-bottom: 8px;
+}
+
+.tag-index .tag-button[aria-pressed="true"] .read-only-tag {
+	color: inherit;
+}

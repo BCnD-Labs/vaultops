@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createNote } from "../core/notes/repository";
 import type { Host } from "../host/host";
 import { MemoryHost } from "../host/memory-host";
 import { chooseAndLoad, loadVault, newNote } from "./session";
@@ -70,10 +71,10 @@ describe("note list order", () => {
 	it("sorts by title ignoring case, then path", async () => {
 		const { compareRows } = await import("./session");
 		const rows = [
-			{ path: "z.vnote", title: "banana", readOnly: false },
-			{ path: "a.vnote", title: "Cherry", readOnly: false },
-			{ path: "m.vnote", title: "Apple", readOnly: false },
-			{ path: "b.vnote", title: "apple", readOnly: false },
+			{ path: "z.vnote", title: "banana", readOnly: false, tags: [] },
+			{ path: "a.vnote", title: "Cherry", readOnly: false, tags: [] },
+			{ path: "m.vnote", title: "Apple", readOnly: false, tags: [] },
+			{ path: "b.vnote", title: "apple", readOnly: false, tags: [] },
 		].sort(compareRows);
 		expect(rows.map((r) => r.path)).toEqual([
 			"b.vnote",
@@ -102,5 +103,27 @@ describe("note list order", () => {
 		expect(view.notes.map((n) => n.path)).toEqual([
 			"Class/Week 1/Lecture.vnote",
 		]);
+	});
+});
+
+describe("tags in the note list", () => {
+	it("carries each note's tags from its header, empty when it has none", async () => {
+		const host = new MemoryHost();
+		await loadVault(host);
+		const a = await createNote(host, "", "Tagged");
+		await createNote(host, "", "Plain");
+		const text = await host.readText(a.path);
+		const lines = text.split("\n");
+		const header = JSON.parse(lines[0] ?? "{}");
+		header.props = { tags: { type: "list", value: ["idea", "Work"] } };
+		await host.writeTextAtomic(
+			a.path,
+			[JSON.stringify(header), ...lines.slice(1)].join("\n"),
+		);
+		const view = await loadVault(host);
+		const byTitle = Object.fromEntries(
+			view.notes.map((n) => [n.title, n.tags]),
+		);
+		expect(byTitle).toEqual({ Tagged: ["idea", "Work"], Plain: [] });
 	});
 });

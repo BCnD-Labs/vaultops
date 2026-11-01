@@ -143,3 +143,73 @@ describe("saveDraft", () => {
 		expect(await host.readText(opened.path)).toBe("changed elsewhere");
 	});
 });
+
+describe("saveDraft with properties", () => {
+	const props = {
+		tags: { type: "list", value: ["idea"] },
+		Due: { type: "date", value: "2026-11-05" },
+		Status: { type: "select", value: "Open", options: ["Open"] },
+	};
+
+	it("saves the properties in the header and keeps noteId and body", async () => {
+		const { host, opened } = await setup();
+		const noteId = opened.note?.header.noteId;
+		const result = await saveDraft(host, opened, {
+			doc: doc("hello"),
+			title: "Untitled",
+			props,
+		});
+		expect(result.ok).toBe(true);
+		const parsed = await loadNote(host, opened.path);
+		expect(parsed.note?.header["props"]).toEqual(props);
+		expect(parsed.note?.header.noteId).toBe(noteId);
+		expect(parsed.note?.blocks).toHaveLength(1);
+	});
+
+	it("leaves the header's props alone when the draft has none", async () => {
+		const { host, opened } = await setup();
+		await saveDraft(host, opened, { doc: doc("a"), title: "Untitled", props });
+		const reopened = await openNote(host, opened.path);
+		await saveDraft(host, reopened, { doc: doc("b"), title: "Untitled" });
+		const parsed = await loadNote(host, opened.path);
+		expect(parsed.note?.header["props"]).toEqual(props);
+	});
+
+	it("keeps the tags when the title renames the file", async () => {
+		const { host, opened } = await setup();
+		const result = await saveDraft(host, opened, {
+			doc: doc("a"),
+			title: "Brand new title",
+			props,
+		});
+		expect(result.ok && result.path).toBe("Brand new title.vnote");
+		const parsed = await loadNote(host, "Brand new title.vnote");
+		expect(parsed.note?.header["props"]).toEqual(props);
+	});
+
+	it("removing the last property leaves no props in the file", async () => {
+		const { host, opened } = await setup();
+		await saveDraft(host, opened, { doc: doc("a"), title: "Untitled", props });
+		const reopened = await openNote(host, opened.path);
+		await saveDraft(host, reopened, {
+			doc: doc("a"),
+			title: "Untitled",
+			props: {},
+		});
+		const parsed = await loadNote(host, opened.path);
+		expect("props" in (parsed.note?.header ?? {})).toBe(false);
+	});
+
+	it("a copy carries the properties and gets a new noteId", async () => {
+		const { host, opened } = await setup();
+		const copy = await saveAsCopy(host, opened, {
+			doc: doc("a"),
+			title: "Untitled",
+			props,
+		});
+		if (!copy.ok) throw new Error(copy.message);
+		const parsed = await loadNote(host, copy.path);
+		expect(parsed.note?.header["props"]).toEqual(props);
+		expect(parsed.note?.header.noteId).not.toBe(opened.note?.header.noteId);
+	});
+});

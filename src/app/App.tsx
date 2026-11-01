@@ -1,3 +1,4 @@
+import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,7 +8,9 @@ import {
 	renameFolder,
 	within,
 } from "../core/notes/folders";
+import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { moveNote } from "../core/notes/rename";
+import { tagsOf } from "../core/notes/tags";
 import { trashFolder, trashNote } from "../core/notes/trash";
 import { buildTree } from "../core/notes/tree";
 import { parseMaintainer } from "../core/session/maintainer";
@@ -19,11 +22,12 @@ import { NoteEditor } from "../editor/NoteEditor";
 import { type OpenedNote, openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
 import { SaveStatus } from "../editor/SaveStatus";
-import { saveAsCopy } from "../editor/save-draft";
+import { type Draft, saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { NoteTree, type TreeActions } from "./NoteTree";
+import { PropertiesPanel } from "./PropertiesPanel";
 import {
 	chooseAndLoad,
 	compareRows,
@@ -31,6 +35,7 @@ import {
 	loadVault,
 	type VaultView,
 } from "./session";
+import { TaggedNotes, TagIndex } from "./TagBrowser";
 import "../ui/theme.css";
 import "./app.css";
 
@@ -61,27 +66,31 @@ export function App({ host }: { host: Host }) {
 	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [confirmTrash, setConfirmTrash] = useState(false);
 	const [treeNotice, setTreeNotice] = useState<string | null>(null);
+	const [props, setProps] = useState<NoteProps | null>({});
+	const propsRef = useRef<NoteProps | null>({});
+	const [tagFilter, setTagFilter] = useState<string | null>(null);
 	const vaultName = view?.name ?? null;
 
 	const onSaved = useCallback((info: SavedInfo) => {
 		setNotice(info.notice ?? null);
 		livePathRef.current = info.path;
 		setLivePath(info.path);
-		if (!info.titleChanged) return;
-		setView((v) =>
-			v
-				? {
-						...v,
-						notes: v.notes
-							.map((n) =>
-								n.path === info.oldPath
-									? { ...n, path: info.path, title: info.title }
-									: n,
-							)
-							.sort(compareRows),
-					}
-				: v,
-		);
+		setView((v) => {
+			const row = v?.notes.find((n) => n.path === info.oldPath);
+			if (!v || !row) return v;
+			const sameTags = row.tags.join("\n") === info.tags.join("\n");
+			if (!info.titleChanged && sameTags) return v;
+			return {
+				...v,
+				notes: v.notes
+					.map((n) =>
+						n.path === info.oldPath
+							? { ...n, path: info.path, title: info.title, tags: info.tags }
+							: n,
+					)
+					.sort(compareRows),
+			};
+		});
 	}, []);
 
 	const autosave = useAutosave(host, opened, onSaved);
@@ -119,6 +128,9 @@ export function App({ host }: { host: Host }) {
 				setNotice(next.notice ?? null);
 				livePathRef.current = path;
 				setLivePath(path);
+				const loaded = headerProps(next.note?.header);
+				propsRef.current = loaded;
+				setProps(loaded);
 				setConfirmTrash(false);
 				setOpened(next);
 				if (vault) lastNotes.current.set(vault, path);
@@ -398,6 +410,21 @@ export function App({ host }: { host: Host }) {
 		await show(result.path, vaultName);
 	};
 
+	// What gets saved: the body, the title and, unless the file keeps its props in a
+	// form we can't edit, the properties.
+	const draftOf = (doc: JSONContent, title: string): Draft => ({
+		doc,
+		title,
+		...(propsRef.current ? { props: propsRef.current } : {}),
+	});
+
+	const editProps = (next: NoteProps) => {
+		propsRef.current = next;
+		setProps(next);
+		if (docRef.current)
+			autosave.change(draftOf(docRef.current, titleRef.current));
+	};
+
 	const editor = opened && (
 		<>
 			<input
@@ -411,7 +438,7 @@ export function App({ host }: { host: Host }) {
 					titleRef.current = next;
 					setTitle(next);
 					if (docRef.current) {
-						autosave.change({ doc: docRef.current, title: next });
+						autosave.change(draftOf(docRef.current, next));
 					}
 				}}
 			/>
@@ -450,6 +477,12 @@ export function App({ host }: { host: Host }) {
 					{notice}
 				</p>
 			)}
+			<PropertiesPanel
+				props={props}
+				editable={opened.editable}
+				onChange={editProps}
+				onOpenTag={setTagFilter}
+			/>
 			<NoteEditor
 				key={opened.path}
 				doc={opened.doc}
@@ -457,7 +490,7 @@ export function App({ host }: { host: Host }) {
 				onChange={(doc) => {
 					docRef.current = doc;
 					getLogger().count("edits");
-					autosave.change({ doc, title: titleRef.current });
+					autosave.change(draftOf(doc, titleRef.current));
 				}}
 			/>
 		</>
@@ -501,6 +534,7 @@ export function App({ host }: { host: Host }) {
 						onClick={async () => {
 							if (!(await settle())) return;
 							setOpened(null);
+							setTagFilter(null);
 							run(() => chooseAndLoad(host));
 						}}
 					>
@@ -522,14 +556,31 @@ export function App({ host }: { host: Host }) {
 					</p>
 				))}
 				{view && view.status !== "none" && (
-					<NoteTree
-						nodes={tree}
-						livePath={livePath}
-						onOpen={open}
-						actions={treeActions}
-						busy={busy || !view.writable}
+					<TagIndex
+						rows={view.notes}
+						active={tagFilter}
+						onPick={(tag) => setTagFilter(tag)}
 					/>
 				)}
+				{view &&
+					view.status !== "none" &&
+					(tagFilter !== null ? (
+						<TaggedNotes
+							rows={view.notes}
+							tag={tagFilter}
+							livePath={livePath}
+							onOpen={open}
+							onClear={() => setTagFilter(null)}
+						/>
+					) : (
+						<NoteTree
+							nodes={tree}
+							livePath={livePath}
+							onOpen={open}
+							actions={treeActions}
+							busy={busy || !view.writable}
+						/>
+					))}
 				{treeNotice && (
 					<p role="status" className="notice">
 						{treeNotice}

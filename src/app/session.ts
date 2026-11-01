@@ -1,5 +1,7 @@
+import { headerProps } from "../core/notes/properties";
 import { createNote } from "../core/notes/repository";
 import { scanVault } from "../core/notes/scan";
+import { tagsOf } from "../core/notes/tags";
 import { openVault, type VaultResult } from "../core/vault/vault";
 import type { Host } from "../host/host";
 
@@ -7,6 +9,8 @@ export interface NoteRow {
 	path: string;
 	title: string;
 	readOnly: boolean;
+	/** Tags from the note's `tags` list property. */
+	tags: string[];
 }
 
 /** Everything the window shows about the open vault. */
@@ -78,6 +82,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			title:
 				typeof n.note.header.title === "string" ? n.note.header.title : n.path,
 			readOnly: n.readOnly,
+			tags: tagsOf(headerProps(n.note.header)),
 		}))
 		.sort(compareRows);
 	return {

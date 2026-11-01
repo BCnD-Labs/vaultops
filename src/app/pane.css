@@ -1,0 +1,184 @@
+.pane {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 16px 24px;
+	overflow-y: auto;
+}
+
+.title-field {
+	font: inherit;
+	font-size: var(--font-size-title);
+	font-weight: 600;
+	border: 0;
+	border-bottom: 1px solid var(--line);
+	background: transparent;
+	color: inherit;
+	padding: 4px 0;
+	margin-bottom: 8px;
+	outline: none;
+}
+
+.title-field:focus {
+	border-bottom-color: var(--ring);
+}
+
+.status-line {
+	font-size: var(--font-size-ui);
+	color: var(--muted-foreground);
+	min-height: 20px;
+}
+
+.status-line [role="alert"] {
+	color: var(--bad);
+}
+
+.empty-pane {
+	color: var(--muted-foreground);
+	margin: auto;
+}
+
+@media (max-width: 640px) {
+	.pane {
+		padding: 12px;
+	}
+}
+.link-button {
+	background: none;
+	border: 0;
+	padding: 0;
+	margin-left: 8px;
+	color: var(--muted-foreground);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.props {
+	margin: 0 0 12px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--line);
+	font-size: var(--font-size-ui);
+}
+
+.props summary {
+	cursor: pointer;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 6px;
+}
+
+.prop-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 32px;
+}
+
+.prop-name {
+	flex: none;
+	width: 120px;
+	color: var(--muted-foreground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.prop-row > input:not([type="checkbox"]),
+.prop-row > .chips {
+	flex: 1;
+	min-width: 0;
+}
+
+.props input:not([type="checkbox"]),
+.props select {
+	font: inherit;
+	padding: 3px 6px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	color: inherit;
+}
+
+.prop-add {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 4px 1px 8px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--panel);
+}
+
+.chip-label {
+	background: none;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	padding: 0;
+}
+
+.chip-label:hover {
+	text-decoration: underline;
+}
+
+.chip-remove {
+	display: inline-flex;
+	background: none;
+	border: 0;
+	padding: 2px;
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+
+.chip-remove:hover {
+	background: var(--accent);
+	color: inherit;
+}
+
+.props .chip-input {
+	width: 90px;
+	border-style: dashed;
+	border-radius: var(--radius-control);
+}
+
+.vault-row {
+	padding: 12px 0;
+	border-bottom: 1px solid var(--line);
+	overflow-wrap: anywhere;
+}
+
+.vault-row p {
+	margin: 4px 0;
+	color: var(--muted-foreground);
+}
+
+/* Match the title and metadata to the editor column without changing markup. */
+.pane > .title-field,
+.pane > .status-line,
+.pane > .props {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+}

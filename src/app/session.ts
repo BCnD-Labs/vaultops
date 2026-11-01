@@ -17,6 +17,8 @@ export interface VaultView {
 	writable: boolean;
 	messages: string[];
 	notes: NoteRow[];
+	/** Every folder outside `.vaultops/`, empty ones included. */
+	folders: string[];
 }
 
 /** Notes by title, ignoring case; the path settles ties. */
@@ -33,6 +35,7 @@ const EMPTY: VaultView = {
 	writable: false,
 	messages: [],
 	notes: [],
+	folders: [],
 };
 
 const EXPLAIN: Partial<Record<VaultResult["status"], string>> = {
@@ -60,9 +63,10 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			writable: false,
 			messages,
 			notes: [],
+			folders: [],
 		};
 	}
-	const { notes, report } = await scanVault(host);
+	const { notes, report, folders } = await scanVault(host);
 	for (const entry of report) {
 		if (entry.group !== "good" || entry.duplicateOf.length > 0) {
 			messages.push(`${entry.path}: ${entry.reason}`);
@@ -82,6 +86,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 		writable: result.status === "opened" || result.status === "created",
 		messages,
 		notes: rows,
+		folders,
 	};
 }
 

@@ -82,4 +82,25 @@ describe("note list order", () => {
 			"a.vnote",
 		]);
 	});
+
+	it("shows exactly the vault's folders and notes, and hides .vaultops", async () => {
+		const host = new MemoryHost();
+		await loadVault(host);
+		await host.makeFolder("Class/Week 1");
+		await host.makeFolder("Empty");
+		await host.makeFolder(".vaultops/trash/2026-11-01T10-00-00-000Z");
+		await host.writeTextAtomic(
+			"Class/Week 1/Lecture.vnote",
+			'{"format":"vaultops-note","v":1,"noteId":"n-1","title":"Lecture 1"}\n',
+		);
+		await host.writeTextAtomic(
+			".vaultops/trash/2026-11-01T10-00-00-000Z/Old.vnote",
+			'{"format":"vaultops-note","v":1,"noteId":"n-2","title":"Old"}\n',
+		);
+		const view = await loadVault(host);
+		expect(view.folders.sort()).toEqual(["Class", "Class/Week 1", "Empty"]);
+		expect(view.notes.map((n) => n.path)).toEqual([
+			"Class/Week 1/Lecture.vnote",
+		]);
+	});
 });

@@ -139,9 +139,23 @@ describe("scanVault", () => {
 
 	it("returns empty results for an empty vault and propagates folder failures", async () => {
 		const host = new MemoryHost();
-		expect(await scanVault(host)).toEqual({ notes: [], report: [] });
+		expect(await scanVault(host)).toEqual({
+			notes: [],
+			report: [],
+			folders: [],
+		});
 		const error = new HostError("io", "cannot list folder");
 		vi.spyOn(host, "list").mockRejectedValue(error);
 		await expect(scanVault(host)).rejects.toBe(error);
+	});
+
+	it("lists every folder, empty ones included, but never .vaultops", async () => {
+		const host = new MemoryHost();
+		await host.makeFolder("a/b");
+		await host.makeFolder("empty");
+		await host.makeFolder(".vaultops/trash/x");
+		await host.makeFolder(".VaultOps2");
+		const { folders } = await scanVault(host);
+		expect([...folders].sort()).toEqual([".VaultOps2", "a", "a/b", "empty"]);
 	});
 });

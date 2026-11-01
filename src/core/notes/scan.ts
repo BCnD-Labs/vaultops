@@ -21,10 +21,14 @@ export interface HealthEntry {
 }
 
 /** Read the entire vault without repairing, rewriting or assigning new IDs. */
-export async function scanVault(
-	host: Host,
-): Promise<{ notes: ScannedNote[]; report: HealthEntry[] }> {
+export async function scanVault(host: Host): Promise<{
+	notes: ScannedNote[];
+	report: HealthEntry[];
+	/** Every folder outside `.vaultops/`, empty ones included. */
+	folders: string[];
+}> {
 	const notes: ScannedNote[] = [];
+	const folders: string[] = [];
 	const report: HealthEntry[] = [];
 	const byId = new Map<string, ScannedNote[]>();
 
@@ -73,7 +77,9 @@ export async function scanVault(
 		// Listing failures propagate: an incomplete walk must not look successful.
 		for (const entry of await host.list(folder)) {
 			if (entry.kind === "folder") {
-				await walk(folder === "" ? entry.name : `${folder}/${entry.name}`);
+				const child = folder === "" ? entry.name : `${folder}/${entry.name}`;
+				if (!isInsideVaultOps(child)) folders.push(child);
+				await walk(child);
 			}
 		}
 	}
@@ -93,5 +99,5 @@ export async function scanVault(
 			}
 		}
 	}
-	return { notes, report };
+	return { notes, report, folders };
 }

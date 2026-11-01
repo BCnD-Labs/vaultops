@@ -160,3 +160,22 @@ export async function moveFolder(
 	}
 	return { path: newPath, changed: true };
 }
+
+/** Whether `path` is `folder` itself or something inside it (names compared the Mac's way). */
+export function within(path: string, folder: string): boolean {
+	const p = path.split("/");
+	const f = folder.split("/");
+	return (
+		p.length >= f.length &&
+		f.every((part, i) => nameKey(part) === nameKey(p[i] ?? ""))
+	);
+}
+
+/**
+ * Where `path` ends up after `from` (a folder or a note) was moved or renamed
+ * to `to`: `from` itself and anything inside it follow, anything else stays.
+ */
+export function movedPath(path: string, from: string, to: string): string {
+	if (!within(path, from)) return path;
+	return [to, ...path.split("/").slice(from.split("/").length)].join("/");
+}

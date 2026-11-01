@@ -12,9 +12,22 @@ const tree = buildTree(
 	],
 );
 
-function html(livePath: string | null): string {
+const actions = {
+	createFolder: () => {},
+	renameFolder: () => {},
+	deleteFolder: () => {},
+	move: () => {},
+};
+
+function html(livePath: string | null, busy = false): string {
 	return renderToStaticMarkup(
-		createElement(NoteTree, { nodes: tree, livePath, onOpen: () => {} }),
+		createElement(NoteTree, {
+			nodes: tree,
+			livePath,
+			onOpen: () => {},
+			actions,
+			busy,
+		}),
 	);
 }
 
@@ -36,6 +49,22 @@ describe("NoteTree", () => {
 		expect(out).toContain("read-only");
 		expect(out).toContain('aria-current="true"');
 		expect(out).not.toContain("Empty</p>");
+	});
+
+	it("offers new, rename and trash for every folder, by name", () => {
+		const out = html(null);
+		expect(out).toContain('aria-label="New folder in Class"');
+		expect(out).toContain('aria-label="Rename folder Class"');
+		expect(out).toContain('aria-label="Move folder Empty to the trash"');
+		expect(out).toContain("New folder</button>");
+	});
+
+	it("makes notes and folders draggable, and nothing while a change is applied", () => {
+		expect(html(null)).toContain('draggable="true"');
+		const busy = html(null, true);
+		expect(busy).toContain('draggable="false"');
+		expect(busy).not.toContain('draggable="true"');
+		expect(busy).toContain("disabled");
 	});
 
 	it("never shows .vaultops", () => {

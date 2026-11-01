@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { trashNote } from "../core/notes/trash";
+import {
+	createFolder,
+	movedPath,
+	moveFolder,
+	renameFolder,
+	within,
+} from "../core/notes/folders";
+import { moveNote } from "../core/notes/rename";
+import { trashFolder, trashNote } from "../core/notes/trash";
 import { buildTree } from "../core/notes/tree";
 import { parseMaintainer } from "../core/session/maintainer";
 import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
@@ -15,7 +23,7 @@ import { saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { browserLastNote, pickInitialNote } from "./last-note";
-import { NoteTree } from "./NoteTree";
+import { NoteTree, type TreeActions } from "./NoteTree";
 import {
 	chooseAndLoad,
 	compareRows,
@@ -52,6 +60,7 @@ export function App({ host }: { host: Host }) {
 	const [showMaintainer, setShowMaintainer] = useState(false);
 	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [confirmTrash, setConfirmTrash] = useState(false);
+	const [treeNotice, setTreeNotice] = useState<string | null>(null);
 	const vaultName = view?.name ?? null;
 
 	const onSaved = useCallback((info: SavedInfo) => {
@@ -296,6 +305,76 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	// A folder action from the tree (make, rename, move, trash). The open note is
+	// saved first. If the change touches the folder it lives in, it is closed for
+	// the change and shown again at its new path, or stays closed when its folder
+	// went to the trash.
+	const changeTree = async (
+		affected: string | null,
+		task: () => Promise<{ notice?: string; follow?: (path: string) => string }>,
+	) => {
+		if (!view || !(await settle())) return;
+		setTreeNotice(null);
+		const live = livePathRef.current;
+		const touched =
+			live !== null && affected !== null && within(live, affected);
+		setBusy(true);
+		try {
+			if (touched) {
+				// Closing the note must not trigger "reopen the last note" while the
+				// folder is still being changed.
+				autoOpened.current = true;
+				setOpened(null);
+			}
+			const done = await task();
+			if (done.notice) setTreeNotice(done.notice);
+			const next = await loadVault(host);
+			setView(next);
+			const target = touched && done.follow ? done.follow(live) : null;
+			if (target) await show(target, next.name);
+			else if (touched) autoOpened.current = false;
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+			if (touched) await show(live, vaultName);
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const treeActions: TreeActions = {
+		createFolder: (parent, name) =>
+			void changeTree(null, async () => ({
+				notice: (await createFolder(host, parent, name)).notice,
+			})),
+		renameFolder: (path, name) =>
+			void changeTree(path, async () => {
+				const r = await renameFolder(host, path, name);
+				return {
+					notice: r.notice,
+					follow: (p) => movedPath(p, path, r.path),
+				};
+			}),
+		deleteFolder: (path) =>
+			void changeTree(path, async () => {
+				await trashFolder(host, path);
+				return {};
+			}),
+		move: (item, into) =>
+			void changeTree(item.path, async () => {
+				if (item.kind === "folder") {
+					const r = await moveFolder(host, item.path, into);
+					return {
+						notice: r.notice,
+						follow: (p) => movedPath(p, item.path, r.path),
+					};
+				}
+				const r = await moveNote(host, item.path, into, {
+					readOnly: item.readOnly,
+				});
+				return { notice: r.notice, follow: () => r.path };
+			}),
+	};
+
 	// A note changed on disk while it was open: take the disk version...
 	const loadDisk = async () => {
 		const path = livePathRef.current ?? opened?.path;
@@ -443,7 +522,18 @@ export function App({ host }: { host: Host }) {
 					</p>
 				))}
 				{view && view.status !== "none" && (
-					<NoteTree nodes={tree} livePath={livePath} onOpen={open} />
+					<NoteTree
+						nodes={tree}
+						livePath={livePath}
+						onOpen={open}
+						actions={treeActions}
+						busy={busy || !view.writable}
+					/>
+				)}
+				{treeNotice && (
+					<p role="status" className="notice">
+						{treeNotice}
+					</p>
 				)}
 				{view &&
 					view.status !== "none" &&

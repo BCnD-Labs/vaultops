@@ -383,14 +383,15 @@ mod tests {
     }
 
     #[test]
-    fn opening_a_vault_removes_leftover_temp_files() {
+    fn opening_a_vault_keeps_leftover_temp_files() {
         let tmp = test_util::TempDir::new();
         let root = tmp.path().join("Notes");
         std::fs::create_dir(&root).unwrap();
         std::fs::write(root.join(".vaultops-tmp-1-2-3"), "x").unwrap();
         std::fs::write(root.join("a.vnote"), "x").unwrap();
         open_vault_at(&VaultState::default(), &root).unwrap();
-        assert!(!root.join(".vaultops-tmp-1-2-3").exists());
+        // A leftover temp file can hold the newest unsaved text, so it must survive.
+        assert!(root.join(".vaultops-tmp-1-2-3").exists());
         assert!(root.join("a.vnote").exists());
     }
 

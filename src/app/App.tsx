@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { trashNote } from "../core/notes/trash";
+import { buildTree } from "../core/notes/tree";
 import { parseMaintainer } from "../core/session/maintainer";
 import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
 import { DebugPanel } from "../debug/DebugPanel";
@@ -14,6 +15,7 @@ import { saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { browserLastNote, pickInitialNote } from "./last-note";
+import { NoteTree } from "./NoteTree";
 import {
 	chooseAndLoad,
 	compareRows,
@@ -31,6 +33,10 @@ export function App({ host }: { host: Host }) {
 	const [error, setError] = useState<string | null>(null);
 	const [opened, setOpened] = useState<OpenedNote | null>(null);
 	const [livePath, setLivePath] = useState<string | null>(null);
+	const tree = useMemo(
+		() => (view ? buildTree(view.folders, view.notes) : []),
+		[view],
+	);
 	const [title, setTitle] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
 	const docRef = useRef(opened?.doc ?? null);
@@ -437,26 +443,14 @@ export function App({ host }: { host: Host }) {
 					</p>
 				))}
 				{view && view.status !== "none" && (
-					<ul className="note-list">
-						{view.notes.map((n) => (
-							<li key={n.path} title={n.path}>
-								<button
-									type="button"
-									aria-current={n.path === livePath}
-									onClick={() => open(n.path)}
-								>
-									{n.title}
-									{n.readOnly && (
-										<span className="read-only-tag"> read-only</span>
-									)}
-								</button>
-							</li>
-						))}
-					</ul>
+					<NoteTree nodes={tree} livePath={livePath} onOpen={open} />
 				)}
-				{view && view.status !== "none" && view.notes.length === 0 && (
-					<p className="read-only-tag">No notes yet.</p>
-				)}
+				{view &&
+					view.status !== "none" &&
+					view.notes.length === 0 &&
+					view.folders.length === 0 && (
+						<p className="read-only-tag">No notes yet.</p>
+					)}
 			</aside>
 			<main className="pane">
 				{error && (

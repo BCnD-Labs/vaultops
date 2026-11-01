@@ -85,6 +85,44 @@ body {
 	cursor: pointer;
 }
 
+.note-list .note-list {
+	margin-left: 10px;
+	padding-left: 6px;
+	border-left: 1px solid var(--line);
+}
+
+.note-list button {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tree-icon {
+	flex: none;
+	width: 15px;
+	height: 15px;
+}
+
+.tree-chevron {
+	transition: transform 0.12s;
+}
+
+.tree-chevron.is-open {
+	transform: rotate(90deg);
+}
+
+.tree-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tree-empty {
+	margin: 2px 0 4px 28px;
+}
+
 .note-list button:hover {
 	background: var(--line);
 }

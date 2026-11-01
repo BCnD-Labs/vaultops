@@ -1,11 +1,11 @@
 import type { JSONContent } from "@tiptap/core";
+import { saveWithPending } from "../core/history/pending";
 import {
 	describeSaveProblems,
 	type Note,
 	type ParseResult,
 	parseNote,
 } from "../core/note-format";
-import { saveNote } from "../core/notes/repository";
 import { scanVault } from "../core/notes/scan";
 import type { Host } from "../host/host";
 import { blocksToDoc, checkBlocks, docToBlocks } from "./doc-blocks";
@@ -144,7 +144,12 @@ export async function saveDoc(
 			header: opened.note.header,
 			blocks: docToBlocks(doc),
 		};
-		const check = await saveNote(host, opened.path, note);
+		const check = await saveWithPending(
+			host,
+			opened.path,
+			note,
+			opened.note.blocks,
+		);
 		if (!check.ok) {
 			return { ok: false, message: describeSaveProblems(check.problems) };
 		}

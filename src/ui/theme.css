@@ -3,8 +3,7 @@
  *
  * Every color, border, shadow and radius the components use is a variable
  * here, so a new design (for example one drawn in Figma) is a change to this
- * file only. The look is a light neobrutalism: thick dark borders, hard
- * offset shadows with no blur, flat bold colors, small corners.
+ * file only. Soft neutral borders and a quiet blue accent keep the UI calm.
  *
  * Tailwind's reset (preflight) is left out on purpose, so the screens that
  * already exist keep their current look. Only theme and utilities are loaded.
@@ -40,37 +39,37 @@
 	--font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
 	--background: #ffffff;
 	--foreground: #1c1c1e;
-	--primary: #ffd23f;
-	--primary-foreground: #1c1c1e;
+	--primary: #3b5bdb;
+	--primary-foreground: #ffffff;
 	--secondary: #f4f4f6;
 	--secondary-foreground: #1c1c1e;
 	--muted: #f4f4f6;
 	--muted-foreground: #6b6b73;
-	--accent: #bde0fe;
+	--accent: #edf0ff;
 	--accent-foreground: #1c1c1e;
 	--destructive: #ff5a6e;
 	--destructive-foreground: #1c1c1e;
-	--border: #1c1c1e;
+	--border: #dcdce1;
 	--ring: #3b5bdb;
-	--radius: 0.25rem;
-	--shadow-offset: 3px;
+	--radius: 0.5rem;
+	--shadow-offset: 0;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
 		--background: #1b1b1f;
 		--foreground: #ececf0;
-		--primary: #ffd23f;
+		--primary: #8da2ff;
 		--primary-foreground: #1c1c1e;
 		--secondary: #25252b;
 		--secondary-foreground: #ececf0;
 		--muted: #25252b;
 		--muted-foreground: #9a9aa5;
-		--accent: #2b4a6b;
+		--accent: #2c3350;
 		--accent-foreground: #ececf0;
 		--destructive: #ff6b81;
 		--destructive-foreground: #1c1c1e;
-		--border: #ececf0;
+		--border: #3a3a42;
 		--ring: #8da2ff;
 	}
 }
@@ -94,6 +93,4 @@
 	--radius-sm: calc(var(--radius) - 2px);
 	--radius-md: var(--radius);
 	--radius-lg: calc(var(--radius) + 2px);
-
-	--shadow-hard: var(--shadow-offset) var(--shadow-offset) 0 0 var(--border);
 }

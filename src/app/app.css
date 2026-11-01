@@ -1,25 +1,18 @@
+/* Legacy screen names share the UI theme's palette. Muted text and accent
+ * surfaces use the theme names directly to avoid the old naming collisions. */
 :root {
-	--bg: #ffffff;
-	--panel: #f4f4f6;
-	--text: #1c1c1e;
-	--muted: #6b6b73;
-	--line: #dcdce1;
-	--accent: #3b5bdb;
+	--bg: var(--background);
+	--panel: var(--secondary);
+	--text: var(--foreground);
+	--line: var(--border);
 	--warn: #8a5a00;
-	--bad: #b00020;
+	--bad: var(--destructive);
 	color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #1b1b1f;
-		--panel: #25252b;
-		--text: #ececf0;
-		--muted: #9a9aa5;
-		--line: #3a3a42;
-		--accent: #8da2ff;
 		--warn: #e0b04a;
-		--bad: #ff6b81;
 	}
 }
 
@@ -28,6 +21,35 @@ body {
 	background: var(--bg);
 	color: var(--text);
 	font-family: var(--font-sans, system-ui, sans-serif);
+	font-size: 14px;
+}
+
+@layer base {
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+	}
+
+	:where(button, input, select, textarea, summary):focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 2px;
+	}
+
+	:where(button):hover:not(:disabled) {
+		background: var(--accent);
+	}
+
+	:where(button):active:not(:disabled) {
+		background: var(--accent);
+		color: var(--accent-foreground);
+	}
+
+	:where(button, input, select, textarea):disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
 }
 
 .app {
@@ -99,8 +121,9 @@ body {
 
 .tree-icon {
 	flex: none;
-	width: 15px;
-	height: 15px;
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.5;
 }
 
 .tree-chevron {
@@ -134,7 +157,7 @@ body {
 }
 
 .tree.is-over {
-	outline: 2px dashed var(--accent);
+	outline: 2px dashed var(--ring);
 	outline-offset: 2px;
 }
 
@@ -146,8 +169,8 @@ body {
 }
 
 .tree-row.is-over {
-	outline: 2px dashed var(--accent);
-	background: var(--line);
+	outline: 2px dashed var(--ring);
+	background: var(--accent);
 }
 
 .note-list .tree-row .tree-folder {
@@ -184,7 +207,7 @@ body {
 	gap: 6px;
 	background: none;
 	border: 0;
-	color: var(--muted);
+	color: var(--muted-foreground);
 	font: inherit;
 	font-size: 13px;
 	cursor: pointer;
@@ -193,7 +216,7 @@ body {
 }
 
 .tree-toolbar .tree-action:hover:not(:disabled) {
-	background: var(--line);
+	background: var(--accent);
 }
 
 .tree-action:disabled {
@@ -206,7 +229,7 @@ body {
 	box-sizing: border-box;
 	font: inherit;
 	padding: 4px 6px;
-	border: 2px solid var(--accent);
+	border: 1px solid var(--line);
 	border-radius: 6px;
 	background: var(--bg);
 	color: inherit;
@@ -214,7 +237,7 @@ body {
 
 .tree-confirm {
 	padding: 6px 8px;
-	border: 2px solid var(--accent);
+	border: 1px solid var(--line);
 	border-radius: 6px;
 	font-size: 13px;
 }
@@ -229,16 +252,16 @@ body {
 }
 
 .note-list button:hover {
-	background: var(--line);
+	background: var(--accent);
 }
 
 .note-list button[aria-current="true"] {
 	background: var(--accent);
-	color: var(--bg);
+	color: var(--accent-foreground);
 }
 
 .read-only-tag {
-	color: var(--muted);
+	color: var(--muted-foreground);
 	font-size: 12px;
 }
 
@@ -265,12 +288,12 @@ body {
 }
 
 .title-field:focus {
-	border-bottom-color: var(--accent);
+	border-bottom-color: var(--ring);
 }
 
 .status-line {
 	font-size: 13px;
-	color: var(--muted);
+	color: var(--muted-foreground);
 	min-height: 20px;
 }
 
@@ -284,7 +307,7 @@ body {
 }
 
 .empty-pane {
-	color: var(--muted);
+	color: var(--muted-foreground);
 	margin: auto;
 }
 
@@ -312,7 +335,7 @@ body {
 	border: 0;
 	padding: 0;
 	margin-left: 8px;
-	color: var(--muted);
+	color: var(--muted-foreground);
 	font: inherit;
 	text-decoration: underline;
 	cursor: pointer;
@@ -344,7 +367,7 @@ body {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 4px 14px;
-	color: var(--muted);
+	color: var(--muted-foreground);
 }
 
 .debug-panel-log {
@@ -449,7 +472,7 @@ body {
 
 .props summary {
 	cursor: pointer;
-	color: var(--muted);
+	color: var(--muted-foreground);
 	font-size: 12px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -466,7 +489,7 @@ body {
 .prop-name {
 	flex: none;
 	width: 120px;
-	color: var(--muted);
+	color: var(--muted-foreground);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -532,12 +555,12 @@ body {
 	border: 0;
 	padding: 2px;
 	border-radius: 50%;
-	color: var(--muted);
+	color: var(--muted-foreground);
 	cursor: pointer;
 }
 
 .chip-remove:hover {
-	background: var(--line);
+	background: var(--accent);
 	color: inherit;
 }
 
@@ -563,7 +586,7 @@ body {
 
 .tag-index .tag-button[aria-pressed="true"] {
 	background: var(--accent);
-	color: var(--bg);
+	color: var(--accent-foreground);
 }
 
 .tagged-title {
@@ -587,5 +610,5 @@ body {
 
 .vault-row p {
 	margin: 4px 0;
-	color: var(--muted);
+	color: var(--muted-foreground);
 }

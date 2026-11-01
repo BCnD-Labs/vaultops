@@ -30,7 +30,8 @@ export function NoteEditor({
 	});
 
 	useEffect(() => {
-		editor?.setEditable(editable);
+		// Unlocking is not a content edit and must not start autosave.
+		editor?.setEditable(editable, false);
 	}, [editor, editable]);
 
 	return <EditorContent editor={editor} className="note-editor" />;

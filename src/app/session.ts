@@ -1,6 +1,6 @@
 import { headerProps } from "../core/notes/properties";
 import { createNote } from "../core/notes/repository";
-import { scanVault } from "../core/notes/scan";
+import { type HealthEntry, scanVault } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import { openVault, type VaultResult } from "../core/vault/vault";
 import type { Host } from "../host/host";
@@ -20,6 +20,7 @@ export interface VaultView {
 	/** True when notes may be created or saved. */
 	writable: boolean;
 	messages: string[];
+	report: HealthEntry[];
 	notes: NoteRow[];
 	/** Every folder outside `.vaultops/`, empty ones included. */
 	folders: string[];
@@ -38,6 +39,7 @@ const EMPTY: VaultView = {
 	status: "none",
 	writable: false,
 	messages: [],
+	report: [],
 	notes: [],
 	folders: [],
 };
@@ -66,16 +68,12 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			status: result.status,
 			writable: false,
 			messages,
+			report: [],
 			notes: [],
 			folders: [],
 		};
 	}
 	const { notes, report, folders } = await scanVault(host);
-	for (const entry of report) {
-		if (entry.group !== "good" || entry.duplicateOf.length > 0) {
-			messages.push(`${entry.path}: ${entry.reason}`);
-		}
-	}
 	const rows = notes
 		.map((n) => ({
 			path: n.path,
@@ -90,6 +88,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 		status: result.status,
 		writable: result.status === "opened" || result.status === "created",
 		messages,
+		report,
 		notes: rows,
 		folders,
 	};

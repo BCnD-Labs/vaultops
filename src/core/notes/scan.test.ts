@@ -47,6 +47,9 @@ describe("scanVault", () => {
 			notes.find(({ path }) => path === "truncated.vnote")?.note.blocks,
 		).toEqual([{ id: "block-1", type: "paragraph", parent: null }]);
 		expect(report.every((entry) => entry.reason.length > 0)).toBe(true);
+		expect(report.find((e) => e.group === "truncated")?.reason).toBe(
+			"Some lines could not be read, so only the complete blocks are shown. Nothing is changed unless you choose to edit it.",
+		);
 		for (const [path, contents] of Object.entries(files)) {
 			expect(await host.readText(path)).toBe(contents);
 		}

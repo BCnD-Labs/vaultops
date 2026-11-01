@@ -87,3 +87,11 @@ export function ancestorsOf(path: string): string[] {
 	const parts = path.split("/").slice(0, -1);
 	return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
 }
+
+/** How many notes sit in a folder, in its subfolders too. */
+export function countNotes(folder: FolderNode): number {
+	return folder.children.reduce(
+		(sum, child) => sum + (child.kind === "note" ? 1 : countNotes(child)),
+		0,
+	);
+}

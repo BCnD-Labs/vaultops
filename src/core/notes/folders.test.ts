@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { HostError } from "../../host/host";
 import { MemoryHost } from "../../host/memory-host";
 import { openVault } from "../vault/vault";
-import { createFolder, moveFolder, renameFolder } from "./folders";
+import {
+	createFolder,
+	movedPath,
+	moveFolder,
+	renameFolder,
+	within,
+} from "./folders";
 import { createNote } from "./repository";
 
 async function vault() {
@@ -211,5 +217,27 @@ describe("moveFolder", () => {
 		const result = await moveFolder(host, "A", "B");
 		expect(result).toMatchObject({ path: "A", changed: false });
 		expect(result.notice).toContain("busy");
+	});
+});
+
+describe("within and movedPath", () => {
+	it("knows what is inside a folder, ignoring capital letters and Unicode form", () => {
+		expect(within("A", "A")).toBe(true);
+		expect(within("a/b/n.vnote", "A")).toBe(true);
+		expect(within("A 2/n.vnote", "A")).toBe(false);
+		expect(within("Ab", "A")).toBe(false);
+		expect(within("Caf\u00e9/n", "Cafe\u0301")).toBe(true);
+		expect(within("", "A")).toBe(false);
+	});
+
+	it("moves a path along with its folder, and leaves other paths alone", () => {
+		expect(movedPath("Class", "Class", "Archive/Class")).toBe("Archive/Class");
+		expect(movedPath("Class/Week 1/n.vnote", "Class", "Archive/Class")).toBe(
+			"Archive/Class/Week 1/n.vnote",
+		);
+		expect(movedPath("Class 2/n.vnote", "Class", "X")).toBe("Class 2/n.vnote");
+		expect(movedPath("n.vnote", "n.vnote", "Docs/n.vnote")).toBe(
+			"Docs/n.vnote",
+		);
 	});
 });

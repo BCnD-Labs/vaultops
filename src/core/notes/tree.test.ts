@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ancestorsOf, buildTree, type TreeNode } from "./tree";
+import {
+	ancestorsOf,
+	buildTree,
+	countNotes,
+	type FolderNode,
+	type TreeNode,
+} from "./tree";
 
 const note = (path: string, title = path, readOnly = false) => ({
 	path,
@@ -82,5 +88,24 @@ describe("ancestorsOf", () => {
 	it("lists the folders above a path, outermost first", () => {
 		expect(ancestorsOf("a/b/n.vnote")).toEqual(["a", "a/b"]);
 		expect(ancestorsOf("n.vnote")).toEqual([]);
+	});
+});
+
+describe("countNotes", () => {
+	it("counts the notes in a folder and its subfolders", () => {
+		const tree = buildTree(
+			["A", "A/B", "A/Empty"],
+			[
+				note("A/x.vnote"),
+				note("A/B/y.vnote"),
+				note("A/B/z.vnote"),
+				note("r.vnote"),
+			],
+		);
+		const a = tree.find((n) => n.kind === "folder") as FolderNode;
+		expect(countNotes(a)).toBe(3);
+		expect(
+			countNotes({ kind: "folder", name: "E", path: "E", children: [] }),
+		).toBe(0);
 	});
 });

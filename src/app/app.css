@@ -123,6 +123,111 @@ body {
 	margin: 2px 0 4px 28px;
 }
 
+.tree-toolbar {
+	margin-bottom: 4px;
+}
+
+/* Fills the sidebar, so the empty space below the list is a drop target for the vault root. */
+.tree {
+	flex: 1 0 auto;
+	min-height: 80px;
+}
+
+.tree.is-over {
+	outline: 2px dashed var(--accent);
+	outline-offset: 2px;
+}
+
+.tree-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	border-radius: 6px;
+}
+
+.tree-row.is-over {
+	outline: 2px dashed var(--accent);
+	background: var(--line);
+}
+
+.note-list .tree-row .tree-folder {
+	flex: 1;
+	min-width: 0;
+	width: auto;
+}
+
+/* Hidden by sight only, so keyboard and screen-reader users still reach them. */
+.tree-actions {
+	position: absolute;
+	right: 2px;
+	display: flex;
+	gap: 2px;
+	padding-left: 4px;
+	border-radius: 6px;
+	background: var(--bg);
+	opacity: 0;
+}
+
+.tree-row:hover .tree-actions,
+.tree-row:focus-within .tree-actions {
+	opacity: 1;
+}
+
+.note-list .tree-action {
+	width: auto;
+	padding: 4px;
+}
+
+.tree-toolbar .tree-action {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: none;
+	border: 0;
+	color: var(--muted);
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 6px;
+}
+
+.tree-toolbar .tree-action:hover:not(:disabled) {
+	background: var(--line);
+}
+
+.tree-action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.tree-input {
+	width: 100%;
+	box-sizing: border-box;
+	font: inherit;
+	padding: 4px 6px;
+	border: 2px solid var(--accent);
+	border-radius: 6px;
+	background: var(--bg);
+	color: inherit;
+}
+
+.tree-confirm {
+	padding: 6px 8px;
+	border: 2px solid var(--accent);
+	border-radius: 6px;
+	font-size: 13px;
+}
+
+.tree-confirm p {
+	margin: 0 0 6px;
+}
+
+.tree-confirm-buttons {
+	display: flex;
+	gap: 6px;
+}
+
 .note-list button:hover {
 	background: var(--line);
 }

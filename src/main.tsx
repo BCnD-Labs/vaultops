@@ -14,8 +14,11 @@ import { setLogger } from "./debug/index";
 import { createLogger } from "./debug/logger";
 import { loggingHost } from "./debug/logging-host";
 import { tauriHost } from "./host/tauri-host";
+import { applyTheme, loadThemeChoice } from "./ui/themes";
 
 // Record what the app does (never note text) in the app's own log file.
+applyTheme(document.documentElement, loadThemeChoice());
+
 const logger = createLogger({ sink: (lines) => tauriHost.appendLog(lines) });
 setLogger(logger);
 const removeErrorCapture = installErrorCapture(logger);

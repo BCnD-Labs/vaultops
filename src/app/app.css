@@ -1,27 +1,9 @@
-/* Legacy screen names share the UI theme's palette. Muted text and accent
- * surfaces use the theme names directly to avoid the old naming collisions. */
-:root {
-	--bg: var(--background);
-	--panel: var(--secondary);
-	--text: var(--foreground);
-	--line: var(--border);
-	--warn: #8a5a00;
-	--bad: var(--destructive);
-	color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--warn: #e0b04a;
-	}
-}
-
 body {
 	margin: 0;
 	background: var(--bg);
 	color: var(--text);
-	font-family: var(--font-sans, system-ui, sans-serif);
-	font-size: 14px;
+	font-family: var(--font-sans);
+	font-size: var(--font-size-ui);
 }
 
 @layer base {
@@ -71,7 +53,7 @@ body {
 
 .sidebar h1 {
 	margin: 0;
-	font-size: 16px;
+	font-size: var(--font-size-heading);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -100,7 +82,7 @@ body {
 	text-align: left;
 	background: none;
 	border: 0;
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 	padding: 6px 8px;
 	color: inherit;
 	font: inherit;
@@ -127,7 +109,7 @@ body {
 }
 
 .tree-chevron {
-	transition: transform 0.12s;
+	transition: transform var(--motion-fast);
 }
 
 .tree-chevron.is-open {
@@ -165,7 +147,7 @@ body {
 	position: relative;
 	display: flex;
 	align-items: center;
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 }
 
 .tree-row.is-over {
@@ -186,7 +168,7 @@ body {
 	display: flex;
 	gap: 2px;
 	padding-left: 4px;
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 	background: var(--bg);
 	opacity: 0;
 }
@@ -209,10 +191,10 @@ body {
 	border: 0;
 	color: var(--muted-foreground);
 	font: inherit;
-	font-size: 13px;
+	font-size: var(--font-size-ui);
 	cursor: pointer;
 	padding: 4px 8px;
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 }
 
 .tree-toolbar .tree-action:hover:not(:disabled) {
@@ -230,7 +212,7 @@ body {
 	font: inherit;
 	padding: 4px 6px;
 	border: 1px solid var(--line);
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 	background: var(--bg);
 	color: inherit;
 }
@@ -238,8 +220,8 @@ body {
 .tree-confirm {
 	padding: 6px 8px;
 	border: 1px solid var(--line);
-	border-radius: 6px;
-	font-size: 13px;
+	border-radius: var(--radius-control);
+	font-size: var(--font-size-ui);
 }
 
 .tree-confirm p {
@@ -256,13 +238,13 @@ body {
 }
 
 .note-list button[aria-current="true"] {
-	background: var(--accent);
-	color: var(--accent-foreground);
+	background: var(--selection-bg);
+	color: var(--selection-fg);
 }
 
 .read-only-tag {
 	color: var(--muted-foreground);
-	font-size: 12px;
+	font-size: var(--font-size-small);
 }
 
 .pane {
@@ -276,7 +258,7 @@ body {
 
 .title-field {
 	font: inherit;
-	font-size: 26px;
+	font-size: var(--font-size-title);
 	font-weight: 600;
 	border: 0;
 	border-bottom: 1px solid var(--line);
@@ -292,7 +274,7 @@ body {
 }
 
 .status-line {
-	font-size: 13px;
+	font-size: var(--font-size-ui);
 	color: var(--muted-foreground);
 	min-height: 20px;
 }
@@ -352,9 +334,9 @@ body {
 	background: var(--panel);
 	color: var(--text);
 	border: 1px solid var(--line);
-	border-radius: 10px;
-	box-shadow: 0 10px 40px rgb(0 0 0 / 35%);
-	font-size: 13px;
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-3);
+	font-size: var(--font-size-ui);
 }
 
 .debug-panel-bar {
@@ -374,8 +356,8 @@ body {
 	flex: 1;
 	margin: 0;
 	overflow: auto;
-	font-family: ui-monospace, monospace;
-	font-size: 12px;
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
 	white-space: pre-wrap;
 	word-break: break-word;
 }
@@ -386,7 +368,7 @@ body {
 	z-index: 60;
 	display: grid;
 	place-items: center;
-	background: rgb(0 0 0 / 45%);
+	background: var(--scrim);
 }
 
 .crash-report-box {
@@ -400,9 +382,9 @@ body {
 	background: var(--panel);
 	color: var(--text);
 	border: 1px solid var(--line);
-	border-radius: 10px;
-	box-shadow: 0 10px 40px rgb(0 0 0 / 35%);
-	font-size: 13px;
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-3);
+	font-size: var(--font-size-ui);
 }
 
 .crash-report-box h2,
@@ -423,9 +405,9 @@ body {
 	padding: 8px;
 	overflow: auto;
 	border: 1px solid var(--line);
-	border-radius: 6px;
-	font-family: ui-monospace, monospace;
-	font-size: 12px;
+	border-radius: var(--radius-control);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
 	white-space: pre-wrap;
 	word-break: break-word;
 }
@@ -456,9 +438,9 @@ body {
 	padding: 8px;
 	overflow: auto;
 	border: 1px solid var(--line);
-	border-radius: 6px;
-	font-family: ui-monospace, monospace;
-	font-size: 12px;
+	border-radius: var(--radius-control);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
 	white-space: pre-wrap;
 	word-break: break-word;
 }
@@ -467,13 +449,13 @@ body {
 	margin: 0 0 12px;
 	padding: 8px 0;
 	border-bottom: 1px solid var(--line);
-	font-size: 14px;
+	font-size: var(--font-size-ui);
 }
 
 .props summary {
 	cursor: pointer;
 	color: var(--muted-foreground);
-	font-size: 12px;
+	font-size: var(--font-size-small);
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	margin-bottom: 6px;
@@ -506,7 +488,7 @@ body {
 	font: inherit;
 	padding: 3px 6px;
 	border: 1px solid var(--line);
-	border-radius: 6px;
+	border-radius: var(--radius-control);
 	background: var(--bg);
 	color: inherit;
 }
@@ -532,7 +514,7 @@ body {
 	gap: 2px;
 	padding: 1px 4px 1px 8px;
 	border: 1px solid var(--line);
-	border-radius: 999px;
+	border-radius: var(--radius-control);
 	background: var(--panel);
 }
 
@@ -554,7 +536,7 @@ body {
 	background: none;
 	border: 0;
 	padding: 2px;
-	border-radius: 50%;
+	border-radius: var(--radius-control);
 	color: var(--muted-foreground);
 	cursor: pointer;
 }
@@ -567,7 +549,7 @@ body {
 .props .chip-input {
 	width: 90px;
 	border-style: dashed;
-	border-radius: 999px;
+	border-radius: var(--radius-control);
 }
 
 .tag-index {
@@ -579,9 +561,9 @@ body {
 .tag-index .tag-button {
 	padding: 1px 8px;
 	border: 1px solid var(--line);
-	border-radius: 999px;
+	border-radius: var(--radius-control);
 	background: var(--bg);
-	font-size: 13px;
+	font-size: var(--font-size-ui);
 }
 
 .tag-index .tag-button[aria-pressed="true"] {
@@ -591,7 +573,7 @@ body {
 
 .tagged-title {
 	margin: 0 0 4px;
-	font-size: 13px;
+	font-size: var(--font-size-ui);
 }
 
 .tagged .note-list {
@@ -611,4 +593,33 @@ body {
 .vault-row p {
 	margin: 4px 0;
 	color: var(--muted-foreground);
+}
+
+/* Match the title and metadata to the editor column without changing markup. */
+.pane > .title-field,
+.pane > .status-line,
+.pane > .props {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+}
+[data-slot="button"] {
+	position: relative;
+	overflow: hidden;
+}
+[data-slot="button"]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: currentColor;
+	opacity: 0;
+	transition: opacity var(--motion-fast);
+}
+[data-slot="button"]:hover::after {
+	opacity: var(--hover-layer);
+}
+[data-slot="button"]:active::after {
+	opacity: var(--pressed-layer);
 }

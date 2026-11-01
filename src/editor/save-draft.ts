@@ -4,6 +4,7 @@ import {
 	NOTE_FORMAT_VERSION,
 	type Note,
 } from "../core/note-format";
+import { type Props, withProps } from "../core/notes/properties";
 import { renameNote } from "../core/notes/rename";
 import { createNote, saveNote } from "../core/notes/repository";
 import { type Host, HostError } from "../host/host";
@@ -14,6 +15,8 @@ import { type OpenedNote, saveDoc } from "./note-io";
 export interface Draft {
 	doc: JSONContent;
 	title: string;
+	/** The note's properties; left out means "leave the header's props as they are". */
+	props?: Props;
 }
 
 export type DraftOutcome =
@@ -74,15 +77,13 @@ export async function saveDraft(
 		}
 	}
 	const titleChanged = draft.title !== current.note.header.title;
-	const target: OpenedNote = titleChanged
-		? {
-				...current,
-				note: {
-					...current.note,
-					header: { ...current.note.header, title: draft.title },
-				},
-			}
-		: current;
+	let header = current.note.header;
+	if (titleChanged) header = { ...header, title: draft.title };
+	if (draft.props !== undefined) header = withProps(header, draft.props);
+	const target: OpenedNote =
+		header === current.note.header
+			? current
+			: { ...current, note: { ...current.note, header } };
 	const saved = await saveDoc(host, target, draft.doc);
 	if (!saved.ok) return saved;
 	if (!titleChanged) {
@@ -120,17 +121,16 @@ export async function saveAsCopy(
 		const folder = cut === -1 ? "" : current.path.slice(0, cut);
 		const title = `${draft.title || "Untitled"} (copy)`;
 		const { path } = await createNote(host, folder, title);
-		const note: Note = {
-			header: {
-				...(current.note?.header ?? {
-					format: NOTE_FORMAT,
-					v: NOTE_FORMAT_VERSION,
-				}),
-				noteId: crypto.randomUUID(),
-				title,
-			},
-			blocks: docToBlocks(draft.doc),
+		let header: Note["header"] = {
+			...(current.note?.header ?? {
+				format: NOTE_FORMAT,
+				v: NOTE_FORMAT_VERSION,
+			}),
+			noteId: crypto.randomUUID(),
+			title,
 		};
+		if (draft.props !== undefined) header = withProps(header, draft.props);
+		const note: Note = { header, blocks: docToBlocks(draft.doc) };
 		const check = await saveNote(host, path, note);
 		if (!check.ok)
 			return { ok: false, message: "The copy could not be saved." };

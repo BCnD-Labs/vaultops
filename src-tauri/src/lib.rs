@@ -87,12 +87,10 @@ fn kind_of(
     with_vault(&state, |v| folder_ops::kind_of(v, &path))
 }
 
-/// Open `path` as the vault, replacing the open one only if it succeeds, and
-/// remove leftover temporary files from interrupted writes.
+/// Open `path` as the vault, replacing the open one only if it succeeds.
 /// Returns the folder's name for display.
 fn open_vault_at(state: &VaultState, path: &Path) -> Result<String, HostError> {
     let vault = Vault::open(path)?;
-    file_ops::remove_leftover_temps(&vault)?;
     let name = vault
         .root()
         .file_name()
@@ -385,14 +383,15 @@ mod tests {
     }
 
     #[test]
-    fn opening_a_vault_removes_leftover_temp_files() {
+    fn opening_a_vault_keeps_leftover_temp_files() {
         let tmp = test_util::TempDir::new();
         let root = tmp.path().join("Notes");
         std::fs::create_dir(&root).unwrap();
         std::fs::write(root.join(".vaultops-tmp-1-2-3"), "x").unwrap();
         std::fs::write(root.join("a.vnote"), "x").unwrap();
         open_vault_at(&VaultState::default(), &root).unwrap();
-        assert!(!root.join(".vaultops-tmp-1-2-3").exists());
+        // A leftover temp file can hold the newest unsaved text, so it must survive.
+        assert!(root.join(".vaultops-tmp-1-2-3").exists());
         assert!(root.join("a.vnote").exists());
     }
 

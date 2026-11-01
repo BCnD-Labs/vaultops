@@ -158,11 +158,11 @@ export function App({ host }: { host: Host }) {
 							doc,
 							now: new Date(),
 						});
-						// Earlier copies stay: closing twice must not replace the first.
-						const older = await host
-							.readAppFile("unsaved-recovery.txt")
-							.catch(() => null);
 						try {
+							// Earlier copies stay: closing twice must not replace the first.
+							// Only a missing file means "no earlier copy"; any other read
+							// error stops the close instead of overwriting that copy.
+							const older = await host.readAppFile("unsaved-recovery.txt");
 							await host.writeAppFile(
 								"unsaved-recovery.txt",
 								joinRecovery(fresh, older),

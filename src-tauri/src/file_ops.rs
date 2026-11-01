@@ -96,34 +96,6 @@ fn existing_name_or(parent: &Dir, name: &str) -> Result<String, HostError> {
     Ok(name.to_owned())
 }
 
-/// Remove leftover temporary files from interrupted writes anywhere in the
-/// vault. Only files whose name starts with `TEMP_PREFIX` are removed;
-/// symlinks are never followed and `.git` folders are skipped. Returns how
-/// many were removed. Meant for opening a vault, when no write is running.
-pub fn remove_leftover_temps(vault: &Vault) -> Result<usize, HostError> {
-    fn walk(dir: &Dir) -> Result<usize, HostError> {
-        let mut removed = 0;
-        for entry in dir.entries().map_err(io)? {
-            let entry = entry.map_err(io)?;
-            let name = entry.file_name();
-            let name = name.to_string_lossy();
-            let kind = entry.file_type().map_err(io)?;
-            if kind.is_symlink() {
-                continue;
-            } else if kind.is_dir() {
-                if !name.eq_ignore_ascii_case(".git") {
-                    removed += walk(&entry.open_dir().map_err(io)?)?;
-                }
-            } else if name.starts_with(TEMP_PREFIX) {
-                dir.remove_file(&*name).map_err(io)?;
-                removed += 1;
-            }
-        }
-        Ok(removed)
-    }
-    walk(vault.dir())
-}
-
 fn write_temp(parent: &Dir, bytes: &[u8]) -> Result<String, HostError> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     for _ in 0..16 {
@@ -183,33 +155,6 @@ mod tests {
             .flatten()
             .filter(|e| e.file_name().to_string_lossy().starts_with(TEMP_PREFIX))
             .count()
-    }
-
-    #[test]
-    fn removes_only_leftover_temp_files_and_never_follows_symlinks() {
-        let (tmp, vault) = setup();
-        let root = vault.root().to_path_buf();
-        fs::create_dir_all(root.join("notes/deep")).unwrap();
-        fs::create_dir_all(root.join(".git")).unwrap();
-        fs::write(root.join(format!("{TEMP_PREFIX}1-2-3")), "x").unwrap();
-        fs::write(root.join(format!("notes/deep/{TEMP_PREFIX}4-5-6")), "x").unwrap();
-        fs::write(root.join(format!(".git/{TEMP_PREFIX}7-8-9")), "x").unwrap();
-        fs::write(root.join("notes/keep.vnote"), "x").unwrap();
-        fs::write(root.join("notes/vaultops-tmp-not-ours.txt"), "x").unwrap();
-        // A symlinked folder outside the vault holding a temp-looking file.
-        let outside = tmp.path().join("outside");
-        fs::create_dir(&outside).unwrap();
-        fs::write(outside.join(format!("{TEMP_PREFIX}0-0-0")), "x").unwrap();
-        #[cfg(unix)]
-        std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
-
-        assert_eq!(remove_leftover_temps(&vault).unwrap(), 2);
-        assert_eq!(leftover_temps(&root), 0);
-        assert_eq!(leftover_temps(&root.join("notes/deep")), 0);
-        assert_eq!(leftover_temps(&root.join(".git")), 1);
-        assert_eq!(leftover_temps(&outside), 1);
-        assert!(root.join("notes/keep.vnote").exists());
-        assert!(root.join("notes/vaultops-tmp-not-ours.txt").exists());
     }
 
     #[test]

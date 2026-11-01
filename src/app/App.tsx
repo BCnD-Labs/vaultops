@@ -1,6 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	createFolder,
 	movedPath,
@@ -24,7 +23,6 @@ import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
-import { NoteEditor } from "../editor/NoteEditor";
 import {
 	allowEditing,
 	lockedForReadOnlyVault,
@@ -32,15 +30,14 @@ import {
 	openNote,
 } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
-import { SaveStatus } from "../editor/SaveStatus";
 import { type Draft, saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
-import { HealthScreen, healthLabel } from "./HealthScreen";
 import { browserLastNote, pickInitialNote } from "./last-note";
-import { NoteTree, type TreeActions } from "./NoteTree";
-import { PropertiesPanel } from "./PropertiesPanel";
+import { NotePane } from "./NotePane";
+import type { TreeActions } from "./NoteTree";
+import { Sidebar } from "./Sidebar";
 import {
 	chooseAndLoad,
 	compareRows,
@@ -48,8 +45,6 @@ import {
 	loadVault,
 	type VaultView,
 } from "./session";
-import { TaggedNotes, TagIndex } from "./TagBrowser";
-import { TrashScreen } from "./TrashScreen";
 import "../ui/theme.css";
 import "./app.css";
 
@@ -530,113 +525,6 @@ export function App({ host }: { host: Host }) {
 			autosave.change(draftOf(docRef.current, titleRef.current));
 	};
 
-	const editor = opened && (
-		<>
-			<input
-				ref={titleInput}
-				className="title-field"
-				aria-label="Title"
-				value={title}
-				readOnly={!opened.editable}
-				onChange={(event) => {
-					const next = event.target.value;
-					titleRef.current = next;
-					setTitle(next);
-					if (docRef.current) {
-						autosave.change(draftOf(docRef.current, next));
-					}
-				}}
-			/>
-			<div className="status-line">
-				{opened.editable && (
-					<SaveStatus
-						state={autosave.state}
-						onRetry={autosave.retry}
-						onLoadDisk={loadDisk}
-						onSaveCopy={saveCopy}
-					/>
-				)}{" "}
-				{confirmTrash ? (
-					<span>
-						Move this note to the trash?{" "}
-						<button type="button" onClick={moveToTrash}>
-							Move to trash
-						</button>{" "}
-						<button type="button" onClick={() => setConfirmTrash(false)}>
-							Cancel
-						</button>
-					</span>
-				) : (
-					writable && (
-						<button
-							type="button"
-							className="link-button"
-							disabled={busy}
-							onClick={() => setConfirmTrash(true)}
-						>
-							Move to trash
-						</button>
-					)
-				)}
-			</div>
-			{notice && (
-				<p role="status" className="notice">
-					{notice}
-				</p>
-			)}
-			{opened.canAllowEditing &&
-				(confirmEditing ? (
-					<div className="tree-confirm">
-						<p>
-							Some lines of this note could not be read. If you edit it, those
-							lines will be lost when it saves.
-						</p>
-						<Button
-							size="sm"
-							onClick={() => {
-								setOpened(allowEditing(opened));
-								setNotice(null);
-								setConfirmEditing(false);
-							}}
-						>
-							Allow editing
-						</Button>{" "}
-						<Button
-							size="sm"
-							variant="secondary"
-							onClick={() => setConfirmEditing(false)}
-						>
-							Keep read-only
-						</Button>
-					</div>
-				) : (
-					<Button
-						size="sm"
-						variant="secondary"
-						onClick={() => setConfirmEditing(true)}
-					>
-						Allow editing
-					</Button>
-				))}
-			<PropertiesPanel
-				props={props}
-				editable={opened.editable}
-				onChange={editProps}
-				onOpenTag={setTagFilter}
-			/>
-			<NoteEditor
-				key={opened.path}
-				doc={opened.doc}
-				editable={opened.editable}
-				onChange={(doc) => {
-					docRef.current = doc;
-					getLogger().count("edits");
-					autosave.change(draftOf(doc, titleRef.current));
-				}}
-			/>
-		</>
-	);
-
 	return (
 		<div className="app">
 			{showDebug && (
@@ -658,149 +546,75 @@ export function App({ host }: { host: Host }) {
 					onClose={() => setShowMaintainer(false)}
 				/>
 			)}
-			<aside className="sidebar">
-				<h1>{view?.name ?? "VaultOps"}</h1>
-				<div className="sidebar-actions">
-					<Button
-						size="sm"
-						disabled={busy || !view?.writable}
-						onClick={startNote}
-					>
-						New note
-					</Button>
-					<Button
-						size="sm"
-						variant="secondary"
-						disabled={busy}
-						onClick={async () => {
-							if (!(await settle())) return;
-							setOpened(null);
-							setScreen("note");
-							setTagFilter(null);
-							run(() => chooseAndLoad(host));
-						}}
-					>
-						Choose vault…
-					</Button>
-					{maintainer && (
-						<Button
-							size="sm"
-							variant="secondary"
-							onClick={() => setShowMaintainer(true)}
-						>
-							Developer
-						</Button>
-					)}
-				</div>
-				{view && view.status !== "none" && (
-					<div className="sidebar-actions">
-						<Button
-							size="sm"
-							variant="secondary"
-							disabled={busy}
-							onClick={() => navigate("trash")}
-						>
-							Trash
-						</Button>
-						<Button
-							size="sm"
-							variant="secondary"
-							disabled={busy}
-							onClick={() => navigate("health")}
-						>
-							{healthLabel(view.report)}
-						</Button>
-					</div>
-				)}
-				{view?.messages.map((m) => (
-					<p key={m} className="notice">
-						{m}
-					</p>
-				))}
-				{view && view.status !== "none" && (
-					<TagIndex
-						rows={view.notes}
-						active={tagFilter}
-						onPick={(tag) => setTagFilter(tag)}
-					/>
-				)}
-				{view &&
-					view.status !== "none" &&
-					(tagFilter !== null ? (
-						<TaggedNotes
-							rows={view.notes}
-							tag={tagFilter}
-							livePath={livePath}
-							onOpen={open}
-							onClear={() => setTagFilter(null)}
-						/>
-					) : (
-						<NoteTree
-							nodes={tree}
-							livePath={livePath}
-							onOpen={open}
-							actions={treeActions}
-							busy={busy || !view.writable}
-						/>
-					))}
-				{treeNotice && (
-					<p role="status" className="notice">
-						{treeNotice}
-					</p>
-				)}
-				{view &&
-					view.status !== "none" &&
-					view.notes.length === 0 &&
-					view.folders.length === 0 && (
-						<p className="read-only-tag">No notes yet.</p>
-					)}
-			</aside>
-			<main className="pane">
-				{error && (
-					<p role="alert" className="notice">
-						Something went wrong: {error}
-					</p>
-				)}
-				{view?.status === "none" && (
-					<p className="empty-pane">
-						No vault is open. Choose a folder to start.
-					</p>
-				)}
-				{screen !== "note" && (
-					<>
-						<Button
-							size="sm"
-							variant="secondary"
-							disabled={busy}
-							onClick={() => navigate("note")}
-						>
-							Back to notes
-						</Button>
-						{screenNotice && (
-							<p role="status" className="notice">
-								{screenNotice}
-							</p>
-						)}
-					</>
-				)}
-				{screen === "trash" && (
-					<TrashScreen
-						entries={trash}
-						disabled={busy || !writable}
-						confirming={confirmDelete}
-						onConfirm={setConfirmDelete}
-						onRestore={(p) => void changeTrash(p, true)}
-						onDelete={(p) => void changeTrash(p, false)}
-					/>
-				)}
-				{screen === "health" && view && (
-					<HealthScreen report={view.report} onOpen={open} />
-				)}
-				{screen === "note" && editor}
-				{screen === "note" && !opened && view && view.status !== "none" && (
-					<p className="empty-pane">Pick a note, or start a new one.</p>
-				)}
-			</main>
+			<Sidebar
+				view={view}
+				busy={busy}
+				maintainer={maintainer}
+				tagFilter={tagFilter}
+				livePath={livePath}
+				tree={tree}
+				treeActions={treeActions}
+				treeNotice={treeNotice}
+				onStartNote={startNote}
+				onChooseVault={async () => {
+					if (!(await settle())) return;
+					setOpened(null);
+					setScreen("note");
+					setTagFilter(null);
+					run(() => chooseAndLoad(host));
+				}}
+				onShowMaintainer={() => setShowMaintainer(true)}
+				onNavigate={navigate}
+				onTagFilter={setTagFilter}
+				onOpen={open}
+			/>
+			<NotePane
+				view={view}
+				screen={screen}
+				error={error}
+				busy={busy}
+				writable={writable}
+				screenNotice={screenNotice}
+				trash={trash}
+				confirmDelete={confirmDelete}
+				opened={opened}
+				title={title}
+				titleInput={titleInput}
+				saveState={autosave.state}
+				confirmTrash={confirmTrash}
+				confirmEditing={confirmEditing}
+				notice={notice}
+				props={props}
+				onTitleChange={(next) => {
+					titleRef.current = next;
+					setTitle(next);
+					if (docRef.current) autosave.change(draftOf(docRef.current, next));
+				}}
+				onDocChange={(doc) => {
+					docRef.current = doc;
+					getLogger().count("edits");
+					autosave.change(draftOf(doc, titleRef.current));
+				}}
+				onRetry={autosave.retry}
+				onLoadDisk={loadDisk}
+				onSaveCopy={saveCopy}
+				onMoveToTrash={moveToTrash}
+				onConfirmTrash={setConfirmTrash}
+				onConfirmEditing={setConfirmEditing}
+				onAllowEditing={() => {
+					if (!opened) return;
+					setOpened(allowEditing(opened));
+					setNotice(null);
+					setConfirmEditing(false);
+				}}
+				onPropsChange={editProps}
+				onOpenTag={setTagFilter}
+				onNavigate={navigate}
+				onConfirmDelete={setConfirmDelete}
+				onRestore={(p) => void changeTrash(p, true)}
+				onDelete={(p) => void changeTrash(p, false)}
+				onOpen={open}
+			/>
 		</div>
 	);
 }

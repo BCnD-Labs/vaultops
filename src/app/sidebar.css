@@ -1,0 +1,226 @@
+.sidebar {
+	width: 260px;
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px;
+	background: var(--panel);
+	border-right: 1px solid var(--line);
+	overflow-y: auto;
+}
+
+.sidebar h1 {
+	margin: 0;
+	font-size: var(--font-size-heading);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sidebar-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.sidebar-actions button {
+	flex: 1;
+}
+
+.note-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.note-list button {
+	width: 100%;
+	text-align: left;
+	background: none;
+	border: 0;
+	border-radius: var(--radius-control);
+	padding: 6px 8px;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.note-list .note-list {
+	margin-left: 10px;
+	padding-left: 6px;
+	border-left: 1px solid var(--line);
+}
+
+.note-list button {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tree-icon {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.5;
+}
+
+.tree-chevron {
+	transition: transform var(--motion-fast);
+}
+
+.tree-chevron.is-open {
+	transform: rotate(90deg);
+}
+
+.tree-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tree-empty {
+	margin: 2px 0 4px 28px;
+}
+
+.tree-toolbar {
+	margin-bottom: 4px;
+}
+
+/* Fills the sidebar, so the empty space below the list is a drop target for the vault root. */
+.tree {
+	flex: 1 0 auto;
+	min-height: 80px;
+}
+
+.tree.is-over {
+	outline: 2px dashed var(--ring);
+	outline-offset: 2px;
+}
+
+.tree-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	border-radius: var(--radius-control);
+}
+
+.tree-row.is-over {
+	outline: 2px dashed var(--ring);
+	background: var(--accent);
+}
+
+.note-list .tree-row .tree-folder {
+	flex: 1;
+	min-width: 0;
+	width: auto;
+}
+
+/* Hidden by sight only, so keyboard and screen-reader users still reach them. */
+.tree-actions {
+	position: absolute;
+	right: 2px;
+	display: flex;
+	gap: 2px;
+	padding-left: 4px;
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	opacity: 0;
+}
+
+.tree-row:hover .tree-actions,
+.tree-row:focus-within .tree-actions {
+	opacity: 1;
+}
+
+.note-list .tree-action {
+	width: auto;
+	padding: 4px;
+}
+
+.tree-toolbar .tree-action {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: none;
+	border: 0;
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--font-size-ui);
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: var(--radius-control);
+}
+
+.tree-toolbar .tree-action:hover:not(:disabled) {
+	background: var(--accent);
+}
+
+.tree-action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.tree-input {
+	width: 100%;
+	box-sizing: border-box;
+	font: inherit;
+	padding: 4px 6px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	color: inherit;
+}
+
+.note-list button:hover {
+	background: var(--accent);
+}
+
+.note-list button[aria-current="true"] {
+	background: var(--selection-bg);
+	color: var(--selection-fg);
+}
+
+@media (max-width: 640px) {
+	.sidebar {
+		width: auto;
+		border-right: 0;
+		border-bottom: 1px solid var(--line);
+		max-height: 40vh;
+	}
+}
+.tag-index {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.tag-index .tag-button {
+	padding: 1px 8px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	font-size: var(--font-size-ui);
+}
+
+.tag-index .tag-button[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+
+.tagged-title {
+	margin: 0 0 4px;
+	font-size: var(--font-size-ui);
+}
+
+.tagged .note-list {
+	margin-bottom: 8px;
+}
+
+.tag-index .tag-button[aria-pressed="true"] .read-only-tag {
+	color: inherit;
+}

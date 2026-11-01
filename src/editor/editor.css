@@ -2,7 +2,12 @@
 	outline: none;
 	min-height: 12rem;
 	padding: 0.5rem 0;
-	line-height: 1.55;
+	max-width: 720px;
+	margin-inline: auto;
+	font-family: var(--font-sans);
+	font-size: 17px;
+	line-height: 1.65;
+	overflow-wrap: anywhere;
 }
 
 .note-editor .ProseMirror > * + * {
@@ -10,19 +15,48 @@
 }
 
 .note-editor h1 {
-	font-size: 1.6rem;
+	font-size: 1.8em;
+	line-height: 1.25;
 	margin: 1rem 0 0.4rem;
 }
 
 .note-editor h2 {
-	font-size: 1.25rem;
+	font-size: 1.4em;
+	line-height: 1.3;
 	margin: 0.9rem 0 0.3rem;
+}
+
+.note-editor h3 {
+	font-size: 1.15em;
+	line-height: 1.4;
+	margin: 0.8rem 0 0.3rem;
+}
+
+.note-editor li > p {
+	margin-block: 0.2rem;
+}
+
+.note-editor li + li {
+	margin-top: 0.2rem;
+}
+
+/* Tiptap renders an empty paragraph with a trailing break. Only show the hint
+ * when that paragraph is the entire note, never for blank lines in a document. */
+.note-editor
+	.ProseMirror[contenteditable="true"]
+	> p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
+	content: "Start writing, or type / for blocks";
+	color: var(--muted-foreground);
+	float: left;
+	height: 0;
+	max-width: 100%;
+	pointer-events: none;
 }
 
 .note-editor blockquote {
 	margin-left: 0;
 	padding-left: 0.9rem;
-	border-left: 3px solid color-mix(in srgb, currentColor 30%, transparent);
+	border-left: 1px solid var(--border);
 	opacity: 0.85;
 }
 
@@ -88,10 +122,10 @@
 
 .slash-menu-item[aria-selected="true"],
 .slash-menu-item:hover {
-	background: var(--line, #dcdce1);
+	background: var(--accent);
 }
 
 .slash-menu-empty {
 	padding: 6px 10px;
-	color: var(--muted, #6b6b73);
+	color: var(--muted-foreground);
 }

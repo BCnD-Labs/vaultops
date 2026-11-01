@@ -140,6 +140,74 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 			await expectCode(host.move("f", "f/g/f"), "invalid-path");
 		});
 
+		describe("delete forever (removeTrashed)", () => {
+			const STAMP = ".vaultops/trash/2026-11-01T10-00-00-000Z";
+			async function trashed(rel: string) {
+				const path = `${STAMP}/${rel}`;
+				await host.makeFolder(path.slice(0, path.lastIndexOf("/")));
+				await host.writeTextAtomic(path, "x");
+				return path;
+			}
+
+			it("deletes the note and the folders it leaves empty, but not the trash", async () => {
+				const path = await trashed("Notes/Deep/a.vnote");
+				await host.removeTrashed(path);
+				expect(await host.kindOf(path)).toBeNull();
+				expect(await host.kindOf(STAMP)).toBeNull();
+				expect(await host.kindOf(".vaultops/trash")).toBe("folder");
+			});
+
+			it("keeps a sibling note and its folders", async () => {
+				const a = await trashed("Notes/a.vnote");
+				const b = await trashed("Notes/b.vnote");
+				await host.removeTrashed(a);
+				expect(await host.kindOf(a)).toBeNull();
+				expect(await host.kindOf(b)).toBe("file");
+				expect(await host.kindOf(STAMP)).toBe("folder");
+			});
+
+			it("refuses anything that is not a note inside the trash", async () => {
+				await host.writeTextAtomic("a.vnote", "x");
+				await host.makeFolder(".vaultops/history/s");
+				await host.makeFolder(".vaultops/trash");
+				await host.writeTextAtomic(".vaultops/history/s/a.vnote", "x");
+				await host.writeTextAtomic(".vaultops/trash/loose.vnote", "x");
+				const inside = await trashed("a.vnote");
+				for (const bad of [
+					"a.vnote",
+					".vaultops/history/s/a.vnote",
+					".vaultops/trash",
+					STAMP,
+					".vaultops/trash/loose.vnote",
+					".VaultOps/trash/s/a.vnote",
+					".vaultops/Trash/s/a.vnote",
+					"../a.vnote",
+					"/a.vnote",
+					"",
+				]) {
+					await expectCode(host.removeTrashed(bad), "invalid-path");
+				}
+				expect(await host.kindOf("a.vnote")).toBe("file");
+				expect(await host.kindOf(".vaultops/history/s/a.vnote")).toBe("file");
+				expect(await host.kindOf(".vaultops/trash/loose.vnote")).toBe("file");
+				expect(await host.kindOf(inside)).toBe("file");
+			});
+
+			it("refuses a folder and reports a missing note", async () => {
+				const note = await trashed("Notes/a.vnote");
+				await expectCode(host.removeTrashed(`${STAMP}/Notes`), "is-a-folder");
+				await expectCode(
+					host.removeTrashed(`${STAMP}/Notes/ghost.vnote`),
+					"not-found",
+				);
+				await expectCode(
+					host.removeTrashed(`${STAMP}/Nowhere/a.vnote`),
+					"not-found",
+				);
+				expect(await host.kindOf(note)).toBe("file");
+			});
+		});
+
 		it("fails moving something that is not there", async () => {
 			await expectCode(host.move("ghost", "x"), "not-found");
 		});

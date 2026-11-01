@@ -6,6 +6,7 @@ pub mod log_file;
 pub mod reports;
 #[cfg(test)]
 mod test_util;
+pub mod trash_ops;
 pub mod vault;
 
 use std::path::{Path, PathBuf};
@@ -302,6 +303,12 @@ fn move_entry(
     with_vault(&state, |v| folder_ops::move_entry(v, &from, &to))
 }
 
+/// Delete one note forever, only from `.vaultops/trash/`.
+#[tauri::command(async)]
+fn remove_trashed(state: tauri::State<'_, VaultState>, path: String) -> Result<(), HostError> {
+    with_vault(&state, |v| trash_ops::remove_trashed(v, &path))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -325,6 +332,7 @@ pub fn run() {
             make_folder,
             kind_of,
             move_entry,
+            remove_trashed,
             append_log,
             read_app_file,
             write_app_file,

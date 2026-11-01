@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MemoryHost } from "../../host/memory-host";
 import { openVault } from "../vault/vault";
 import { createNote } from "./repository";
-import { listTrash, restoreNote, trashNote } from "./trash";
+import { deleteForever, listTrash, restoreNote, trashNote } from "./trash";
 
 async function vault() {
 	const host = new MemoryHost();
@@ -111,5 +111,48 @@ describe("trash", () => {
 
 	it("an empty vault has an empty trash", async () => {
 		expect(await listTrash(await vault())).toEqual([]);
+	});
+
+	describe("delete forever", () => {
+		it("erases a trashed note and leaves the trash tidy", async () => {
+			const host = await vault();
+			await host.makeFolder("Projects");
+			const { path } = await createNote(host, "Projects", "Plan");
+			const { trashPath } = await trashNote(host, path, T1);
+			await deleteForever(host, trashPath);
+			expect(await host.kindOf(trashPath)).toBeNull();
+			expect(await listTrash(host)).toEqual([]);
+			expect(await host.list(".vaultops/trash")).toEqual([]);
+		});
+
+		it("leaves other trashed notes alone", async () => {
+			const host = await vault();
+			const a = await createNote(host, "", "A");
+			const b = await createNote(host, "", "B");
+			const ta = await trashNote(host, a.path, T1);
+			await trashNote(host, b.path, T1);
+			await deleteForever(host, ta.trashPath);
+			expect((await listTrash(host)).map((t) => t.originalPath)).toEqual([
+				"B.vnote",
+			]);
+		});
+
+		it("refuses anything outside the trash without asking the host to delete", async () => {
+			const host = await vault();
+			const { path } = await createNote(host, "", "Plan");
+			const remove = vi.spyOn(host, "removeTrashed");
+			for (const bad of [
+				path,
+				".vaultops/config.json",
+				".vaultops/trash",
+				".VaultOps/trash/x/Plan.vnote",
+				"missing.vnote",
+				"../Plan.vnote",
+			]) {
+				await expect(deleteForever(host, bad)).rejects.toThrow();
+			}
+			expect(remove).not.toHaveBeenCalled();
+			expect(await host.kindOf(path)).toBe("file");
+		});
 	});
 });

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { trashNote } from "../core/notes/trash";
 import { parseMaintainer } from "../core/session/maintainer";
 import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
@@ -20,6 +21,7 @@ import {
 	loadVault,
 	type VaultView,
 } from "./session";
+import "../ui/theme.css";
 import "./app.css";
 
 /** The window: notes on the left, the open note on the right. */
@@ -400,15 +402,16 @@ export function App({ host }: { host: Host }) {
 			<aside className="sidebar">
 				<h1>{view?.name ?? "VaultOps"}</h1>
 				<div className="sidebar-actions">
-					<button
-						type="button"
+					<Button
+						size="sm"
 						disabled={busy || !view?.writable}
 						onClick={startNote}
 					>
 						New note
-					</button>
-					<button
-						type="button"
+					</Button>
+					<Button
+						size="sm"
+						variant="secondary"
 						disabled={busy}
 						onClick={async () => {
 							if (!(await settle())) return;
@@ -417,11 +420,15 @@ export function App({ host }: { host: Host }) {
 						}}
 					>
 						Choose vault…
-					</button>
+					</Button>
 					{maintainer && (
-						<button type="button" onClick={() => setShowMaintainer(true)}>
+						<Button
+							size="sm"
+							variant="secondary"
+							onClick={() => setShowMaintainer(true)}
+						>
 							Developer
-						</button>
+						</Button>
 					)}
 				</div>
 				{view?.messages.map((m) => (

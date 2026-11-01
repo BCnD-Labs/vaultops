@@ -1,0 +1,75 @@
+/*
+ * Design tokens for the shared UI components (shadcn/ui on Tailwind).
+ *
+ * Every color, border, shadow and radius the components use is a variable
+ * here, so a new design (for example one drawn in Figma) is a change to this
+ * file only. The look is a light neobrutalism: thick dark borders, hard
+ * offset shadows with no blur, flat bold colors, small corners.
+ *
+ * Tailwind's reset (preflight) is left out on purpose, so the screens that
+ * already exist keep their current look. Only theme and utilities are loaded.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+:root {
+	--background: #ffffff;
+	--foreground: #1c1c1e;
+	--primary: #ffd23f;
+	--primary-foreground: #1c1c1e;
+	--secondary: #f4f4f6;
+	--secondary-foreground: #1c1c1e;
+	--muted: #f4f4f6;
+	--muted-foreground: #6b6b73;
+	--accent: #bde0fe;
+	--accent-foreground: #1c1c1e;
+	--destructive: #ff5a6e;
+	--destructive-foreground: #1c1c1e;
+	--border: #1c1c1e;
+	--ring: #3b5bdb;
+	--radius: 0.25rem;
+	--shadow-offset: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--background: #1b1b1f;
+		--foreground: #ececf0;
+		--primary: #ffd23f;
+		--primary-foreground: #1c1c1e;
+		--secondary: #25252b;
+		--secondary-foreground: #ececf0;
+		--muted: #25252b;
+		--muted-foreground: #9a9aa5;
+		--accent: #2b4a6b;
+		--accent-foreground: #ececf0;
+		--destructive: #ff6b81;
+		--destructive-foreground: #1c1c1e;
+		--border: #ececf0;
+		--ring: #8da2ff;
+	}
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-ring: var(--ring);
+
+	--radius-sm: calc(var(--radius) - 2px);
+	--radius-md: var(--radius);
+	--radius-lg: calc(var(--radius) + 2px);
+
+	--shadow-hard: var(--shadow-offset) var(--shadow-offset) 0 0 var(--border);
+}

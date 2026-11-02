@@ -33,10 +33,10 @@ it("saves title edits before sidebar navigation and keeps trash confirmation in 
 	const title = (await screen.findByRole("textbox", {
 		name: "Title",
 	})) as HTMLInputElement;
-	expect(container.querySelector(".app > .sidebar h1")?.textContent).toBe(
+	expect(container.querySelector(".app .sidebar h1")?.textContent).toBe(
 		"Memory vault",
 	);
-	expect(container.querySelector(".app > .pane > .title-field")).toBe(title);
+	expect(container.querySelector(".app .pane > .title-field")).toBe(title);
 	fireEvent.change(title, { target: { value: "Renamed" } });
 	await user.click(screen.getByRole("button", { name: /^Trash$/ }));
 	await screen.findByText("The trash is empty.");

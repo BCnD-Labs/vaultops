@@ -1,12 +1,12 @@
 .sidebar {
-	width: 260px;
+	box-sizing: border-box;
+	height: 100%;
 	flex: none;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
 	padding: 12px;
 	background: var(--panel);
-	border-right: 1px solid var(--line);
 	overflow-y: auto;
 }
 
@@ -185,14 +185,6 @@
 	color: var(--selection-fg);
 }
 
-@media (max-width: 640px) {
-	.sidebar {
-		width: auto;
-		border-right: 0;
-		border-bottom: 1px solid var(--line);
-		max-height: 40vh;
-	}
-}
 .tag-index {
 	display: flex;
 	flex-wrap: wrap;

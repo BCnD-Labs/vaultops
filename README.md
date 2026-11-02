@@ -4,11 +4,11 @@
 
 A visual, offline way to manage your local git repos with a GitHub-style workflow, alongside version control for your notes. No terminal needed.
 
-- **Code repos:** your real git repos, managed visually: changes, commits, branches, history, stash. Local only.
+- **Code repos:** your real git repos, managed visually: changes, commits, branches, history, stash. Pushing to GitHub is optional and not built yet.
 - **Work tracking:** issues, projects and pull-request-style reviews, the GitHub way, kept offline next to your repos.
-- **Notes:** made of blocks, with their own version history. Commit, push and revert a note the same way you would code.
+- **Notes:** made of blocks. The notes vault is its own git repo, so you stage, commit, push and revert a note the same way you would code.
 
-Everything stays on your machine: no account, no sync.
+The app needs no account, and writing works offline. Planned: a vault can push to a git host you choose (a "sync destination") so another Mac or the web build can pull it. Nothing is sent anywhere unless you set that up. A web build on the maintainer's server is the planned main target, with the Mac app as an offline copy; none of this is built yet.
 
 **Status:** early development, macOS first. Not ready for use yet.
 

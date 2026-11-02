@@ -19,7 +19,7 @@ For example, copy the complete default theme as `sage.css`, rename all selectors
 }
 ```
 
-Check contrast after palette changes. Default filled blue buttons use dark text to meet 4.5:1 at compact text sizes. Elevation is reserved for floating content.
+Check contrast after palette changes. In the light theme, filled blue buttons use white text on a deeper blue; in the dark theme they use dark text on a lighter blue. Both meet 4.5:1 at compact text sizes. Elevation is reserved for floating content.
 
 ## Full token list
 

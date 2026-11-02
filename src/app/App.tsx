@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
 	createFolder,
 	movedPath,
@@ -34,6 +35,7 @@ import { type Draft, saveAsCopy } from "../editor/save-draft";
 import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
+import { AppShell } from "./AppShell";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { NotePane } from "./NotePane";
 import type { TreeActions } from "./NoteTree";
@@ -48,7 +50,7 @@ import {
 import "../ui/theme.css";
 import "./app.css";
 
-/** The window: notes on the left, the open note on the right. */
+/** The window keeps note and save state outside its collapsible sidebars. */
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [screen, setScreen] = useState<"note" | "trash" | "health">("note");
@@ -526,95 +528,106 @@ export function App({ host }: { host: Host }) {
 	};
 
 	return (
-		<div className="app">
-			{showDebug && (
-				<DebugPanel
-					logger={getLogger()}
-					app={appInfo}
-					onClose={() => setShowDebug(false)}
-				/>
-			)}
-			{showMaintainer && (
-				<MaintainerPanel
-					host={host}
-					logger={getLogger()}
-					app={appInfo}
-					onOpenDebug={() => {
-						setShowMaintainer(false);
-						setShowDebug(true);
-					}}
-					onClose={() => setShowMaintainer(false)}
-				/>
-			)}
-			<Sidebar
-				view={view}
-				busy={busy}
-				maintainer={maintainer}
-				tagFilter={tagFilter}
-				livePath={livePath}
-				tree={tree}
-				treeActions={treeActions}
-				treeNotice={treeNotice}
-				onStartNote={startNote}
-				onChooseVault={async () => {
-					if (!(await settle())) return;
-					setOpened(null);
-					setScreen("note");
-					setTagFilter(null);
-					run(() => chooseAndLoad(host));
-				}}
-				onShowMaintainer={() => setShowMaintainer(true)}
-				onNavigate={navigate}
-				onTagFilter={setTagFilter}
-				onOpen={open}
-			/>
-			<NotePane
-				view={view}
-				screen={screen}
-				error={error}
-				busy={busy}
-				writable={writable}
-				screenNotice={screenNotice}
-				trash={trash}
-				confirmDelete={confirmDelete}
-				opened={opened}
-				title={title}
-				titleInput={titleInput}
-				saveState={autosave.state}
-				confirmTrash={confirmTrash}
-				confirmEditing={confirmEditing}
-				notice={notice}
-				props={props}
-				onTitleChange={(next) => {
-					titleRef.current = next;
-					setTitle(next);
-					if (docRef.current) autosave.change(draftOf(docRef.current, next));
-				}}
-				onDocChange={(doc) => {
-					docRef.current = doc;
-					getLogger().count("edits");
-					autosave.change(draftOf(doc, titleRef.current));
-				}}
-				onRetry={autosave.retry}
-				onLoadDisk={loadDisk}
-				onSaveCopy={saveCopy}
-				onMoveToTrash={moveToTrash}
-				onConfirmTrash={setConfirmTrash}
-				onConfirmEditing={setConfirmEditing}
-				onAllowEditing={() => {
-					if (!opened) return;
-					setOpened(allowEditing(opened));
-					setNotice(null);
-					setConfirmEditing(false);
-				}}
-				onPropsChange={editProps}
-				onOpenTag={setTagFilter}
-				onNavigate={navigate}
-				onConfirmDelete={setConfirmDelete}
-				onRestore={(p) => void changeTrash(p, true)}
-				onDelete={(p) => void changeTrash(p, false)}
-				onOpen={open}
-			/>
-		</div>
+		<TooltipProvider>
+			<div className="app">
+				{showDebug && (
+					<DebugPanel
+						logger={getLogger()}
+						app={appInfo}
+						onClose={() => setShowDebug(false)}
+					/>
+				)}
+				{showMaintainer && (
+					<MaintainerPanel
+						host={host}
+						logger={getLogger()}
+						app={appInfo}
+						onOpenDebug={() => {
+							setShowMaintainer(false);
+							setShowDebug(true);
+						}}
+						onClose={() => setShowMaintainer(false)}
+					/>
+				)}
+				<AppShell
+					vault={vaultName ?? "VaultOps"}
+					path={livePath}
+					title={opened ? title : null}
+					sidebar={
+						<Sidebar
+							view={view}
+							busy={busy}
+							maintainer={maintainer}
+							tagFilter={tagFilter}
+							livePath={livePath}
+							tree={tree}
+							treeActions={treeActions}
+							treeNotice={treeNotice}
+							onStartNote={startNote}
+							onChooseVault={async () => {
+								if (!(await settle())) return;
+								setOpened(null);
+								setScreen("note");
+								setTagFilter(null);
+								run(() => chooseAndLoad(host));
+							}}
+							onShowMaintainer={() => setShowMaintainer(true)}
+							onNavigate={navigate}
+							onTagFilter={setTagFilter}
+							onOpen={open}
+						/>
+					}
+				>
+					<NotePane
+						view={view}
+						screen={screen}
+						error={error}
+						busy={busy}
+						writable={writable}
+						screenNotice={screenNotice}
+						trash={trash}
+						confirmDelete={confirmDelete}
+						opened={opened}
+						title={title}
+						titleInput={titleInput}
+						saveState={autosave.state}
+						confirmTrash={confirmTrash}
+						confirmEditing={confirmEditing}
+						notice={notice}
+						props={props}
+						onTitleChange={(next) => {
+							titleRef.current = next;
+							setTitle(next);
+							if (docRef.current)
+								autosave.change(draftOf(docRef.current, next));
+						}}
+						onDocChange={(doc) => {
+							docRef.current = doc;
+							getLogger().count("edits");
+							autosave.change(draftOf(doc, titleRef.current));
+						}}
+						onRetry={autosave.retry}
+						onLoadDisk={loadDisk}
+						onSaveCopy={saveCopy}
+						onMoveToTrash={moveToTrash}
+						onConfirmTrash={setConfirmTrash}
+						onConfirmEditing={setConfirmEditing}
+						onAllowEditing={() => {
+							if (!opened) return;
+							setOpened(allowEditing(opened));
+							setNotice(null);
+							setConfirmEditing(false);
+						}}
+						onPropsChange={editProps}
+						onOpenTag={setTagFilter}
+						onNavigate={navigate}
+						onConfirmDelete={setConfirmDelete}
+						onRestore={(p) => void changeTrash(p, true)}
+						onDelete={(p) => void changeTrash(p, false)}
+						onOpen={open}
+					/>
+				</AppShell>
+			</div>
+		</TooltipProvider>
 	);
 }

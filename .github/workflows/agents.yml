@@ -161,7 +161,11 @@ jobs:
         run: python3 .github/agents/prepare.py build "$AGENT" "$ISSUE" "$NOTE"
       - name: Run Codex (its sandbox allows edits and commands in this folder, no network)
         if: inputs.agent == 'codex'
-        run: codex exec --sandbox workspace-write --cd "$GITHUB_WORKSPACE" "Read .agent/prompt.md and follow it exactly."
+        env:
+          # Optional: set the repository variable CODEX_MODEL (Settings -> Secrets and variables -> Actions -> Variables)
+          # to choose the model. Empty or unset keeps the Mac's default model.
+          CODEX_MODEL: ${{ vars.CODEX_MODEL }}
+        run: codex exec ${CODEX_MODEL:+--model "$CODEX_MODEL"} --sandbox workspace-write --cd "$GITHUB_WORKSPACE" "Read .agent/prompt.md and follow it exactly."
       - name: Commit, push and open the pull request
         env:
           GH_TOKEN: ${{ secrets.AGENTS_TOKEN }}

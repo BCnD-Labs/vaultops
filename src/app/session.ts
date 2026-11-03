@@ -111,8 +111,9 @@ export async function newNote(host: Host, view: VaultView): Promise<VaultView> {
 export async function createAndLoad(
 	host: Host,
 	view: VaultView,
+	folder = "",
 ): Promise<{ view: VaultView; path: string | null }> {
 	if (!view.writable) return { view, path: null };
-	const { path } = await createNote(host, "", "Untitled");
+	const { path } = await createNote(host, folder, "Untitled");
 	return { view: await loadVault(host), path };
 }

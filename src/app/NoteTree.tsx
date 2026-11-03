@@ -6,8 +6,9 @@ import {
 	Pencil,
 	Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	ancestorsOf,
 	countNotes,
@@ -38,6 +39,11 @@ interface Props {
 	actions: TreeActions;
 	/** True while a change is being applied: actions and drops are ignored. */
 	busy: boolean;
+	foldersOnly?: boolean;
+	selectedFolder?: string;
+	onSelectFolder?: (path: string) => void;
+	header?: (create: () => void) => ReactNode;
+	children?: ReactNode;
 }
 
 type Editing =
@@ -45,7 +51,7 @@ type Editing =
 	| { mode: "rename"; path: string }
 	| null;
 
-const DRAG_TYPE = "application/x-vaultops-item";
+export const DRAG_TYPE = "application/x-vaultops-item";
 
 function readDrag(event: React.DragEvent): DragItem | null {
 	try {
@@ -60,7 +66,18 @@ function readDrag(event: React.DragEvent): DragItem | null {
 }
 
 /** Folders and notes of the vault: open notes, and manage folders. */
-export function NoteTree({ nodes, livePath, onOpen, actions, busy }: Props) {
+export function NoteTree({
+	nodes,
+	livePath,
+	onOpen,
+	actions,
+	busy,
+	foldersOnly = false,
+	selectedFolder,
+	onSelectFolder,
+	header,
+	children,
+}: Props) {
 	const [open, setOpen] = useState<Set<string>>(
 		() => new Set(livePath ? ancestorsOf(livePath) : []),
 	);
@@ -108,6 +125,9 @@ export function NoteTree({ nodes, livePath, onOpen, actions, busy }: Props) {
 
 	const ctx: Ctx = {
 		open,
+		foldersOnly,
+		selectedFolder,
+		onSelectFolder,
 		livePath,
 		busy,
 		editing,
@@ -138,23 +158,33 @@ export function NoteTree({ nodes, livePath, onOpen, actions, busy }: Props) {
 			onDragLeave={() => setOver(null)}
 			onDrop={(e) => drop(e, "")}
 		>
-			<div className="tree-toolbar">
-				<button
-					type="button"
-					className="tree-action tree-new"
-					disabled={busy}
-					onClick={() => startCreate("")}
-				>
-					<FolderPlus className="tree-icon" aria-hidden="true" />
-					New folder
-				</button>
-			</div>
-			<Branch nodes={nodes} parent="" ctx={ctx} />
+			{header ? (
+				header(() => startCreate(""))
+			) : (
+				<div className="tree-toolbar">
+					<button
+						type="button"
+						className="tree-action tree-new"
+						disabled={busy}
+						onClick={() => startCreate("")}
+					>
+						<FolderPlus className="tree-icon" aria-hidden="true" />
+						New folder
+					</button>
+				</div>
+			)}
+			<ScrollArea className="navigation-scroll">
+				<Branch nodes={nodes} parent="" ctx={ctx} />
+				{children}
+			</ScrollArea>
 		</div>
 	);
 }
 
 interface Ctx {
+	foldersOnly: boolean;
+	selectedFolder?: string;
+	onSelectFolder?: (path: string) => void;
 	open: Set<string>;
 	livePath: string | null;
 	busy: boolean;
@@ -218,6 +248,9 @@ function Branch({
 	parent: string;
 	ctx: Ctx;
 }) {
+	const visible = ctx.foldersOnly
+		? nodes.filter((node) => node.kind === "folder")
+		: nodes;
 	const creating =
 		ctx.editing?.mode === "create" && ctx.editing.parent === parent;
 	return (
@@ -236,7 +269,7 @@ function Branch({
 					/>
 				</li>
 			)}
-			{nodes.map((node) =>
+			{visible.map((node) =>
 				node.kind === "note" ? (
 					<li key={node.path} title={node.path}>
 						<button
@@ -333,12 +366,30 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 				}}
 				onDrop={(e) => ctx.drop(e, node.path)}
 			>
+				{ctx.onSelectFolder && (
+					<button
+						type="button"
+						className="tree-action"
+						aria-label={`Toggle folder ${node.name}`}
+						aria-expanded={isOpen}
+						onClick={() => ctx.onToggle(node.path)}
+					>
+						<ChevronRight
+							className={`tree-icon tree-chevron${isOpen ? " is-open" : ""}`}
+						/>
+					</button>
+				)}
 				<button
 					type="button"
 					className="tree-folder"
 					aria-expanded={isOpen}
 					draggable={!ctx.busy}
-					onClick={() => ctx.onToggle(node.path)}
+					aria-current={node.path === ctx.selectedFolder}
+					onClick={() =>
+						ctx.onSelectFolder
+							? ctx.onSelectFolder(node.path)
+							: ctx.onToggle(node.path)
+					}
 					onDragStart={(e) => {
 						const item: DragItem = {
 							kind: "folder",
@@ -349,12 +400,15 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 						e.dataTransfer.effectAllowed = "move";
 					}}
 				>
-					<ChevronRight
-						className={`tree-icon tree-chevron${isOpen ? " is-open" : ""}`}
-						aria-hidden="true"
-					/>
+					{!ctx.onSelectFolder && (
+						<ChevronRight
+							className={`tree-icon tree-chevron${isOpen ? " is-open" : ""}`}
+							aria-hidden="true"
+						/>
+					)}
 					<Folder className="tree-icon" aria-hidden="true" />
 					<span className="tree-name">{node.name}</span>
+					{notes > 0 && <span className="sidebar-count">{notes}</span>}
 				</button>
 				<span className="tree-actions">
 					<button

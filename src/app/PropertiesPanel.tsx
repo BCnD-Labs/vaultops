@@ -225,7 +225,12 @@ export function PropertiesPanel({
 				/>
 			</div>
 			{items.map((item) => (
-				<div key={item.name} className="prop-row">
+				<div
+					key={item.name}
+					className="prop-row"
+					data-property={item.name}
+					tabIndex={-1}
+				>
 					<span className="prop-name" title={item.name}>
 						{item.name}
 					</span>

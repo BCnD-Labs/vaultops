@@ -36,7 +36,13 @@ import {
 } from "@/components/ui/tooltip";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 
-export const ShellNavigation = createContext({ tags: 0, changes: 0 });
+export const ShellNavigation = createContext({
+	tags: 0,
+	changes: 0,
+	toolsVisible: true,
+	propertyRequest: null as { name?: string } | null,
+	openProperties: (_name?: string) => {},
+});
 
 function IconRail({
 	onNavigate,
@@ -93,6 +99,9 @@ export function AppShell({
 	path: string | null;
 	title: string | null;
 }) {
+	const [propertyRequest, setPropertyRequest] = useState<{
+		name?: string;
+	} | null>(null);
 	const [navigation, setNavigation] = useState({ tags: 0, changes: 0 });
 	const left = useRef<PanelImperativeHandle>(null);
 	const right = useRef<PanelImperativeHandle>(null);
@@ -144,7 +153,17 @@ export function AppShell({
 		);
 	};
 	return (
-		<ShellNavigation.Provider value={navigation}>
+		<ShellNavigation.Provider
+			value={{
+				...navigation,
+				toolsVisible: !collapsed.right,
+				propertyRequest,
+				openProperties: (name) => {
+					right.current?.expand();
+					setPropertyRequest({ name });
+				},
+			}}
+		>
 			<div className="app-shell">
 				<IconRail
 					onNavigate={(item) => {

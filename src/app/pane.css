@@ -183,3 +183,86 @@
 	box-sizing: border-box;
 	margin-inline: auto;
 }
+
+.note-chips,
+.note-details {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+}
+.note-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+.note-meta-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	padding: 3px 6px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+	color: var(--foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	overflow-wrap: anywhere;
+}
+button.note-meta-chip {
+	cursor: pointer;
+}
+button.note-meta-chip:hover,
+button.note-meta-chip:focus-visible {
+	background: var(--accent);
+}
+.note-chips svg {
+	width: 12px;
+	height: 12px;
+	flex: none;
+}
+.note-more {
+	background: transparent;
+	color: var(--muted-foreground);
+	border-color: transparent;
+}
+.note-details {
+	margin-top: auto;
+	padding-top: 16px;
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+}
+.note-details-trigger {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 8px 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.note-details-trigger svg {
+	width: 12px;
+	height: 12px;
+}
+.note-details-trigger[data-state="open"] svg {
+	transform: rotate(90deg);
+}
+.note-details dl {
+	margin: 0;
+}
+.note-details dl > div {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+.note-details dt {
+	min-width: 64px;
+}
+.note-details dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}

@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { Ellipsis } from "lucide-react";
-import type { Ref } from "react";
+import { type Ref, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -13,12 +13,15 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { Props } from "../core/notes/properties";
 import type { TrashedNote } from "../core/notes/trash";
 import type { AutosaveState } from "../editor/autosave";
+import { docToBlocks } from "../editor/doc-blocks";
 import { NoteEditor } from "../editor/NoteEditor";
 import type { OpenedNote } from "../editor/note-io";
 import { SaveStatus } from "../editor/SaveStatus";
 import { HealthScreen } from "./HealthScreen";
+import { NoteChips, NoteDetails } from "./NoteMetadata";
 import type { VaultView } from "./session";
 import { TrashScreen } from "./TrashScreen";
 import "./pane.css";
@@ -34,6 +37,9 @@ interface NotePaneProps {
 	confirmDelete: string | null;
 	opened: OpenedNote | null;
 	title: string;
+	props: Props | null;
+	path: string | null;
+	onPropsChange: (next: Props) => void;
 	titleInput: Ref<HTMLInputElement>;
 	saveState: AutosaveState;
 	confirmTrash: boolean;
@@ -66,6 +72,9 @@ export function NotePane({
 	confirmDelete,
 	opened,
 	title,
+	props,
+	path,
+	onPropsChange,
 	titleInput,
 	saveState,
 	confirmTrash,
@@ -86,6 +95,8 @@ export function NotePane({
 	onDelete,
 	onOpen,
 }: NotePaneProps) {
+	const [doc, setDoc] = useState(opened?.doc);
+	useEffect(() => setDoc(opened?.doc), [opened?.doc]);
 	const editor = opened && (
 		<>
 			<input
@@ -96,8 +107,13 @@ export function NotePane({
 				readOnly={!opened.editable}
 				onChange={(event) => onTitleChange(event.target.value)}
 			/>
+			<NoteChips
+				props={props}
+				editable={opened.editable}
+				onChange={onPropsChange}
+			/>
 			<div className="status-line">
-				{opened.editable && (
+				{opened.editable && saveState.kind !== "saved" && (
 					<SaveStatus
 						state={saveState}
 						onRetry={onRetry}
@@ -179,7 +195,29 @@ export function NotePane({
 				key={opened.path}
 				doc={opened.doc}
 				editable={opened.editable}
-				onChange={onDocChange}
+				onChange={(next) => {
+					setDoc(next);
+					onDocChange(next);
+				}}
+			/>
+			<NoteDetails
+				path={path ?? opened.path}
+				count={
+					opened.editable && doc
+						? docToBlocks(doc).length
+						: (opened.note?.blocks.length ?? null)
+				}
+				status={
+					opened.editable
+						? saveState.kind === "saved"
+							? "Saved"
+							: saveState.kind === "saving"
+								? "Saving…"
+								: saveState.kind === "failed"
+									? "Not saved"
+									: "Unsaved changes"
+						: "Read-only"
+				}
 			/>
 		</>
 	);

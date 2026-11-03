@@ -33,6 +33,25 @@ it("renders the selected row with preview, two tag chips, overflow and read-only
 		expect(html).toContain(text);
 	expect(html).not.toContain("#three");
 });
+it("marks a canvas row with its canvas icon", () => {
+	const html = renderToStaticMarkup(
+		<NoteListRow
+			note={{
+				path: "board.vnote",
+				title: "Board",
+				preview: "",
+				tags: [],
+				readOnly: false,
+				kind: "canvas",
+			}}
+			current={false}
+			locked={false}
+			onOpen={() => {}}
+		/>,
+	);
+	expect(html).toContain('aria-label="Canvas"');
+	expect(html).toContain("Board");
+});
 it("remembers valid sort choices and tolerates invalid or unavailable storage", () => {
 	const setItem = vi.fn();
 	vi.stubGlobal("localStorage", { getItem: () => "invalid", setItem });

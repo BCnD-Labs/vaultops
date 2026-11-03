@@ -45,6 +45,23 @@ export async function createNote(
 	return { path, note };
 }
 
+/** Canvases use the same file naming and atomic creation path as notes. */
+export function createCanvas(
+	host: Host,
+	folder = "",
+	title = "Untitled canvas",
+) {
+	return createNote(host, folder, title, {
+		header: {
+			format: NOTE_FORMAT,
+			v: NOTE_FORMAT_VERSION,
+			noteId: "",
+			kind: "canvas",
+		},
+		blocks: [],
+	});
+}
+
 /** Read without repairing or rewriting, including all parser diagnostics. */
 export async function loadNote(host: Host, path: string): Promise<ParseResult> {
 	return parseNote(await host.readText(path));

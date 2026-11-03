@@ -67,6 +67,18 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 		};
 	}
 	const note = parsed.note;
+	if (note.header.kind === "canvas") {
+		return {
+			path,
+			note,
+			doc: EMPTY,
+			editable: false,
+			baseText,
+			notice: parsed.problems.length
+				? "This canvas has file problems; it was left alone."
+				: undefined,
+		};
+	}
 	const understood = checkBlocks(note.blocks);
 	if (!understood.ok) {
 		return {

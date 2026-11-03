@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import { createNote } from "../core/notes/repository";
+import { createCanvas, createNote } from "../core/notes/repository";
 import { listTrash } from "../core/notes/trash";
 import { MemoryHost } from "../host/memory-host";
 import { App } from "./App";
@@ -23,6 +23,24 @@ vi.mock("../editor/NoteEditor", () => ({
 afterEach(() => {
 	cleanup();
 	localStorage.clear();
+});
+
+it("opens a canvas in its placeholder without a text editor and creates another canvas", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createCanvas(host, "", "Board");
+	const user = userEvent.setup();
+	const { container } = render(<App host={host} />);
+	await screen.findByText("Canvas view arrives next");
+	expect(container.querySelector(".note-editor")).toBeNull();
+	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+	await user.click(screen.getByRole("button", { name: "New canvas" }));
+	await waitFor(() =>
+		expect(host.kindOf("Untitled canvas.vnote")).resolves.toBe("file"),
+	);
+	expect(await host.readText("Untitled canvas.vnote")).toContain(
+		'"kind":"canvas"',
+	);
 });
 
 it("saves title edits before sidebar navigation and keeps trash confirmation in the pane", async () => {

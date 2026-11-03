@@ -1,4 +1,10 @@
-import { type ComponentProps, useContext, useEffect, useState } from "react";
+import {
+	type ComponentProps,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShellNavigation } from "./AppShell";
 import { PropertiesPanel } from "./PropertiesPanel";
@@ -19,7 +25,9 @@ export function NoteTools({
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & { hasNote: boolean }) {
 	const [tab, setTab] = useState(loadTab);
-	const { changes } = useContext(ShellNavigation);
+	const panel = useRef<HTMLElement>(null);
+	const { changes, propertyRequest, toolsVisible } =
+		useContext(ShellNavigation);
 	useEffect(() => {
 		if (!changes) return;
 		setTab("changes");
@@ -29,6 +37,30 @@ export function NoteTools({
 			/* Storage is optional. */
 		}
 	}, [changes]);
+	useEffect(() => {
+		if (!propertyRequest) return;
+		setTab("properties");
+		try {
+			localStorage.setItem(TAB_KEY, "properties");
+		} catch {
+			/* Storage is optional. */
+		}
+	}, [propertyRequest]);
+	useEffect(() => {
+		if (!propertyRequest || tab !== "properties" || !toolsVisible) return;
+		// Radix mounts the tab content after the tab changes.
+		const frame = requestAnimationFrame(() => {
+			const row = Array.from(
+				panel.current?.querySelectorAll<HTMLElement>("[data-property]") ?? [],
+			).find((element) => element.dataset.property === propertyRequest.name);
+			const target =
+				row?.querySelector<HTMLElement>("input:not(:disabled)") ??
+				row ??
+				panel.current;
+			target?.focus();
+		});
+		return () => cancelAnimationFrame(frame);
+	}, [propertyRequest, tab, toolsVisible]);
 	return (
 		<Tabs
 			value={tab}
@@ -47,7 +79,9 @@ export function NoteTools({
 			</TabsList>
 			<TabsContent value="properties">
 				{hasNote ? (
-					<PropertiesPanel {...properties} />
+					<section ref={panel} tabIndex={-1} aria-label="Note properties">
+						<PropertiesPanel {...properties} />
+					</section>
 				) : (
 					<p>Open a note to see its properties.</p>
 				)}

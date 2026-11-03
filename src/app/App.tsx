@@ -604,6 +604,9 @@ export function App({ host }: { host: Host }) {
 					}
 				>
 					<NotePane
+						props={props}
+						path={livePath}
+						onPropsChange={editProps}
 						view={view}
 						screen={screen}
 						error={error}

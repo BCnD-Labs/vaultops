@@ -341,8 +341,49 @@ body {
 	margin-right: auto;
 }
 .shell-editor {
+	position: relative;
 	display: flex;
 	height: 100%;
+}
+.command-pill {
+	position: absolute;
+	z-index: 10;
+	left: 50%;
+	bottom: calc(var(--shell-gap) * 2);
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: calc(var(--shell-gap) * 1.5);
+	box-sizing: border-box;
+	width: min(360px, calc(100% - var(--shell-gap) * 4));
+	padding: 10px 14px;
+	border: var(--border-width) solid var(--shell-border);
+	border-radius: var(--radius-round);
+	background: var(--shell-panel);
+	color: var(--muted-foreground);
+	box-shadow: var(--elevation-2);
+	text-align: left;
+	cursor: pointer;
+}
+.command-pill:hover {
+	color: var(--foreground);
+}
+.command-pill svg {
+	width: var(--rail-icon-size);
+	height: var(--rail-icon-size);
+	flex: none;
+}
+.command-pill span {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+.command-pill kbd {
+	font: inherit;
+	font-size: var(--font-size-small);
+	white-space: nowrap;
 }
 .shell-right {
 	height: 100%;

@@ -32,6 +32,7 @@ export interface TreeActions {
 }
 
 interface Props {
+	newFolderRequest?: number;
 	nodes: TreeNode[];
 	/** The note that is open, if any; its folders are shown open. */
 	livePath: string | null;
@@ -67,6 +68,7 @@ function readDrag(event: React.DragEvent): DragItem | null {
 
 /** Folders and notes of the vault: open notes, and manage folders. */
 export function NoteTree({
+	newFolderRequest = 0,
 	nodes,
 	livePath,
 	onOpen,
@@ -84,6 +86,16 @@ export function NoteTree({
 	const [editing, setEditing] = useState<Editing>(null);
 	const [confirming, setConfirming] = useState<string | null>(null);
 	const [over, setOver] = useState<string | null>(null);
+	const lastFolderRequest = useRef(newFolderRequest);
+	useEffect(() => {
+		if (newFolderRequest !== lastFolderRequest.current) {
+			lastFolderRequest.current = newFolderRequest;
+			if (!busy) {
+				setConfirming(null);
+				setEditing({ mode: "create", parent: "" });
+			}
+		}
+	}, [newFolderRequest, busy]);
 
 	// Opening a note (or creating one) shows where it lives.
 	useEffect(() => {

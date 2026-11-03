@@ -80,10 +80,12 @@ it("rail expands Tags on every click and opens the Changes tab", async () => {
 	expect(
 		screen.getByRole("tab", { name: "Changes" }).getAttribute("aria-selected"),
 	).toBe("true");
-	for (const [label, reason] of [
-		["Search", "Arrives with the command bar"],
-		["Settings", "Arrives with Settings"],
-	]) {
+	await user.click(screen.getByRole("button", { name: "Search" }));
+	expect(
+		screen.getByRole("dialog", { name: "Find or create a note" }),
+	).toBeTruthy();
+	await user.keyboard("{Escape}");
+	for (const [label, reason] of [["Settings", "Arrives with Settings"]]) {
 		const button = screen.getByRole("button", { name: label });
 		expect(button.getAttribute("aria-disabled")).toBe("true");
 		expect(button.title).toBe(reason);

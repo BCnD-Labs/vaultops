@@ -31,18 +31,30 @@ function Command({
 function CommandDialog({
 	title = "Command palette",
 	description = "Search and press Enter",
+	shouldFilter,
+	onCloseAutoFocus,
 	children,
 	...props
-}: ComponentProps<typeof Dialog> & { title?: string; description?: string }) {
+}: ComponentProps<typeof Dialog> & {
+	title?: string;
+	description?: string;
+	shouldFilter?: boolean;
+	onCloseAutoFocus?: ComponentProps<typeof DialogContent>["onCloseAutoFocus"];
+}) {
 	return (
 		<Dialog {...props}>
 			<DialogContent
+				onCloseAutoFocus={onCloseAutoFocus}
 				showClose={false}
 				className="top-[20%] translate-y-0 gap-0 overflow-hidden p-0"
 			>
 				<DialogTitle className="sr-only">{title}</DialogTitle>
 				<DialogDescription className="sr-only">{description}</DialogDescription>
-				<Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground">
+				<Command
+					label={title}
+					shouldFilter={shouldFilter}
+					className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground"
+				>
 					{children}
 				</Command>
 			</DialogContent>

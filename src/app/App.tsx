@@ -45,6 +45,7 @@ import {
 	chooseAndLoad,
 	compareRows,
 	createAndLoad,
+	createCanvasAndLoad,
 	loadVault,
 	type VaultView,
 } from "./session";
@@ -412,6 +413,20 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	const startCanvas = async (folder = "") => {
+		if (!view || !(await settle())) return;
+		setBusy(true);
+		try {
+			const made = await createCanvasAndLoad(vaultHost, view, folder);
+			setView(made.view);
+			if (made.path) await show(made.path, made.view.name);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
+		} finally {
+			setBusy(false);
+		}
+	};
+
 	// Moves the open note to the vault's trash (nothing is erased).
 	const moveToTrash = async () => {
 		if (!opened || !view) return;
@@ -571,7 +586,11 @@ export function App({ host }: { host: Host }) {
 					tools={
 						<NoteTools
 							key={opened?.path}
-							hasNote={screen === "note" && !!opened}
+							hasNote={
+								screen === "note" &&
+								!!opened &&
+								opened.note?.header.kind !== "canvas"
+							}
 							props={props}
 							editable={!!opened?.editable}
 							onChange={editProps}
@@ -589,6 +608,7 @@ export function App({ host }: { host: Host }) {
 							treeActions={treeActions}
 							treeNotice={treeNotice}
 							onStartNote={startNote}
+							onStartCanvas={startCanvas}
 							onChooseVault={async () => {
 								if (!(await settle())) return;
 								setOpened(null);

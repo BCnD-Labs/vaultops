@@ -1,3 +1,4 @@
+import { LayoutDashboard } from "lucide-react";
 import { visibleTags } from "../core/notes/list";
 import { DRAG_TYPE } from "./NoteTree";
 import type { NoteRow } from "./session";
@@ -36,6 +37,9 @@ export function NoteListRow({
 				}}
 			>
 				<span className="note-row-heading">
+					{note.kind === "canvas" && (
+						<LayoutDashboard className="tree-icon" aria-label="Canvas" />
+					)}
 					<span className="note-row-title">{note.title}</span>
 					<span className="note-row-chips">
 						{shown.map((tag) => (

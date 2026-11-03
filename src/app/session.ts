@@ -1,5 +1,5 @@
 import { headerProps } from "../core/notes/properties";
-import { createNote } from "../core/notes/repository";
+import { createCanvas, createNote } from "../core/notes/repository";
 import { type HealthEntry, scanVault } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import { openVault, type VaultResult } from "../core/vault/vault";
@@ -10,6 +10,7 @@ export interface NoteRow {
 	title: string;
 	preview: string;
 	readOnly: boolean;
+	kind?: "note" | "canvas";
 	/** Tags from the note's `tags` list property. */
 	tags: string[];
 }
@@ -84,6 +85,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			title:
 				typeof n.note.header.title === "string" ? n.note.header.title : n.path,
 			readOnly: n.readOnly,
+			kind: n.kind,
 			preview: n.preview,
 			tags: tagsOf(headerProps(n.note.header)),
 		}))
@@ -120,5 +122,15 @@ export async function createAndLoad(
 ): Promise<{ view: VaultView; path: string | null }> {
 	if (!view.writable) return { view, path: null };
 	const { path } = await createNote(host, folder, "Untitled");
+	return { view: await loadVault(host), path };
+}
+
+export async function createCanvasAndLoad(
+	host: Host,
+	view: VaultView,
+	folder = "",
+) {
+	if (!view.writable) return { view, path: null };
+	const { path } = await createCanvas(host, folder);
 	return { view: await loadVault(host), path };
 }

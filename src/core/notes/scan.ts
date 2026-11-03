@@ -8,6 +8,7 @@ export type NoteHealth = "good" | "truncated" | "newer-format" | "corrupt";
 export interface ScannedNote {
 	path: string;
 	note: Note;
+	kind: "note" | "canvas";
 	preview: string;
 	/** Damaged, newer or duplicated notes must not be rewritten automatically. */
 	readOnly: boolean;
@@ -19,6 +20,8 @@ export interface HealthEntry {
 	reason: string;
 	/** Other files with the same noteId; independent of the health group. */
 	duplicateOf: string[];
+	/** Other documents containing one or more of this document's block IDs. */
+	duplicateBlockOf?: string[];
 }
 
 /** Read the entire vault without repairing, rewriting or assigning new IDs. */
@@ -32,6 +35,7 @@ export async function scanVault(host: Host): Promise<{
 	const folders: string[] = [];
 	const report: HealthEntry[] = [];
 	const byId = new Map<string, ScannedNote[]>();
+	const byBlockId = new Map<string, Set<string>>();
 
 	async function walk(folder: string): Promise<void> {
 		if (isInsideVaultOps(folder)) return;
@@ -68,6 +72,10 @@ export async function scanVault(host: Host): Promise<{
 			const scanned = {
 				path,
 				note: parsed.note,
+				kind:
+					parsed.note.header.kind === "canvas"
+						? ("canvas" as const)
+						: ("note" as const),
 				preview: previewOf(parsed.note.blocks),
 				readOnly: entry.group !== "good",
 			};
@@ -75,6 +83,12 @@ export async function scanVault(host: Host): Promise<{
 			const copies = byId.get(parsed.note.header.noteId) ?? [];
 			copies.push(scanned);
 			byId.set(parsed.note.header.noteId, copies);
+			for (const block of parsed.note.blocks) {
+				if (!block.id) continue;
+				const paths = byBlockId.get(block.id) ?? new Set<string>();
+				paths.add(path);
+				byBlockId.set(block.id, paths);
+			}
 		}
 		// Listing failures propagate: an incomplete walk must not look successful.
 		for (const entry of await host.list(folder)) {
@@ -100,6 +114,20 @@ export async function scanVault(host: Host): Promise<{
 				entry.reason += " This note ID is also used by another file.";
 			}
 		}
+	}
+	for (const paths of byBlockId.values()) {
+		if (paths.size < 2) continue;
+		for (const path of paths) {
+			const entry = reportByPath.get(path);
+			if (!entry) continue;
+			const others = new Set(entry.duplicateBlockOf ?? []);
+			for (const other of paths) if (other !== path) others.add(other);
+			entry.duplicateBlockOf = [...others].sort();
+		}
+	}
+	for (const entry of report) {
+		if (entry.duplicateBlockOf?.length)
+			entry.reason += " A block exists in two places.";
 	}
 	return { notes, report, folders };
 }

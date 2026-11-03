@@ -6,6 +6,7 @@ import {
 	Files,
 	FolderPlus,
 	HeartPulse,
+	LayoutDashboard,
 	Rows2,
 	Search,
 	Trash2,
@@ -56,6 +57,7 @@ interface SidebarProps {
 	treeActions: TreeActions;
 	treeNotice: string | null;
 	onStartNote: (folder: string) => void;
+	onStartCanvas?: (folder: string) => void;
 	onChooseVault: () => void;
 	onShowMaintainer: () => void;
 	onNavigate: (screen: "trash" | "health") => void;
@@ -102,6 +104,7 @@ export function Sidebar({
 	treeActions,
 	treeNotice,
 	onStartNote,
+	onStartCanvas,
 	onChooseVault,
 	onShowMaintainer,
 	onNavigate,
@@ -307,6 +310,17 @@ export function Sidebar({
 									</DropdownMenuRadioGroup>
 								</DropdownMenuContent>
 							</DropdownMenu>
+							<IconAction
+								label="New canvas"
+								disabled={locked}
+								onClick={() =>
+									onStartCanvas?.(
+										selection.kind === "folder" ? selection.value : "",
+									)
+								}
+							>
+								<LayoutDashboard />
+							</IconAction>
 							<IconAction
 								label="New note"
 								disabled={locked}

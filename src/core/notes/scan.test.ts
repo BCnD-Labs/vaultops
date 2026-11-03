@@ -17,6 +17,31 @@ function text(id: string, version = NOTE_FORMAT_VERSION): string {
 }
 
 describe("scanVault", () => {
+	it("reports canvas kind and warns when a block exists in two documents", async () => {
+		const host = new MemoryHost();
+		await host.writeTextAtomic("note.vnote", text("note"));
+		await host.writeTextAtomic(
+			"canvas.vnote",
+			text("canvas").replace(
+				'"noteId":"canvas"',
+				'"noteId":"canvas","kind":"canvas"',
+			),
+		);
+		const { notes, report } = await scanVault(host);
+		expect(notes.map((note) => [note.path, note.kind])).toEqual([
+			["canvas.vnote", "canvas"],
+			["note.vnote", "note"],
+		]);
+		expect(report.map((entry) => entry.duplicateBlockOf)).toEqual([
+			["note.vnote"],
+			["canvas.vnote"],
+		]);
+		expect(
+			report.every((entry) =>
+				entry.reason.includes("block exists in two places"),
+			),
+		).toBe(true);
+	});
 	it("reports every health group and preserves every file exactly", async () => {
 		const host = new MemoryHost();
 		const files = {
@@ -49,7 +74,7 @@ describe("scanVault", () => {
 		).toEqual([{ id: "block-1", type: "paragraph", parent: null }]);
 		expect(report.every((entry) => entry.reason.length > 0)).toBe(true);
 		expect(report.find((e) => e.group === "truncated")?.reason).toBe(
-			"Some lines could not be read, so only the complete blocks are shown. Nothing is changed unless you choose to edit it.",
+			"Some lines could not be read, so only the complete blocks are shown. Nothing is changed unless you choose to edit it. A block exists in two places.",
 		);
 		for (const [path, contents] of Object.entries(files)) {
 			expect(await host.readText(path)).toBe(contents);

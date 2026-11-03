@@ -3,9 +3,45 @@ import { HostError } from "../../host/host";
 import { MemoryHost } from "../../host/memory-host";
 import { NOTE_FORMAT, NOTE_FORMAT_VERSION, parseNote } from "../note-format";
 import { openVault } from "../vault/vault";
-import { createNote, listNotes, loadNote, saveNote } from "./repository";
+import { moveNote, renameNote } from "./rename";
+import {
+	createCanvas,
+	createNote,
+	listNotes,
+	loadNote,
+	saveNote,
+} from "./repository";
+import { listTrash, trashNote } from "./trash";
 
 describe("note repository", () => {
+	it("creates canvases with the same collision rules and keeps kind on save", async () => {
+		const host = new MemoryHost();
+		const first = await createCanvas(host, "", "Ideas");
+		const second = await createCanvas(host, "", "Ideas");
+		expect([first.path, second.path]).toEqual(["Ideas.vnote", "Ideas 2.vnote"]);
+		expect(first.note.header.kind).toBe("canvas");
+		expect(first.note.blocks).toEqual([]);
+		first.note.blocks.push({
+			id: "b",
+			type: "paragraph",
+			parent: null,
+			attrs: { x: 1, y: 2 },
+		});
+		expect((await saveNote(host, first.path, first.note)).ok).toBe(true);
+		expect((await loadNote(host, first.path)).note).toEqual(first.note);
+	});
+	it("renames, moves and trashes a canvas through the note operations", async () => {
+		const host = new MemoryHost();
+		await openVault(host);
+		await host.makeFolder("Boards");
+		const made = await createCanvas(host, "", "Ideas");
+		const renamed = await renameNote(host, made.path, made.note, "Plans");
+		const moved = await moveNote(host, renamed.path, "Boards");
+		expect(moved.path).toBe("Boards/Plans.vnote");
+		expect((await loadNote(host, moved.path)).note?.header.kind).toBe("canvas");
+		await trashNote(host, moved.path);
+		expect((await listTrash(host))[0]?.originalPath).toBe(moved.path);
+	});
 	it("creates, saves and reloads an equal note without adding history", async () => {
 		const host = new MemoryHost();
 		await openVault(host);

@@ -221,6 +221,7 @@ export function NotePane({
 			/>
 		</>
 	);
+	const canvas = opened?.note?.header.kind === "canvas";
 
 	return (
 		<main className="pane">
@@ -264,7 +265,14 @@ export function NotePane({
 			{screen === "health" && view && (
 				<HealthScreen report={view.report} onOpen={onOpen} />
 			)}
-			{screen === "note" && editor}
+			{screen === "note" && canvas && (
+				<section className="empty-pane" aria-label="Canvas view">
+					<h2>{title}</h2>
+					<p>Canvas view arrives next</p>
+					{notice && <p role="status">{notice}</p>}
+				</section>
+			)}
+			{screen === "note" && !canvas && editor}
 			{screen === "note" && !opened && view && view.status !== "none" && (
 				<p className="empty-pane">Pick a note, or start a new one.</p>
 			)}

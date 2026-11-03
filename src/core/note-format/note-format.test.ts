@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
 	type Block,
@@ -64,6 +65,24 @@ function bigNote(n: number): Note {
 }
 
 describe("round trip", () => {
+	it("keeps canvas kind, positions and unknown fields from a fixture", () => {
+		const text = readFileSync(
+			new URL("../../../test-fixtures/canvas.vnote", import.meta.url),
+			"utf8",
+		);
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		expect(parsed.note?.header).toMatchObject({
+			kind: "canvas",
+			future: { keep: true },
+		});
+		expect(parsed.note?.blocks[0]?.attrs).toEqual({
+			x: 12,
+			y: 34,
+			future: "keep",
+		});
+		expect(serializeNote(parsed.note as Note)).toBe(text);
+	});
 	it("is lossless and byte-stable", () => {
 		const n = sampleNote();
 		const text = serializeNote(n);

@@ -4,7 +4,7 @@ Working rules for coding agents (Claude Code, Codex and others) in this repo. Re
 
 ## What this is
 
-VaultOps (working name) is a notes app with GitHub-style version control, built with Tauri 2 for macOS. A web build on the maintainer's own server is the planned main target, with the Mac app as an offline copy. The notes vault is its own git repo, so notes and code repos use the same operations (stage, commit, push, pull, branch, merge, revert). A vault pushes to a sync destination (a git host, for now); a code repo pushes to GitHub if connected. The app needs no account of its own, and writing works offline. Today only local notes, folders, properties, tags, trash and vault health are built: version control, sync and the web build are not built yet and wait for the maintainer's go (see "Ask the maintainer first": anything that talks to a network or a git remote).
+VaultOps (working name) is a notes app with GitHub-style version control, built with Tauri 2 for macOS. The Mac app is the main app and is built first; a web build on the maintainer's own server is planned for later. The notes vault is its own git repo, so notes and code repos use the same operations (stage, commit, push, pull, branch, merge, revert). A vault pushes to a sync destination (a git host, for now); a code repo pushes to GitHub if connected. The app needs no account of its own, and writing works offline. Today only local notes, folders, properties, tags, trash and vault health are built: version control, sync and the web build are not built yet and wait for the maintainer's go (see "Ask the maintainer first": anything that talks to a network or a git remote).
 
 ## Where things live
 

@@ -7,6 +7,111 @@
 	overflow-y: auto;
 }
 
+.editor-split {
+	min-width: 0;
+}
+.editor-split .pane {
+	height: 100%;
+	box-sizing: border-box;
+}
+.canvas-pane {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	height: 100%;
+	background: var(--panel);
+	border-left: var(--border-width) solid var(--line);
+}
+.canvas-bar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px;
+	border-bottom: var(--border-width) solid var(--line);
+}
+.canvas-bar select {
+	min-width: 0;
+	flex: 1;
+	padding: 4px;
+	color: var(--foreground);
+	background: var(--surface-container);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+}
+.canvas-surface {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+.canvas-empty {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: var(--muted-foreground);
+	pointer-events: none;
+}
+.canvas-pane .react-flow__node.canvas-node {
+	width: 240px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	color: var(--foreground);
+	box-shadow: var(--elevation-2);
+}
+.canvas-card {
+	font-size: var(--font-size-ui);
+	overflow-wrap: anywhere;
+}
+.canvas-card p {
+	margin: 0;
+}
+.canvas-card ul,
+.canvas-card ol {
+	margin: 0;
+	padding-left: 20px;
+}
+.canvas-card blockquote {
+	margin: 0;
+	padding-left: 8px;
+	border-left: var(--border-width) solid var(--line);
+}
+.canvas-card pre {
+	margin: 0;
+	white-space: pre-wrap;
+	font-family: var(--font-mono);
+}
+.canvas-card table {
+	border-collapse: collapse;
+}
+.canvas-card td,
+.canvas-card th {
+	border: var(--border-width) solid var(--line);
+	padding: 4px;
+}
+.canvas-heading {
+	font-size: var(--font-size-title);
+}
+.canvas-return {
+	display: block;
+	margin-top: 8px;
+	padding: 3px 0 0;
+	border: 0;
+	border-top: var(--border-width) solid var(--line);
+	background: transparent;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+.canvas-pane .react-flow__controls {
+	box-shadow: var(--elevation-1);
+}
+.canvas-pane .react-flow__controls-button {
+	background: var(--surface);
+	color: var(--foreground);
+	border-color: var(--line);
+}
+
 .title-field {
 	font: inherit;
 	font-size: var(--font-size-title);

@@ -25,22 +25,43 @@ afterEach(() => {
 	localStorage.clear();
 });
 
-it("opens a canvas in its placeholder without a text editor and creates another canvas", async () => {
+it("opens a canvas beside the editor and creates another canvas", async () => {
 	const host = new MemoryHost();
 	await loadVault(host);
 	await createCanvas(host, "", "Board");
 	const user = userEvent.setup();
 	const { container } = render(<App host={host} />);
-	await screen.findByText("Canvas view arrives next");
+	const canvas = await screen.findByRole("region", { name: "Canvas view" });
 	expect(container.querySelector(".note-editor")).toBeNull();
 	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
-	await user.click(screen.getByRole("button", { name: "New canvas" }));
+	expect(
+		within(canvas).getByText("Drag a block here from a note."),
+	).toBeTruthy();
+	await user.click(within(canvas).getByRole("button", { name: "New canvas" }));
 	await waitFor(() =>
 		expect(host.kindOf("Untitled canvas.vnote")).resolves.toBe("file"),
 	);
 	expect(await host.readText("Untitled canvas.vnote")).toContain(
 		'"kind":"canvas"',
 	);
+});
+
+it("keeps the note editable when a canvas opens and remembers the last canvas", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Essay");
+	await createCanvas(host, "", "Board");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	const title = (await screen.findByRole("textbox", {
+		name: "Title",
+	})) as HTMLInputElement;
+	await user.click(screen.getByTitle("Board.vnote"));
+	await screen.findByRole("region", { name: "Canvas view" });
+	expect(title.readOnly).toBe(false);
+	await user.click(screen.getByRole("button", { name: "Close canvas" }));
+	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
+	expect(localStorage.getItem("vaultops:last-canvas")).toContain("Board.vnote");
 });
 
 it("saves title edits before sidebar navigation and keeps trash confirmation in the pane", async () => {

@@ -1,5 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
 	createFolder,
@@ -8,6 +13,7 @@ import {
 	renameFolder,
 	within,
 } from "../core/notes/folders";
+import { moveBlock } from "../core/notes/move-block";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { moveNote } from "../core/notes/rename";
 import {
@@ -36,6 +42,8 @@ import { type SavedInfo, useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
 import { AppShell } from "./AppShell";
+import { CanvasPane } from "./CanvasPane";
+import { canvasLayout, lastCanvas, saveCanvasLayout } from "./canvas-layout";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { NotePane } from "./NotePane";
 import { NoteTools } from "./NoteTools";
@@ -64,6 +72,9 @@ export function App({ host }: { host: Host }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
+	const [canvasPath, setCanvasPath] = useState<string | null>(null);
+	const [canvasRefresh, setCanvasRefresh] = useState(0);
+	const [defaultCanvasLayout] = useState(canvasLayout);
 	// Opening a vault may create it, so loading and choosing a vault use `host`.
 	// Everything that changes notes and folders goes through `vaultHost`, which
 	// refuses every write unless the vault is writable. Even a missed check in a
@@ -103,6 +114,21 @@ export function App({ host }: { host: Host }) {
 	const propsRef = useRef<NoteProps | null>({});
 	const [selection, setSelection] = useState<Selection>({ kind: "all" });
 	const vaultName = view?.name ?? null;
+	useEffect(() => {
+		if (!view?.name) {
+			setCanvasPath(null);
+			return;
+		}
+		const saved = lastCanvas(view.name);
+		setCanvasPath(saved);
+	}, [view?.name]);
+	const selectCanvas = useCallback(
+		(path: string | null) => {
+			setCanvasPath(path);
+			if (path && vaultName) lastCanvas(vaultName, path);
+		},
+		[vaultName],
+	);
 
 	const onSaved = useCallback((info: SavedInfo) => {
 		setNotice(info.notice ?? null);
@@ -173,6 +199,11 @@ export function App({ host }: { host: Host }) {
 				setError(null);
 				const started = performance.now();
 				const next = await openNote(host, path);
+				if (next.note?.header.kind === "canvas") {
+					selectCanvas(path);
+					setScreen("note");
+					return;
+				}
 				getLogger().log({
 					kind: "perf",
 					name: "note-open",
@@ -203,7 +234,7 @@ export function App({ host }: { host: Host }) {
 				setError(e instanceof Error ? e.message : String(e));
 			}
 		},
-		[host],
+		[host, selectCanvas],
 	);
 
 	const open = useCallback(
@@ -334,13 +365,24 @@ export function App({ host }: { host: Host }) {
 		)
 			return;
 		autoOpened.current = true;
-		const paths = view.notes.map((n) => n.path);
+		const paths = view.notes
+			.filter((n) => n.kind !== "canvas")
+			.map((n) => n.path);
 		const pick = pickInitialNote(
 			paths,
 			view.name ? lastNotes.current.get(view.name) : null,
 		);
 		if (pick) void show(pick, view.name);
-	}, [view, opened, show, screen]);
+		else if (
+			!canvasPath ||
+			!view.notes.some(
+				(row) => row.path === canvasPath && row.kind === "canvas",
+			)
+		) {
+			const firstCanvas = view.notes.find((row) => row.kind === "canvas");
+			if (firstCanvas) selectCanvas(firstCanvas.path);
+		}
+	}, [view, opened, show, screen, canvasPath, selectCanvas]);
 
 	useEffect(() => {
 		if (opened && focusTitle.current) {
@@ -623,54 +665,135 @@ export function App({ host }: { host: Host }) {
 						/>
 					}
 				>
-					<NotePane
-						props={props}
-						path={livePath}
-						onPropsChange={editProps}
-						view={view}
-						screen={screen}
-						error={error}
-						busy={busy}
-						writable={writable}
-						screenNotice={screenNotice}
-						trash={trash}
-						confirmDelete={confirmDelete}
-						opened={opened}
-						title={title}
-						titleInput={titleInput}
-						saveState={autosave.state}
-						confirmTrash={confirmTrash}
-						confirmEditing={confirmEditing}
-						notice={notice}
-						onTitleChange={(next) => {
-							titleRef.current = next;
-							setTitle(next);
-							if (docRef.current)
-								autosave.change(draftOf(docRef.current, next));
-						}}
-						onDocChange={(doc) => {
-							docRef.current = doc;
-							getLogger().count("edits");
-							autosave.change(draftOf(doc, titleRef.current));
-						}}
-						onRetry={autosave.retry}
-						onLoadDisk={loadDisk}
-						onSaveCopy={saveCopy}
-						onMoveToTrash={moveToTrash}
-						onConfirmTrash={setConfirmTrash}
-						onConfirmEditing={setConfirmEditing}
-						onAllowEditing={() => {
-							if (!opened) return;
-							setOpened(allowEditing(opened));
-							setNotice(null);
-							setConfirmEditing(false);
-						}}
-						onNavigate={navigate}
-						onConfirmDelete={setConfirmDelete}
-						onRestore={(p) => void changeTrash(p, true)}
-						onDelete={(p) => void changeTrash(p, false)}
-						onOpen={open}
-					/>
+					<ResizablePanelGroup
+						key={canvasPath ? "with-canvas" : "note-only"}
+						orientation="horizontal"
+						className="editor-split"
+						defaultLayout={canvasPath ? defaultCanvasLayout : undefined}
+						onLayoutChanged={(layout) => saveCanvasLayout(layout)}
+					>
+						<ResizablePanel id="note" minSize="25%">
+							<NotePane
+								props={props}
+								path={livePath}
+								onPropsChange={editProps}
+								view={view}
+								screen={screen}
+								error={error}
+								busy={busy}
+								writable={writable}
+								screenNotice={screenNotice}
+								trash={trash}
+								confirmDelete={confirmDelete}
+								opened={opened}
+								liveDoc={docRef.current}
+								title={title}
+								titleInput={titleInput}
+								saveState={autosave.state}
+								confirmTrash={confirmTrash}
+								confirmEditing={confirmEditing}
+								notice={notice}
+								onTitleChange={(next) => {
+									titleRef.current = next;
+									setTitle(next);
+									if (docRef.current)
+										autosave.change(draftOf(docRef.current, next));
+								}}
+								onDocChange={(doc) => {
+									docRef.current = doc;
+									getLogger().count("edits");
+									autosave.change(draftOf(doc, titleRef.current));
+								}}
+								onRetry={autosave.retry}
+								onLoadDisk={loadDisk}
+								onSaveCopy={saveCopy}
+								onMoveToTrash={moveToTrash}
+								onConfirmTrash={setConfirmTrash}
+								onConfirmEditing={setConfirmEditing}
+								onAllowEditing={() => {
+									if (!opened) return;
+									setOpened(allowEditing(opened));
+									setNotice(null);
+									setConfirmEditing(false);
+								}}
+								onNavigate={navigate}
+								onConfirmDelete={setConfirmDelete}
+								onRestore={(p) => void changeTrash(p, true)}
+								onDelete={(p) => void changeTrash(p, false)}
+								onOpen={open}
+							/>
+						</ResizablePanel>
+						{screen === "note" &&
+							canvasPath &&
+							view?.notes.some(
+								(row) => row.path === canvasPath && row.kind === "canvas",
+							) && (
+								<>
+									<ResizableHandle />
+									<ResizablePanel id="canvas" minSize="25%">
+										<CanvasPane
+											key={`${canvasPath}:${canvasRefresh}`}
+											host={vaultHost}
+											path={canvasPath}
+											canvases={view.notes.filter(
+												(row) => row.kind === "canvas",
+											)}
+											writable={writable}
+											onSelect={selectCanvas}
+											onNew={() => void startCanvas()}
+											onClose={() => selectCanvas(null)}
+											onDropBlock={async (blockId, noteId, position) => {
+												if (
+													!opened?.editable ||
+													!opened.note ||
+													opened.note.header.kind === "canvas" ||
+													opened.note.header.noteId !== noteId ||
+													!writable
+												)
+													throw new Error(
+														"Open the source note before moving this block.",
+													);
+												if (!(await settle()))
+													throw new Error(
+														"Save the note before moving a block.",
+													);
+												const source = livePathRef.current ?? opened.path;
+												await moveBlock(
+													vaultHost,
+													source,
+													canvasPath,
+													blockId,
+													position,
+												);
+												await show(source, vaultName);
+												setCanvasRefresh((count) => count + 1);
+											}}
+											onMoveToNote={
+												opened?.editable && opened.note && writable
+													? async (blockId) => {
+															if (!(await settle()))
+																throw new Error(
+																	"Save the note before moving a block.",
+																);
+															const destination =
+																livePathRef.current ?? opened.path;
+															await moveBlock(
+																vaultHost,
+																canvasPath,
+																destination,
+																blockId,
+																{ after: null },
+															);
+															await show(destination, vaultName);
+															setCanvasRefresh((count) => count + 1);
+														}
+													: undefined
+											}
+										/>
+									</ResizablePanel>
+								</>
+							)}
+					</ResizablePanelGroup>
 				</AppShell>
 			</div>
 		</TooltipProvider>

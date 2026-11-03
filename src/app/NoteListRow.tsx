@@ -35,15 +35,19 @@ export function NoteListRow({
 					event.dataTransfer.effectAllowed = "move";
 				}}
 			>
-				<span className="note-row-title">{note.title}</span>
-				<span className="note-row-preview">{note.preview}</span>
-				<span className="note-row-meta">
-					{shown.map((tag) => (
-						<span key={tag}>#{tag}</span>
-					))}
-					{overflow > 0 && <span>+{overflow}</span>}
-					{note.readOnly && <span>read-only</span>}
+				<span className="note-row-heading">
+					<span className="note-row-title">{note.title}</span>
+					<span className="note-row-chips">
+						{shown.map((tag) => (
+							<span className="note-tag-chip" key={tag}>
+								#{tag}
+							</span>
+						))}
+						{overflow > 0 && <span className="note-tag-chip">+{overflow}</span>}
+					</span>
 				</span>
+				<span className="note-row-preview">{note.preview}</span>
+				{note.readOnly && <span className="note-row-meta">read-only</span>}
 			</button>
 		</li>
 	);

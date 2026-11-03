@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { matchesNote, sortNotes, visibleTags } from "./list";
+import {
+	filterNotes,
+	groupNotes,
+	matchesNote,
+	sortNotes,
+	visibleTags,
+} from "./list";
 
 const row = {
 	title: "Lecture",
@@ -39,4 +45,35 @@ it("shows at most two tags and counts the remaining tags", () => {
 			overflow: Math.max(0, count - 2),
 		});
 	}
+});
+
+it("filters tagged and untagged notes without changing input or order", () => {
+	const plain = { ...row, tags: [] };
+	const rows = [row, plain];
+	expect(filterNotes(rows, "All")).toEqual(rows);
+	expect(filterNotes(rows, "Tagged")).toEqual([row]);
+	expect(filterNotes(rows, "Untagged")).toEqual([plain]);
+	expect(rows).toEqual([row, plain]);
+	expect(filterNotes([], "Tagged")).toEqual([]);
+});
+it("groups by full parent path, root first, preserving note sort order", () => {
+	const rows = [
+		"z/b.vnote",
+		"a/nested/b.vnote",
+		"root.vnote",
+		"z/a.vnote",
+		"a/b.vnote",
+	].map((path) => ({ ...row, path }));
+	expect(
+		groupNotes(rows).map(([folder, notes]) => [
+			folder,
+			notes.map((n) => n.path),
+		]),
+	).toEqual([
+		["", ["root.vnote"]],
+		["a", ["a/b.vnote"]],
+		["a/nested", ["a/nested/b.vnote"]],
+		["z", ["z/b.vnote", "z/a.vnote"]],
+	]);
+	expect(groupNotes([])).toEqual([]);
 });

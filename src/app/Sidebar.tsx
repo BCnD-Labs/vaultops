@@ -25,7 +25,6 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Tooltip,
 	TooltipContent,
@@ -35,7 +34,7 @@ import { matchesNote, sortNotes } from "../core/notes/list";
 import type { TreeNode } from "../core/notes/tree";
 import { ShellNavigation } from "./AppShell";
 import { healthCount, healthLabel } from "./HealthScreen";
-import { NoteListRow } from "./NoteListRow";
+import { NoteList } from "./NoteList";
 import { NoteTree, type TreeActions } from "./NoteTree";
 import { noteSort } from "./note-sort";
 import type { VaultView } from "./session";
@@ -335,24 +334,15 @@ export function Sidebar({
 								}}
 							/>
 						</label>
-						<ScrollArea className="navigation-scroll">
-							<ul className="note-list note-rows">
-								{notes.map((note) => (
-									<NoteListRow
-										key={note.path}
-										note={note}
-										current={note.path === livePath}
-										locked={locked}
-										onOpen={onOpen}
-									/>
-								))}
-							</ul>
-							{notes.length === 0 && (
-								<p className="read-only-tag">
-									{query ? "No notes match." : "No notes here yet."}
-								</p>
-							)}
-						</ScrollArea>
+						<NoteList
+							key={view?.name ?? ""}
+							vault={view?.name ?? ""}
+							notes={notes}
+							livePath={livePath}
+							locked={locked}
+							searching={query.length > 0}
+							onOpen={onOpen}
+						/>
 					</section>
 				</ResizablePanel>
 			</ResizablePanelGroup>

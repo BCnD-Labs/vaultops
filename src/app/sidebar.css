@@ -19,6 +19,20 @@
 	gap: 2px;
 }
 
+.note-section-header,
+.note-filter-tabs button {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+	border-radius: var(--radius-control);
+	padding: 6px 8px;
+}
+
 .note-list button {
 	width: 100%;
 	text-align: left;
@@ -274,12 +288,6 @@
 	padding: 0 4px;
 	gap: 0;
 }
-.note-list-entry + .note-list-entry::before {
-	content: "";
-	display: block;
-	margin-inline: 8px;
-	border-top: var(--border-width) solid var(--line);
-}
 .sidebar .note-list .note-list-row {
 	display: flex;
 	flex-direction: column;
@@ -288,6 +296,8 @@
 	padding: 8px;
 }
 .note-row-title {
+	flex: 1;
+	min-width: 0;
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;
@@ -310,4 +320,72 @@
 	gap: 6px;
 	overflow: hidden;
 	white-space: nowrap;
+}
+
+.note-section {
+	container-type: inline-size;
+	padding-block: 4px;
+}
+.note-section-header {
+	width: 100%;
+	text-align: left;
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+}
+.note-section-header[data-state="open"] .tree-chevron {
+	transform: rotate(90deg);
+}
+.note-section-header:hover {
+	background: var(--accent);
+}
+.note-section-count,
+.note-tag-chip {
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	padding: 0 4px;
+	font-size: var(--font-size-small);
+	letter-spacing: normal;
+	font-variant-numeric: tabular-nums;
+}
+.note-section-count {
+	background: var(--row-raised);
+}
+.note-filter-tabs {
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	display: flex;
+	flex-wrap: wrap;
+	padding: 0 4px 4px;
+	gap: 2px;
+}
+.note-filter-tabs button[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.note-row-heading,
+.note-row-chips {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+.note-row-heading {
+	flex-wrap: wrap;
+}
+.note-row-chips {
+	max-width: 100%;
+	color: var(--muted-foreground);
+}
+.note-tag-chip {
+	max-width: 80px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+@container (max-width: 280px) {
+	.note-row-title {
+		flex-basis: 100%;
+	}
 }

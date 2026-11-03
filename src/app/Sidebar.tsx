@@ -1,4 +1,5 @@
 import {
+	ArrowDownUp,
 	ChevronDown,
 	Columns2,
 	FilePlus,
@@ -6,6 +7,7 @@ import {
 	FolderPlus,
 	HeartPulse,
 	Rows2,
+	Search,
 	Trash2,
 } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
@@ -14,6 +16,8 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -27,9 +31,12 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { matchesNote, sortNotes } from "../core/notes/list";
 import type { TreeNode } from "../core/notes/tree";
 import { healthCount, healthLabel } from "./HealthScreen";
-import { DRAG_TYPE, NoteTree, type TreeActions } from "./NoteTree";
+import { NoteListRow } from "./NoteListRow";
+import { NoteTree, type TreeActions } from "./NoteTree";
+import { noteSort } from "./note-sort";
 import type { VaultView } from "./session";
 import {
 	type Selection,
@@ -104,7 +111,14 @@ export function Sidebar({
 	const [preferences, setPreferences] = useState(() => sidebarPreferences());
 	const sizesRef = useRef(preferences.sizes);
 	const locked = busy || !view?.writable;
-	const notes = selectedNotes(view?.notes ?? [], selection);
+	const [query, setQuery] = useState("");
+	const [sort, setSort] = useState(() => noteSort());
+	const notes = sortNotes(
+		selectedNotes(view?.notes ?? [], selection).filter((note) =>
+			matchesNote(note, query),
+		),
+		sort,
+	);
 	const label =
 		selection.kind === "all"
 			? "All notes"
@@ -249,6 +263,41 @@ export function Sidebar({
 					<section className="sidebar-pane" aria-label="Notes list">
 						<header className="sidebar-header">
 							<strong className="tree-name">{label}</strong>
+							<DropdownMenu>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												aria-label="Sort notes"
+											>
+												<ArrowDownUp />
+											</Button>
+										</DropdownMenuTrigger>
+									</TooltipTrigger>
+									<TooltipContent>Sort notes</TooltipContent>
+								</Tooltip>
+								<DropdownMenuContent>
+									<DropdownMenuRadioGroup
+										value={sort}
+										onValueChange={(value) =>
+											setSort(
+												noteSort(
+													value === "name-desc" ? "name-desc" : "name-asc",
+												),
+											)
+										}
+									>
+										<DropdownMenuRadioItem value="name-asc">
+											Name (A to Z)
+										</DropdownMenuRadioItem>
+										<DropdownMenuRadioItem value="name-desc">
+											Name (Z to A)
+										</DropdownMenuRadioItem>
+									</DropdownMenuRadioGroup>
+								</DropdownMenuContent>
+							</DropdownMenu>
 							<IconAction
 								label="New note"
 								disabled={locked}
@@ -261,38 +310,37 @@ export function Sidebar({
 								<FilePlus />
 							</IconAction>
 						</header>
+						<label className="note-search">
+							<Search className="tree-icon" aria-hidden="true" />
+							<input
+								aria-label="Search notes"
+								placeholder="Search notes"
+								value={query}
+								onChange={(event) => setQuery(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Escape") {
+										event.preventDefault();
+										setQuery("");
+									}
+								}}
+							/>
+						</label>
 						<ScrollArea className="navigation-scroll">
-							<ul className="note-list">
+							<ul className="note-list note-rows">
 								{notes.map((note) => (
-									<li key={note.path}>
-										<button
-											type="button"
-											title={note.path}
-											draggable={!locked}
-											aria-current={note.path === livePath}
-											onClick={() => onOpen(note.path)}
-											onDragStart={(event) => {
-												event.dataTransfer.setData(
-													DRAG_TYPE,
-													JSON.stringify({
-														kind: "note",
-														path: note.path,
-														readOnly: note.readOnly,
-													}),
-												);
-												event.dataTransfer.effectAllowed = "move";
-											}}
-										>
-											<span className="tree-name">{note.title}</span>
-											{note.readOnly && (
-												<span className="read-only-tag">read-only</span>
-											)}
-										</button>
-									</li>
+									<NoteListRow
+										key={note.path}
+										note={note}
+										current={note.path === livePath}
+										locked={locked}
+										onOpen={onOpen}
+									/>
 								))}
 							</ul>
 							{notes.length === 0 && (
-								<p className="read-only-tag">No notes here.</p>
+								<p className="read-only-tag">
+									{query ? "No notes match." : "No notes here yet."}
+								</p>
 							)}
 						</ScrollArea>
 					</section>

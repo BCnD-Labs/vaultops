@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { HostError } from "../../host/host";
 import { MemoryHost } from "../../host/memory-host";
 import {
+	type Block,
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
 	serializeNote,
 } from "../note-format";
-import { scanVault } from "./scan";
+import { previewOf, scanVault } from "./scan";
 
 function text(id: string, version = NOTE_FORMAT_VERSION): string {
 	return serializeNote({
@@ -53,6 +54,7 @@ describe("scanVault", () => {
 		for (const [path, contents] of Object.entries(files)) {
 			expect(await host.readText(path)).toBe(contents);
 		}
+		expect(notes.every((note) => note.preview === "")).toBe(true);
 		expect(write).not.toHaveBeenCalled();
 		expect(move).not.toHaveBeenCalled();
 		expect(mkdir).not.toHaveBeenCalled();
@@ -161,4 +163,41 @@ describe("scanVault", () => {
 		const { folders } = await scanVault(host);
 		expect([...folders].sort()).toEqual([".VaultOps2", "a", "a/b", "empty"]);
 	});
+});
+
+it("extracts bounded plain previews from headings, lists and tasks", () => {
+	const body = (
+		type: string,
+		text: string,
+		parent: string | null = null,
+	): Block => ({
+		type,
+		parent,
+		content: [{ type: "text", text }],
+	});
+	expect(
+		previewOf([
+			body("heading", " Heading\n"),
+			{ type: "bulletList", parent: null },
+			{ id: "i", type: "listItem", parent: null },
+			body("paragraph", "List\titem", "i"),
+			{ id: "t", type: "taskItem", parent: null, attrs: { checked: true } },
+			body("paragraph", "Task text ", "t"),
+		]),
+	).toBe("Heading List item Task text");
+	expect(previewOf([])).toBe("");
+	expect(previewOf([body("paragraph", "x".repeat(300))])).toBe("x".repeat(160));
+	expect(
+		previewOf([
+			{
+				type: "paragraph",
+				parent: null,
+				content: [
+					{ type: "text", text: "bold", marks: [{ type: "bold" }] },
+					{ type: "hardBreak" },
+					{ type: "text", text: "text" },
+				],
+			},
+		]),
+	).toBe("bold text");
 });

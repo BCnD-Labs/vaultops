@@ -20,7 +20,6 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Tooltip,
 	TooltipContent,
@@ -30,12 +29,14 @@ import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 
 export function AppShell({
 	sidebar,
+	tools,
 	children,
 	vault,
 	path,
 	title,
 }: {
 	sidebar: ReactNode;
+	tools?: ReactNode;
 	children: ReactNode;
 	vault: string;
 	path: string | null;
@@ -152,14 +153,7 @@ export function AppShell({
 					}
 				>
 					<aside aria-label="Note details" inert={collapsed.right}>
-						<Tabs defaultValue="properties">
-							<TabsList aria-label="Note details">
-								<TabsTrigger value="properties">Properties</TabsTrigger>
-								<TabsTrigger value="changes">Changes</TabsTrigger>
-							</TabsList>
-							<TabsContent value="properties">Nothing here yet</TabsContent>
-							<TabsContent value="changes">Nothing here yet</TabsContent>
-						</Tabs>
+						{tools}
 					</aside>
 				</ResizablePanel>
 			</ResizablePanelGroup>

@@ -1,14 +1,24 @@
 import type { JSONContent } from "@tiptap/core";
+import { Ellipsis } from "lucide-react";
 import type { Ref } from "react";
 import { Button } from "@/components/ui/button";
-import type { Props as NoteProps } from "../core/notes/properties";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { TrashedNote } from "../core/notes/trash";
 import type { AutosaveState } from "../editor/autosave";
 import { NoteEditor } from "../editor/NoteEditor";
 import type { OpenedNote } from "../editor/note-io";
 import { SaveStatus } from "../editor/SaveStatus";
 import { HealthScreen } from "./HealthScreen";
-import { PropertiesPanel } from "./PropertiesPanel";
 import type { VaultView } from "./session";
 import { TrashScreen } from "./TrashScreen";
 import "./pane.css";
@@ -29,7 +39,6 @@ interface NotePaneProps {
 	confirmTrash: boolean;
 	confirmEditing: boolean;
 	notice: string | null;
-	props: NoteProps | null;
 	onTitleChange: (title: string) => void;
 	onDocChange: (doc: JSONContent) => void;
 	onRetry: () => void;
@@ -39,8 +48,6 @@ interface NotePaneProps {
 	onConfirmTrash: (confirm: boolean) => void;
 	onConfirmEditing: (confirm: boolean) => void;
 	onAllowEditing: () => void;
-	onPropsChange: (props: NoteProps) => void;
-	onOpenTag: (tag: string) => void;
 	onNavigate: (screen: "note") => void;
 	onConfirmDelete: (path: string | null) => void;
 	onRestore: (path: string) => void;
@@ -64,7 +71,6 @@ export function NotePane({
 	confirmTrash,
 	confirmEditing,
 	notice,
-	props,
 	onTitleChange,
 	onDocChange,
 	onRetry,
@@ -74,8 +80,6 @@ export function NotePane({
 	onConfirmTrash,
 	onConfirmEditing,
 	onAllowEditing,
-	onPropsChange,
-	onOpenTag,
 	onNavigate,
 	onConfirmDelete,
 	onRestore,
@@ -113,14 +117,29 @@ export function NotePane({
 					</span>
 				) : (
 					writable && (
-						<button
-							type="button"
-							className="link-button"
-							disabled={busy}
-							onClick={() => onConfirmTrash(true)}
-						>
-							Move to trash
-						</button>
+						<DropdownMenu>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<DropdownMenuTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="note-menu"
+											aria-label="Note actions"
+											disabled={busy}
+										>
+											<Ellipsis aria-hidden="true" />
+										</Button>
+									</DropdownMenuTrigger>
+								</TooltipTrigger>
+								<TooltipContent>Note actions</TooltipContent>
+							</Tooltip>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem onSelect={() => onConfirmTrash(true)}>
+									Move to trash
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					)
 				)}
 			</div>
@@ -156,12 +175,6 @@ export function NotePane({
 						Allow editing
 					</Button>
 				))}
-			<PropertiesPanel
-				props={props}
-				editable={opened.editable}
-				onChange={onPropsChange}
-				onOpenTag={onOpenTag}
-			/>
 			<NoteEditor
 				key={opened.path}
 				doc={opened.doc}

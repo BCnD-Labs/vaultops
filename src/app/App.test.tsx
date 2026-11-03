@@ -50,11 +50,13 @@ it("saves title edits before sidebar navigation and keeps trash confirmation in 
 			})) as HTMLInputElement
 		).value,
 	).toBe("Renamed");
-	await user.click(screen.getByRole("button", { name: "Move to trash" }));
+	await user.click(screen.getByRole("button", { name: "Note actions" }));
+	await user.click(screen.getByRole("menuitem", { name: "Move to trash" }));
 	expect(await listTrash(host)).toEqual([]);
 	await user.click(screen.getByRole("button", { name: /^Cancel$/ }));
 	expect(screen.queryByText("Move this note to the trash?")).toBeNull();
-	await user.click(screen.getByRole("button", { name: "Move to trash" }));
+	await user.click(screen.getByRole("button", { name: "Note actions" }));
+	await user.click(screen.getByRole("menuitem", { name: "Move to trash" }));
 	await user.click(screen.getByRole("button", { name: "Move to trash" }));
 	await screen.findByText("Pick a note, or start a new one.");
 	expect(await listTrash(host)).toHaveLength(1);

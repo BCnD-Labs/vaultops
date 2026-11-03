@@ -12,7 +12,6 @@
 	font-size: var(--font-size-title);
 	font-weight: 600;
 	border: 0;
-	border-bottom: var(--border-width) solid var(--line);
 	background: transparent;
 	color: inherit;
 	padding: 4px 0;
@@ -21,12 +20,14 @@
 }
 
 .title-field:focus {
-	border-bottom-color: var(--ring);
+	outline: var(--focus-ring-width) solid var(--ring);
 }
 
 .status-line {
-	font-size: var(--font-size-ui);
+	font-size: var(--font-size-small);
 	color: var(--muted-foreground);
+	position: relative;
+	padding-right: 36px;
 	min-height: 20px;
 }
 
@@ -44,31 +45,23 @@
 		padding: 12px;
 	}
 }
-.link-button {
-	background: none;
-	border: 0;
-	padding: 0;
-	margin-left: 8px;
-	color: var(--muted-foreground);
-	font: inherit;
-	text-decoration: underline;
-	cursor: pointer;
+.note-menu {
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: 28px;
+	height: 28px;
+}
+.note-menu svg {
+	width: 16px;
+	height: 16px;
 }
 
 .props {
 	margin: 0 0 12px;
 	padding: 8px 0;
-	border-bottom: var(--border-width) solid var(--line);
 	font-size: var(--font-size-ui);
-}
-
-.props summary {
-	cursor: pointer;
-	color: var(--muted-foreground);
-	font-size: var(--font-size-small);
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	margin-bottom: 6px;
+	color: var(--foreground);
 }
 
 .prop-row {
@@ -80,27 +73,32 @@
 
 .prop-name {
 	flex: none;
-	width: 120px;
+	width: 30%;
 	color: var(--muted-foreground);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.prop-row > input:not([type="checkbox"]),
-.prop-row > .chips {
-	flex: 1;
-	min-width: 0;
-}
-
 .props input:not([type="checkbox"]),
-.props select {
+.prop-add input {
 	font: inherit;
 	padding: 3px 6px;
-	border: var(--border-width) solid var(--line);
+	border: var(--border-width) solid transparent;
 	border-radius: var(--radius-control);
-	background: var(--bg);
+	background: transparent;
 	color: inherit;
+}
+
+.props input:not([type="checkbox"]):hover {
+	border-color: var(--line);
+}
+.props input:not([type="checkbox"]):focus {
+	border-color: var(--ring);
+}
+.prop-add-trigger {
+	margin-top: 8px;
+	color: var(--muted-foreground);
 }
 
 .prop-add {
@@ -118,14 +116,19 @@
 	gap: 4px;
 }
 
+.prop-row > input:not([type="checkbox"]),
+.prop-row > .chips {
+	flex: 1;
+	min-width: 0;
+}
+
 .chip {
 	display: inline-flex;
 	align-items: center;
 	gap: 2px;
 	padding: 1px 4px 1px 8px;
-	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
-	background: var(--panel);
+	background: var(--surface-container);
 }
 
 .chip-label {
@@ -138,7 +141,7 @@
 }
 
 .chip-label:hover {
-	text-decoration: underline;
+	background: var(--accent);
 }
 
 .chip-remove {
@@ -158,7 +161,6 @@
 
 .props .chip-input {
 	width: 90px;
-	border-style: dashed;
 	border-radius: var(--radius-control);
 }
 
@@ -175,8 +177,7 @@
 
 /* Match the title and metadata to the editor column without changing markup. */
 .pane > .title-field,
-.pane > .status-line,
-.pane > .props {
+.pane > .status-line {
 	width: 100%;
 	max-width: var(--editor-width);
 	box-sizing: border-box;

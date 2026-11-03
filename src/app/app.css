@@ -283,6 +283,8 @@ body {
 }
 .shell-right [data-slot="tabs-list"] {
 	border: 0;
+	border-bottom: var(--border-width) solid var(--line);
+	border-radius: 0;
 }
 .shell-right [data-slot="tabs-trigger"] {
 	border: 0;
@@ -294,7 +296,7 @@ body {
 	color: var(--accent-foreground);
 }
 .shell-right [data-slot="tabs-content"] {
-	padding: 12px;
+	padding: 8px 0;
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);
 }

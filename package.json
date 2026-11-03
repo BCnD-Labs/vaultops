@@ -56,6 +56,8 @@
 		"@radix-ui/react-tooltip": "^1.4.1",
 		"@tauri-apps/api": "^2.12.4",
 		"@tiptap/core": "^3.32.2",
+		"@tiptap/extension-drag-handle": "^3.32.2",
+		"@tiptap/extension-drag-handle-react": "^3.32.2",
 		"@tiptap/extension-list": "^3.32.0",
 		"@tiptap/extension-unique-id": "^3.32.2",
 		"@tiptap/pm": "^3.32.2",

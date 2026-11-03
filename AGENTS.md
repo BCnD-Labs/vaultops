@@ -58,6 +58,12 @@ Claude and Codex build; Blake (the maintainer) decides product questions and mer
 - **UI packages Blake pre-approved (2026-11-01):** official, maintained, MIT packages for UI building blocks: `react-resizable-panels`, the `@radix-ui/react-*` primitives, `cmdk`, `@tanstack/react-virtual`, official `@tiptap/*` extensions, `lucide-react`. Wrap them shadcn/ui style in `src/components/ui/` (the repo's models: shadcn/ui source, MIT; Mantine at mantine.dev and ui.mantine.dev as a look reference only). The Agents workflow stops any run that changes `package.json`, so a builder that needs one of these writes it in the issue or pull request as a request and Claude adds it in a small `chore:` pull request. Anything else still needs approval.
 - Only use code under permissive licenses (MIT, Apache-2.0, BSD, ISC). Never copy code from GPL, AGPL or source-available non-compete (for example FSL) projects; reading them to learn how a problem was solved is fine. MPL-2.0 code may only be used as an unmodified dependency, not copied in. Dependencies may also use Unicode-3.0, Zlib, 0BSD (tslib, via Radix) or Apache-2.0 with the LLVM exception (permissive licenses Tauri's crates and the UI packages already use). The Dependency review check enforces this list on every pull request.
 
+**Internal phase: loosen first, lock down later (Blake, 2026-11-03)**
+- Only the maintainer uses the app for now. When no suitable library exists yet, or one is not approved yet, build a small working stopgap instead of blocking or stopping the run. Rough edges are fine if they are honest.
+- Mark every stopgap in code with a comment `STOPGAP(<name>): <what should replace it>`, keep it behind a small interface (a wrapper in `src/components/ui/` or a function in `src/core/`) so it can be swapped, and add a row to `docs/stopgaps.md` (name, files, why, what replaces it, what must be true before a public release). List new stopgaps under **Choices I made** in the pull request.
+- Stopgaps never relax the other rules: no copied GPL, AGPL or non-compete code, no new dependency without approval, no network or git remote, and data safety (atomic writes, nothing silently lost, files stay inside the vault) is not a place for shortcuts.
+- Vault folders the app needs (for example `attachments/`) are created inside the vault automatically, the first time they are needed. Never ask the user to create them.
+
 **Ask the maintainer first**
 - Changes to the note file format, storage layout or history design.
 - New dependencies (npm or Cargo), and changes to CI.

@@ -36,6 +36,7 @@ interface NotePaneProps {
 	trash: TrashedNote[];
 	confirmDelete: string | null;
 	opened: OpenedNote | null;
+	editorRevision: number;
 	liveDoc?: JSONContent | null;
 	title: string;
 	props: Props | null;
@@ -72,6 +73,7 @@ export function NotePane({
 	trash,
 	confirmDelete,
 	opened,
+	editorRevision,
 	liveDoc,
 	title,
 	props,
@@ -194,7 +196,7 @@ export function NotePane({
 					</Button>
 				))}
 			<NoteEditor
-				key={opened.path}
+				key={`${opened.path}:${editorRevision}`}
 				doc={liveDoc ?? opened.doc}
 				noteId={opened.note?.header.noteId}
 				editable={opened.editable}

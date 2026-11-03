@@ -21,6 +21,17 @@ For example, copy the complete default theme as `sage.css`, rename all selectors
 
 Check contrast after palette changes. In the light theme, filled blue buttons use white text on a deeper blue; in the dark theme they use dark text on a lighter blue. Both meet 4.5:1 at compact text sizes. Elevation is reserved for floating content.
 
+## Built-in themes
+
+- `default` (Mac flat): the original blue accent.
+- `graphite` (Graphite): warm greys with a neutral grey accent and the default shapes.
+- `high-contrast` (High contrast): near-black and white, 2px borders and focus rings,
+  with at least 7:1 body text contrast in both modes.
+
+All support light, dark and system mode. Start the browser preview as described in
+`src/preview/README.md`, then open `/harness.html?theme=high-contrast&mode=dark`
+(or substitute any theme ID and `light`, `dark` or `system`). URL choices are temporary.
+
 ## Full token list
 
 - `--seed-accent`: Palette primitive for accent.
@@ -38,6 +49,8 @@ Check contrast after palette changes. In the light theme, filled blue buttons us
 - `--seed-danger-container`: Palette primitive for danger container.
 - `--seed-on-danger`: Palette primitive for on danger.
 - `--seed-warning`: Palette primitive for warning.
+- `--border-width`: Standard border thickness.
+- `--focus-ring-width`: Keyboard focus outline and ring thickness.
 - `--radius-1`: Primitive radius scale step 1.
 - `--radius-2`: Primitive radius scale step 2.
 - `--space-unit`: Tailwind spacing scale unit.

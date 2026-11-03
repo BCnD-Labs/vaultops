@@ -34,7 +34,7 @@
 .note-list .note-list {
 	margin-left: 10px;
 	padding-left: 6px;
-	border-left: 1px solid var(--line);
+	border-left: var(--border-width) solid var(--line);
 }
 
 .note-list button {
@@ -81,7 +81,7 @@
 }
 
 .tree.is-over {
-	outline: 2px dashed var(--ring);
+	outline: var(--focus-ring-width) dashed var(--ring);
 	outline-offset: 2px;
 }
 
@@ -93,7 +93,7 @@
 }
 
 .tree-row.is-over {
-	outline: 2px dashed var(--ring);
+	outline: var(--focus-ring-width) dashed var(--ring);
 	background: var(--accent);
 }
 
@@ -153,7 +153,7 @@
 	box-sizing: border-box;
 	font: inherit;
 	padding: 4px 6px;
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	background: var(--bg);
 	color: inherit;
@@ -187,7 +187,7 @@
 	align-items: center;
 	min-height: 36px;
 	padding: 0 4px;
-	border-bottom: 1px solid var(--line);
+	border-bottom: var(--border-width) solid var(--line);
 }
 .sidebar-header button {
 	flex-shrink: 0;
@@ -235,7 +235,7 @@
 	font-variant-numeric: tabular-nums;
 }
 .sidebar footer {
-	border-top: 1px solid var(--line);
+	border-top: var(--border-width) solid var(--line);
 }
 .sidebar summary {
 	cursor: pointer;

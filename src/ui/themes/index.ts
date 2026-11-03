@@ -1,5 +1,7 @@
 export const themes = [
 	{ id: "default", name: "Mac flat", modes: ["light", "dark"] },
+	{ id: "graphite", name: "Graphite", modes: ["light", "dark"] },
+	{ id: "high-contrast", name: "High contrast", modes: ["light", "dark"] },
 ] as const;
 export type ThemeChoice = { id: string; mode: "light" | "dark" | "system" };
 const fallback: ThemeChoice = { id: "default", mode: "system" };

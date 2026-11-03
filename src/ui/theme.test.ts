@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { themes } from "./themes";
 
 function files(dir: string): string[] {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
@@ -24,8 +25,8 @@ it("keeps look literals in theme files", () => {
 	expect(violations).toEqual([]);
 });
 
-it("provides 4.5:1 text contrast in both default modes", () => {
-	const css = readFileSync("src/ui/themes/default.css", "utf8");
+it.each(themes)("checks tokens and contrast for $id", ({ id }) => {
+	const css = readFileSync(`src/ui/themes/${id}.css`, "utf8");
 	const blocks = [...css.matchAll(/\{([^{}]*)\}/g)].map((match) =>
 		Object.fromEntries(
 			[...(match[1] ?? "").matchAll(/--([\w-]+):\s*([^;]+);/g)].map((entry) => [
@@ -33,6 +34,14 @@ it("provides 4.5:1 text contrast in both default modes", () => {
 				(entry[2] ?? "").trim(),
 			]),
 		),
+	);
+	const defaultTokens = [
+		...readFileSync("src/ui/themes/default.css", "utf8").matchAll(
+			/--([\w-]+):/g,
+		),
+	].map((match) => match[1]);
+	expect(Object.keys(blocks[0]).sort()).toEqual(
+		[...new Set(defaultTokens)].sort(),
 	);
 	function luminance(hex: string) {
 		const channels = hex
@@ -50,23 +59,45 @@ it("provides 4.5:1 text contrast in both default modes", () => {
 			(channels[2] ?? 0) * 0.0722
 		);
 	}
+	if (id === "high-contrast") {
+		expect(blocks[0]["border-width"]).toBe("2px");
+		expect(blocks[0]["focus-ring-width"]).toBe("2px");
+	}
 	for (const dark of [false, true]) {
 		const tokens = { ...blocks[0], ...(dark ? blocks[2] : {}) };
 		const resolve = (key: string): string =>
 			tokens[key].startsWith("var(")
 				? resolve(tokens[key].slice(6, -1))
 				: tokens[key];
-		for (const [fg, bg] of [
+		const pairs: [string, string][] = [
 			["foreground", "background"],
 			["muted-foreground", "background"],
 			["primary-foreground", "primary"],
 			["on-primary-container", "primary-container"],
-		] as const) {
+		];
+		if (id === "high-contrast") {
+			for (const bg of [
+				"background",
+				"surface-container-low",
+				"surface-container",
+				"surface-container-high",
+			]) {
+				for (const fg of [
+					"foreground",
+					"muted-foreground",
+					"destructive",
+					"warn",
+				])
+					pairs.push([fg, bg]);
+			}
+			pairs.push(["destructive-foreground", "destructive"]);
+		}
+		for (const [fg, bg] of pairs) {
 			const values = [luminance(resolve(fg)), luminance(resolve(bg))];
 			expect(
 				(Math.max(...values) + 0.05) / (Math.min(...values) + 0.05),
-				`${dark ? "dark" : "light"} ${fg}/${bg}`,
-			).toBeGreaterThanOrEqual(4.5);
+				`${id} ${dark ? "dark" : "light"} ${fg}/${bg}`,
+			).toBeGreaterThanOrEqual(id === "high-contrast" ? 7 : 4.5);
 		}
 	}
 	expect(css).toContain('[data-mode="system"]');

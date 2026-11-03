@@ -164,8 +164,8 @@
 }
 
 .note-list button[aria-current="true"] {
-	background: var(--selection-bg);
-	color: var(--selection-fg);
+	background: var(--row-raised);
+	color: var(--text);
 }
 
 .sidebar-pane,
@@ -215,6 +215,7 @@
 	font-weight: 600;
 }
 .sidebar-row {
+	border-radius: var(--radius-control);
 	width: 100%;
 	min-height: 28px;
 	text-align: left;
@@ -225,8 +226,8 @@
 }
 .sidebar-row[aria-current="true"],
 .tag-button[aria-pressed="true"] {
-	background: var(--selection-bg);
-	color: var(--selection-fg);
+	background: var(--row-raised);
+	color: var(--text);
 }
 .sidebar-count {
 	margin-left: auto;

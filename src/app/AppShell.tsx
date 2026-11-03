@@ -1,5 +1,14 @@
-import { PanelLeft, PanelRight } from "lucide-react";
 import {
+	FileText,
+	GitCompareArrows,
+	PanelLeft,
+	PanelRight,
+	Search,
+	Settings,
+	Tags,
+} from "lucide-react";
+import {
+	createContext,
 	type ReactNode,
 	useCallback,
 	useEffect,
@@ -27,6 +36,48 @@ import {
 } from "@/components/ui/tooltip";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 
+export const ShellNavigation = createContext({ tags: 0, changes: 0 });
+
+function IconRail({
+	onNavigate,
+}: {
+	onNavigate: (item: "notes" | "tags" | "changes") => void;
+}) {
+	return (
+		<nav className="icon-rail" aria-label="Workspace">
+			{(
+				[
+					["Notes", FileText, "notes", null],
+					["Search", Search, null, "Arrives with the command bar"],
+					["Tags", Tags, "tags", null],
+					["Changes", GitCompareArrows, "changes", null],
+					["Settings", Settings, null, "Arrives with Settings"],
+				] as const
+			).map(([label, Icon, action, reason]) => (
+				<Tooltip key={label}>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							className={`rail-item rail-${label.toLowerCase()}`}
+							aria-label={label}
+							aria-current={action === "notes" ? "page" : undefined}
+							aria-disabled={reason ? true : undefined}
+							title={reason ?? label}
+							onClick={() => {
+								if (action) onNavigate(action);
+							}}
+						>
+							<Icon aria-hidden="true" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="right">{reason ?? label}</TooltipContent>
+				</Tooltip>
+			))}
+		</nav>
+	);
+}
+
 export function AppShell({
 	sidebar,
 	tools,
@@ -42,6 +93,7 @@ export function AppShell({
 	path: string | null;
 	title: string | null;
 }) {
+	const [navigation, setNavigation] = useState({ tags: 0, changes: 0 });
 	const left = useRef<PanelImperativeHandle>(null);
 	const right = useRef<PanelImperativeHandle>(null);
 	const [defaultLayout] = useState(loadLayout);
@@ -67,96 +119,113 @@ export function AppShell({
 		return () => window.removeEventListener("keydown", onKey, true);
 	}, [toggle]);
 
+	const sidebarToggle = (side: "left" | "right") => {
+		const Icon = side === "left" ? PanelLeft : PanelRight;
+		const label = `Toggle ${side} sidebar`;
+		return (
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className={`shell-toggle shell-toggle-${side}`}
+						aria-label={label}
+						aria-controls={side}
+						aria-expanded={!collapsed[side]}
+						onClick={() => toggle(side)}
+					>
+						<Icon aria-hidden="true" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					{label} [{side === "left" ? "⌘\\" : "⌘⇧\\"}]
+				</TooltipContent>
+			</Tooltip>
+		);
+	};
 	return (
-		<div className="app-shell">
-			<header className="shell-bar">
-				{(["left", "right"] as const).map((side) => {
-					const Icon = side === "left" ? PanelLeft : PanelRight;
-					const label = `Toggle ${side} sidebar`;
-					return (
-						<Tooltip key={side}>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className={`shell-toggle shell-toggle-${side}`}
-									aria-label={label}
-									aria-controls={side}
-									aria-expanded={!collapsed[side]}
-									onClick={() => toggle(side)}
-								>
-									<Icon aria-hidden="true" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>
-								{label} ({side === "left" ? "⌘\\" : "⌘⇧\\"})
-							</TooltipContent>
-						</Tooltip>
-					);
-				})}
-				<Breadcrumb className="shell-breadcrumb">
-					<BreadcrumbList>
-						{title !== null && (
-							<>
-								<BreadcrumbItem>
-									{path?.split("/").slice(0, -1).join("/") || vault}
-								</BreadcrumbItem>
-								<BreadcrumbSeparator />
-							</>
-						)}
-						<BreadcrumbItem>
-							<BreadcrumbPage>{title ?? vault}</BreadcrumbPage>
-						</BreadcrumbItem>
-					</BreadcrumbList>
-				</Breadcrumb>
-			</header>
-			<ResizablePanelGroup
-				orientation="horizontal"
-				className="shell-regions"
-				defaultLayout={defaultLayout}
-				onLayoutChanged={(layout, meta) =>
-					saveLayout(meta.requestedLayout ?? layout)
-				}
-			>
-				<ResizablePanel
-					id="left"
-					panelRef={left}
-					defaultSize={300}
-					minSize={220}
-					maxSize={520}
-					collapsible
-					collapsedSize={0}
-					onResize={(size) =>
-						setCollapsed((s) => ({ ...s, left: size.asPercentage === 0 }))
+		<ShellNavigation.Provider value={navigation}>
+			<div className="app-shell">
+				<IconRail
+					onNavigate={(item) => {
+						(item === "changes" ? right : left).current?.expand();
+						if (item !== "notes")
+							setNavigation((state) => ({ ...state, [item]: state[item] + 1 }));
+					}}
+				/>
+				<header className="shell-bar">
+					{collapsed.left && sidebarToggle("left")}
+					{collapsed.right && sidebarToggle("right")}
+
+					<Breadcrumb className="shell-breadcrumb">
+						<BreadcrumbList>
+							{title !== null && (
+								<>
+									<BreadcrumbItem>
+										{path?.split("/").slice(0, -1).join("/") || vault}
+									</BreadcrumbItem>
+									<BreadcrumbSeparator />
+								</>
+							)}
+							<BreadcrumbItem>
+								<BreadcrumbPage>{title ?? vault}</BreadcrumbPage>
+							</BreadcrumbItem>
+						</BreadcrumbList>
+					</Breadcrumb>
+				</header>
+				<ResizablePanelGroup
+					orientation="horizontal"
+					className="shell-regions"
+					defaultLayout={defaultLayout}
+					onLayoutChanged={(layout, meta) =>
+						saveLayout(meta.requestedLayout ?? layout)
 					}
 				>
-					<div className="h-full" inert={collapsed.left}>
-						{sidebar}
-					</div>
-				</ResizablePanel>
-				<ResizableHandle />
-				<ResizablePanel id="editor" minSize={420} className="shell-editor">
-					{children}
-				</ResizablePanel>
-				<ResizableHandle />
-				<ResizablePanel
-					id="right"
-					panelRef={right}
-					defaultSize={300}
-					minSize={240}
-					maxSize={480}
-					collapsible
-					collapsedSize={0}
-					className="shell-right"
-					onResize={(size) =>
-						setCollapsed((s) => ({ ...s, right: size.asPercentage === 0 }))
-					}
-				>
-					<aside aria-label="Note details" inert={collapsed.right}>
-						{tools}
-					</aside>
-				</ResizablePanel>
-			</ResizablePanelGroup>
-		</div>
+					<ResizablePanel
+						id="left"
+						panelRef={left}
+						defaultSize={300}
+						minSize={220}
+						maxSize={520}
+						collapsible
+						collapsedSize={0}
+						onResize={(size) =>
+							setCollapsed((s) => ({ ...s, left: size.asPercentage === 0 }))
+						}
+					>
+						<div className="shell-side" inert={collapsed.left}>
+							<div className="shell-pane-bar">{sidebarToggle("left")}</div>
+							{sidebar}
+						</div>
+					</ResizablePanel>
+					<ResizableHandle />
+					<ResizablePanel id="editor" minSize={420} className="shell-editor">
+						{children}
+					</ResizablePanel>
+					<ResizableHandle />
+					<ResizablePanel
+						id="right"
+						panelRef={right}
+						defaultSize={300}
+						minSize={240}
+						maxSize={480}
+						collapsible
+						collapsedSize={0}
+						className="shell-right"
+						onResize={(size) =>
+							setCollapsed((s) => ({ ...s, right: size.asPercentage === 0 }))
+						}
+					>
+						<aside aria-label="Note details" inert={collapsed.right}>
+							<div className="shell-pane-bar">
+								<span className="section-label">Details</span>
+								{sidebarToggle("right")}
+							</div>
+							{tools}
+						</aside>
+					</ResizablePanel>
+				</ResizablePanelGroup>
+			</div>
+		</ShellNavigation.Provider>
 	);
 }

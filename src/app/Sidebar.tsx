@@ -10,7 +10,7 @@ import {
 	Search,
 	Trash2,
 } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 import { matchesNote, sortNotes } from "../core/notes/list";
 import type { TreeNode } from "../core/notes/tree";
+import { ShellNavigation } from "./AppShell";
 import { healthCount, healthLabel } from "./HealthScreen";
 import { NoteListRow } from "./NoteListRow";
 import { NoteTree, type TreeActions } from "./NoteTree";
@@ -108,6 +109,14 @@ export function Sidebar({
 	onSelection,
 	onOpen,
 }: SidebarProps) {
+	const { tags } = useContext(ShellNavigation);
+	const tagsSection = useRef<HTMLDetailsElement>(null);
+	useEffect(() => {
+		if (!tags || !tagsSection.current) return;
+		tagsSection.current.open = true;
+		tagsSection.current.scrollIntoView({ block: "nearest" });
+		tagsSection.current.querySelector("summary")?.focus();
+	}, [tags]);
 	const [preferences, setPreferences] = useState(() => sidebarPreferences());
 	const sizesRef = useRef(preferences.sizes);
 	const locked = busy || !view?.writable;
@@ -206,6 +215,7 @@ export function Sidebar({
 											)}
 										</IconAction>
 									</header>
+									<div className="section-label">Notes</div>
 									<button
 										type="button"
 										className="sidebar-row"
@@ -221,8 +231,8 @@ export function Sidebar({
 								</>
 							)}
 						>
-							<details open>
-								<summary>Tags</summary>
+							<details ref={tagsSection} open>
+								<summary className="section-label">Tags</summary>
 								<TagIndex
 									rows={view?.notes ?? []}
 									active={selection.kind === "tag" ? selection.value : null}

@@ -35,7 +35,7 @@ it("renders three regions, independent toggles, breadcrumb and note tools", () =
 		'aria-label="Tags"',
 		'aria-label="Changes"',
 		'aria-label="Settings"',
-		"Arrives with the command bar",
+		"Find or create a note...",
 		"Arrives with Settings",
 	])
 		expect(html).toContain(text);

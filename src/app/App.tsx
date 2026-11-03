@@ -441,14 +441,14 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
-	const startNote = async (folder = "") => {
+	const startNote = async (folder = "", noteTitle = "Untitled") => {
 		if (!view || !(await settle())) return;
 		setBusy(true);
 		try {
-			const made = await createAndLoad(vaultHost, view, folder);
+			const made = await createAndLoad(vaultHost, view, folder, noteTitle);
 			setView(made.view);
 			if (made.path) {
-				focusTitle.current = true;
+				focusTitle.current = noteTitle === "Untitled";
 				await show(made.path, made.view.name);
 			}
 		} catch (e) {
@@ -628,6 +628,14 @@ export function App({ host }: { host: Host }) {
 					vault={vaultName ?? "VaultOps"}
 					path={livePath}
 					title={opened ? title : null}
+					notes={view?.notes ?? []}
+					writable={writable && !busy}
+					selectedFolder={selection.kind === "folder" ? selection.value : ""}
+					onOpenNote={(path) => void open(path)}
+					onCreateNote={(folder, noteTitle) =>
+						void startNote(folder, noteTitle)
+					}
+					onNavigateScreen={(next) => void navigate(next)}
 					tools={
 						<NoteTools
 							key={opened?.path}

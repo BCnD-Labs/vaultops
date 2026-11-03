@@ -34,11 +34,14 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CommandBar } from "./CommandBar";
+import type { NoteRow } from "./session";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 
 export const ShellNavigation = createContext({
 	tags: 0,
 	changes: 0,
+	newFolder: 0,
 	toolsVisible: true,
 	propertyRequest: null as { name?: string } | null,
 	openProperties: (_name?: string) => {},
@@ -47,14 +50,14 @@ export const ShellNavigation = createContext({
 function IconRail({
 	onNavigate,
 }: {
-	onNavigate: (item: "notes" | "tags" | "changes") => void;
+	onNavigate: (item: "notes" | "search" | "tags" | "changes") => void;
 }) {
 	return (
 		<nav className="icon-rail" aria-label="Workspace">
 			{(
 				[
 					["Notes", FileText, "notes", null],
-					["Search", Search, null, "Arrives with the command bar"],
+					["Search", Search, "search", null],
 					["Tags", Tags, "tags", null],
 					["Changes", GitCompareArrows, "changes", null],
 					["Settings", Settings, null, "Arrives with Settings"],
@@ -91,6 +94,12 @@ export function AppShell({
 	vault,
 	path,
 	title,
+	notes = [],
+	writable = false,
+	selectedFolder = "",
+	onOpenNote = () => {},
+	onCreateNote = () => {},
+	onNavigateScreen = () => {},
 }: {
 	sidebar: ReactNode;
 	tools?: ReactNode;
@@ -98,11 +107,22 @@ export function AppShell({
 	vault: string;
 	path: string | null;
 	title: string | null;
+	notes?: NoteRow[];
+	writable?: boolean;
+	selectedFolder?: string;
+	onOpenNote?: (path: string) => void;
+	onCreateNote?: (folder: string, title: string) => void;
+	onNavigateScreen?: (screen: "trash" | "health") => void;
 }) {
 	const [propertyRequest, setPropertyRequest] = useState<{
 		name?: string;
 	} | null>(null);
-	const [navigation, setNavigation] = useState({ tags: 0, changes: 0 });
+	const [navigation, setNavigation] = useState({
+		tags: 0,
+		changes: 0,
+		newFolder: 0,
+	});
+	const [searchRequest, setSearchRequest] = useState(0);
 	const left = useRef<PanelImperativeHandle>(null);
 	const right = useRef<PanelImperativeHandle>(null);
 	const [defaultLayout] = useState(loadLayout);
@@ -167,6 +187,10 @@ export function AppShell({
 			<div className="app-shell">
 				<IconRail
 					onNavigate={(item) => {
+						if (item === "search") {
+							setSearchRequest((count) => count + 1);
+							return;
+						}
 						(item === "changes" ? right : left).current?.expand();
 						if (item !== "notes")
 							setNavigation((state) => ({ ...state, [item]: state[item] + 1 }));
@@ -220,6 +244,23 @@ export function AppShell({
 					<ResizableHandle />
 					<ResizablePanel id="editor" minSize={420} className="shell-editor">
 						{children}
+						<CommandBar
+							notes={notes}
+							writable={writable}
+							selectedFolder={selectedFolder}
+							openRequest={searchRequest}
+							onOpenNote={onOpenNote}
+							onCreateNote={onCreateNote}
+							onNewFolder={() => {
+								left.current?.expand();
+								setNavigation((state) => ({
+									...state,
+									newFolder: state.newFolder + 1,
+								}));
+							}}
+							onToggle={toggle}
+							onNavigate={onNavigateScreen}
+						/>
 					</ResizablePanel>
 					<ResizableHandle />
 					<ResizablePanel

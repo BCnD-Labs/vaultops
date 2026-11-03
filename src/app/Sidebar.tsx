@@ -111,7 +111,7 @@ export function Sidebar({
 	onSelection,
 	onOpen,
 }: SidebarProps) {
-	const { tags } = useContext(ShellNavigation);
+	const { tags, newFolder } = useContext(ShellNavigation);
 	const tagsSection = useRef<HTMLDetailsElement>(null);
 	useEffect(() => {
 		if (!tags || !tagsSection.current) return;
@@ -150,6 +150,7 @@ export function Sidebar({
 				<ResizablePanel id="navigation" minSize="10%">
 					<section className="sidebar-pane" aria-label="Navigation">
 						<NoteTree
+							newFolderRequest={newFolder}
 							nodes={tree}
 							livePath={livePath}
 							onOpen={onOpen}

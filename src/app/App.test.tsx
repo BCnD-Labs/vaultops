@@ -185,3 +185,38 @@ it("filters direct folder children, creates there, and preserves All notes when 
 		JSON.parse(localStorage.getItem("vaultops:sidebar") ?? "null").orientation,
 	).toBe("horizontal");
 });
+
+it("creates a named note from the command bar and starts the existing folder flow", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await host.makeFolder("Class");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	await screen.findByRole("button", { name: "New note" });
+	await user.click(screen.getByRole("button", { name: /^Class/ }));
+	await user.click(
+		screen.getByRole("button", { name: "Find or create a note" }),
+	);
+	await user.type(
+		screen.getByRole("combobox", { name: "Find or create a note" }),
+		"New idea",
+	);
+	await user.keyboard("{Enter}");
+	await waitFor(() =>
+		expect(host.kindOf("Class/New idea.vnote")).resolves.toBe("file"),
+	);
+	expect(
+		(
+			(await screen.findByRole("textbox", {
+				name: "Title",
+			})) as HTMLInputElement
+		).value,
+	).toBe("New idea");
+	await user.click(
+		screen.getByRole("button", { name: "Find or create a note" }),
+	);
+	await user.click(screen.getByText("New folder"));
+	expect(await screen.findByRole("textbox", { name: "New folder name" })).toBe(
+		document.activeElement,
+	);
+});

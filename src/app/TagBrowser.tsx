@@ -22,11 +22,12 @@ export function TagIndex(props: {
 				<button
 					key={tag}
 					type="button"
-					className="chip-label tag-button"
+					className="sidebar-row tag-button"
 					aria-pressed={props.active?.toLowerCase() === tag.toLowerCase()}
 					onClick={() => props.onPick(tag)}
 				>
-					{tag} <span className="read-only-tag">{count}</span>
+					<span className="tree-name">#{tag}</span>{" "}
+					<span className="sidebar-count">{count}</span>
 				</button>
 			))}
 		</nav>

@@ -47,6 +47,7 @@ import {
 	loadVault,
 	type VaultView,
 } from "./session";
+import { type Selection, selectionForPath } from "./sidebar-selection";
 import "../ui/theme.css";
 import "./app.css";
 
@@ -98,7 +99,7 @@ export function App({ host }: { host: Host }) {
 	const [treeNotice, setTreeNotice] = useState<string | null>(null);
 	const [props, setProps] = useState<NoteProps | null>({});
 	const propsRef = useRef<NoteProps | null>({});
-	const [tagFilter, setTagFilter] = useState<string | null>(null);
+	const [selection, setSelection] = useState<Selection>({ kind: "all" });
 	const vaultName = view?.name ?? null;
 
 	const onSaved = useCallback((info: SavedInfo) => {
@@ -153,7 +154,7 @@ export function App({ host }: { host: Host }) {
 	}, []);
 
 	const show = useCallback(
-		async (path: string, vault: string | null) => {
+		async (path: string, vault: string | null, follow = true) => {
 			try {
 				setError(null);
 				const started = performance.now();
@@ -175,6 +176,7 @@ export function App({ host }: { host: Host }) {
 				setNotice(next.notice ?? null);
 				livePathRef.current = path;
 				setLivePath(path);
+				if (follow) setSelection(selectionForPath(path));
 				const loaded = headerProps(next.note?.header);
 				propsRef.current = loaded;
 				setProps(loaded);
@@ -191,9 +193,9 @@ export function App({ host }: { host: Host }) {
 	);
 
 	const open = useCallback(
-		async (path: string) => {
+		async (path: string, follow = true) => {
 			if (!(await settle())) return;
-			await show(path, vaultName);
+			await show(path, vaultName, follow);
 		},
 		[settle, show, vaultName],
 	);
@@ -380,11 +382,11 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
-	const startNote = async () => {
+	const startNote = async (folder = "") => {
 		if (!view || !(await settle())) return;
 		setBusy(true);
 		try {
-			const made = await createAndLoad(vaultHost, view);
+			const made = await createAndLoad(vaultHost, view, folder);
 			setView(made.view);
 			if (made.path) {
 				focusTitle.current = true;
@@ -558,7 +560,7 @@ export function App({ host }: { host: Host }) {
 							view={view}
 							busy={busy}
 							maintainer={maintainer}
-							tagFilter={tagFilter}
+							selection={selection}
 							livePath={livePath}
 							tree={tree}
 							treeActions={treeActions}
@@ -568,13 +570,13 @@ export function App({ host }: { host: Host }) {
 								if (!(await settle())) return;
 								setOpened(null);
 								setScreen("note");
-								setTagFilter(null);
+								setSelection({ kind: "all" });
 								run(() => chooseAndLoad(host));
 							}}
 							onShowMaintainer={() => setShowMaintainer(true)}
 							onNavigate={navigate}
-							onTagFilter={setTagFilter}
-							onOpen={open}
+							onSelection={setSelection}
+							onOpen={(path) => void open(path, false)}
 						/>
 					}
 				>
@@ -619,7 +621,11 @@ export function App({ host }: { host: Host }) {
 							setConfirmEditing(false);
 						}}
 						onPropsChange={editProps}
-						onOpenTag={setTagFilter}
+						onOpenTag={(tag) =>
+							setSelection(
+								tag === null ? { kind: "all" } : { kind: "tag", value: tag },
+							)
+						}
 						onNavigate={navigate}
 						onConfirmDelete={setConfirmDelete}
 						onRestore={(p) => void changeTrash(p, true)}

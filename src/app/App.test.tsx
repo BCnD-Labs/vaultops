@@ -33,9 +33,9 @@ it("saves title edits before sidebar navigation and keeps trash confirmation in 
 	const title = (await screen.findByRole("textbox", {
 		name: "Title",
 	})) as HTMLInputElement;
-	expect(container.querySelector(".app .sidebar h1")?.textContent).toBe(
-		"Memory vault",
-	);
+	expect(
+		container.querySelector(".app .sidebar .vault-switch")?.textContent,
+	).toBe("Memory vault");
 	expect(container.querySelector(".app .pane > .title-field")).toBe(title);
 	fireEvent.change(title, { target: { value: "Renamed" } });
 	await user.click(screen.getByRole("button", { name: /^Trash$/ }));
@@ -82,4 +82,45 @@ it("keeps a partly unreadable note locked until editing is confirmed", async () 
 	await user.click(screen.getByRole("button", { name: "Allow editing" }));
 	await waitFor(() => expect(title.readOnly).toBe(false));
 	expect(await host.readText(note.path)).toContain("bad\n");
+});
+
+it("filters direct folder children, creates there, and preserves All notes when opening a list row", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await host.makeFolder("Class/Week");
+	await createNote(host, "", "Root");
+	await createNote(host, "Class", "Lecture");
+	await createNote(host, "Class/Week", "Nested");
+	const user = userEvent.setup();
+	const { container } = render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByRole("button", { name: /^Class/ }));
+	const list = () =>
+		container.querySelector('[aria-label="Notes list"]') as HTMLElement;
+	expect(list().textContent).toContain("Lecture");
+	expect(list().textContent).not.toContain("Nested");
+	expect(list().textContent).not.toContain("Root");
+	await user.click(screen.getByRole("button", { name: "New note" }));
+	await waitFor(() =>
+		expect(
+			(screen.getByRole("textbox", { name: "Title" }) as HTMLInputElement)
+				.value,
+		).toBe("Untitled"),
+	);
+	expect(await host.kindOf("Class/Untitled.vnote")).toBe("file");
+	await user.click(screen.getByRole("button", { name: /^All notes/ }));
+	await user.click(screen.getByRole("button", { name: "Root" }));
+	await waitFor(() =>
+		expect(
+			(screen.getByRole("textbox", { name: "Title" }) as HTMLInputElement)
+				.value,
+		).toBe("Root"),
+	);
+	expect(list().textContent).toContain("Nested");
+	expect(list().textContent).toContain("All notes");
+	await user.click(screen.getByRole("button", { name: "Side by side" }));
+	expect(screen.getByRole("button", { name: "Stacked" })).toBeTruthy();
+	expect(
+		JSON.parse(localStorage.getItem("vaultops:sidebar") ?? "null").orientation,
+	).toBe("horizontal");
 });

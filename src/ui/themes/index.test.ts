@@ -3,14 +3,21 @@ import { applyTheme, loadThemeChoice, saveThemeChoice, themes } from "./index";
 
 describe("theme choice", () => {
 	it("registers both modes and applies each mode, including live CSS system mode", () => {
-		expect(themes[0].modes).toEqual(["light", "dark"]);
-		for (const mode of ["light", "dark", "system"] as const) {
-			const setAttribute = vi.fn();
-			applyTheme({ setAttribute }, { id: "default", mode });
-			expect(setAttribute.mock.calls).toEqual([
-				["data-theme", "default"],
-				["data-mode", mode],
-			]);
+		expect(themes.map((theme) => theme.id)).toEqual([
+			"default",
+			"graphite",
+			"high-contrast",
+		]);
+		for (const theme of themes) {
+			expect(theme.modes).toEqual(["light", "dark"]);
+			for (const mode of ["light", "dark", "system"] as const) {
+				const setAttribute = vi.fn();
+				applyTheme({ setAttribute }, { id: theme.id, mode });
+				expect(setAttribute.mock.calls).toEqual([
+					["data-theme", theme.id],
+					["data-mode", mode],
+				]);
+			}
 		}
 	});
 	it("round trips choices and rejects invalid or corrupt stored values", () => {

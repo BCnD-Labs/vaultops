@@ -45,6 +45,8 @@
 	--destructive-container: var(--seed-danger-container);
 	--destructive-foreground: var(--seed-on-danger);
 	--ring: var(--primary);
+	--focus-ring-width: 2px;
+	--border-width: 1px;
 	--warn: var(--seed-warning);
 	--bg: var(--background);
 	--panel: var(--surface-container-low);

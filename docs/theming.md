@@ -21,6 +21,18 @@ For example, copy the complete default theme as `sage.css`, rename all selectors
 
 Check contrast after palette changes. In the light theme, filled blue buttons use white text on a deeper blue; in the dark theme they use dark text on a lighter blue. Both meet 4.5:1 at compact text sizes. Elevation is reserved for floating content.
 
+## Built-in themes
+
+Mac flat (`default`) uses blue accents, Graphite (`graphite`) uses grey accents
+and warmer neutrals, and High contrast (`high-contrast`) uses near-black and
+white with thicker borders and a strong 2px focus outline. All support light,
+dark and OS-following system mode. High contrast text pairs meet at least 7:1.
+
+Run `npx vite --config vite.preview.config.ts` and open
+`/harness.html?theme=graphite&mode=light` or
+`/harness.html?theme=high-contrast&mode=dark` on the printed local URL. Set
+`mode=system` to follow OS changes. Preview URL overrides do not save a preference.
+
 ## Full token list
 
 - `--seed-accent`: Palette primitive for accent.
@@ -68,6 +80,8 @@ Check contrast after palette changes. In the light theme, filled blue buttons us
 - `--destructive-container`: Soft error background.
 - `--destructive-foreground`: Text on destructive actions.
 - `--ring`: Keyboard focus color.
+- `--focus-ring-width`: Keyboard focus outline width.
+- `--border-width`: Control and divider stroke width.
 - `--warn`: Warning text color.
 - `--bg`: Legacy alias for the window background.
 - `--panel`: Sidebar and panel background.

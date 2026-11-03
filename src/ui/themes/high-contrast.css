@@ -1,0 +1,127 @@
+/* Seed / primitive, semantic, then component / shape tokens. */
+:root[data-theme="high-contrast"] {
+	--seed-accent: #161616;
+	--neutral-0: #ffffff;
+	--neutral-1: #fafafa;
+	--neutral-2: #f5f5f5;
+	--neutral-3: #eeeeee;
+	--neutral-4: #555555;
+	--neutral-6: #444444;
+	--neutral-9: #111111;
+	--seed-on-accent: #ffffff;
+	--seed-container: #eeeeee;
+	--seed-on-container: #111111;
+	--seed-danger: #8a0018;
+	--seed-danger-container: #ffe9ed;
+	--seed-on-danger: #ffffff;
+	--seed-warning: #5c3b00;
+	--radius-1: 6px;
+	--radius-2: 10px;
+	--space-unit: 4px;
+	--size-ui: 13px;
+	--size-small: 12px;
+	--size-title: 26px;
+	--size-heading: 16px;
+	--background: var(--neutral-0);
+	--surface: var(--neutral-0);
+	--surface-container-low: var(--neutral-1);
+	--surface-container: var(--neutral-2);
+	--surface-container-high: var(--neutral-3);
+	--foreground: var(--neutral-9);
+	--muted-foreground: var(--neutral-6);
+	--border: var(--neutral-4);
+	--primary: var(--seed-accent);
+	--primary-foreground: var(--seed-on-accent);
+	--primary-container: var(--seed-container);
+	--on-primary-container: var(--seed-on-container);
+	--accent: var(--primary-container);
+	--accent-foreground: var(--on-primary-container);
+	--selection-bg: var(--primary-container);
+	--selection-fg: var(--on-primary-container);
+	--secondary: var(--surface-container-low);
+	--secondary-foreground: var(--foreground);
+	--muted: var(--surface-container-low);
+	--destructive: var(--seed-danger);
+	--destructive-container: var(--seed-danger-container);
+	--destructive-foreground: var(--seed-on-danger);
+	--ring: var(--primary);
+	--focus-ring-width: 2px;
+	--border-width: 2px;
+	--warn: var(--seed-warning);
+	--bg: var(--background);
+	--panel: var(--surface-container-low);
+	--text: var(--foreground);
+	--line: var(--border);
+	--bad: var(--destructive);
+	--hover-layer: 8%;
+	--pressed-layer: 14%;
+	--radius-control: var(--radius-1);
+	--radius-container: var(--radius-2);
+	--radius-round: 999px;
+	--control-height: 28px;
+	--control-height-sm: 24px;
+	--font-size-ui: var(--size-ui);
+	--font-size-small: var(--size-small);
+	--font-size-title: var(--size-title);
+	--font-size-heading: var(--size-heading);
+	--font-sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+	--font-editor: var(--font-sans);
+	--editor-width: 720px;
+	--editor-font-size: 17px;
+	--editor-line-height: 1.65;
+	--editor-h1-size: 1.8em;
+	--editor-h2-size: 1.4em;
+	--editor-h3-size: 1.15em;
+	--code-font-size: 0.92em;
+	--elevation-1: none;
+	--elevation-2: 0 6px 20px var(--shadow-color);
+	--elevation-3: 0 10px 40px var(--shadow-color);
+	--shadow-color: #0000002e;
+	--scrim: #00000073;
+	--motion-fast: 120ms;
+	--motion-normal: 180ms;
+}
+:root[data-theme="high-contrast"] {
+	color-scheme: light;
+}
+:root[data-theme="high-contrast"][data-mode="dark"] {
+	color-scheme: dark;
+	--seed-accent: #ffffff;
+	--neutral-0: #111111;
+	--neutral-1: #161616;
+	--neutral-2: #1b1b1b;
+	--neutral-3: #222222;
+	--neutral-4: #bbbbbb;
+	--neutral-6: #dddddd;
+	--neutral-9: #ffffff;
+	--seed-on-accent: #111111;
+	--seed-container: #292929;
+	--seed-on-container: #ffffff;
+	--seed-danger: #ffb3be;
+	--seed-danger-container: #30151c;
+	--seed-on-danger: #190007;
+	--seed-warning: #f4d27c;
+	--shadow-color: #00000059;
+}
+@media (prefers-color-scheme: dark) {
+	:root[data-theme="high-contrast"][data-mode="system"] {
+		color-scheme: dark;
+		--seed-accent: #ffffff;
+		--neutral-0: #111111;
+		--neutral-1: #161616;
+		--neutral-2: #1b1b1b;
+		--neutral-3: #222222;
+		--neutral-4: #bbbbbb;
+		--neutral-6: #dddddd;
+		--neutral-9: #ffffff;
+		--seed-on-accent: #111111;
+		--seed-container: #292929;
+		--seed-on-container: #ffffff;
+		--seed-danger: #ffb3be;
+		--seed-danger-container: #30151c;
+		--seed-on-danger: #190007;
+		--seed-warning: #f4d27c;
+		--shadow-color: #00000059;
+	}
+}

@@ -51,7 +51,7 @@
 .note-list .note-list {
 	margin-left: 10px;
 	padding-left: 6px;
-	border-left: 1px solid var(--line);
+	border-left: var(--border-width) solid var(--line);
 }
 
 .note-list button {
@@ -98,7 +98,7 @@
 }
 
 .tree.is-over {
-	outline: 2px dashed var(--ring);
+	outline: var(--focus-ring-width) dashed var(--ring);
 	outline-offset: 2px;
 }
 
@@ -110,7 +110,7 @@
 }
 
 .tree-row.is-over {
-	outline: 2px dashed var(--ring);
+	outline: var(--focus-ring-width) dashed var(--ring);
 	background: var(--accent);
 }
 
@@ -170,7 +170,7 @@
 	box-sizing: border-box;
 	font: inherit;
 	padding: 4px 6px;
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	background: var(--bg);
 	color: inherit;
@@ -193,7 +193,7 @@
 
 .tag-index .tag-button {
 	padding: 1px 8px;
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	background: var(--bg);
 	font-size: var(--font-size-ui);

@@ -11,6 +11,8 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./themes/default.css";
+@import "./themes/graphite.css";
+@import "./themes/high-contrast.css";
 
 /*
  * App font: Atkinson Hyperlegible Next (variable weight, normal and italic),
@@ -65,4 +67,15 @@
 	--default-transition-duration: var(--motion-normal);
 	--color-primary-container: var(--primary-container);
 	--color-on-primary-container: var(--on-primary-container);
+}
+
+/* Shared border utility follows each theme's stroke weight. */
+.border {
+	border-width: var(--border-width);
+}
+
+/* Keep focus fully opaque and visible over every high-contrast control. */
+:root[data-theme="high-contrast"] :focus-visible {
+	outline: var(--focus-ring-width) solid var(--ring);
+	outline-offset: 2px;
 }

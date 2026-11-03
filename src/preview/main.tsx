@@ -3,8 +3,12 @@ import { createRoot } from "react-dom/client";
 import { App } from "../app/App";
 import { applyTheme, loadThemeChoice } from "../ui/themes";
 import { seedVault } from "./seed";
+import { previewThemeChoice } from "./theme";
 
-applyTheme(document.documentElement, loadThemeChoice());
+applyTheme(
+	document.documentElement,
+	previewThemeChoice(window.location.search, loadThemeChoice()),
+);
 
 const element = document.getElementById("root");
 if (!element) throw new Error("Missing #root element");

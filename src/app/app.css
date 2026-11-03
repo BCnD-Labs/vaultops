@@ -15,7 +15,7 @@ body {
 	}
 
 	:where(button, input, select, textarea, summary):focus-visible {
-		outline: 2px solid var(--ring);
+		outline: var(--focus-ring-width) solid var(--ring);
 		outline-offset: 2px;
 	}
 
@@ -41,7 +41,7 @@ body {
 
 .tree-confirm {
 	padding: 6px 8px;
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	font-size: var(--font-size-ui);
 }
@@ -75,7 +75,7 @@ body {
 	padding: 12px;
 	background: var(--panel);
 	color: var(--text);
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-container);
 	box-shadow: var(--elevation-3);
 	font-size: var(--font-size-ui);
@@ -123,7 +123,7 @@ body {
 	overflow: auto;
 	background: var(--panel);
 	color: var(--text);
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-container);
 	box-shadow: var(--elevation-3);
 	font-size: var(--font-size-ui);
@@ -146,7 +146,7 @@ body {
 	max-height: 220px;
 	padding: 8px;
 	overflow: auto;
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	font-family: var(--font-mono);
 	font-size: var(--font-size-small);
@@ -179,7 +179,7 @@ body {
 	max-height: 200px;
 	padding: 8px;
 	overflow: auto;
-	border: 1px solid var(--line);
+	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	font-family: var(--font-mono);
 	font-size: var(--font-size-small);
@@ -221,7 +221,7 @@ body {
 	align-items: center;
 	flex: 0 0 36px;
 	padding-inline: 8px;
-	border-bottom: 1px solid var(--surface-container);
+	border-bottom: var(--border-width) solid var(--surface-container);
 }
 
 .shell-toggle {

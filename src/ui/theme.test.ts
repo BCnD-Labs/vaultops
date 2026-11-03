@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { themes } from "./themes";
 
 function files(dir: string): string[] {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
@@ -24,8 +25,11 @@ it("keeps look literals in theme files", () => {
 	expect(violations).toEqual([]);
 });
 
-it("provides 4.5:1 text contrast in both default modes", () => {
-	const css = readFileSync("src/ui/themes/default.css", "utf8");
+const defaultTokens = [
+	...readFileSync("src/ui/themes/default.css", "utf8").matchAll(/--([\w-]+):/g),
+].map((match) => match[1]);
+it.each(themes)("checks $id tokens and contrast", (theme) => {
+	const css = readFileSync(`src/ui/themes/${theme.id}.css`, "utf8");
 	const blocks = [...css.matchAll(/\{([^{}]*)\}/g)].map((match) =>
 		Object.fromEntries(
 			[...(match[1] ?? "").matchAll(/--([\w-]+):\s*([^;]+);/g)].map((entry) => [
@@ -33,6 +37,12 @@ it("provides 4.5:1 text contrast in both default modes", () => {
 				(entry[2] ?? "").trim(),
 			]),
 		),
+	);
+	expect(Object.keys(blocks[0] ?? {}).sort()).toEqual(
+		[...new Set(defaultTokens)].sort(),
+	);
+	expect(readFileSync("src/ui/theme.css", "utf8")).toContain(
+		`@import "./themes/${theme.id}.css"`,
 	);
 	function luminance(hex: string) {
 		const channels = hex
@@ -59,15 +69,21 @@ it("provides 4.5:1 text contrast in both default modes", () => {
 		for (const [fg, bg] of [
 			["foreground", "background"],
 			["muted-foreground", "background"],
+			["foreground", "surface-container-high"],
+			["muted-foreground", "surface-container-high"],
 			["primary-foreground", "primary"],
 			["on-primary-container", "primary-container"],
 		] as const) {
 			const values = [luminance(resolve(fg)), luminance(resolve(bg))];
 			expect(
 				(Math.max(...values) + 0.05) / (Math.min(...values) + 0.05),
-				`${dark ? "dark" : "light"} ${fg}/${bg}`,
-			).toBeGreaterThanOrEqual(4.5);
+				`${theme.id} ${dark ? "dark" : "light"} ${fg}/${bg}`,
+			).toBeGreaterThanOrEqual(theme.id === "high-contrast" ? 7 : 4.5);
 		}
+	}
+	if (theme.id === "high-contrast") {
+		expect(blocks[0]?.["focus-ring-width"]).toBe("2px");
+		expect(blocks[0]?.["border-width"]).toBe("2px");
 	}
 	expect(css).toContain('[data-mode="system"]');
 	expect(css).toContain("prefers-color-scheme: dark");

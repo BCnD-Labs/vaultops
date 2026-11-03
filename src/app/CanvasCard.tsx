@@ -1,5 +1,13 @@
-import { Fragment, type ReactNode } from "react";
+import { Ellipsis } from "lucide-react";
+import { type DragEvent, Fragment, type ReactNode } from "react";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Block, JsonValue } from "../core/note-format";
+import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 
 function inline(value: JsonValue | undefined): ReactNode {
 	if (!Array.isArray(value)) return null;
@@ -22,10 +30,14 @@ function inline(value: JsonValue | undefined): ReactNode {
 export function CanvasCard({
 	root,
 	blocks,
+	canvasId = "",
+	draggable = false,
 	onMoveToNote,
 }: {
 	root: Block;
 	blocks: Block[];
+	canvasId?: string;
+	draggable?: boolean;
 	onMoveToNote?: () => void;
 }) {
 	const children = new Map<string, Block[]>();
@@ -110,16 +122,33 @@ export function CanvasCard({
 		}
 	};
 	return (
-		<article className="canvas-card">
+		<article
+			className="canvas-card"
+			draggable={draggable}
+			onDragStart={(event: DragEvent) => {
+				if (!draggable || !root.id) return;
+				event.dataTransfer.setData(
+					BLOCK_DRAG_TYPE,
+					JSON.stringify({ noteId: canvasId, blockId: root.id }),
+				);
+				event.dataTransfer.effectAllowed = "move";
+			}}
+		>
 			{render(root)}
 			{onMoveToNote && (
-				<button
-					type="button"
-					className="canvas-return nodrag"
-					onClick={onMoveToNote}
-				>
-					Move to open note
-				</button>
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						className="canvas-menu nodrag"
+						aria-label="Card actions"
+					>
+						<Ellipsis size={16} aria-hidden="true" />
+					</DropdownMenuTrigger>
+					<DropdownMenuContent>
+						<DropdownMenuItem onSelect={onMoveToNote}>
+							Move to open note
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			)}
 		</article>
 	);

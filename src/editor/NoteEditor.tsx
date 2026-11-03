@@ -10,7 +10,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { setBlockDragData } from "./block-drag";
+import { BLOCK_DRAG_TYPE, blockDragData, setBlockDragData } from "./block-drag";
 import { createExtensions } from "./extensions";
 import { ensureUniqueIds } from "./ids";
 import "./editor.css";
@@ -22,6 +22,11 @@ export interface NoteEditorProps {
 	onChange: (doc: JSONContent) => void;
 	noteId?: string;
 	editable?: boolean;
+	onDropBlock?: (
+		blockId: string,
+		canvasId: string,
+		after: string | null,
+	) => Promise<void>;
 }
 
 /** The Tiptap editor for one note. It does no file access. */
@@ -30,6 +35,7 @@ export function NoteEditor({
 	onChange,
 	noteId,
 	editable = true,
+	onDropBlock,
 }: NoteEditorProps) {
 	const latest = useRef(onChange);
 	latest.current = onChange;
@@ -91,7 +97,34 @@ export function NoteEditor({
 	}, [editor, editable]);
 
 	return (
-		<div className="note-editor">
+		<section
+			className="note-editor"
+			aria-label="Note editor drop area"
+			onDragOver={(event) => {
+				if (!onDropBlock || !event.dataTransfer.types.includes(BLOCK_DRAG_TYPE))
+					return;
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "move";
+			}}
+			onDropCapture={(event) => {
+				if (!event.dataTransfer.types.includes(BLOCK_DRAG_TYPE)) return;
+				const data = blockDragData(event.dataTransfer);
+				if (data?.noteId === noteId) return;
+				event.preventDefault();
+				event.stopPropagation();
+				if (!editor || !onDropBlock) return;
+				if (!data) return;
+				let after: string | null = null;
+				const children = Array.from(editor.view.dom.children);
+				for (let index = 0; index < editor.state.doc.childCount; index++) {
+					const bounds = children[index]?.getBoundingClientRect();
+					if (bounds && event.clientY < bounds.top + bounds.height / 2) break;
+					const id = editor.state.doc.child(index).attrs.id;
+					if (typeof id === "string") after = id;
+				}
+				void onDropBlock(data.blockId, data.noteId, after);
+			}}
+		>
 			<EditorContent editor={editor} />
 			{editor && editable && noteId && (
 				<DragHandle
@@ -119,6 +152,6 @@ export function NoteEditor({
 					</Tooltip>
 				</DragHandle>
 			)}
-		</div>
+		</section>
 	);
 }

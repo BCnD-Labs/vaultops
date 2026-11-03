@@ -124,6 +124,17 @@ it("reloads the moved block from physical note files after reopening the file la
 			id: "block",
 			attrs: { x: 9, y: 11 },
 		});
+		await moveBlock(reopened, "canvas.vnote", "source.vnote", "block", {
+			after: null,
+		});
+		const returned = new FileHost();
+		expect((await loadNote(returned, "canvas.vnote")).note?.blocks).toEqual([]);
+		expect(
+			(await loadNote(returned, "source.vnote")).note?.blocks[0],
+		).toMatchObject({
+			id: "block",
+			content: [{ type: "text", text: "Keep me" }],
+		});
 	} finally {
 		await rm(folder, { recursive: true, force: true });
 	}

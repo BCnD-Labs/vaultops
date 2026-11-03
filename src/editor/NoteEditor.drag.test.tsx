@@ -66,3 +66,53 @@ it("sets the VaultOps payload after the handle clears drag data", () => {
 	fireEvent.dragEnd(handle as Element, { dataTransfer: transfer });
 	expect(document.querySelector(".block-drag-preview")).toBeNull();
 });
+
+it("drops a canvas block between root blocks and ignores other drags", () => {
+	const onDropBlock = vi.fn().mockResolvedValue(undefined);
+	render(
+		<TooltipProvider>
+			<NoteEditor
+				noteId="note-1"
+				doc={{
+					type: "doc",
+					content: ["first", "second"].map((id) => ({
+						type: "paragraph",
+						attrs: { id },
+						content: [{ type: "text", text: id }],
+					})),
+				}}
+				onChange={() => {}}
+				onDropBlock={onDropBlock}
+			/>
+		</TooltipProvider>,
+	);
+	const roots = document.querySelectorAll(".ProseMirror > p");
+	expect(roots).toHaveLength(2);
+	vi.spyOn(roots[0] as Element, "getBoundingClientRect").mockReturnValue({
+		top: 0,
+		height: 20,
+	} as DOMRect);
+	vi.spyOn(roots[1] as Element, "getBoundingClientRect").mockReturnValue({
+		top: 20,
+		height: 20,
+	} as DOMRect);
+	const target = document.querySelector(".note-editor") as Element;
+	const transfer = new DataTransfer();
+	transfer.setData(
+		BLOCK_DRAG_TYPE,
+		JSON.stringify({ noteId: "canvas", blockId: "card" }),
+	);
+	const drop = new Event("drop", { bubbles: true, cancelable: true });
+	Object.defineProperty(drop, "dataTransfer", { value: transfer });
+	Object.defineProperty(drop, "clientY", { value: 19 });
+	fireEvent(target, drop);
+	expect(onDropBlock).toHaveBeenCalledWith("card", "canvas", "first");
+	transfer.setData(
+		BLOCK_DRAG_TYPE,
+		JSON.stringify({ noteId: "note-1", blockId: "first" }),
+	);
+	fireEvent(target, drop);
+	expect(onDropBlock).toHaveBeenCalledTimes(1);
+	fireEvent.drop(target, { dataTransfer: new DataTransfer(), clientY: 19 });
+	expect(onDropBlock).toHaveBeenCalledTimes(1);
+});

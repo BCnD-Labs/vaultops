@@ -76,6 +76,8 @@ export function CanvasPane({
 				<CanvasCard
 					root={block}
 					blocks={blocks}
+					canvasId={parsed?.note?.header.noteId ?? ""}
+					draggable={!!editable}
 					onMoveToNote={
 						editable && onMoveToNote
 							? async () => {

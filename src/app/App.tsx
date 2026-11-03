@@ -6,6 +6,7 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { parseNote } from "../core/note-format";
 import {
 	createFolder,
 	movedPath,
@@ -706,6 +707,55 @@ export function App({ host }: { host: Host }) {
 									docRef.current = doc;
 									getLogger().count("edits");
 									autosave.change(draftOf(doc, titleRef.current));
+								}}
+								onDropBlock={async (blockId, canvasId, after) => {
+									let moveStarted = false;
+									try {
+										if (!writable || !opened?.editable || !opened.note)
+											throw new Error(
+												"This note is read-only, so the block was not moved.",
+											);
+										if (
+											!canvasPath ||
+											!view?.notes.some(
+												(row) =>
+													row.path === canvasPath && row.kind === "canvas",
+											)
+										)
+											throw new Error(
+												"Open the source canvas before moving this block.",
+											);
+										if (!(await settle()))
+											throw new Error(
+												`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+											);
+										const source = await vaultHost.readText(canvasPath);
+										const parsed = parseNote(source);
+										if (
+											parsed.note?.header.kind !== "canvas" ||
+											parsed.note.header.noteId !== canvasId
+										)
+											throw new Error(
+												"The dragged block is not on the open canvas.",
+											);
+										const destination = livePathRef.current ?? opened.path;
+										moveStarted = true;
+										await moveBlock(
+											vaultHost,
+											canvasPath,
+											destination,
+											blockId,
+											{ after },
+										);
+										await show(destination, vaultName);
+										setCanvasRefresh((count) => count + 1);
+									} catch (reason) {
+										if (moveStarted && opened) {
+											await show(livePathRef.current ?? opened.path, vaultName);
+											setCanvasRefresh((count) => count + 1);
+										}
+										setError(String(reason));
+									}
 								}}
 								onRetry={autosave.retry}
 								onLoadDisk={loadDisk}

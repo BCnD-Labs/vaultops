@@ -38,6 +38,7 @@ import { readOnlyHost } from "../host/read-only-host";
 import { AppShell } from "./AppShell";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { NotePane } from "./NotePane";
+import { NoteTools } from "./NoteTools";
 import type { TreeActions } from "./NoteTree";
 import { Sidebar } from "./Sidebar";
 import {
@@ -567,6 +568,16 @@ export function App({ host }: { host: Host }) {
 					vault={vaultName ?? "VaultOps"}
 					path={livePath}
 					title={opened ? title : null}
+					tools={
+						<NoteTools
+							key={opened?.path}
+							hasNote={screen === "note" && !!opened}
+							props={props}
+							editable={!!opened?.editable}
+							onChange={editProps}
+							onOpenTag={(tag) => setSelection({ kind: "tag", value: tag })}
+						/>
+					}
 					sidebar={
 						<Sidebar
 							view={view}
@@ -608,7 +619,6 @@ export function App({ host }: { host: Host }) {
 						confirmTrash={confirmTrash}
 						confirmEditing={confirmEditing}
 						notice={notice}
-						props={props}
 						onTitleChange={(next) => {
 							titleRef.current = next;
 							setTitle(next);
@@ -632,12 +642,6 @@ export function App({ host }: { host: Host }) {
 							setNotice(null);
 							setConfirmEditing(false);
 						}}
-						onPropsChange={editProps}
-						onOpenTag={(tag) =>
-							setSelection(
-								tag === null ? { kind: "all" } : { kind: "tag", value: tag },
-							)
-						}
 						onNavigate={navigate}
 						onConfirmDelete={setConfirmDelete}
 						onRestore={(p) => void changeTrash(p, true)}

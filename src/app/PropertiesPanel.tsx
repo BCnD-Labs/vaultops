@@ -1,6 +1,18 @@
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	addProperty,
 	findName,
@@ -68,6 +80,7 @@ function Chips(props: {
 							type="button"
 							className="chip-remove"
 							aria-label={`Remove ${item} from ${props.label}`}
+							title={`Remove ${item} from ${props.label}`}
 							onClick={() => props.onRemove(item)}
 						>
 							<X className="tree-icon" aria-hidden="true" />
@@ -79,7 +92,7 @@ function Chips(props: {
 				<input
 					className="chip-input"
 					aria-label={`Add to ${props.label}`}
-					placeholder="Add…"
+					placeholder={props.label === "tags" ? "Add tag" : "Add…"}
 					value={draft}
 					onChange={(e) => setDraft(e.target.value)}
 					onKeyDown={(e) => {
@@ -165,13 +178,14 @@ function Control(props: {
 	}
 }
 
-/** The note's properties under the title: name on the left, value on the right. */
+/** The note's properties: name on the left, value on the right. */
 export function PropertiesPanel({
 	props,
 	editable,
 	onChange,
 	onOpenTag,
 }: PanelProps) {
+	const [adding, setAdding] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [name, setName] = useState("");
 	const [type, setType] = useState<PropertyType>("text");
@@ -198,8 +212,7 @@ export function PropertiesPanel({
 	};
 
 	return (
-		<details className="props" open>
-			<summary>Properties</summary>
+		<section className="props" aria-label="Properties">
 			<div className="prop-row">
 				<span className="prop-name">Tags</span>
 				<Chips
@@ -241,42 +254,63 @@ export function PropertiesPanel({
 				</div>
 			))}
 			{editable && (
-				<form
-					className="prop-add"
-					onSubmit={(e) => {
-						e.preventDefault();
-						const made = addProperty(props, name, type);
-						apply(made);
-						if (made.ok) setName("");
-					}}
-				>
-					<input
-						aria-label="New property name"
-						placeholder="New property"
-						value={name}
-						onChange={(e) => setName(e.target.value)}
-					/>
-					<select
-						aria-label="New property type"
-						value={type}
-						onChange={(e) => setType(e.target.value as PropertyType)}
-					>
-						{PROPERTY_TYPES.map((t) => (
-							<option key={t} value={t}>
-								{TYPE_LABEL[t]}
-							</option>
-						))}
-					</select>
-					<Button size="sm" variant="secondary" type="submit">
-						Add property
-					</Button>
-				</form>
+				<Popover open={adding} onOpenChange={setAdding}>
+					<PopoverTrigger asChild>
+						<Button variant="ghost" size="sm" className="prop-add-trigger">
+							<Plus aria-hidden="true" /> Add property
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent align="start">
+						<form
+							className="prop-add"
+							onSubmit={(e) => {
+								e.preventDefault();
+								const made = addProperty(props, name, type);
+								apply(made);
+								if (made.ok) {
+									setName("");
+									setAdding(false);
+								}
+							}}
+						>
+							<input
+								aria-label="New property name"
+								placeholder="New property"
+								value={name}
+								onChange={(e) => setName(e.target.value)}
+							/>
+							<Select
+								value={type}
+								onValueChange={(value) => setType(value as PropertyType)}
+							>
+								<SelectTrigger aria-label="New property type">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{PROPERTY_TYPES.map((t) => (
+										<SelectItem key={t} value={t}>
+											{TYPE_LABEL[t]}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Button size="sm" variant="secondary" type="submit">
+								Add property
+							</Button>
+						</form>
+						{message && (
+							<p role="alert" className="notice">
+								{message}
+							</p>
+						)}
+					</PopoverContent>
+				</Popover>
 			)}
-			{message && (
+			{message && !adding && (
 				<p role="alert" className="notice">
 					{message}
 				</p>
 			)}
-		</details>
+		</section>
 	);
 }

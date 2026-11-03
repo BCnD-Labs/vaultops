@@ -3,11 +3,12 @@ import { expect, it } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "./AppShell";
 
-it("renders three regions, independent toggles, breadcrumb and placeholder tabs", () => {
+it("renders three regions, independent toggles, breadcrumb and note tools", () => {
 	const html = renderToStaticMarkup(
 		<TooltipProvider>
 			<AppShell
 				sidebar={<aside>Tree</aside>}
+				tools={<div>Note tools</div>}
 				vault="Vault"
 				path="Folder/Note.vnote"
 				title="Note"
@@ -23,9 +24,7 @@ it("renders three regions, independent toggles, breadcrumb and placeholder tabs"
 		'id="right"',
 		"Tree",
 		"Editor",
-		"Properties",
-		"Changes",
-		"Nothing here yet",
+		"Note tools",
 		"Folder",
 		"Note",
 		"Toggle left sidebar",

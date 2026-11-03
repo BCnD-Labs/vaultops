@@ -40,7 +40,7 @@ function DialogContent({
 			<DialogPrimitive.Content
 				data-slot="dialog-content"
 				className={cn(
-					"fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-background p-5 text-foreground shadow-lg outline-none",
+					"fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border-[length:var(--border-width)] border-border bg-background p-5 text-foreground shadow-lg outline-none",
 					className,
 				)}
 				{...props}
@@ -49,7 +49,7 @@ function DialogContent({
 				{showClose && (
 					<DialogPrimitive.Close
 						aria-label="Close"
-						className="absolute top-3 right-3 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+						className="absolute top-3 right-3 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/40"
 					>
 						<X className="size-4" />
 					</DialogPrimitive.Close>

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 // Compact controls share the app palette and keyboard focus treatment.
 const buttonVariants = cva(
-	"inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-solid border-border font-medium font-sans transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.5]",
+	"inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border-[length:var(--border-width)] border-solid border-border font-medium font-sans transition-colors focus-visible:outline-[length:var(--focus-ring-width)] focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.5]",
 	{
 		variants: {
 			variant: {

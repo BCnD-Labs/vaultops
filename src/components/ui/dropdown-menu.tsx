@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 const content =
-	"z-50 min-w-40 overflow-hidden rounded-md border border-border bg-background p-1 text-foreground shadow-md";
+	"z-50 min-w-40 overflow-hidden rounded-md border-[length:var(--border-width)] border-border bg-background p-1 text-foreground shadow-md";
 const item =
 	"relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0";
 

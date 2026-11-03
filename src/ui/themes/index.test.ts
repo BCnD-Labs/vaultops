@@ -2,17 +2,25 @@ import { describe, expect, it, vi } from "vitest";
 import { applyTheme, loadThemeChoice, saveThemeChoice, themes } from "./index";
 
 describe("theme choice", () => {
-	it("registers both modes and applies each mode, including live CSS system mode", () => {
-		expect(themes[0].modes).toEqual(["light", "dark"]);
-		for (const mode of ["light", "dark", "system"] as const) {
-			const setAttribute = vi.fn();
-			applyTheme({ setAttribute }, { id: "default", mode });
-			expect(setAttribute.mock.calls).toEqual([
-				["data-theme", "default"],
-				["data-mode", mode],
+	it.each(themes)(
+		"registers and applies all modes for $id",
+		({ id, modes }) => {
+			expect(themes.map((theme) => theme.id)).toEqual([
+				"default",
+				"graphite",
+				"high-contrast",
 			]);
-		}
-	});
+			expect(modes).toEqual(["light", "dark"]);
+			for (const mode of ["light", "dark", "system"] as const) {
+				const setAttribute = vi.fn();
+				applyTheme({ setAttribute }, { id, mode });
+				expect(setAttribute.mock.calls).toEqual([
+					["data-theme", id],
+					["data-mode", mode],
+				]);
+			}
+		},
+	);
 	it("round trips choices and rejects invalid or corrupt stored values", () => {
 		let value = "";
 		const storage = {

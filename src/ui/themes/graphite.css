@@ -24,6 +24,17 @@
 	--size-small: 12px;
 	--size-title: 26px;
 	--size-heading: 16px;
+	--shell-frame: var(--neutral-2);
+	--shell-panel: var(--neutral-1);
+	--shell-border: var(--border);
+	--shell-border-width: 1px;
+	--shell-radius: var(--radius-2);
+	--shell-gap: 8px;
+	--rail-width: 44px;
+	--rail-icon-size: 18px;
+	--section-size: 11px;
+	--section-tracking: 0.1em;
+	--row-raised: var(--surface-container-high);
 	--background: var(--neutral-0);
 	--surface: var(--neutral-0);
 	--surface-container-low: var(--neutral-1);
@@ -87,6 +98,7 @@
 }
 :root[data-theme="graphite"][data-mode="dark"] {
 	color-scheme: dark;
+	--shell-frame: var(--neutral-0);
 	--seed-accent: #c7c2ba;
 	--neutral-0: #201f1d;
 	--neutral-1: #282623;
@@ -107,6 +119,7 @@
 @media (prefers-color-scheme: dark) {
 	:root[data-theme="graphite"][data-mode="system"] {
 		color-scheme: dark;
+		--shell-frame: var(--neutral-0);
 		--seed-accent: #c7c2ba;
 		--neutral-0: #201f1d;
 		--neutral-1: #282623;

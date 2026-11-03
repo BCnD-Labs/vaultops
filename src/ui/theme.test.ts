@@ -71,6 +71,10 @@ it.each(themes)("checks tokens and contrast for $id", ({ id }) => {
 				: tokens[key];
 		const pairs: [string, string][] = [
 			["foreground", "background"],
+			["foreground", "shell-panel"],
+			["muted-foreground", "shell-panel"],
+			["foreground", "shell-frame"],
+			["foreground", "row-raised"],
 			["muted-foreground", "background"],
 			["primary-foreground", "primary"],
 			["on-primary-container", "primary-container"],

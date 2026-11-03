@@ -1,5 +1,6 @@
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps, useContext, useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShellNavigation } from "./AppShell";
 import { PropertiesPanel } from "./PropertiesPanel";
 
 const TAB_KEY = "vaultops:note-tools-tab";
@@ -18,6 +19,16 @@ export function NoteTools({
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & { hasNote: boolean }) {
 	const [tab, setTab] = useState(loadTab);
+	const { changes } = useContext(ShellNavigation);
+	useEffect(() => {
+		if (!changes) return;
+		setTab("changes");
+		try {
+			localStorage.setItem(TAB_KEY, "changes");
+		} catch {
+			/* Storage is optional. */
+		}
+	}, [changes]);
 	return (
 		<Tabs
 			value={tab}

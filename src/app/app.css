@@ -208,11 +208,14 @@ body {
 }
 
 .app-shell {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: var(--rail-width) minmax(0, 1fr);
+	grid-template-rows: 36px minmax(0, 1fr);
+	padding: 0 var(--shell-gap) var(--shell-gap) 0;
+	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;
-	background: var(--surface);
+	background: var(--shell-frame);
 }
 
 .shell-bar {
@@ -221,7 +224,7 @@ body {
 	align-items: center;
 	flex: 0 0 36px;
 	padding-inline: 8px;
-	border-bottom: var(--border-width) solid var(--surface-container);
+	grid-column: 2;
 }
 
 .shell-toggle {
@@ -229,10 +232,10 @@ body {
 	grid-row: 1;
 }
 
-.shell-toggle-left {
+.shell-bar .shell-toggle-left {
 	grid-column: 1;
 }
-.shell-toggle-right {
+.shell-bar .shell-toggle-right {
 	grid-column: 3;
 }
 
@@ -263,11 +266,79 @@ body {
 }
 
 .shell-regions {
-	flex: 1;
+	grid-column: 2;
 	min-height: 0;
 }
 .shell-regions > [data-slot="resizable-handle"] {
-	background: var(--surface-container);
+	width: var(--shell-gap);
+	background: var(--shell-frame);
+}
+.shell-regions > [data-slot="resizable-panel"] {
+	border: var(--shell-border-width) solid var(--shell-border);
+	border-radius: var(--shell-radius);
+	background: var(--shell-panel);
+	box-sizing: border-box;
+}
+.shell-side {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+.shell-side .sidebar {
+	flex: 1;
+	background: var(--shell-panel);
+}
+.shell-pane-bar {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 4px;
+}
+.shell-toggle {
+	color: var(--muted-foreground);
+}
+.icon-rail {
+	grid-column: 1;
+	grid-row: 1 / -1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--shell-gap);
+	padding-block: var(--shell-gap);
+}
+.rail-item {
+	color: var(--muted-foreground);
+}
+.rail-item svg {
+	width: var(--rail-icon-size);
+	height: var(--rail-icon-size);
+}
+.rail-item[aria-current="page"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.rail-item[aria-current="page"]::before {
+	content: "";
+	position: absolute;
+	inset: 4px auto 4px 0;
+	width: var(--focus-ring-width);
+	background: var(--primary);
+}
+.rail-item[aria-disabled="true"] {
+	cursor: default;
+}
+.rail-settings {
+	margin-top: auto;
+}
+.section-label {
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+	color: var(--muted-foreground);
+	padding: 6px 8px;
+}
+.shell-pane-bar .section-label {
+	margin-right: auto;
 }
 .shell-editor {
 	display: flex;
@@ -276,7 +347,6 @@ body {
 .shell-right {
 	height: 100%;
 	overflow: auto;
-	background: var(--panel);
 }
 .shell-right aside {
 	padding: 8px;

@@ -29,6 +29,14 @@ it("renders three regions, independent toggles, breadcrumb and note tools", () =
 		"Note",
 		"Toggle left sidebar",
 		"Toggle right sidebar",
+		'aria-label="Workspace"',
+		'aria-label="Notes"',
+		'aria-label="Search"',
+		'aria-label="Tags"',
+		'aria-label="Changes"',
+		'aria-label="Settings"',
+		"Arrives with the command bar",
+		"Arrives with Settings",
 	])
 		expect(html).toContain(text);
 });

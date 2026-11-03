@@ -1,8 +1,27 @@
 // @vitest-environment happy-dom
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import type { Block } from "../core/note-format";
+import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { CanvasCard } from "./CanvasCard";
+
+afterEach(cleanup);
+
+it("starts a canvas block drag with stable identifiers", () => {
+	const root: Block = { id: "card", type: "paragraph", parent: null };
+	const { container } = render(
+		<CanvasCard root={root} blocks={[root]} canvasId="canvas" draggable />,
+	);
+	const transfer = new DataTransfer();
+	fireEvent.dragStart(container.querySelector("article") as Element, {
+		dataTransfer: transfer,
+	});
+	expect(JSON.parse(transfer.getData(BLOCK_DRAG_TYPE))).toEqual({
+		noteId: "canvas",
+		blockId: "card",
+	});
+});
 
 it.each([
 	["heading", "strong", "Heading"],

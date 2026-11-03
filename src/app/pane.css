@@ -92,16 +92,20 @@
 .canvas-heading {
 	font-size: var(--font-size-title);
 }
-.canvas-return {
-	display: block;
-	margin-top: 8px;
-	padding: 3px 0 0;
+.canvas-menu {
+	position: absolute;
+	top: 4px;
+	right: 4px;
 	border: 0;
-	border-top: var(--border-width) solid var(--line);
-	background: transparent;
+	border-radius: var(--radius-control);
+	background: var(--surface);
 	color: var(--muted-foreground);
-	font-size: var(--font-size-small);
 	cursor: pointer;
+	opacity: 0;
+}
+.canvas-card:hover .canvas-menu,
+.canvas-menu:focus-visible {
+	opacity: 1;
 }
 .canvas-pane .react-flow__controls {
 	box-shadow: var(--elevation-1);

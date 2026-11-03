@@ -49,6 +49,11 @@ interface NotePaneProps {
 	notice: string | null;
 	onTitleChange: (title: string) => void;
 	onDocChange: (doc: JSONContent) => void;
+	onDropBlock?: (
+		blockId: string,
+		canvasId: string,
+		after: string | null,
+	) => Promise<void>;
 	onRetry: () => void;
 	onLoadDisk: () => void;
 	onSaveCopy: () => void;
@@ -86,6 +91,7 @@ export function NotePane({
 	notice,
 	onTitleChange,
 	onDocChange,
+	onDropBlock,
 	onRetry,
 	onLoadDisk,
 	onSaveCopy,
@@ -204,6 +210,7 @@ export function NotePane({
 					setDoc(next);
 					onDocChange(next);
 				}}
+				onDropBlock={onDropBlock}
 			/>
 			<NoteDetails
 				path={path ?? opened.path}

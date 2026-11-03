@@ -7,10 +7,11 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { type DragEvent, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { parseNote } from "../core/note-format";
+import { parseNote, serializeNote } from "../core/note-format";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { MemoryHost } from "../host/memory-host";
@@ -18,19 +19,38 @@ import { App } from "./App";
 import { loadVault } from "./session";
 
 let dragNoteId = "";
+let dragCanvasId = "";
 
 vi.mock("../editor/NoteEditor", () => ({
 	NoteEditor: ({
 		doc,
 		onChange,
+		onDropBlock,
 	}: {
 		doc: JSONContent;
 		onChange: (doc: JSONContent) => void;
+		onDropBlock: (
+			blockId: string,
+			canvasId: string,
+			after: string | null,
+		) => Promise<void>;
 	}) => {
 		const [initial] = useState(doc);
 		return (
 			<div>
 				<output data-testid="editor-blocks">{JSON.stringify(initial)}</output>
+				<button
+					type="button"
+					onClick={() => void onDropBlock("block", dragCanvasId, "before")}
+				>
+					Drop between blocks
+				</button>
+				<button
+					type="button"
+					onClick={() => void onDropBlock("block", dragCanvasId, null)}
+				>
+					Drop at end
+				</button>
 				<button
 					type="button"
 					onClick={() =>
@@ -106,6 +126,7 @@ async function setup(readOnly = false) {
 	});
 	const canvas = await createCanvas(host, "", "Board");
 	dragNoteId = note.note.header.noteId;
+	dragCanvasId = canvas.note.header.noteId;
 	if (readOnly)
 		await host.writeTextAtomic(
 			note.path,
@@ -219,4 +240,148 @@ it("refuses a drop from a read-only note", async () => {
 		"block",
 	);
 	expect(parseNote(await host.readText(canvas.path)).note?.blocks).toEqual([]);
+});
+
+it("moves a canvas card between note blocks, keeps its id, and reloads both panes", async () => {
+	const { host, note, canvas } = await setup();
+	const parsed = parseNote(await host.readText(note.path)).note;
+	if (!parsed) throw new Error("missing note");
+	parsed.blocks = [
+		{ id: "before", type: "paragraph", parent: null },
+		...parsed.blocks,
+		{ id: "after", type: "paragraph", parent: null },
+	];
+	await host.writeTextAtomic(note.path, serializeNote(parsed));
+	await openEditorAndCanvas(host);
+	fireEvent.click(screen.getByRole("button", { name: "Drop block" }));
+	await waitFor(async () =>
+		expect(
+			parseNote(await host.readText(canvas.path)).note?.blocks[0]?.id,
+		).toBe("block"),
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Drop between blocks" }));
+	await waitFor(async () => {
+		const saved = parseNote(await host.readText(note.path)).note;
+		expect(saved?.blocks.map((block) => block.id)).toEqual([
+			"before",
+			"block",
+			"item",
+			"child",
+			"after",
+		]);
+		expect(saved?.blocks[1]?.attrs).toBeUndefined();
+		expect(parseNote(await host.readText(canvas.path)).note?.blocks).toEqual(
+			[],
+		);
+		expect(screen.getByTestId("editor-blocks").textContent).toContain("block");
+	});
+	cleanup();
+	localStorage.clear();
+	await openEditorAndCanvas(host);
+	expect(screen.getByTestId("editor-blocks").textContent).toContain("block");
+	expect(
+		within(screen.getByRole("region", { name: "Canvas view" })).queryByText(
+			"Move me",
+		),
+	).toBeNull();
+});
+
+it("moves a card to the end through its menu", async () => {
+	const user = userEvent.setup();
+	const { host, note, canvas } = await setup();
+	await openEditorAndCanvas(host);
+	fireEvent.click(screen.getByRole("button", { name: "Drop block" }));
+	await user.click(await screen.findByRole("button", { name: "Card actions" }));
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Move to open note" }),
+	);
+	await waitFor(async () => {
+		expect(parseNote(await host.readText(note.path)).note?.blocks[0]?.id).toBe(
+			"block",
+		);
+		expect(parseNote(await host.readText(canvas.path)).note?.blocks).toEqual(
+			[],
+		);
+	});
+});
+
+it("refuses a canvas-to-note drop into a read-only note", async () => {
+	const { host, note, canvas } = await setup(true);
+	const board = parseNote(await host.readText(canvas.path)).note;
+	if (!board) throw new Error("missing canvas");
+	board.blocks = [
+		{
+			id: "block",
+			type: "paragraph",
+			parent: null,
+			attrs: { x: 10, y: 20 },
+		},
+	];
+	await host.writeTextAtomic(canvas.path, serializeNote(board));
+	await openEditorAndCanvas(host);
+	fireEvent.click(screen.getByRole("button", { name: "Drop between blocks" }));
+	await waitFor(() =>
+		expect(screen.getByRole("alert").textContent).toContain("read-only"),
+	);
+	expect(parseNote(await host.readText(canvas.path)).note?.blocks[0]?.id).toBe(
+		"block",
+	);
+	expect(parseNote(await host.readText(note.path)).note?.blocks[0]?.id).toBe(
+		"block",
+	);
+});
+
+it("keeps both copies visible if removing the canvas copy fails", async () => {
+	const { host, note, canvas } = await setup();
+	await openEditorAndCanvas(host);
+	fireEvent.click(screen.getByRole("button", { name: "Drop block" }));
+	await screen.findByRole("button", { name: "Card actions" });
+	const write = vi.spyOn(host, "writeTextAtomic");
+	write.mockImplementation(async (path, text) => {
+		if (path === canvas.path) throw new Error("disk full");
+		return MemoryHost.prototype.writeTextAtomic.call(host, path, text);
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Drop at end" }));
+	await waitFor(() =>
+		expect(screen.getByRole("alert").textContent).toContain("both files"),
+	);
+	expect(parseNote(await host.readText(note.path)).note?.blocks[0]?.id).toBe(
+		"block",
+	);
+	expect(parseNote(await host.readText(canvas.path)).note?.blocks[0]?.id).toBe(
+		"block",
+	);
+	expect(screen.getByTestId("editor-blocks").textContent).toContain("block");
+	expect(
+		within(screen.getByRole("region", { name: "Canvas view" })).getByText(
+			"Move me",
+		),
+	).toBeTruthy();
+});
+
+it("refuses a return when unsaved note edits cannot be saved", async () => {
+	const { host, note, canvas } = await setup();
+	await openEditorAndCanvas(host);
+	fireEvent.click(screen.getByRole("button", { name: "Drop block" }));
+	await screen.findByRole("button", { name: "Card actions" });
+	const write = vi.spyOn(host, "writeTextAtomic");
+	write.mockImplementation(async (path, text) => {
+		if (path === note.path) throw new Error("disk full");
+		return MemoryHost.prototype.writeTextAtomic.call(host, path, text);
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
+	fireEvent.click(screen.getByRole("button", { name: "Drop at end" }));
+	await waitFor(() =>
+		expect(
+			screen
+				.getAllByRole("alert")
+				.some((alert) =>
+					alert.textContent?.includes("Save the note before moving"),
+				),
+		).toBe(true),
+	);
+	expect(parseNote(await host.readText(canvas.path)).note?.blocks[0]?.id).toBe(
+		"block",
+	);
+	expect(parseNote(await host.readText(note.path)).note?.blocks).toEqual([]);
 });

@@ -110,6 +110,10 @@ export function useAutosave(
 	);
 	const peek = useCallback(() => current.current?.peek() ?? null, []);
 	const discard = useCallback(() => current.current?.discard(), []);
+	const failureReason = useCallback(() => {
+		const state = current.current?.getState();
+		return state?.kind === "failed" ? state.reason : null;
+	}, []);
 	const change = useCallback((draft: Draft) => {
 		current.current?.change(draft);
 	}, []);
@@ -127,5 +131,5 @@ export function useAutosave(
 		};
 	}, [flush]);
 
-	return { state, change, flush, retry, peek, discard };
+	return { state, change, flush, retry, peek, discard, failureReason };
 }

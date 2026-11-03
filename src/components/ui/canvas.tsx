@@ -41,14 +41,14 @@ function Surface({
 			}
 			onNodeDragStop={(_, node) => onMove(node.id, node.position)}
 			onDragOver={(event) => {
-				if (!event.dataTransfer.types.includes("application/x-vaultops-block"))
-					return;
 				event.preventDefault();
-				event.dataTransfer.dropEffect = "move";
+				event.dataTransfer.dropEffect = event.dataTransfer.types.includes(
+					"application/x-vaultops-block",
+				)
+					? "move"
+					: "none";
 			}}
 			onDrop={(event) => {
-				if (!event.dataTransfer.types.includes("application/x-vaultops-block"))
-					return;
 				event.preventDefault();
 				onDropBlock?.(
 					event,

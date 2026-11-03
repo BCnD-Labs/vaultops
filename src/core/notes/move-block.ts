@@ -54,7 +54,7 @@ export async function moveBlock(
 		await host.writeTextAtomic(source, sourceSave.text);
 	} catch (error) {
 		throw new Error(
-			"The destination was saved, but the source was not. The block exists in two places.",
+			`The block was saved to ${destination}, but could not be removed from ${source}. It exists in both files.`,
 			{ cause: error },
 		);
 	}

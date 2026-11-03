@@ -72,6 +72,7 @@ export function App({ host }: { host: Host }) {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
+	const [editorRevision, setEditorRevision] = useState(0);
 	const [canvasPath, setCanvasPath] = useState<string | null>(null);
 	const [canvasRefresh, setCanvasRefresh] = useState(0);
 	const [defaultCanvasLayout] = useState(canvasLayout);
@@ -229,6 +230,7 @@ export function App({ host }: { host: Host }) {
 				setConfirmEditing(false);
 				setScreen("note");
 				setOpened(next);
+				setEditorRevision((revision) => revision + 1);
 				if (vault) lastNotes.current.set(vault, path);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
@@ -686,6 +688,7 @@ export function App({ host }: { host: Host }) {
 								trash={trash}
 								confirmDelete={confirmDelete}
 								opened={opened}
+								editorRevision={editorRevision}
 								liveDoc={docRef.current}
 								title={title}
 								titleInput={titleInput}
@@ -743,19 +746,26 @@ export function App({ host }: { host: Host }) {
 											onNew={() => void startCanvas()}
 											onClose={() => selectCanvas(null)}
 											onDropBlock={async (blockId, noteId, position) => {
+												if (!writable)
+													throw new Error(
+														"This vault is read-only, so the block was not moved.",
+													);
+												if (opened && !opened.editable)
+													throw new Error(
+														opened.notice ??
+															"This note is read-only, so the block was not moved.",
+													);
 												if (
-													!opened?.editable ||
-													!opened.note ||
+													!opened?.note ||
 													opened.note.header.kind === "canvas" ||
-													opened.note.header.noteId !== noteId ||
-													!writable
+													opened.note.header.noteId !== noteId
 												)
 													throw new Error(
 														"Open the source note before moving this block.",
 													);
 												if (!(await settle()))
 													throw new Error(
-														"Save the note before moving a block.",
+														`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
 													);
 												const source = livePathRef.current ?? opened.path;
 												await moveBlock(
@@ -773,7 +783,7 @@ export function App({ host }: { host: Host }) {
 													? async (blockId) => {
 															if (!(await settle()))
 																throw new Error(
-																	"Save the note before moving a block.",
+																	`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
 																);
 															const destination =
 																livePathRef.current ?? opened.path;

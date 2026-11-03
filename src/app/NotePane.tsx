@@ -36,6 +36,7 @@ interface NotePaneProps {
 	trash: TrashedNote[];
 	confirmDelete: string | null;
 	opened: OpenedNote | null;
+	liveDoc?: JSONContent | null;
 	title: string;
 	props: Props | null;
 	path: string | null;
@@ -71,6 +72,7 @@ export function NotePane({
 	trash,
 	confirmDelete,
 	opened,
+	liveDoc,
 	title,
 	props,
 	path,
@@ -95,8 +97,8 @@ export function NotePane({
 	onDelete,
 	onOpen,
 }: NotePaneProps) {
-	const [doc, setDoc] = useState(opened?.doc);
-	useEffect(() => setDoc(opened?.doc), [opened?.doc]);
+	const [doc, setDoc] = useState(liveDoc ?? opened?.doc);
+	useEffect(() => setDoc(liveDoc ?? opened?.doc), [opened?.doc, liveDoc]);
 	const editor = opened && (
 		<>
 			<input
@@ -193,7 +195,7 @@ export function NotePane({
 				))}
 			<NoteEditor
 				key={opened.path}
-				doc={opened.doc}
+				doc={liveDoc ?? opened.doc}
 				noteId={opened.note?.header.noteId}
 				editable={opened.editable}
 				onChange={(next) => {
@@ -267,11 +269,7 @@ export function NotePane({
 				<HealthScreen report={view.report} onOpen={onOpen} />
 			)}
 			{screen === "note" && canvas && (
-				<section className="empty-pane" aria-label="Canvas view">
-					<h2>{title}</h2>
-					<p>Canvas view arrives next</p>
-					{notice && <p role="status">{notice}</p>}
-				</section>
+				<p className="empty-pane">Pick a note to edit beside the canvas.</p>
 			)}
 			{screen === "note" && !canvas && editor}
 			{screen === "note" && !opened && view && view.status !== "none" && (

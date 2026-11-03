@@ -194,6 +194,7 @@ export function NotePane({
 			<NoteEditor
 				key={opened.path}
 				doc={opened.doc}
+				noteId={opened.note?.header.noteId}
 				editable={opened.editable}
 				onChange={(next) => {
 					setDoc(next);

@@ -10,6 +10,33 @@
 	overflow-wrap: anywhere;
 }
 
+.block-drag-handle [data-slot="button"] {
+	color: var(--muted-foreground);
+	background: var(--surface);
+	box-shadow: var(--elevation-1);
+}
+
+.block-drag-handle [data-slot="button"]:hover {
+	color: var(--foreground);
+	background: var(--accent);
+}
+
+.block-drag-preview {
+	position: absolute;
+	top: -10000px;
+	max-width: var(--editor-width);
+	padding: 0.4rem 0.7rem;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	color: var(--foreground);
+	box-shadow: var(--elevation-2);
+	font: var(--editor-font-size) var(--font-editor);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .note-editor .ProseMirror > * + * {
 	margin-top: 0.6rem;
 }

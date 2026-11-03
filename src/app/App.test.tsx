@@ -97,6 +97,11 @@ it("filters direct folder children, creates there, and preserves All notes when 
 	await user.click(screen.getByRole("button", { name: /^Class/ }));
 	const list = () =>
 		container.querySelector('[aria-label="Notes list"]') as HTMLElement;
+	const search = screen.getByRole("textbox", { name: "Search notes" });
+	await user.type(search, "no match");
+	expect(list().textContent).toContain("No notes match.");
+	await user.keyboard("{Escape}");
+	expect((search as HTMLInputElement).value).toBe("");
 	expect(list().textContent).toContain("Lecture");
 	expect(list().textContent).not.toContain("Nested");
 	expect(list().textContent).not.toContain("Root");
@@ -118,6 +123,15 @@ it("filters direct folder children, creates there, and preserves All notes when 
 	);
 	expect(list().textContent).toContain("Nested");
 	expect(list().textContent).toContain("All notes");
+	await user.click(screen.getByRole("button", { name: "Sort notes" }));
+	await user.click(
+		screen.getByRole("menuitemradio", { name: "Name (Z to A)" }),
+	);
+	expect(
+		[...list().querySelectorAll(".note-row-title")].map((n) => n.textContent),
+	).toEqual(["Untitled", "Root", "Nested", "Lecture"]);
+	expect(localStorage.getItem("vaultops:note-sort")).toBe("name-desc");
+
 	await user.click(screen.getByRole("button", { name: "Side by side" }));
 	expect(screen.getByRole("button", { name: "Stacked" })).toBeTruthy();
 	expect(

@@ -8,6 +8,7 @@ import type { Host } from "../host/host";
 export interface NoteRow {
 	path: string;
 	title: string;
+	preview: string;
 	readOnly: boolean;
 	/** Tags from the note's `tags` list property. */
 	tags: string[];
@@ -27,7 +28,10 @@ export interface VaultView {
 }
 
 /** Notes by title, ignoring case; the path settles ties. */
-export function compareRows(a: NoteRow, b: NoteRow): number {
+export function compareRows(
+	a: Pick<NoteRow, "title" | "path">,
+	b: Pick<NoteRow, "title" | "path">,
+): number {
 	return (
 		a.title.toLowerCase().localeCompare(b.title.toLowerCase()) ||
 		a.path.localeCompare(b.path)
@@ -80,6 +84,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			title:
 				typeof n.note.header.title === "string" ? n.note.header.title : n.path,
 			readOnly: n.readOnly,
+			preview: n.preview,
 			tags: tagsOf(headerProps(n.note.header)),
 		}))
 		.sort(compareRows);

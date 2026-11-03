@@ -13,10 +13,17 @@ const view: VaultView = {
 	report: [],
 	folders: ["Class", "Empty"],
 	notes: [
-		{ path: "Root.vnote", title: "Root note", tags: [], readOnly: false },
+		{
+			path: "Root.vnote",
+			title: "Root note",
+			preview: "",
+			tags: [],
+			readOnly: false,
+		},
 		{
 			path: "Class/A.vnote",
 			title: "Class note",
+			preview: "",
 			tags: ["Work"],
 			readOnly: true,
 		},

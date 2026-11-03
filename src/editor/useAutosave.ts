@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { headerProps } from "../core/notes/properties";
+import { previewOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
@@ -14,6 +15,7 @@ export interface SavedInfo {
 	oldPath: string;
 	path: string;
 	title: string;
+	preview: string;
 	titleChanged: boolean;
 	/** The note's tags as saved. */
 	tags: string[];
@@ -80,6 +82,7 @@ export function useAutosave(
 					oldPath,
 					path: result.path,
 					title: draft.title,
+					preview: previewOf(result.note.blocks),
 					titleChanged: result.titleChanged,
 					tags: tagsOf(headerProps(result.note.header)),
 					...(result.notice ? { notice: result.notice } : {}),

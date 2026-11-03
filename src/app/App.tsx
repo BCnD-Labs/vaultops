@@ -113,7 +113,13 @@ export function App({ host }: { host: Host }) {
 			const repaired = v.report.some(
 				(e) => e.path === info.oldPath && e.group === "truncated",
 			);
-			if (!info.titleChanged && sameTags && !repaired) return v;
+			if (
+				!info.titleChanged &&
+				sameTags &&
+				row.preview === info.preview &&
+				!repaired
+			)
+				return v;
 			return {
 				...v,
 				report: v.report.map((e) =>
@@ -133,7 +139,13 @@ export function App({ host }: { host: Host }) {
 				notes: v.notes
 					.map((n) =>
 						n.path === info.oldPath
-							? { ...n, path: info.path, title: info.title, tags: info.tags }
+							? {
+									...n,
+									path: info.path,
+									title: info.title,
+									tags: info.tags,
+									preview: info.preview,
+								}
 							: n,
 					)
 					.sort(compareRows),

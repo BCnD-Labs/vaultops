@@ -1,5 +1,5 @@
 import type { Host } from "../../host/host";
-import type { Note } from "../note-format";
+import type { Block, JsonValue, Note } from "../note-format";
 import { isInsideVaultOps } from "../vault/vault";
 import { listNotes, loadNote } from "./repository";
 
@@ -8,6 +8,7 @@ export type NoteHealth = "good" | "truncated" | "newer-format" | "corrupt";
 export interface ScannedNote {
 	path: string;
 	note: Note;
+	preview: string;
 	/** Damaged, newer or duplicated notes must not be rewritten automatically. */
 	readOnly: boolean;
 }
@@ -67,6 +68,7 @@ export async function scanVault(host: Host): Promise<{
 			const scanned = {
 				path,
 				note: parsed.note,
+				preview: previewOf(parsed.note.blocks),
 				readOnly: entry.group !== "good",
 			};
 			notes.push(scanned);
@@ -100,4 +102,22 @@ export async function scanVault(host: Host): Promise<{
 		}
 	}
 	return { notes, report, folders };
+}
+
+/** Plain body text only; never include attributes, marks or block IDs. */
+export function previewOf(blocks: Block[]): string {
+	function text(value: JsonValue | undefined): string {
+		if (Array.isArray(value)) return value.map(text).join("");
+		if (!value || typeof value !== "object") return "";
+		if (value.type === "hardBreak") return " ";
+		if (value.type === "text" && typeof value.text === "string")
+			return value.text;
+		return text(value.content);
+	}
+	return blocks
+		.map((block) => text(block.content))
+		.join(" ")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, 160);
 }

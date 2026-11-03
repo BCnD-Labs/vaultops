@@ -5,6 +5,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
@@ -96,7 +97,12 @@ it("filters direct folder children, creates there, and preserves All notes when 
 	const user = userEvent.setup();
 	const { container } = render(<App host={host} />);
 	await screen.findByRole("textbox", { name: "Title" });
-	await user.click(screen.getByRole("button", { name: /^Class/ }));
+	await user.click(
+		within(screen.getByRole("region", { name: "Navigation" })).getByRole(
+			"button",
+			{ name: /^Class/ },
+		),
+	);
 	const list = () =>
 		container.querySelector('[aria-label="Notes list"]') as HTMLElement;
 	const search = screen.getByRole("textbox", { name: "Search notes" });
@@ -131,7 +137,7 @@ it("filters direct folder children, creates there, and preserves All notes when 
 	);
 	expect(
 		[...list().querySelectorAll(".note-row-title")].map((n) => n.textContent),
-	).toEqual(["Untitled", "Root", "Nested", "Lecture"]);
+	).toEqual(["Root", "Untitled", "Lecture", "Nested"]);
 	expect(localStorage.getItem("vaultops:note-sort")).toBe("name-desc");
 
 	await user.click(screen.getByRole("button", { name: "Side by side" }));

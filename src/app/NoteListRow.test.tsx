@@ -4,7 +4,7 @@ import { NoteListRow } from "./NoteListRow";
 import { noteSort } from "./note-sort";
 
 afterEach(() => vi.unstubAllGlobals());
-it("renders the selected row with preview, two plain tags, overflow and read-only status", () => {
+it("renders the selected row with preview, two tag chips, overflow and read-only status", () => {
 	const html = renderToStaticMarkup(
 		<NoteListRow
 			note={{
@@ -24,6 +24,7 @@ it("renders the selected row with preview, two plain tags, overflow and read-onl
 		'draggable="true"',
 		"Title",
 		"Body text",
+		'class="note-tag-chip"',
 		"#one",
 		"#two",
 		"+1",

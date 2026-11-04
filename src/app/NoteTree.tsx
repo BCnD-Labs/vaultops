@@ -3,6 +3,7 @@ import {
 	FileText,
 	Folder,
 	FolderPlus,
+	LayoutDashboard,
 	Pencil,
 	Trash2,
 } from "lucide-react";
@@ -43,6 +44,10 @@ interface Props {
 	foldersOnly?: boolean;
 	selectedFolder?: string;
 	onSelectFolder?: (path: string) => void;
+	/** Clicking a folder name also opens or closes it (plain tree layout). */
+	toggleOnSelect?: boolean;
+	/** Show every folder open, for a filtered tree whose matches must be visible. */
+	expandAll?: boolean;
 	header?: (create: () => void) => ReactNode;
 	children?: ReactNode;
 }
@@ -77,6 +82,8 @@ export function NoteTree({
 	foldersOnly = false,
 	selectedFolder,
 	onSelectFolder,
+	toggleOnSelect = false,
+	expandAll = false,
 	header,
 	children,
 }: Props) {
@@ -140,6 +147,8 @@ export function NoteTree({
 		foldersOnly,
 		selectedFolder,
 		onSelectFolder,
+		toggleOnSelect,
+		expandAll,
 		livePath,
 		busy,
 		editing,
@@ -197,6 +206,8 @@ interface Ctx {
 	foldersOnly: boolean;
 	selectedFolder?: string;
 	onSelectFolder?: (path: string) => void;
+	toggleOnSelect: boolean;
+	expandAll: boolean;
 	open: Set<string>;
 	livePath: string | null;
 	busy: boolean;
@@ -300,7 +311,11 @@ function Branch({
 							}}
 						>
 							<span className="tree-icon" aria-hidden="true" />
-							<FileText className="tree-icon" aria-hidden="true" />
+							{node.canvas ? (
+								<LayoutDashboard className="tree-icon" aria-hidden="true" />
+							) : (
+								<FileText className="tree-icon" aria-hidden="true" />
+							)}
 							<span className="tree-name">{node.name}</span>
 							{node.readOnly && (
 								<span className="read-only-tag">read-only</span>
@@ -316,7 +331,7 @@ function Branch({
 }
 
 function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
-	const isOpen = ctx.open.has(node.path);
+	const isOpen = ctx.expandAll || ctx.open.has(node.path);
 	const renaming =
 		ctx.editing?.mode === "rename" && ctx.editing.path === node.path;
 	const notes = countNotes(node);
@@ -397,11 +412,13 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 					aria-expanded={isOpen}
 					draggable={!ctx.busy}
 					aria-current={node.path === ctx.selectedFolder}
-					onClick={() =>
-						ctx.onSelectFolder
-							? ctx.onSelectFolder(node.path)
-							: ctx.onToggle(node.path)
-					}
+					onClick={() => {
+						if (!ctx.onSelectFolder) ctx.onToggle(node.path);
+						else {
+							ctx.onSelectFolder(node.path);
+							if (ctx.toggleOnSelect) ctx.onToggle(node.path);
+						}
+					}}
 					onDragStart={(e) => {
 						const item: DragItem = {
 							kind: "folder",

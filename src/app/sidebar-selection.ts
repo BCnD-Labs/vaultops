@@ -47,3 +47,21 @@ export function sidebarPreferences(next?: Preferences): Preferences {
 	}
 	return next ?? defaults;
 }
+
+export type SidebarMode = "tree" | "navigator";
+const modeKey = "vaultops:sidebar-mode";
+/**
+ * Which sidebar layout is shown: the plain folder tree (default) or the
+ * notebook-navigator style split of folders and a notes list. Pass a value to
+ * store it; storage that is unavailable or holds anything else gives the tree.
+ */
+export function sidebarMode(next?: SidebarMode): SidebarMode {
+	try {
+		if (next) localStorage.setItem(modeKey, next);
+		return (next ?? localStorage.getItem(modeKey)) === "navigator"
+			? "navigator"
+			: "tree";
+	} catch {
+		return next ?? "tree";
+	}
+}

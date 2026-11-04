@@ -4,6 +4,7 @@ import {
 	buildTree,
 	countNotes,
 	type FolderNode,
+	filterTree,
 	type TreeNode,
 } from "./tree";
 
@@ -107,5 +108,49 @@ describe("countNotes", () => {
 		expect(
 			countNotes({ kind: "folder", name: "E", path: "E", children: [] }),
 		).toBe(0);
+	});
+});
+
+describe("canvas rows and filtering", () => {
+	it("marks canvases and leaves plain notes unmarked", () => {
+		const tree = buildTree(
+			[],
+			[
+				{ path: "A.vnote", title: "A", readOnly: false },
+				{ path: "B.vnote", title: "B", readOnly: false, kind: "canvas" },
+			],
+		);
+		expect(tree).toEqual([
+			{ kind: "note", name: "A", path: "A.vnote", readOnly: false },
+			{
+				kind: "note",
+				name: "B",
+				path: "B.vnote",
+				readOnly: false,
+				canvas: true,
+			},
+		]);
+	});
+
+	it("keeps only matching notes and the folders that still hold one", () => {
+		const tree = buildTree(
+			["Empty"],
+			[
+				{ path: "Root.vnote", title: "Root", readOnly: false },
+				{ path: "A/B/Deep.vnote", title: "Deep", readOnly: false },
+				{ path: "A/Other.vnote", title: "Other", readOnly: false },
+			],
+		);
+		const kept = filterTree(tree, (path) => path === "A/B/Deep.vnote");
+		expect(kept).toHaveLength(1);
+		const a = kept[0] as FolderNode;
+		expect(a.path).toBe("A");
+		expect(a.children.map((c) => c.path)).toEqual(["A/B"]);
+		expect(filterTree(tree, () => false)).toEqual([]);
+		// Folders without any note ("Empty") are hidden while filtering.
+		expect(filterTree(tree, () => true).map((n) => n.path)).toEqual([
+			"A",
+			"Root.vnote",
+		]);
 	});
 });

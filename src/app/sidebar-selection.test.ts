@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
 	selectedNotes,
 	selectionForPath,
+	sidebarMode,
 	sidebarPreferences,
 } from "./sidebar-selection";
 
@@ -62,4 +63,31 @@ it("remembers layout and sizes and tolerates invalid or unavailable storage", ()
 	});
 	expect(sidebarPreferences().sizes).toEqual({ navigation: 50, notes: 50 });
 	expect(sidebarPreferences(preferences)).toEqual(preferences);
+});
+
+it("remembers the sidebar layout and defaults to the folder tree", () => {
+	const store = new Map<string, string>();
+	vi.stubGlobal("localStorage", {
+		getItem: (key: string) => store.get(key) ?? null,
+		setItem: (key: string, value: string) => store.set(key, value),
+	});
+	expect(sidebarMode()).toBe("tree");
+	expect(sidebarMode("navigator")).toBe("navigator");
+	expect(sidebarMode()).toBe("navigator");
+	expect(sidebarMode("tree")).toBe("tree");
+	store.set("vaultops:sidebar-mode", "something else");
+	expect(sidebarMode()).toBe("tree");
+});
+
+it("falls back to the tree when storage is unavailable", () => {
+	vi.stubGlobal("localStorage", {
+		getItem: () => {
+			throw new Error("disabled");
+		},
+		setItem: () => {
+			throw new Error("disabled");
+		},
+	});
+	expect(sidebarMode()).toBe("tree");
+	expect(sidebarMode("navigator")).toBe("navigator");
 });

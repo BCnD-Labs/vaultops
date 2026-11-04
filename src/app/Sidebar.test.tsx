@@ -34,8 +34,13 @@ it.each(["horizontal", "vertical"])(
 	"renders folder navigation and the selected notes in %s layout",
 	(orientation) => {
 		vi.stubGlobal("localStorage", {
-			getItem: () =>
-				JSON.stringify({ orientation, sizes: { navigation: 40, notes: 60 } }),
+			getItem: (key: string) =>
+				key === "vaultops:sidebar-mode"
+					? "navigator"
+					: JSON.stringify({
+							orientation,
+							sizes: { navigation: 40, notes: 60 },
+						}),
 		});
 		const out = renderToStaticMarkup(
 			<TooltipProvider>

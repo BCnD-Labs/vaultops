@@ -7,6 +7,8 @@ import {
 	FolderPlus,
 	HeartPulse,
 	LayoutDashboard,
+	ListTree,
+	PanelsTopLeft,
 	Rows2,
 	Search,
 	Trash2,
@@ -32,7 +34,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { matchesNote, sortNotes } from "../core/notes/list";
-import type { TreeNode } from "../core/notes/tree";
+import { filterTree, type TreeNode } from "../core/notes/tree";
 import { ShellNavigation } from "./AppShell";
 import { healthCount, healthLabel } from "./HealthScreen";
 import { NoteList } from "./NoteList";
@@ -42,6 +44,7 @@ import type { VaultView } from "./session";
 import {
 	type Selection,
 	selectedNotes,
+	sidebarMode,
 	sidebarPreferences,
 } from "./sidebar-selection";
 import { TagIndex } from "./TagBrowser";
@@ -120,6 +123,7 @@ export function Sidebar({
 		tagsSection.current.querySelector("summary")?.focus();
 	}, [tags]);
 	const [preferences, setPreferences] = useState(() => sidebarPreferences());
+	const [mode, setMode] = useState(() => sidebarMode());
 	const sizesRef = useRef(preferences.sizes);
 	const locked = busy || !view?.writable;
 	const [query, setQuery] = useState("");
@@ -136,6 +140,156 @@ export function Sidebar({
 			: selection.kind === "tag"
 				? `#${selection.value}`
 				: selection.value.split("/").pop() || view?.name || "Vault";
+
+	const vaultMenu = (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button type="button" className="vault-switch" disabled={busy}>
+					{view?.name ?? "VaultOps"}
+					<ChevronDown className="tree-icon" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent>
+				<DropdownMenuItem onSelect={onChooseVault}>
+					Choose vault…
+				</DropdownMenuItem>
+				{maintainer && (
+					<DropdownMenuItem onSelect={onShowMaintainer}>
+						Developer
+					</DropdownMenuItem>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+	const footer = view && view.status !== "none" && (
+		<footer>
+			<button
+				type="button"
+				className="sidebar-row"
+				disabled={busy}
+				onClick={() => onNavigate("trash")}
+			>
+				<Trash2 className="tree-icon" />
+				Trash
+			</button>
+			<button
+				type="button"
+				className="sidebar-row"
+				disabled={busy}
+				aria-label={healthLabel(view.report)}
+				onClick={() => onNavigate("health")}
+			>
+				<HeartPulse className="tree-icon" />
+				Health
+				<span className="sidebar-count">{healthCount(view.report) || ""}</span>
+			</button>
+		</footer>
+	);
+	const notices = (
+		<>
+			{view?.messages.map((message) => (
+				<p key={message} className="notice">
+					{message}
+				</p>
+			))}
+			{treeNotice && (
+				<p role="status" className="notice">
+					{treeNotice}
+				</p>
+			)}
+		</>
+	);
+	const modeToggle = (
+		<IconAction
+			label={mode === "tree" ? "Notebook navigator view" : "Folder tree view"}
+			onClick={() =>
+				setMode(sidebarMode(mode === "tree" ? "navigator" : "tree"))
+			}
+		>
+			{mode === "tree" ? <PanelsTopLeft /> : <ListTree />}
+		</IconAction>
+	);
+	if (mode === "tree") {
+		const picked =
+			selection.kind === "tag"
+				? new Set(
+						selectedNotes(view?.notes ?? [], selection).map((n) => n.path),
+					)
+				: null;
+		const folder = selection.kind === "folder" ? selection.value : "";
+		return (
+			<aside className="sidebar" aria-label="Vault navigation">
+				<section className="sidebar-pane" aria-label="Folders and notes">
+					<NoteTree
+						newFolderRequest={newFolder}
+						nodes={picked ? filterTree(tree, (path) => picked.has(path)) : tree}
+						livePath={livePath}
+						onOpen={onOpen}
+						actions={treeActions}
+						busy={locked}
+						selectedFolder={
+							selection.kind === "folder" ? selection.value : undefined
+						}
+						onSelectFolder={(value) => onSelection({ kind: "folder", value })}
+						toggleOnSelect
+						expandAll={picked !== null}
+						header={(create) => (
+							<>
+								<header className="sidebar-header">
+									{vaultMenu}
+									<IconAction
+										label="New folder"
+										disabled={locked}
+										onClick={create}
+									>
+										<FolderPlus />
+									</IconAction>
+									<IconAction
+										label="New canvas"
+										disabled={locked}
+										onClick={() => onStartCanvas?.(folder)}
+									>
+										<LayoutDashboard />
+									</IconAction>
+									<IconAction
+										label="New note"
+										disabled={locked}
+										onClick={() => onStartNote(folder)}
+									>
+										<FilePlus />
+									</IconAction>
+									{modeToggle}
+								</header>
+								<div className="section-label">Notes</div>
+								{selection.kind === "tag" && (
+									<Button
+										variant="secondary"
+										size="sm"
+										aria-label={`Clear tag filter #${selection.value}`}
+										onClick={() => onSelection({ kind: "all" })}
+									>
+										[#{selection.value} ×]
+									</Button>
+								)}
+							</>
+						)}
+					>
+						<details open>
+							<summary className="section-label">Tags</summary>
+							<TagIndex
+								rows={view?.notes ?? []}
+								active={selection.kind === "tag" ? selection.value : null}
+								onPick={(value) => onSelection({ kind: "tag", value })}
+							/>
+						</details>
+					</NoteTree>
+					{footer}
+				</section>
+				{notices}
+			</aside>
+		);
+	}
+
 	return (
 		<aside className="sidebar" aria-label="Vault navigation">
 			<ResizablePanelGroup
@@ -164,28 +318,7 @@ export function Sidebar({
 							header={(create) => (
 								<>
 									<header className="sidebar-header">
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<button
-													type="button"
-													className="vault-switch"
-													disabled={busy}
-												>
-													{view?.name ?? "VaultOps"}
-													<ChevronDown className="tree-icon" />
-												</button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent>
-												<DropdownMenuItem onSelect={onChooseVault}>
-													Choose vault…
-												</DropdownMenuItem>
-												{maintainer && (
-													<DropdownMenuItem onSelect={onShowMaintainer}>
-														Developer
-													</DropdownMenuItem>
-												)}
-											</DropdownMenuContent>
-										</DropdownMenu>
+										{vaultMenu}
 										<IconAction
 											label="New folder"
 											disabled={locked}
@@ -217,6 +350,7 @@ export function Sidebar({
 												<Rows2 />
 											)}
 										</IconAction>
+										{modeToggle}
 									</header>
 									<div className="section-label">Notes</div>
 									<button
@@ -243,32 +377,7 @@ export function Sidebar({
 								/>
 							</details>
 						</NoteTree>
-						{view && view.status !== "none" && (
-							<footer>
-								<button
-									type="button"
-									className="sidebar-row"
-									disabled={busy}
-									onClick={() => onNavigate("trash")}
-								>
-									<Trash2 className="tree-icon" />
-									Trash
-								</button>
-								<button
-									type="button"
-									className="sidebar-row"
-									disabled={busy}
-									aria-label={healthLabel(view.report)}
-									onClick={() => onNavigate("health")}
-								>
-									<HeartPulse className="tree-icon" />
-									Health
-									<span className="sidebar-count">
-										{healthCount(view.report) || ""}
-									</span>
-								</button>
-							</footer>
-						)}
+						{footer}
 					</section>
 				</ResizablePanel>
 				<ResizableHandle />
@@ -361,16 +470,7 @@ export function Sidebar({
 					</section>
 				</ResizablePanel>
 			</ResizablePanelGroup>
-			{view?.messages.map((message) => (
-				<p key={message} className="notice">
-					{message}
-				</p>
-			))}
-			{treeNotice && (
-				<p role="status" className="notice">
-					{treeNotice}
-				</p>
-			)}
+			{notices}
 		</aside>
 	);
 }

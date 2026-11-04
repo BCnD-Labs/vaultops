@@ -10,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { type DragEvent, useState } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { parseNote, serializeNote } from "../core/note-format";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
@@ -103,6 +103,11 @@ vi.mock("@/components/ui/canvas", () => ({
 	),
 }));
 
+// These tests drive the notebook-navigator layout (folders plus a notes list).
+beforeEach(() => {
+	localStorage.setItem("vaultops:sidebar-mode", "navigator");
+});
+
 afterEach(() => {
 	cleanup();
 	localStorage.clear();
@@ -178,6 +183,7 @@ it("saves unsaved edits, moves a list and its children, and updates both panes",
 	fireEvent.click(screen.getByRole("button", { name: "Close canvas" }));
 	cleanup();
 	localStorage.clear();
+	localStorage.setItem("vaultops:sidebar-mode", "navigator");
 	await openEditorAndCanvas(host);
 	expect(screen.getByTestId("editor-blocks").textContent).not.toContain(
 		"block",
@@ -286,6 +292,7 @@ it("moves a canvas card between note blocks, keeps its id, and reloads both pane
 	});
 	cleanup();
 	localStorage.clear();
+	localStorage.setItem("vaultops:sidebar-mode", "navigator");
 	await openEditorAndCanvas(host);
 	expect(screen.getByTestId("editor-blocks").textContent).toContain("block");
 	expect(

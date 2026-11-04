@@ -15,6 +15,8 @@ export const BLOCK_TYPES = [
 	"taskBlock",
 	"codeBlock",
 	"blockquote",
+	"callout",
+	"divider",
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];

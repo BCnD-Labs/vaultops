@@ -134,6 +134,17 @@
 	padding-left: 8px;
 	border-left: var(--border-width) solid var(--line);
 }
+.canvas-card hr {
+	margin: 4px 0;
+	border: 0;
+	border-top: var(--border-width) solid var(--editor-divider);
+}
+.canvas-card .callout {
+	padding: 4px 8px;
+	border-left: calc(var(--border-width) * 3) solid var(--callout-note-accent);
+	border-radius: var(--radius-control);
+	background: var(--callout-note-bg);
+}
 .canvas-card pre {
 	margin: 0;
 	white-space: pre-wrap;

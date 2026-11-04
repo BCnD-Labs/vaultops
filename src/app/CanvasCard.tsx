@@ -18,6 +18,7 @@ import {
 	setBlockDragImage,
 	setDragEffect,
 } from "../editor/block-drag";
+import { toneOf } from "../editor/callout";
 
 function inline(value: JsonValue | undefined): ReactNode {
 	if (!Array.isArray(value)) return null;
@@ -92,6 +93,23 @@ export function CanvasCard({
 						{content}
 						{nested}
 					</blockquote>
+				);
+			case "divider":
+				return <hr />;
+			case "callout":
+				return (
+					<div
+						className="callout"
+						data-tone={toneOf(
+							block.attrs &&
+								typeof block.attrs === "object" &&
+								!Array.isArray(block.attrs)
+								? block.attrs.tone
+								: undefined,
+						)}
+					>
+						{nested}
+					</div>
 				);
 			case "codeBlock":
 				return (

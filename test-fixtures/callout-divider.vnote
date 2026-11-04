@@ -1,0 +1,8 @@
+{"format":"vaultops-note","v":1,"noteId":"callouts-1"}
+{"id":"h1","type":"paragraph","parent":null,"content":[{"text":"Before the divider","type":"text"}]}
+{"id":"d1","type":"divider","parent":null}
+{"id":"c1","type":"callout","parent":null}
+{"id":"c1p","type":"paragraph","parent":"c1","content":[{"text":"A plain note callout","type":"text"}]}
+{"id":"c2","type":"callout","parent":null,"attrs":{"tone":"warning"}}
+{"id":"c2p1","type":"paragraph","parent":"c2","content":[{"text":"Careful, two lines","type":"text"}]}
+{"id":"c2p2","type":"paragraph","parent":"c2","content":[{"text":"in a warning callout","type":"text"}]}

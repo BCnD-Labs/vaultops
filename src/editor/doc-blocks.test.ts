@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
-import type { Block } from "../core/note-format";
+import { type Block, parseNote, serializeNote } from "../core/note-format";
 import { blocksToDoc, checkBlocks, docToBlocks } from "./doc-blocks";
 
 const text = (value: string, marks?: string[]): JSONContent => ({
@@ -82,6 +83,21 @@ const FIXTURE: Block[] = [
 		parent: "q",
 		content: [text("quoted")] as never,
 	},
+	{ id: "d", type: "divider", parent: null },
+	{ id: "co", type: "callout", parent: null },
+	{
+		id: "cop",
+		type: "paragraph",
+		parent: "co",
+		content: [text("plain note")] as never,
+	},
+	{ id: "ci", type: "callout", parent: null, attrs: { tone: "warning" } },
+	{
+		id: "cip",
+		type: "paragraph",
+		parent: "ci",
+		content: [text("careful")] as never,
+	},
 	{ id: "e", type: "paragraph", parent: null },
 ];
 
@@ -129,9 +145,16 @@ describe("document and blocks", () => {
 					attrs: { id: "c", language: null },
 					content: [text("x")],
 				},
+				{
+					type: "callout",
+					attrs: { id: "d", tone: "note" },
+					content: [{ type: "paragraph", attrs: { id: "e" } }],
+				},
 			],
 		});
 		expect(blocks.map((b) => b.attrs)).toEqual([
+			undefined,
+			undefined,
 			undefined,
 			undefined,
 			undefined,
@@ -213,5 +236,28 @@ describe("checkBlocks", () => {
 				},
 			]),
 		).not.toBeNull();
+	});
+});
+
+describe("divider and callout fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/callout-divider.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("reads, edits as a document, and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.type)).toEqual([
+			"paragraph",
+			"divider",
+			"callout",
+			"callout",
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
 	});
 });

@@ -12,6 +12,12 @@ describe("slash menu items", () => {
 			"Task",
 			"Code",
 			"Quote",
+			"Divider",
+			"Callout",
+			"Callout: info",
+			"Callout: tip",
+			"Callout: warning",
+			"Callout: danger",
 		]);
 		expect(SLASH_ITEMS.some((i) => /task list/i.test(i.label))).toBe(false);
 	});
@@ -30,6 +36,20 @@ describe("slash menu items", () => {
 		expect(filterSlashItems("list").map((i) => i.id)).toEqual([
 			"bullet",
 			"numbered",
+		]);
+	});
+
+	it("finds dividers and each callout tone by name or keyword", () => {
+		expect(filterSlashItems("hr").map((i) => i.id)).toEqual(["divider"]);
+		expect(filterSlashItems("callout").map((i) => i.id)).toEqual([
+			"callout-note",
+			"callout-info",
+			"callout-tip",
+			"callout-warning",
+			"callout-danger",
+		]);
+		expect(filterSlashItems("warn").map((i) => i.id)).toEqual([
+			"callout-warning",
 		]);
 	});
 

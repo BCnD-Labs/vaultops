@@ -48,6 +48,21 @@ export async function seedVault(): Promise<MemoryHost> {
 				"intro",
 				"Explore the folders, tags, properties, trash and vault health. Edit anything here; reloading the page resets this sample vault.",
 			),
+			{ id: "rule", type: "divider", parent: null },
+			{ id: "tip", type: "callout", parent: null, attrs: { tone: "tip" } },
+			text(
+				"tip-text",
+				"Type / to add a callout or a divider.",
+				"paragraph",
+				"tip",
+			),
+			{ id: "warn", type: "callout", parent: null, attrs: { tone: "warning" } },
+			text(
+				"warn-text",
+				"Click a callout's icon to change its type.",
+				"paragraph",
+				"warn",
+			),
 			text("read", "Read the class notes", "taskBlock"),
 			{
 				...text("done", "Set up a sample vault", "taskBlock"),

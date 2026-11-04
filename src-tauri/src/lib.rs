@@ -326,6 +326,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(window_state)
+        // Update checks run here in Rust, only when the Settings button asks (nothing
+        // at launch). The page's CSP still blocks its own network calls.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        // Only `restart` is granted to the page, after it has saved the open note.
+        .plugin(tauri_plugin_process::init())
         .manage(VaultState::default())
         .setup(|app| {
             // Reopen the last vault. If it moved or is gone, start with none.

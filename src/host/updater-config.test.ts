@@ -19,7 +19,12 @@ it("checks for updates only on this repo's GitHub Releases, over https", () => {
 	expect(updater?.endpoints).toEqual([
 		"https://github.com/BCnD-Labs/vaultops/releases/latest/download/latest.json",
 	]);
-	expect(typeof updater?.pubkey).toBe("string");
+	// The public key is base64 of a minisign public key file (never the private key).
+	const decoded = Buffer.from(updater?.pubkey ?? "", "base64").toString("utf8");
+	expect(decoded.startsWith("untrusted comment: minisign public key")).toBe(
+		true,
+	);
+	expect(decoded).not.toMatch(/secret key/i);
 });
 
 it("keeps updater artifacts out of the base config so a plain build needs no signing key", () => {

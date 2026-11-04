@@ -15,6 +15,7 @@ import {
 	within,
 } from "../core/notes/folders";
 import { moveBlock } from "../core/notes/move-block";
+import { type OutlineItem, outlineOf } from "../core/notes/outline";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { moveNote } from "../core/notes/rename";
 import { type TextStats, textStats } from "../core/notes/text-stats";
@@ -137,13 +138,14 @@ export function App({ host }: { host: Host }) {
 	// Counts for the status bar. Typing only schedules a recount, so a long
 	// note is counted once the writing pauses, never on every key.
 	const [stats, setStats] = useState<TextStats | null>(null);
+	const [outline, setOutline] = useState<OutlineItem[]>([]);
 	const statsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const refreshStats = () => {
 		clearTimeout(statsTimer.current);
-		statsTimer.current = setTimeout(
-			() => setStats(textStats(docRef.current)),
-			STATS_DELAY_MS,
-		);
+		statsTimer.current = setTimeout(() => {
+			setStats(textStats(docRef.current));
+			setOutline(outlineOf(docRef.current));
+		}, STATS_DELAY_MS);
 	};
 	useEffect(() => () => clearTimeout(statsTimer.current), []);
 	const titleRef = useRef("");
@@ -318,6 +320,7 @@ export function App({ host }: { host: Host }) {
 				});
 				docRef.current = next.doc;
 				setStats(textStats(next.doc));
+				setOutline(outlineOf(next.doc));
 				const text =
 					typeof next.note?.header.title === "string"
 						? next.note.header.title
@@ -815,6 +818,7 @@ export function App({ host }: { host: Host }) {
 					tools={
 						<NoteTools
 							key={opened?.path}
+							outline={outline}
 							hasNote={
 								screen === "note" &&
 								!!opened &&

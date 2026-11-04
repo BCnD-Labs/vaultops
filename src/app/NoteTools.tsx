@@ -6,15 +6,16 @@ import {
 	useState,
 } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { OutlineItem } from "../core/notes/outline";
 import { ShellNavigation } from "./AppShell";
+import { OutlinePanel } from "./OutlinePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 
 const TAB_KEY = "vaultops:note-tools-tab";
 function loadTab() {
 	try {
-		return localStorage.getItem(TAB_KEY) === "changes"
-			? "changes"
-			: "properties";
+		const saved = localStorage.getItem(TAB_KEY);
+		return saved === "changes" || saved === "outline" ? saved : "properties";
 	} catch {
 		return "properties";
 	}
@@ -22,8 +23,12 @@ function loadTab() {
 
 export function NoteTools({
 	hasNote,
+	outline = [],
 	...properties
-}: ComponentProps<typeof PropertiesPanel> & { hasNote: boolean }) {
+}: ComponentProps<typeof PropertiesPanel> & {
+	hasNote: boolean;
+	outline?: OutlineItem[];
+}) {
 	const [tab, setTab] = useState(loadTab);
 	const panel = useRef<HTMLElement>(null);
 	const { changes, propertyRequest, toolsVisible } =
@@ -75,6 +80,7 @@ export function NoteTools({
 		>
 			<TabsList aria-label="Note details">
 				<TabsTrigger value="properties">Properties</TabsTrigger>
+				<TabsTrigger value="outline">Outline</TabsTrigger>
 				<TabsTrigger value="changes">Changes</TabsTrigger>
 			</TabsList>
 			<TabsContent value="properties">
@@ -84,6 +90,13 @@ export function NoteTools({
 					</section>
 				) : (
 					<p>Open a note to see its properties.</p>
+				)}
+			</TabsContent>
+			<TabsContent value="outline">
+				{hasNote ? (
+					<OutlinePanel items={outline} />
+				) : (
+					<p>Open a note to see its outline.</p>
 				)}
 			</TabsContent>
 			<TabsContent value="changes">

@@ -123,6 +123,101 @@
 	opacity: 0.85;
 }
 
+.note-editor hr {
+	margin: 1rem 0;
+	border: 0;
+	border-top: var(--border-width) solid var(--editor-divider);
+}
+
+.note-editor hr.ProseMirror-selectednode {
+	outline: var(--border-width) solid var(--ring);
+	outline-offset: 0.35rem;
+}
+
+.note-editor .callout {
+	display: flex;
+	gap: 0.6rem;
+	margin: 0.6rem 0;
+	padding: 0.6rem 0.8rem;
+	border-radius: var(--radius-control);
+	border-left: calc(var(--border-width) * 3) solid var(--callout-note-accent);
+	background: var(--callout-note-bg);
+}
+
+.note-editor .callout-icon {
+	flex: none;
+	align-self: flex-start;
+	display: inline-flex;
+	padding: 0;
+	margin-top: 0.15rem;
+	border: 0;
+	background: none;
+	color: var(--callout-note-accent);
+	cursor: pointer;
+}
+
+.note-editor .callout-icon:disabled {
+	cursor: default;
+}
+
+.note-editor .callout-icon svg {
+	width: 1.1rem;
+	height: 1.1rem;
+}
+
+.note-editor .callout-body {
+	flex: 1;
+	min-width: 0;
+}
+
+.note-editor .callout-body p {
+	margin: 0;
+}
+
+.note-editor .callout-body p + p {
+	margin-top: 0.4rem;
+}
+
+.note-editor .callout[data-tone="info"],
+.canvas-card .callout[data-tone="info"] {
+	border-left-color: var(--callout-info-accent);
+	background: var(--callout-info-bg);
+}
+
+.note-editor .callout[data-tone="info"] .callout-icon {
+	color: var(--callout-info-accent);
+}
+
+.note-editor .callout[data-tone="tip"],
+.canvas-card .callout[data-tone="tip"] {
+	border-left-color: var(--callout-tip-accent);
+	background: var(--callout-tip-bg);
+}
+
+.note-editor .callout[data-tone="tip"] .callout-icon {
+	color: var(--callout-tip-accent);
+}
+
+.note-editor .callout[data-tone="warning"],
+.canvas-card .callout[data-tone="warning"] {
+	border-left-color: var(--callout-warning-accent);
+	background: var(--callout-warning-bg);
+}
+
+.note-editor .callout[data-tone="warning"] .callout-icon {
+	color: var(--callout-warning-accent);
+}
+
+.note-editor .callout[data-tone="danger"],
+.canvas-card .callout[data-tone="danger"] {
+	border-left-color: var(--callout-danger-accent);
+	background: var(--callout-danger-bg);
+}
+
+.note-editor .callout[data-tone="danger"] .callout-icon {
+	color: var(--callout-danger-accent);
+}
+
 .note-editor pre {
 	padding: 0.6rem 0.8rem;
 	border-radius: var(--radius-control);

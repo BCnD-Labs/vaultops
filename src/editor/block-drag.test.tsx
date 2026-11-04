@@ -77,6 +77,12 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 		attrs: { id: "quote" },
 		content: [paragraph("qp", "Quote")],
 	},
+	callout: {
+		type: "callout",
+		attrs: { id: "callout", tone: "info" },
+		content: [paragraph("cp", "Callout")],
+	},
+	divider: { type: "divider", attrs: { id: "divider" } },
 };
 
 afterEach(() => cleanup());

@@ -43,7 +43,7 @@ describe("block schema", () => {
 		}
 	});
 
-	it("has no horizontal rule, table or database block yet", () => {
+	it("has no stock horizontal rule, table or database block yet", () => {
 		for (const name of ["horizontalRule", "table", "databaseBlock"]) {
 			expect(schema.nodes[name]).toBeUndefined();
 		}

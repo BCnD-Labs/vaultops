@@ -1,4 +1,5 @@
 import type { Editor, Range } from "@tiptap/core";
+import { CALLOUT_TONES } from "./callout";
 
 export interface SlashItem {
 	id: string;
@@ -65,6 +66,23 @@ export const SLASH_ITEMS: SlashItem[] = [
 		keywords: ["blockquote", "cite"],
 		run: (e, r) => start(e, r).setBlockquote().run(),
 	},
+	{
+		id: "divider",
+		label: "Divider",
+		keywords: ["rule", "line", "hr", "separator"],
+		run: (e, r) =>
+			start(e, r)
+				.insertContent([{ type: "divider" }, { type: "paragraph" }])
+				.run(),
+	},
+	...CALLOUT_TONES.map(
+		(tone): SlashItem => ({
+			id: `callout-${tone}`,
+			label: tone === "note" ? "Callout" : `Callout: ${tone}`,
+			keywords: ["callout", "box", "admonition", tone],
+			run: (e, r) => start(e, r).wrapIn("callout", { tone }).run(),
+		}),
+	),
 ];
 
 /** Items whose label or keywords start with what was typed after the slash. */

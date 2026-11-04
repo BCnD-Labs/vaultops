@@ -37,13 +37,20 @@ export function useAutosave(
 	const savedRef = useRef(onSaved);
 	savedRef.current = onSaved;
 
+	// The note on screen right now, and the note `current` was made for. They
+	// differ between the render that shows a note and its effect below.
+	const shown = useRef(opened);
+	shown.current = opened;
+	const currentFor = useRef<OpenedNote | null>(null);
 	// An edit can arrive after a note is on screen but before the effect below
-	// has made its autosave. Keep it here and hand it over, so it is not lost.
-	const early = useRef<Draft | null>(null);
+	// has made its autosave. Keep it here, with the note it belongs to, and hand
+	// it to that note's autosave, so it is not lost or sent to another note.
+	const early = useRef<{ note?: OpenedNote | null; draft: Draft } | null>(null);
 
 	useEffect(() => {
 		if (!opened?.editable) {
 			current.current = null;
+			currentFor.current = null;
 			early.current = null;
 			setState(SAVED);
 			return;
@@ -96,16 +103,40 @@ export function useAutosave(
 			},
 		});
 		current.current = auto;
-		if (early.current) {
-			auto.change(early.current);
+		currentFor.current = opened;
+		if (
+			early.current &&
+			(early.current.note === undefined || early.current.note === opened)
+		) {
+			auto.change(early.current.draft);
 			early.current = null;
 		}
 		setState(auto.getState());
 		const unsubscribe = auto.subscribe(setState);
 		return () => {
 			unsubscribe();
-			auto.dispose();
-			if (current.current === auto) current.current = null;
+			if (current.current === auto) {
+				current.current = null;
+				currentFor.current = null;
+			}
+			const pending = auto.peek();
+			// In a batched `act()` scope, `rerender(next)` and `change(nextDraft)`
+			// can run `change` before `next` renders; `shown.current` is `next` by
+			// the time this cleanup runs. Hand such an edit to `next` instead of
+			// writing it into the previous note.
+			if (
+				pending !== null &&
+				shown.current &&
+				shown.current !== opened &&
+				pending.doc === shown.current.doc
+			) {
+				early.current = { note: shown.current, draft: pending };
+				auto.dispose();
+				return;
+			}
+			// Save anything still unsaved before stopping, so a switch never
+			// discards an edit.
+			void auto.flush().finally(() => auto.dispose());
 		};
 	}, [host, opened]);
 
@@ -117,15 +148,26 @@ export function useAutosave(
 		() => current.current?.retry() ?? Promise.resolve(true),
 		[],
 	);
-	const peek = useCallback(() => current.current?.peek() ?? null, []);
-	const discard = useCallback(() => current.current?.discard(), []);
+	const peek = useCallback(
+		() =>
+			(currentFor.current === shown.current
+				? current.current?.peek()
+				: early.current?.draft) ?? null,
+		[],
+	);
+	const discard = useCallback(() => {
+		early.current = null;
+		current.current?.discard();
+	}, []);
 	const failureReason = useCallback(() => {
 		const state = current.current?.getState();
 		return state?.kind === "failed" ? state.reason : null;
 	}, []);
-	const change = useCallback((draft: Draft) => {
-		if (current.current) current.current.change(draft);
-		else early.current = draft;
+	const change = useCallback((draft: Draft, note?: OpenedNote | null) => {
+		const target = note !== undefined ? note : shown.current;
+		if (current.current && currentFor.current === target)
+			current.current.change(draft);
+		else early.current = { note, draft };
 	}, []);
 
 	useEffect(() => {

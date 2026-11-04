@@ -54,3 +54,38 @@ it("does not write an edit made to the next note into the previous note", async 
 	expect(await host.readText(a.path)).toBe(alphaBefore);
 	expect(await host.kindOf("Alpha.vnote")).toBe("file");
 });
+
+it("keeps an edit made to the next note, saved to that note", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	const a = await openNote(host, (await createNote(host, "", "Alpha")).path);
+	const b = await openNote(host, (await createNote(host, "", "Beta")).path);
+	const { result, rerender } = renderHook(
+		({ value }) => useAutosave(host, value),
+		{ initialProps: { value: a as typeof a | null } },
+	);
+	await act(async () => {});
+	await act(async () => {
+		rerender({ value: b });
+		result.current.change({ doc: b.doc, title: "Beta edited" });
+	});
+	await act(async () => {
+		expect(await result.current.flush()).toBe(true);
+	});
+	expect(await host.kindOf("Beta edited.vnote")).toBe("file");
+});
+
+it("flushes an unsaved edit on the previous note when switching notes", async () => {
+	const { host, a, b } = await twoNotes();
+	const { result, rerender } = renderHook(
+		({ value }) => useAutosave(host, value),
+		{ initialProps: { value: a as typeof a | null } },
+	);
+	await act(async () => {
+		result.current.change({ doc: a.doc, title: "Alpha saved on switch" });
+	});
+	await act(async () => {
+		rerender({ value: b });
+	});
+	expect(await host.kindOf("Alpha saved on switch.vnote")).toBe("file");
+});

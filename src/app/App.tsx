@@ -599,7 +599,7 @@ export function App({ host }: { host: Host }) {
 		propsRef.current = next;
 		setProps(next);
 		if (docRef.current)
-			autosave.change(draftOf(docRef.current, titleRef.current));
+			autosave.change(draftOf(docRef.current, titleRef.current), opened);
 	};
 
 	return (
@@ -709,12 +709,12 @@ export function App({ host }: { host: Host }) {
 									titleRef.current = next;
 									setTitle(next);
 									if (docRef.current)
-										autosave.change(draftOf(docRef.current, next));
+										autosave.change(draftOf(docRef.current, next), opened);
 								}}
 								onDocChange={(doc) => {
 									docRef.current = doc;
 									getLogger().count("edits");
-									autosave.change(draftOf(doc, titleRef.current));
+									autosave.change(draftOf(doc, titleRef.current), opened);
 								}}
 								onDropBlock={async (blockId, canvasId, after) => {
 									let moveStarted = false;

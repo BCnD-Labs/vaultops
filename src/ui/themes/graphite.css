@@ -35,6 +35,13 @@
 	--section-size: 11px;
 	--section-tracking: 0.1em;
 	--row-raised: var(--surface-container-high);
+	--editor-bg: var(--shell-panel);
+	--editor-text: var(--foreground);
+	--editor-bold: var(--editor-text);
+	--editor-italic: var(--editor-text);
+	--editor-quote: var(--editor-text);
+	--editor-code-bg: var(--surface-container-low);
+	--editor-code-text: var(--editor-text);
 	--background: var(--neutral-0);
 	--surface: var(--neutral-0);
 	--surface-container-low: var(--neutral-1);

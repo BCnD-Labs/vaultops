@@ -50,7 +50,9 @@ export const ShellNavigation = createContext({
 function IconRail({
 	onNavigate,
 }: {
-	onNavigate: (item: "notes" | "search" | "tags" | "changes") => void;
+	onNavigate: (
+		item: "notes" | "search" | "tags" | "changes" | "settings",
+	) => void;
 }) {
 	return (
 		<nav className="icon-rail" aria-label="Workspace">
@@ -60,7 +62,7 @@ function IconRail({
 					["Search", Search, "search", null],
 					["Tags", Tags, "tags", null],
 					["Changes", GitCompareArrows, "changes", null],
-					["Settings", Settings, null, "Arrives with Settings"],
+					["Settings", Settings, "settings", null],
 				] as const
 			).map(([label, Icon, action, reason]) => (
 				<Tooltip key={label}>
@@ -112,7 +114,7 @@ export function AppShell({
 	selectedFolder?: string;
 	onOpenNote?: (path: string) => void;
 	onCreateNote?: (folder: string, title: string) => void;
-	onNavigateScreen?: (screen: "trash" | "health") => void;
+	onNavigateScreen?: (screen: "trash" | "health" | "settings") => void;
 }) {
 	const [propertyRequest, setPropertyRequest] = useState<{
 		name?: string;
@@ -189,6 +191,10 @@ export function AppShell({
 					onNavigate={(item) => {
 						if (item === "search") {
 							setSearchRequest((count) => count + 1);
+							return;
+						}
+						if (item === "settings") {
+							onNavigateScreen("settings");
 							return;
 						}
 						(item === "changes" ? right : left).current?.expand();

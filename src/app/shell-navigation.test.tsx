@@ -15,6 +15,7 @@ afterEach(() => {
 
 it("rail expands Tags on every click and opens the Changes tab", async () => {
 	const scroll = vi.fn();
+	const openScreen = vi.fn();
 	vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(scroll);
 	const user = userEvent.setup();
 	render(
@@ -23,6 +24,7 @@ it("rail expands Tags on every click and opens the Changes tab", async () => {
 				vault="Vault"
 				path={null}
 				title={null}
+				onNavigateScreen={openScreen}
 				sidebar={
 					<Sidebar
 						view={null}
@@ -85,9 +87,6 @@ it("rail expands Tags on every click and opens the Changes tab", async () => {
 		screen.getByRole("dialog", { name: "Find or create a note" }),
 	).toBeTruthy();
 	await user.keyboard("{Escape}");
-	for (const [label, reason] of [["Settings", "Arrives with Settings"]]) {
-		const button = screen.getByRole("button", { name: label });
-		expect(button.getAttribute("aria-disabled")).toBe("true");
-		expect(button.title).toBe(reason);
-	}
+	await user.click(screen.getByRole("button", { name: "Settings" }));
+	expect(openScreen).toHaveBeenCalledWith("settings");
 });

@@ -13,6 +13,15 @@
 	font-size: var(--editor-font-size);
 	line-height: var(--editor-line-height);
 	overflow-wrap: anywhere;
+	color: var(--editor-text);
+}
+
+.note-editor strong {
+	color: var(--editor-bold);
+}
+
+.note-editor em {
+	color: var(--editor-italic);
 }
 
 .block-drag-handle [data-slot="button"] {
@@ -110,19 +119,22 @@
 	margin-left: 0;
 	padding-left: 0.9rem;
 	border-left: var(--border-width) solid var(--border);
+	color: var(--editor-quote);
 	opacity: 0.85;
 }
 
 .note-editor pre {
 	padding: 0.6rem 0.8rem;
 	border-radius: var(--radius-control);
-	background: var(--surface-container-low);
+	background: var(--editor-code-bg);
+	color: var(--editor-code-text);
 	overflow-x: auto;
 }
 
 .note-editor code {
 	font-family: var(--font-mono);
 	font-size: var(--code-font-size);
+	color: var(--editor-code-text);
 }
 
 .note-editor .task-block {

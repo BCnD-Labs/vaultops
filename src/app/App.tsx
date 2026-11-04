@@ -69,7 +69,9 @@ import "./app.css";
 /** The window keeps note and save state outside its collapsible sidebars. */
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
-	const [screen, setScreen] = useState<"note" | "trash" | "health">("note");
+	const [screen, setScreen] = useState<
+		"note" | "trash" | "health" | "settings"
+	>("note");
 	const [trash, setTrash] = useState<TrashedNote[]>([]);
 	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 	const [confirmEditing, setConfirmEditing] = useState(false);
@@ -404,7 +406,7 @@ export function App({ host }: { host: Host }) {
 		}
 	}, [opened]);
 
-	const navigate = async (next: "trash" | "health" | "note") => {
+	const navigate = async (next: "trash" | "health" | "settings" | "note") => {
 		if (!(await settle())) return;
 		setBusy(true);
 		try {

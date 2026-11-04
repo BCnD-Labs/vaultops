@@ -75,6 +75,7 @@ it.each(themes)("checks tokens and contrast for $id", ({ id }) => {
 			["muted-foreground", "shell-panel"],
 			["foreground", "shell-frame"],
 			["foreground", "row-raised"],
+			["editor-text", "editor-bg"],
 			["muted-foreground", "background"],
 			["primary-foreground", "primary"],
 			["on-primary-container", "primary-container"],

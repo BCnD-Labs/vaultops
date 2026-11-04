@@ -14,10 +14,10 @@ import { setLogger } from "./debug/index";
 import { createLogger } from "./debug/logger";
 import { loggingHost } from "./debug/logging-host";
 import { tauriHost } from "./host/tauri-host";
-import { applyTheme, loadThemeChoice } from "./ui/themes";
+import { startAppearance } from "./ui/appearance";
 
 // Record what the app does (never note text) in the app's own log file.
-applyTheme(document.documentElement, loadThemeChoice());
+startAppearance(document.documentElement);
 
 const logger = createLogger({ sink: (lines) => tauriHost.appendLog(lines) });
 setLogger(logger);

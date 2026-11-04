@@ -1,5 +1,5 @@
 import { Lock, LockOpen } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Canvas } from "@/components/ui/canvas";
 import {
@@ -14,11 +14,12 @@ import {
 	canvasRoots,
 	saveCanvasPosition,
 } from "../core/notes/canvas-position";
+import { renameNote } from "../core/notes/rename";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import type { Host } from "../host/host";
 import { CanvasCard } from "./CanvasCard";
 import { canvasLocked, saveCanvasLocked } from "./canvas-layout";
-import type { NoteRow } from "./session";
+import { compareRows, type NoteRow } from "./session";
 
 const lockLabel = "Lock canvas: drag cards out to the note";
 
@@ -27,7 +28,10 @@ export function CanvasPane({
 	path,
 	canvases,
 	writable,
+	focusName = false,
+	onFocusedName,
 	onSelect,
+	onRename,
 	onNew,
 	onClose,
 	onDropBlock,
@@ -37,7 +41,10 @@ export function CanvasPane({
 	path: string;
 	canvases: NoteRow[];
 	writable: boolean;
+	focusName?: boolean;
+	onFocusedName?: () => void;
 	onSelect: (path: string) => void;
+	onRename?: (oldPath: string, newPath: string, title: string) => void;
 	onNew: () => void;
 	onClose: () => void;
 	onDropBlock: (
@@ -47,18 +54,48 @@ export function CanvasPane({
 	) => Promise<void>;
 	onMoveToNote?: (blockId: string) => Promise<void>;
 }) {
-	const [text, setText] = useState<string | null>(null);
+	const [activePath, setActivePath] = useState(path);
+	const [prevPathProp, setPrevPathProp] = useState(path);
+	const activePathRef = useRef(path);
+	if (path !== prevPathProp) {
+		setPrevPathProp(path);
+		activePathRef.current = path;
+		setActivePath(path);
+	}
+	const loadedRef = useRef<{ host: Host; path: string } | null>(null);
+	const baseTextRef = useRef<string | null>(null);
+	const [loaded, setLoaded] = useState<{ path: string; text: string } | null>(
+		null,
+	);
+	const [items, setItems] = useState(canvases);
 	const [error, setError] = useState<string | null>(null);
 	const [surfaceRevision, setSurfaceRevision] = useState(0);
 	const [locked, setLocked] = useState(canvasLocked);
+	const nameInput = useRef<HTMLInputElement>(null);
+	const shouldFocus = useRef(focusName);
+	const renamingRef = useRef(false);
 	useEffect(() => {
+		if (focusName) shouldFocus.current = true;
+	}, [focusName]);
+	useEffect(() => {
+		setItems(canvases);
+	}, [canvases]);
+	useEffect(() => {
+		if (loadedRef.current?.host === host && loadedRef.current.path === path)
+			return;
 		let active = true;
-		setText(null);
+		activePathRef.current = path;
+		baseTextRef.current = null;
+		setActivePath(path);
+		setLoaded(null);
 		setError(null);
 		host
 			.readText(path)
 			.then((value) => {
-				if (active) setText(value);
+				if (!active) return;
+				loadedRef.current = { host, path };
+				baseTextRef.current = value;
+				setLoaded({ path, text: value });
 			})
 			.catch((reason) => {
 				if (active) setError(String(reason));
@@ -67,6 +104,7 @@ export function CanvasPane({
 			active = false;
 		};
 	}, [host, path]);
+	const text = loaded?.path === activePath ? loaded.text : null;
 	const parsed = useMemo(
 		() => (text === null ? null : parseNote(text)),
 		[text],
@@ -74,11 +112,92 @@ export function CanvasPane({
 	const blocks =
 		parsed?.note?.header.kind === "canvas" ? parsed.note.blocks : [];
 	const roots = canvasRoots(blocks);
+	const row = items.find((item) => item.path === activePath);
 	const editable =
 		writable &&
-		!canvases.find((row) => row.path === path)?.readOnly &&
+		!row?.readOnly &&
 		parsed?.note?.header.kind === "canvas" &&
 		parsed.problems.length === 0;
+	const savedTitle =
+		typeof parsed?.note?.header.title === "string"
+			? parsed.note.header.title
+			: (row?.title ?? activePath);
+	const [name, setName] = useState(savedTitle);
+	const nameRef = useRef(savedTitle);
+	const [prevKey, setPrevKey] = useState(`${activePath}\n${savedTitle}`);
+	if (`${activePath}\n${savedTitle}` !== prevKey) {
+		setPrevKey(`${activePath}\n${savedTitle}`);
+		nameRef.current = savedTitle;
+		setName(savedTitle);
+	}
+	useEffect(() => {
+		if (editable && shouldFocus.current && nameInput.current) {
+			shouldFocus.current = false;
+			nameInput.current.focus();
+			nameInput.current.select();
+			onFocusedName?.();
+		}
+	}, [editable, onFocusedName]);
+	const commitName = async () => {
+		const nextTitle = nameRef.current;
+		const currentPath = activePathRef.current;
+		const baseText = baseTextRef.current;
+		if (
+			renamingRef.current ||
+			!editable ||
+			!parsed?.note ||
+			baseText === null ||
+			nextTitle === savedTitle
+		)
+			return;
+		renamingRef.current = true;
+		try {
+			if ((await host.readText(currentPath)) !== baseText)
+				throw new Error(
+					"The canvas changed on disk. Reload it before renaming it.",
+				);
+			const result = await renameNote(
+				host,
+				currentPath,
+				parsed.note,
+				nextTitle,
+				{ readOnly: !editable },
+			);
+			if (result.notice) {
+				baseTextRef.current = await host
+					.readText(currentPath)
+					.catch(() => baseText);
+				nameRef.current = savedTitle;
+				setName(savedTitle);
+				setError(result.notice);
+				return;
+			}
+			const saved = await host.readText(result.path);
+			loadedRef.current = { host, path: result.path };
+			activePathRef.current = result.path;
+			baseTextRef.current = saved;
+			setActivePath(result.path);
+			setLoaded({ path: result.path, text: saved });
+			setItems((current) =>
+				current
+					.map((item) =>
+						item.path === currentPath
+							? { ...item, path: result.path, title: nextTitle }
+							: item,
+					)
+					.sort(compareRows),
+			);
+			setError(null);
+			onRename?.(currentPath, result.path, nextTitle);
+			if (result.path !== currentPath) onSelect(result.path);
+		} catch (reason) {
+			nameRef.current = savedTitle;
+			setName(savedTitle);
+			setError(reason instanceof Error ? reason.message : String(reason));
+		} finally {
+			renamingRef.current = false;
+		}
+	};
 	const nodes = roots.map((block) => ({
 		id: block.id as string,
 		position: blockPosition(block),
@@ -121,15 +240,37 @@ export function CanvasPane({
 				<select
 					id="canvas-switcher"
 					aria-label="Canvas"
-					value={path}
+					value={activePath}
 					onChange={(event) => onSelect(event.target.value)}
 				>
-					{canvases.map((row) => (
-						<option key={row.path} value={row.path}>
-							{row.title}
+					{items.map((item) => (
+						<option key={item.path} value={item.path}>
+							{item.title}
 						</option>
 					))}
 				</select>
+				<input
+					ref={nameInput}
+					className="canvas-name"
+					aria-label="Canvas name"
+					value={name}
+					disabled={!editable}
+					onChange={(event) => {
+						nameRef.current = event.target.value;
+						setName(event.target.value);
+					}}
+					onBlur={() => void commitName()}
+					onKeyDown={(event) => {
+						if (event.key === "Enter") {
+							event.preventDefault();
+							void commitName();
+						} else if (event.key === "Escape") {
+							event.preventDefault();
+							nameRef.current = savedTitle;
+							setName(savedTitle);
+						}
+					}}
+				/>
 				<Button size="sm" variant="ghost" onClick={onNew} disabled={!writable}>
 					New canvas
 				</Button>
@@ -164,21 +305,24 @@ export function CanvasPane({
 					nodes={nodes}
 					locked={locked}
 					onMove={async (id, position) => {
-						if (!editable || locked || text === null) return;
+						if (!editable || locked || baseTextRef.current === null) return;
 						try {
 							const saved = await saveCanvasPosition(
 								host,
-								path,
-								text,
+								activePath,
+								baseTextRef.current,
 								id,
 								position,
 							);
-							setText(saved);
+							baseTextRef.current = saved;
+							setLoaded({ path: activePath, text: saved });
 							setError(null);
 						} catch (reason) {
 							setError(String(reason));
 							try {
-								setText(await host.readText(path));
+								const disk = await host.readText(activePath);
+								baseTextRef.current = disk;
+								setLoaded({ path: activePath, text: disk });
 							} catch {
 								/* Keep the last readable canvas. */
 							}
@@ -208,7 +352,9 @@ export function CanvasPane({
 						} catch (reason) {
 							setError(String(reason));
 							try {
-								setText(await host.readText(path));
+								const disk = await host.readText(activePath);
+								baseTextRef.current = disk;
+								setLoaded({ path: activePath, text: disk });
 							} catch {
 								/* Keep the last readable canvas. */
 							}

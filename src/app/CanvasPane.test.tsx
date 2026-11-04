@@ -325,3 +325,140 @@ it("toggles canvas lock, remembers the state, disables flow pan/zoom/drag while 
 	expect(fallbackButton.getAttribute("aria-pressed")).toBe("true");
 	vi.unstubAllGlobals();
 });
+
+it("names and renames a canvas, handles clashes and failures, and disables read-only canvases", async () => {
+	const host = new MemoryHost();
+	const made = await createCanvas(host);
+	await createCanvas(host, "", "Taken");
+	const onSelect = vi.fn();
+	const onRename = vi.fn();
+	const row = (path: string, title: string, readOnly = false) => ({
+		path,
+		title,
+		preview: "",
+		readOnly,
+		kind: "canvas" as const,
+		tags: [],
+	});
+	const baseProps = {
+		host,
+		path: made.path,
+		canvases: [row("Taken.vnote", "Taken"), row(made.path, "Untitled canvas")],
+		writable: true,
+		focusName: true,
+		onSelect,
+		onRename,
+		onNew: vi.fn(),
+		onClose: vi.fn(),
+		onDropBlock: vi.fn(),
+	};
+
+	const view = render(<CanvasPane {...baseProps} />);
+	await screen.findByText("Drag a block here from a note.");
+	const nameInput = screen.getByRole("textbox", {
+		name: "Canvas name",
+	}) as HTMLInputElement;
+	const switcher = screen.getByRole("combobox", {
+		name: "Canvas",
+	}) as HTMLSelectElement;
+
+	// A new canvas starts as "Untitled canvas" with the field focused and selected.
+	await waitFor(() => {
+		expect(nameInput.disabled).toBe(false);
+		expect(nameInput.value).toBe("Untitled canvas");
+		expect(document.activeElement).toBe(nameInput);
+		expect(nameInput.selectionStart).toBe(0);
+		expect(nameInput.selectionEnd).toBe("Untitled canvas".length);
+	});
+
+	// Escape puts the old name back without renaming.
+	fireEvent.change(nameInput, { target: { value: "Abandoned" } });
+	fireEvent.keyDown(nameInput, { key: "Escape" });
+	expect(nameInput.value).toBe("Untitled canvas");
+	fireEvent.blur(nameInput);
+	expect(await host.kindOf("Untitled canvas.vnote")).toBe("file");
+
+	// Enter commits the rename and updates header title, file name, switcher and open path.
+	fireEvent.change(nameInput, { target: { value: "Roadmap" } });
+	fireEvent.keyDown(nameInput, { key: "Enter" });
+	await waitFor(async () => {
+		expect(await host.kindOf("Roadmap.vnote")).toBe("file");
+		expect(await host.kindOf("Untitled canvas.vnote")).toBeNull();
+	});
+	expect(
+		parseNote(await host.readText("Roadmap.vnote")).note?.header.title,
+	).toBe("Roadmap");
+	expect(switcher.value).toBe("Roadmap.vnote");
+	expect(
+		[...switcher.options].map((o) => ({ value: o.value, text: o.textContent })),
+	).toContainEqual({ value: "Roadmap.vnote", text: "Roadmap" });
+	expect(onSelect).toHaveBeenCalledWith("Roadmap.vnote");
+	expect(onRename).toHaveBeenCalledWith(
+		"Untitled canvas.vnote",
+		"Roadmap.vnote",
+		"Roadmap",
+	);
+
+	// Case-only rename on blur updates the file name and header title.
+	fireEvent.change(nameInput, { target: { value: "roadmap" } });
+	fireEvent.blur(nameInput);
+	await waitFor(async () =>
+		expect((await host.list("")).map((e) => e.name)).toContain("roadmap.vnote"),
+	);
+	expect(
+		parseNote(await host.readText("roadmap.vnote")).note?.header.title,
+	).toBe("roadmap");
+	expect(switcher.value).toBe("roadmap.vnote");
+
+	// Duplicate name (including case-only clash) gets " 2" like notes.
+	fireEvent.change(nameInput, { target: { value: "taken" } });
+	fireEvent.keyDown(nameInput, { key: "Enter" });
+	await waitFor(async () =>
+		expect(await host.kindOf("taken 2.vnote")).toBe("file"),
+	);
+	expect(
+		parseNote(await host.readText("taken 2.vnote")).note?.header.title,
+	).toBe("taken");
+	expect(switcher.value).toBe("taken 2.vnote");
+
+	// Failed rename keeps the old name and shows a notice.
+	const moveSpy = vi
+		.spyOn(host, "move")
+		.mockRejectedValueOnce(new Error("disk busy"));
+	fireEvent.change(nameInput, { target: { value: "Blocked" } });
+	fireEvent.keyDown(nameInput, { key: "Enter" });
+	expect((await screen.findByRole("alert")).textContent).toContain(
+		"keeps its old name",
+	);
+	expect(nameInput.value).toBe("taken");
+	expect(switcher.value).toBe("taken 2.vnote");
+	expect(await host.kindOf("taken 2.vnote")).toBe("file");
+	expect(await host.kindOf("Blocked.vnote")).toBeNull();
+	moveSpy.mockRestore();
+
+	// Changed on disk is never overwritten and keeps the old name with a notice.
+	await host.writeTextAtomic("taken 2.vnote", "changed elsewhere");
+	fireEvent.change(nameInput, { target: { value: "Overwrite" } });
+	fireEvent.keyDown(nameInput, { key: "Enter" });
+	expect((await screen.findByRole("alert")).textContent).toContain(
+		"changed on disk",
+	);
+	expect(nameInput.value).toBe("taken");
+	expect(await host.readText("taken 2.vnote")).toBe("changed elsewhere");
+	view.unmount();
+
+	// Read-only canvas disables the name field.
+	render(
+		<CanvasPane
+			{...baseProps}
+			path="Taken.vnote"
+			focusName={false}
+			canvases={[row("Taken.vnote", "Taken", true)]}
+		/>,
+	);
+	await screen.findByText("Drag a block here from a note.");
+	expect(
+		(screen.getByRole("textbox", { name: "Canvas name" }) as HTMLInputElement)
+			.disabled,
+	).toBe(true);
+});

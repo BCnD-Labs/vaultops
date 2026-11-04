@@ -80,6 +80,7 @@ export function App({ host }: { host: Host }) {
 	const [editorRevision, setEditorRevision] = useState(0);
 	const [canvasPath, setCanvasPath] = useState<string | null>(null);
 	const [canvasRefresh, setCanvasRefresh] = useState(0);
+	const [focusCanvas, setFocusCanvas] = useState(false);
 	const [defaultCanvasLayout] = useState(canvasLayout);
 	// Opening a vault may create it, so loading and choosing a vault use `host`.
 	// Everything that changes notes and folders goes through `vaultHost`, which
@@ -381,11 +382,13 @@ export function App({ host }: { host: Host }) {
 			paths,
 			view.name ? lastNotes.current.get(view.name) : null,
 		);
+		const rememberedCanvas =
+			canvasPath ?? (view.name ? lastCanvas(view.name) : null);
 		if (pick) void show(pick, view.name);
 		else if (
-			!canvasPath ||
+			!rememberedCanvas ||
 			!view.notes.some(
-				(row) => row.path === canvasPath && row.kind === "canvas",
+				(row) => row.path === rememberedCanvas && row.kind === "canvas",
 			)
 		) {
 			const firstCanvas = view.notes.find((row) => row.kind === "canvas");
@@ -470,7 +473,10 @@ export function App({ host }: { host: Host }) {
 		try {
 			const made = await createCanvasAndLoad(vaultHost, view, folder);
 			setView(made.view);
-			if (made.path) await show(made.path, made.view.name);
+			if (made.path) {
+				await show(made.path, made.view.name);
+				setFocusCanvas(true);
+			}
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -799,14 +805,42 @@ export function App({ host }: { host: Host }) {
 									<ResizableHandle />
 									<ResizablePanel id="canvas" minSize="25%">
 										<CanvasPane
-											key={`${canvasPath}:${canvasRefresh}`}
+											key={canvasRefresh}
 											host={vaultHost}
 											path={canvasPath}
 											canvases={view.notes.filter(
 												(row) => row.kind === "canvas",
 											)}
 											writable={writable}
+											focusName={focusCanvas}
+											onFocusedName={() => setFocusCanvas(false)}
 											onSelect={selectCanvas}
+											onRename={(oldPath, newPath, nextTitle) => {
+												selectCanvas(newPath);
+												setView((v) =>
+													v
+														? {
+																...v,
+																report: v.report.map((e) =>
+																	e.path === oldPath
+																		? { ...e, path: newPath }
+																		: e,
+																),
+																notes: v.notes
+																	.map((n) =>
+																		n.path === oldPath
+																			? {
+																					...n,
+																					path: newPath,
+																					title: nextTitle,
+																				}
+																			: n,
+																	)
+																	.sort(compareRows),
+															}
+														: v,
+												);
+											}}
 											onNew={() => void startCanvas()}
 											onClose={() => selectCanvas(null)}
 											onDropBlock={async (blockId, noteId, position) => {

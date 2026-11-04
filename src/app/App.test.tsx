@@ -25,12 +25,12 @@ afterEach(() => {
 	localStorage.clear();
 });
 
-it("opens a canvas beside the editor and creates another canvas", async () => {
+it("opens a canvas beside the editor, creates and renames a canvas, and remembers it across restarts", async () => {
 	const host = new MemoryHost();
 	await loadVault(host);
 	await createCanvas(host, "", "Board");
 	const user = userEvent.setup();
-	const { container } = render(<App host={host} />);
+	const { container, unmount } = render(<App host={host} />);
 	const canvas = await screen.findByRole("region", { name: "Canvas view" });
 	expect(container.querySelector(".note-editor")).toBeNull();
 	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
@@ -43,6 +43,46 @@ it("opens a canvas beside the editor and creates another canvas", async () => {
 	);
 	expect(await host.readText("Untitled canvas.vnote")).toContain(
 		'"kind":"canvas"',
+	);
+	const nameInput = within(canvas).getByRole("textbox", {
+		name: "Canvas name",
+	}) as HTMLInputElement;
+	await waitFor(() => {
+		expect(nameInput.disabled).toBe(false);
+		expect(nameInput.value).toBe("Untitled canvas");
+		expect(document.activeElement).toBe(nameInput);
+		expect(nameInput.selectionStart).toBe(0);
+		expect(nameInput.selectionEnd).toBe("Untitled canvas".length);
+	});
+	fireEvent.change(nameInput, { target: { value: "Sprint board" } });
+	fireEvent.keyDown(nameInput, { key: "Enter" });
+	await waitFor(() =>
+		expect(host.kindOf("Sprint board.vnote")).resolves.toBe("file"),
+	);
+	expect(await host.kindOf("Untitled canvas.vnote")).toBeNull();
+	expect(
+		(
+			within(canvas).getByRole("combobox", {
+				name: "Canvas",
+			}) as HTMLSelectElement
+		).value,
+	).toBe("Sprint board.vnote");
+	expect(screen.getByTitle("Sprint board.vnote")).toBeTruthy();
+	expect(localStorage.getItem("vaultops:last-canvas")).toContain(
+		"Sprint board.vnote",
+	);
+
+	unmount();
+	render(<App host={host} />);
+	const reopened = await screen.findByRole("region", { name: "Canvas view" });
+	await waitFor(() =>
+		expect(
+			(
+				within(reopened).getByRole("textbox", {
+					name: "Canvas name",
+				}) as HTMLInputElement
+			).value,
+		).toBe("Sprint board"),
 	);
 });
 

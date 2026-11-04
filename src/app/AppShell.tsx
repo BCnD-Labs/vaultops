@@ -27,8 +27,10 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { TextStats } from "../core/notes/text-stats";
 import { CommandBar } from "./CommandBar";
 import { NavBar } from "./NavBar";
+import { StatusBar } from "./StatusBar";
 import type { NoteRow } from "./session";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 import { TabBar, type TabItem } from "./TabBar";
@@ -102,6 +104,7 @@ export function AppShell({
 	onCloseTab = () => {},
 	canGoBack = false,
 	canGoForward = false,
+	stats = null,
 	onBack = () => {},
 	onForward = () => {},
 }: {
@@ -122,6 +125,7 @@ export function AppShell({
 	onCloseTab?: (path: string) => void;
 	canGoBack?: boolean;
 	canGoForward?: boolean;
+	stats?: TextStats | null;
 	onBack?: () => void;
 	onForward?: () => void;
 }) {
@@ -259,6 +263,7 @@ export function AppShell({
 								rightToggle={collapsed.right ? sidebarToggle("right") : null}
 							/>
 							<div className="editor-column-body">{children}</div>
+							<StatusBar vault={vault} stats={stats} />
 						</div>
 						<CommandBar
 							notes={notes}

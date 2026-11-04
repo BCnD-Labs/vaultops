@@ -53,6 +53,16 @@ import { browserLastNote, pickInitialNote } from "./last-note";
 import { NotePane } from "./NotePane";
 import { NoteTools } from "./NoteTools";
 import type { TreeActions } from "./NoteTree";
+import {
+	canGoBack,
+	canGoForward,
+	EMPTY_NAV,
+	type NavHistory,
+	pruneEntries,
+	renameEntry,
+	step,
+	visit,
+} from "./nav-history";
 import { Sidebar } from "./Sidebar";
 import {
 	chooseAndLoad,
@@ -108,6 +118,11 @@ export function App({ host }: { host: Host }) {
 		paths: string[];
 	}>({ vault: null, paths: [] });
 	const tabStore = useRef(browserTabs());
+	// Back and forward through opened notes; like the tabs, tied to one vault.
+	const [navState, setNavState] = useState<{
+		vault: string | null;
+		history: NavHistory;
+	}>({ vault: null, history: EMPTY_NAV });
 	const tree = useMemo(
 		() => (view ? buildTree(view.folders, view.notes) : []),
 		[view],
@@ -135,6 +150,10 @@ export function App({ host }: { host: Host }) {
 	const viewRef = useRef(view);
 	viewRef.current = view;
 	const tabs = tabState.vault === vaultName ? tabState.paths : [];
+	const nav = navState.vault === vaultName ? navState.history : EMPTY_NAV;
+	useEffect(() => {
+		setNavState({ vault: vaultName, history: EMPTY_NAV });
+	}, [vaultName]);
 	useEffect(() => {
 		// Bring back this vault's tabs (for notes that still exist) when it opens.
 		const notes = viewRef.current?.notes ?? [];
@@ -157,6 +176,10 @@ export function App({ host }: { host: Host }) {
 		setTabState((state) => {
 			const paths = pruneTabs(state.paths, existing);
 			return paths === state.paths ? state : { ...state, paths };
+		});
+		setNavState((state) => {
+			const history = pruneEntries(state.history, existing);
+			return history === state.history ? state : { ...state, history };
 		});
 	}, [view]);
 	useEffect(() => {
@@ -185,11 +208,16 @@ export function App({ host }: { host: Host }) {
 			livePathRef.current = info.path;
 			setLivePath(info.path);
 		}
-		if (info.oldPath !== info.path)
+		if (info.oldPath !== info.path) {
 			setTabState((state) => ({
 				...state,
 				paths: renameTab(state.paths, info.oldPath, info.path),
 			}));
+			setNavState((state) => ({
+				...state,
+				history: renameEntry(state.history, info.oldPath, info.path),
+			}));
+		}
 		setView((v) => {
 			const row = v?.notes.find((n) => n.path === info.oldPath);
 			if (!v || !row) return v;
@@ -250,7 +278,12 @@ export function App({ host }: { host: Host }) {
 	}, []);
 
 	const show = useCallback(
-		async (path: string, vault: string | null, follow = true) => {
+		async (
+			path: string,
+			vault: string | null,
+			follow = true,
+			record = true,
+		) => {
 			try {
 				setError(null);
 				const started = performance.now();
@@ -281,6 +314,11 @@ export function App({ host }: { host: Host }) {
 					...state,
 					paths: openTab(state.paths, path),
 				}));
+				if (record)
+					setNavState((state) => ({
+						...state,
+						history: visit(state.history, path),
+					}));
 				if (follow) setSelection(selectionForPath(path));
 				const loaded = headerProps(next.note?.header);
 				propsRef.current = loaded;
@@ -535,6 +573,16 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	// Back and forward reopen the previous or next note in the history without
+	// adding to it. The open note is saved first, as with any other navigation.
+	const goThrough = async (direction: -1 | 1) => {
+		const moved = step(nav, direction);
+		if (!moved) return;
+		if (!(await settle())) return;
+		setNavState((state) => ({ ...state, history: moved.history }));
+		await show(moved.path, vaultName, true, false);
+	};
+
 	// Closing the open note's tab saves it first, then shows the neighboring tab
 	// (or an empty editor when it was the last one).
 	const closeNoteTab = async (path: string) => {
@@ -738,6 +786,10 @@ export function App({ host }: { host: Host }) {
 						if (path !== livePath || screen !== "note") void open(path);
 					}}
 					onCloseTab={(path) => void closeNoteTab(path)}
+					canGoBack={canGoBack(nav)}
+					canGoForward={canGoForward(nav)}
+					onBack={() => void goThrough(-1)}
+					onForward={() => void goThrough(1)}
 					tools={
 						<NoteTools
 							key={opened?.path}

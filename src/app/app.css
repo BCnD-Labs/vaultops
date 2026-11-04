@@ -210,44 +210,36 @@ body {
 .app-shell {
 	display: grid;
 	grid-template-columns: var(--rail-width) minmax(0, 1fr);
-	grid-template-rows: 36px minmax(0, 1fr);
-	padding: 0 var(--shell-gap) var(--shell-gap) 0;
+	grid-template-rows: minmax(0, 1fr);
+	padding: var(--shell-gap) var(--shell-gap) var(--shell-gap) 0;
 	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;
 	background: var(--shell-frame);
 }
 
-.shell-bar {
-	display: grid;
-	grid-template-columns: 28px minmax(0, 1fr) 28px;
+.nav-bar {
+	display: flex;
+	flex: none;
 	align-items: center;
-	flex: 0 0 36px;
+	gap: 2px;
+	height: 36px;
 	padding-inline: 8px;
-	grid-column: 2;
 }
 
-.shell-toggle {
-	border: 0;
-	grid-row: 1;
-}
-
-.shell-bar .shell-toggle-left {
-	grid-column: 1;
-}
-.shell-bar .shell-toggle-right {
-	grid-column: 3;
+.nav-bar .shell-toggle:last-child {
+	margin-left: auto;
 }
 
 .shell-breadcrumb {
-	grid-column: 2;
-	grid-row: 1;
+	flex: 1;
 	min-width: 0;
+	margin-left: 6px;
 	overflow: hidden;
 }
 
 .shell-breadcrumb ol {
-	justify-content: center;
+	justify-content: flex-start;
 	flex-wrap: nowrap;
 	margin: 0;
 	padding: 0;
@@ -295,6 +287,7 @@ body {
 	padding: 4px;
 }
 .shell-toggle {
+	border: 0;
 	color: var(--muted-foreground);
 }
 .icon-rail {

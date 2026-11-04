@@ -16,13 +16,6 @@ import {
 	useState,
 } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
 	ResizableHandle,
@@ -35,6 +28,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CommandBar } from "./CommandBar";
+import { NavBar } from "./NavBar";
 import type { NoteRow } from "./session";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 import { TabBar, type TabItem } from "./TabBar";
@@ -106,6 +100,10 @@ export function AppShell({
 	tabs = [],
 	onSelectTab = () => {},
 	onCloseTab = () => {},
+	canGoBack = false,
+	canGoForward = false,
+	onBack = () => {},
+	onForward = () => {},
 }: {
 	sidebar: ReactNode;
 	tools?: ReactNode;
@@ -122,6 +120,10 @@ export function AppShell({
 	tabs?: TabItem[];
 	onSelectTab?: (path: string) => void;
 	onCloseTab?: (path: string) => void;
+	canGoBack?: boolean;
+	canGoForward?: boolean;
+	onBack?: () => void;
+	onForward?: () => void;
 }) {
 	const [propertyRequest, setPropertyRequest] = useState<{
 		name?: string;
@@ -209,26 +211,6 @@ export function AppShell({
 							setNavigation((state) => ({ ...state, [item]: state[item] + 1 }));
 					}}
 				/>
-				<header className="shell-bar">
-					{collapsed.left && sidebarToggle("left")}
-					{collapsed.right && sidebarToggle("right")}
-
-					<Breadcrumb className="shell-breadcrumb">
-						<BreadcrumbList>
-							{title !== null && (
-								<>
-									<BreadcrumbItem>
-										{path?.split("/").slice(0, -1).join("/") || vault}
-									</BreadcrumbItem>
-									<BreadcrumbSeparator />
-								</>
-							)}
-							<BreadcrumbItem>
-								<BreadcrumbPage>{title ?? vault}</BreadcrumbPage>
-							</BreadcrumbItem>
-						</BreadcrumbList>
-					</Breadcrumb>
-				</header>
 				<ResizablePanelGroup
 					orientation="horizontal"
 					className="shell-regions"
@@ -265,6 +247,17 @@ export function AppShell({
 									onNew={() => setSearchRequest((count) => count + 1)}
 								/>
 							)}
+							<NavBar
+								vault={vault}
+								path={path}
+								title={title}
+								canGoBack={canGoBack}
+								canGoForward={canGoForward}
+								onBack={onBack}
+								onForward={onForward}
+								leftToggle={collapsed.left ? sidebarToggle("left") : null}
+								rightToggle={collapsed.right ? sidebarToggle("right") : null}
+							/>
 							<div className="editor-column-body">{children}</div>
 						</div>
 						<CommandBar

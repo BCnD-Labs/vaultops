@@ -528,3 +528,39 @@ body {
 	display: flex;
 	gap: calc(var(--shell-gap) * 2);
 }
+
+.outline-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.outline-item {
+	display: block;
+	width: 100%;
+	padding: calc(var(--shell-gap) * 0.5) var(--shell-gap);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--foreground);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.outline-item[data-level="2"] {
+	padding-inline-start: calc(var(--shell-gap) * 3);
+	color: var(--muted-foreground);
+}
+
+.outline-item:hover:not(:disabled) {
+	background: var(--accent);
+}
+
+.outline-item:disabled {
+	cursor: default;
+	opacity: 0.6;
+}

@@ -9,22 +9,41 @@ import { loadVault } from "./session";
 
 vi.mock("../editor/NoteEditor", () => ({
 	NoteEditor: ({ onChange }: { onChange: (doc: unknown) => void }) => (
-		<button
-			type="button"
-			onClick={() =>
-				onChange({
-					type: "doc",
-					content: [
-						{
-							type: "paragraph",
-							content: [{ type: "text", text: "one two three" }],
-						},
-					],
-				})
-			}
-		>
-			Type
-		</button>
+		<>
+			<button
+				type="button"
+				onClick={() =>
+					onChange({
+						type: "doc",
+						content: [
+							{
+								type: "heading",
+								attrs: { level: 1, id: "h1" },
+								content: [{ type: "text", text: "Big idea" }],
+							},
+						],
+					})
+				}
+			>
+				Add heading
+			</button>
+			<button
+				type="button"
+				onClick={() =>
+					onChange({
+						type: "doc",
+						content: [
+							{
+								type: "paragraph",
+								content: [{ type: "text", text: "one two three" }],
+							},
+						],
+					})
+				}
+			>
+				Type
+			</button>
+		</>
 	),
 }));
 
@@ -59,4 +78,17 @@ it("shows only the vault when no note is open", async () => {
 		expect(container.querySelector(".status-bar")).not.toBeNull(),
 	);
 	expect(container.querySelector(".status-bar-counts")).toBeNull();
+});
+
+it("builds the outline tab from the open note's headings", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Alpha");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByRole("tab", { name: "Outline" }));
+	await screen.findByText(/No headings yet/);
+	await user.click(screen.getByRole("button", { name: "Add heading" }));
+	await user.click(await screen.findByRole("button", { name: "Big idea" }));
 });

@@ -23,6 +23,18 @@ export interface SavedInfo {
 }
 
 /**
+ * Whether a completed save belongs to the note that is open right now. A save
+ * flushed on cleanup while switching notes still updates the vault's note list,
+ * but must not overwrite the new note's live path or notice.
+ */
+export function isSaveForOpenNote(
+	info: Pick<SavedInfo, "oldPath">,
+	livePath: string | null,
+): boolean {
+	return info.oldPath === livePath;
+}
+
+/**
  * Autosave for the open note. Edits are saved after a short pause, and also
  * when the window loses focus or is hidden. `flush` saves right now and says
  * whether everything is on disk. A new autosave starts for each `opened` value.

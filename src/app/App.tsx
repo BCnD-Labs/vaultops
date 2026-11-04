@@ -39,7 +39,11 @@ import {
 } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
 import { type Draft, saveAsCopy } from "../editor/save-draft";
-import { type SavedInfo, useAutosave } from "../editor/useAutosave";
+import {
+	isSaveForOpenNote,
+	type SavedInfo,
+	useAutosave,
+} from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
 import { AppShell } from "./AppShell";
@@ -133,9 +137,11 @@ export function App({ host }: { host: Host }) {
 	);
 
 	const onSaved = useCallback((info: SavedInfo) => {
-		setNotice(info.notice ?? null);
-		livePathRef.current = info.path;
-		setLivePath(info.path);
+		if (isSaveForOpenNote(info, livePathRef.current)) {
+			setNotice(info.notice ?? null);
+			livePathRef.current = info.path;
+			setLivePath(info.path);
+		}
 		setView((v) => {
 			const row = v?.notes.find((n) => n.path === info.oldPath);
 			if (!v || !row) return v;

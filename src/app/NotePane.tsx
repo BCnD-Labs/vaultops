@@ -22,13 +22,14 @@ import type { OpenedNote } from "../editor/note-io";
 import { SaveStatus } from "../editor/SaveStatus";
 import { HealthScreen } from "./HealthScreen";
 import { NoteChips, NoteDetails } from "./NoteMetadata";
+import { SettingsScreen } from "./SettingsScreen";
 import type { VaultView } from "./session";
 import { TrashScreen } from "./TrashScreen";
 import "./pane.css";
 
 interface NotePaneProps {
 	view: VaultView | null;
-	screen: "note" | "trash" | "health";
+	screen: "note" | "trash" | "health" | "settings";
 	error: string | null;
 	busy: boolean;
 	writable: boolean;
@@ -277,6 +278,7 @@ export function NotePane({
 			{screen === "health" && view && (
 				<HealthScreen report={view.report} onOpen={onOpen} />
 			)}
+			{screen === "settings" && <SettingsScreen />}
 			{screen === "note" && canvas && (
 				<p className="empty-pane">Pick a note to edit beside the canvas.</p>
 			)}

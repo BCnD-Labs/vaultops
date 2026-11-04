@@ -1,6 +1,13 @@
+import { Lock, LockOpen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Canvas } from "@/components/ui/canvas";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { parseNote } from "../core/note-format";
 import {
 	blockPosition,
@@ -10,7 +17,10 @@ import {
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import type { Host } from "../host/host";
 import { CanvasCard } from "./CanvasCard";
+import { canvasLocked, saveCanvasLocked } from "./canvas-layout";
 import type { NoteRow } from "./session";
+
+const lockLabel = "Lock canvas: drag cards out to the note";
 
 export function CanvasPane({
 	host,
@@ -40,6 +50,7 @@ export function CanvasPane({
 	const [text, setText] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [surfaceRevision, setSurfaceRevision] = useState(0);
+	const [locked, setLocked] = useState(canvasLocked);
 	useEffect(() => {
 		let active = true;
 		setText(null);
@@ -94,11 +105,12 @@ export function CanvasPane({
 			),
 		},
 		className: "canvas-node",
-		draggable: editable,
+		draggable: Boolean(editable && !locked),
 	}));
+	const LockIcon = locked ? Lock : LockOpen;
 	return (
 		<section
-			className="canvas-pane"
+			className={locked ? "canvas-pane canvas-pane-locked" : "canvas-pane"}
 			aria-label="Canvas view"
 			aria-busy={text === null && error === null}
 		>
@@ -142,12 +154,17 @@ export function CanvasPane({
 						This canvas has file problems and is read-only.
 					</p>
 				)}
-			<div className="canvas-surface">
+			<div
+				className={
+					locked ? "canvas-surface canvas-surface-locked" : "canvas-surface"
+				}
+			>
 				<Canvas
 					key={surfaceRevision}
 					nodes={nodes}
+					locked={locked}
 					onMove={async (id, position) => {
-						if (!editable || text === null) return;
+						if (!editable || locked || text === null) return;
 						try {
 							const saved = await saveCanvasPosition(
 								host,
@@ -201,6 +218,30 @@ export function CanvasPane({
 				{roots.length === 0 && (
 					<p className="canvas-empty">Drag a block here from a note.</p>
 				)}
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								size="icon"
+								variant="ghost"
+								className="canvas-lock"
+								aria-label={lockLabel}
+								aria-pressed={locked}
+								title={lockLabel}
+								onClick={() =>
+									setLocked((current) => {
+										const next = !current;
+										saveCanvasLocked(next);
+										return next;
+									})
+								}
+							>
+								<LockIcon size={16} aria-hidden="true" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent side="left">{lockLabel}</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			</div>
 		</section>
 	);

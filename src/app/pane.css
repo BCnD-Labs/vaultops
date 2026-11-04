@@ -43,6 +43,26 @@
 	flex: 1;
 	min-height: 0;
 }
+.canvas-pane-locked .canvas-surface,
+.canvas-surface-locked {
+	box-shadow: var(--canvas-lock-ring);
+}
+.canvas-lock {
+	position: absolute;
+	right: 12px;
+	bottom: 12px;
+	z-index: 5;
+	background: var(--surface);
+	border: var(--border-width) solid var(--line);
+}
+.canvas-lock[aria-pressed="true"] {
+	background: var(--primary-container);
+	color: var(--on-primary-container);
+}
+.canvas-lock svg {
+	width: 16px;
+	height: 16px;
+}
 .canvas-empty {
 	position: absolute;
 	top: 50%;

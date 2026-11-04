@@ -13,12 +13,26 @@ import "@xyflow/react/dist/style.css";
 
 export interface CanvasNode extends Node<{ label: ReactNode }> {}
 
+export function canvasFlowProps(locked = false) {
+	return {
+		nodesDraggable: !locked,
+		panOnDrag: !locked,
+		panOnScroll: !locked,
+		zoomOnScroll: !locked,
+		zoomOnPinch: !locked,
+		zoomOnDoubleClick: !locked,
+		autoPanOnNodeDrag: !locked,
+	};
+}
+
 function Surface({
 	nodes: initial,
+	locked = false,
 	onMove,
 	onDropBlock,
 }: {
 	nodes: CanvasNode[];
+	locked?: boolean;
 	onMove: (id: string, position: { x: number; y: number }) => void;
 	onDropBlock?: (
 		event: React.DragEvent,
@@ -56,8 +70,7 @@ function Surface({
 				);
 			}}
 			fitView
-			panOnScroll
-			zoomOnPinch
+			{...canvasFlowProps(locked)}
 			proOptions={{ hideAttribution: true }}
 		>
 			<Background color="var(--canvas-dot)" gap={20} size={1} />

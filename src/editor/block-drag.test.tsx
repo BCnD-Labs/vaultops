@@ -1,9 +1,17 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+	cleanup,
+	createEvent,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import { getSchema, type JSONContent } from "@tiptap/core";
 import { afterEach, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CanvasCard } from "../app/CanvasCard";
 import { BLOCK_DRAG_TYPE, setBlockDragData } from "./block-drag";
 import { BLOCK_TYPES } from "./blocks";
 import { createExtensions } from "./extensions";
@@ -73,6 +81,20 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 
 afterEach(() => cleanup());
 
+function dispatchDrag(
+	type: "dragStart" | "dragOver" | "dragLeave" | "dragEnd" | "drop",
+	target: Element | Document,
+	dataTransfer: DataTransfer,
+	clientY = 0,
+) {
+	const event = createEvent[type](target);
+	Object.defineProperties(event, {
+		dataTransfer: { value: dataTransfer },
+		clientY: { value: clientY },
+	});
+	fireEvent(target, event);
+}
+
 it.each(BLOCK_TYPES)(
 	"prepares a drag for %s with only identifiers and a readable first line",
 	(type) => {
@@ -81,6 +103,7 @@ it.each(BLOCK_TYPES)(
 		const firstLine = setBlockDragData(transfer, "note-1", node);
 		expect(firstLine).toBe(transfer.getData("text/plain"));
 		expect(firstLine).toBeTruthy();
+		expect(transfer.effectAllowed).toBe("move");
 		expect(JSON.parse(transfer.getData(BLOCK_DRAG_TYPE))).toEqual({
 			noteId: "note-1",
 			blockId: node.attrs.id,
@@ -154,4 +177,124 @@ it("does not change a same-note document when the custom payload is dropped insi
 		),
 	).toEqual(["one", "two"]);
 	expect(() => schema.nodeFromJSON(doc).check()).not.toThrow();
+});
+
+it("sets effectAllowed to move and a card drag image on canvas card dragstart, and cleans it up on dragend", () => {
+	const root = {
+		id: "card-1",
+		type: "paragraph" as const,
+		parent: null,
+		content: [{ type: "text", text: "Card body" }],
+	};
+	render(
+		<CanvasCard
+			root={root}
+			blocks={[]}
+			canvasId="canvas-1"
+			draggable={true}
+			onMoveToNote={() => {}}
+		/>,
+	);
+	const card = screen
+		.getByText("Card body")
+		.closest(".canvas-card") as HTMLElement;
+	const dataTransfer = new DataTransfer();
+	const setDragImage = vi
+		.spyOn(dataTransfer, "setDragImage")
+		.mockImplementation(() => {});
+
+	dispatchDrag("dragStart", card, dataTransfer);
+
+	expect(dataTransfer.effectAllowed).toBe("move");
+	expect(JSON.parse(dataTransfer.getData(BLOCK_DRAG_TYPE))).toEqual({
+		noteId: "canvas-1",
+		blockId: "card-1",
+	});
+	expect(setDragImage).toHaveBeenCalledTimes(1);
+	const ghost = setDragImage.mock.calls[0]?.[0] as HTMLElement;
+	expect(ghost.classList.contains("canvas-card")).toBe(true);
+	expect(ghost.classList.contains("canvas-card-drag-preview")).toBe(true);
+	expect(ghost.textContent).toContain("Card body");
+	expect(ghost.querySelector(".canvas-menu")).toBeNull();
+	expect(document.body.contains(ghost)).toBe(true);
+
+	dispatchDrag("dragEnd", card, dataTransfer);
+	expect(document.body.contains(ghost)).toBe(false);
+});
+
+it("sets dropEffect to move on note dragover, shows the indicator at the right block index, and clears it on dragleave, dragend, and drop", async () => {
+	const onDropBlock = vi.fn().mockResolvedValue(undefined);
+	const doc = {
+		type: "doc",
+		content: [
+			paragraph("first", "First block"),
+			paragraph("second", "Second block"),
+		],
+	};
+	render(
+		<TooltipProvider>
+			<NoteEditor
+				doc={doc}
+				noteId="note-1"
+				editable={true}
+				onChange={() => {}}
+				onDropBlock={onDropBlock}
+			/>
+		</TooltipProvider>,
+	);
+
+	await waitFor(() => expect(screen.getByText("First block")).toBeTruthy());
+	const dropArea = screen.getByRole("region", {
+		name: "Note editor drop area",
+	});
+	const [firstBlock, secondBlock] = Array.from(
+		dropArea.querySelector(".ProseMirror")?.children ?? [],
+	) as HTMLElement[];
+	if (!firstBlock || !secondBlock) throw new Error("missing blocks");
+
+	vi.spyOn(dropArea, "getBoundingClientRect").mockReturnValue(
+		new DOMRect(0, 100, 600, 300),
+	);
+	vi.spyOn(firstBlock, "getBoundingClientRect").mockReturnValue(
+		new DOMRect(0, 110, 600, 40),
+	);
+	vi.spyOn(secondBlock, "getBoundingClientRect").mockReturnValue(
+		new DOMRect(0, 170, 600, 40),
+	);
+
+	const makeTransfer = () => {
+		const transfer = new DataTransfer();
+		transfer.setData(
+			BLOCK_DRAG_TYPE,
+			JSON.stringify({ noteId: "canvas-1", blockId: "card-1" }),
+		);
+		return transfer;
+	};
+	const dropIndex = () =>
+		screen.getByTestId("block-drop-indicator").getAttribute("data-drop-index");
+
+	for (const [y, expected] of [
+		[115, "0"],
+		[160, "1"],
+		[205, "2"],
+	] as const) {
+		const transfer = makeTransfer();
+		dispatchDrag("dragOver", dropArea, transfer, y);
+		expect(transfer.dropEffect).toBe("move");
+		expect(dropIndex()).toBe(expected);
+	}
+
+	dispatchDrag("dragLeave", dropArea, makeTransfer());
+	expect(screen.queryByTestId("block-drop-indicator")).toBeNull();
+
+	dispatchDrag("dragOver", dropArea, makeTransfer(), 160);
+	expect(dropIndex()).toBe("1");
+	fireEvent.dragEnd(document);
+	expect(screen.queryByTestId("block-drop-indicator")).toBeNull();
+
+	dispatchDrag("dragOver", dropArea, makeTransfer(), 160);
+	expect(dropIndex()).toBe("1");
+	dispatchDrag("drop", dropArea, makeTransfer(), 160);
+	expect(screen.queryByTestId("block-drop-indicator")).toBeNull();
+	expect(onDropBlock).toHaveBeenCalledWith("card-1", "canvas-1", "first");
 });

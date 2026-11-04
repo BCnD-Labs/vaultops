@@ -16,6 +16,7 @@ export function createExtensions(): Extensions {
 	return [
 		StarterKit.configure({
 			heading: { levels: [1, 2] },
+			dropcursor: { color: false, class: "block-drop-indicator" },
 			horizontalRule: false,
 			underline: false,
 			link: false,

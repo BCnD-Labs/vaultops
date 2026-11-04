@@ -1,3 +1,8 @@
+.note-editor {
+	position: relative;
+	flex: 1;
+}
+
 .note-editor .ProseMirror {
 	outline: none;
 	min-height: 12rem;
@@ -24,17 +29,38 @@
 .block-drag-preview {
 	position: absolute;
 	top: -10000px;
-	max-width: var(--editor-width);
-	padding: 0.4rem 0.7rem;
+	width: 240px;
+	padding: 10px;
 	border: var(--border-width) solid var(--border);
-	border-radius: var(--radius-control);
+	border-radius: var(--radius-container);
 	background: var(--surface);
 	color: var(--foreground);
 	box-shadow: var(--elevation-2);
-	font: var(--editor-font-size) var(--font-editor);
+	font: var(--font-size-ui) var(--font-sans);
+	opacity: 0.85;
+	pointer-events: none;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.block-drop-indicator,
+.prosemirror-dropcursor-block {
+	position: absolute;
+	left: 0;
+	right: 0;
+	max-width: var(--editor-width);
+	margin-inline: auto;
+	height: var(--focus-ring-width);
+	background: var(--primary);
+	border-radius: var(--radius-round);
+	pointer-events: none;
+	z-index: 10;
+}
+
+.note-editor:has(> .block-drop-indicator) .prosemirror-dropcursor-block,
+.note-editor:has(> .block-drop-indicator) .prosemirror-dropcursor-inline {
+	display: none;
 }
 
 .note-editor .ProseMirror > * + * {

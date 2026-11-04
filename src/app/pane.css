@@ -145,6 +145,27 @@
 	border-radius: var(--radius-control);
 	background: var(--callout-note-bg);
 }
+.canvas-card .toggle {
+	text-align: start;
+}
+.canvas-card .toggle-summary {
+	display: flex;
+	gap: 4px;
+	align-items: flex-start;
+}
+.canvas-card .toggle-chevron {
+	flex: none;
+	width: 1em;
+	height: 1em;
+	margin-top: 0.15em;
+	color: var(--muted-foreground);
+}
+.canvas-card .toggle[data-open="true"] .toggle-chevron {
+	transform: rotate(90deg);
+}
+.canvas-card .toggle-body {
+	margin-left: 1.25em;
+}
 .canvas-card pre {
 	margin: 0;
 	white-space: pre-wrap;

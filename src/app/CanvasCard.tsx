@@ -1,4 +1,4 @@
-import { Ellipsis } from "lucide-react";
+import { ChevronRight, Ellipsis } from "lucide-react";
 import {
 	type DragEvent,
 	Fragment,
@@ -111,6 +111,25 @@ export function CanvasCard({
 						{nested}
 					</div>
 				);
+			case "toggle": {
+				// Static: the card shows the saved open or closed state.
+				const open =
+					!!block.attrs &&
+					typeof block.attrs === "object" &&
+					!Array.isArray(block.attrs) &&
+					block.attrs.open === true;
+				return (
+					<div className="toggle" data-open={open}>
+						<div className="toggle-summary">
+							<ChevronRight className="toggle-chevron" aria-hidden="true" />
+							<div>{nested[0]}</div>
+						</div>
+						{open && nested.length > 1 && (
+							<div className="toggle-body">{nested.slice(1)}</div>
+						)}
+					</div>
+				);
+			}
 			case "codeBlock":
 				return (
 					<pre>

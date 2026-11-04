@@ -26,6 +26,39 @@ it("extracts a flat block without changing its ID or the input", () => {
 	expect(() => extractBlock(source, "missing")).toThrow("not found");
 });
 
+it("carries every line of a toggle, including a nested toggle, and keeps open", () => {
+	const source = doc([
+		{ id: "t", type: "toggle", parent: null, attrs: { open: true } },
+		line("summary", "t"),
+		{ id: "list", type: "bulletList", parent: "t" },
+		{ id: "item", type: "listItem", parent: "list" },
+		line("item-text", "item"),
+		{ id: "inner", type: "toggle", parent: "t" },
+		line("inner-summary", "inner"),
+		line("tail"),
+	]);
+	const extracted = extractBlock(source, "t");
+	expect(extracted.lines.map((l) => l.id)).toEqual([
+		"t",
+		"summary",
+		"list",
+		"item",
+		"item-text",
+		"inner",
+		"inner-summary",
+	]);
+	expect(extracted.doc.blocks.map((l) => l.id)).toEqual(["tail"]);
+	const inserted = insertBlock(doc([line("a")]), extracted.lines, "a");
+	expect(inserted.blocks.map((l) => l.id)).toEqual([
+		"a",
+		...extracted.lines.map((l) => l.id),
+	]);
+	expect(inserted.blocks[1]?.attrs).toEqual({ open: true });
+	const canvas = placeOnCanvas(doc([], true), extracted.lines, 10, 20);
+	expect(canvas.blocks).toHaveLength(7);
+	expect(canvas.blocks[0]?.attrs).toEqual({ open: true, x: 10, y: 20 });
+});
+
 it("moves a list with descendants after the anchor subtree", () => {
 	const source = doc([
 		{ id: "list", type: "bulletList", parent: null },

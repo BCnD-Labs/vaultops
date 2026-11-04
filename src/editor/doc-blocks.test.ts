@@ -239,6 +239,49 @@ describe("checkBlocks", () => {
 	});
 });
 
+describe("toggle fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/toggle.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("reads, edits as a document, and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.type)).toEqual([
+			"paragraph",
+			"toggle",
+			"toggle",
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+
+	it("refuses a toggle that does not start with a summary paragraph", () => {
+		const result = checkBlocks([
+			{ id: "t", type: "toggle", parent: null },
+			{ id: "l", type: "bulletList", parent: "t" },
+			{ id: "i", type: "listItem", parent: "l" },
+			{ id: "p", type: "paragraph", parent: "i" },
+		]);
+		expect(result.ok).toBe(false);
+	});
+
+	it("refuses an attribute the toggle does not declare", () => {
+		const result = checkBlocks([
+			{ id: "t", type: "toggle", parent: null, attrs: { color: "red" } },
+			{ id: "p", type: "paragraph", parent: "t" },
+		]);
+		expect(result).toEqual({
+			ok: false,
+			reason: 'an unknown attribute "color" on a toggle',
+		});
+	});
+});
+
 describe("divider and callout fixture", () => {
 	const text = readFileSync(
 		new URL("../../test-fixtures/callout-divider.vnote", import.meta.url),

@@ -75,6 +75,13 @@ export const SLASH_ITEMS: SlashItem[] = [
 				.insertContent([{ type: "divider" }, { type: "paragraph" }])
 				.run(),
 	},
+	{
+		id: "toggle",
+		label: "Toggle",
+		keywords: ["collapse", "expand", "fold", "details", "accordion"],
+		run: (e, r) =>
+			start(e, r).setNode("paragraph").wrapIn("toggle", { open: true }).run(),
+	},
 	...CALLOUT_TONES.map(
 		(tone): SlashItem => ({
 			id: `callout-${tone}`,

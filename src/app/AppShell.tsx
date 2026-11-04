@@ -37,6 +37,7 @@ import {
 import { CommandBar } from "./CommandBar";
 import type { NoteRow } from "./session";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
+import { TabBar, type TabItem } from "./TabBar";
 
 export const ShellNavigation = createContext({
 	tags: 0,
@@ -102,6 +103,9 @@ export function AppShell({
 	onOpenNote = () => {},
 	onCreateNote = () => {},
 	onNavigateScreen = () => {},
+	tabs = [],
+	onSelectTab = () => {},
+	onCloseTab = () => {},
 }: {
 	sidebar: ReactNode;
 	tools?: ReactNode;
@@ -115,6 +119,9 @@ export function AppShell({
 	onOpenNote?: (path: string) => void;
 	onCreateNote?: (folder: string, title: string) => void;
 	onNavigateScreen?: (screen: "trash" | "health" | "settings") => void;
+	tabs?: TabItem[];
+	onSelectTab?: (path: string) => void;
+	onCloseTab?: (path: string) => void;
 }) {
 	const [propertyRequest, setPropertyRequest] = useState<{
 		name?: string;
@@ -249,7 +256,17 @@ export function AppShell({
 					</ResizablePanel>
 					<ResizableHandle />
 					<ResizablePanel id="editor" minSize={420} className="shell-editor">
-						{children}
+						<div className="editor-column">
+							{tabs.length > 0 && (
+								<TabBar
+									tabs={tabs}
+									onSelect={onSelectTab}
+									onClose={onCloseTab}
+									onNew={() => setSearchRequest((count) => count + 1)}
+								/>
+							)}
+							<div className="editor-column-body">{children}</div>
+						</div>
 						<CommandBar
 							notes={notes}
 							writable={writable}

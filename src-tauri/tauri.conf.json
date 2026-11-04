@@ -47,7 +47,7 @@
 	},
 	"plugins": {
 		"updater": {
-			"pubkey": "PLACEHOLDER-REPLACE-WITH-THE-PUBLIC-KEY-FROM-BLAKE",
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyQTczRTczRjE3NUZDREEKUldUYS9IWHhjejZuMHN2cXI5amYweWp1eGgrNWhUNGFwTUQ0YThFUUtXWXBVZEx5aEcwQ1hGb04K",
 			"endpoints": [
 				"https://github.com/BCnD-Labs/vaultops/releases/latest/download/latest.json"
 			]

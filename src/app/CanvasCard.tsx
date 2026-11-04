@@ -1,5 +1,11 @@
 import { Ellipsis } from "lucide-react";
-import { type DragEvent, Fragment, type ReactNode } from "react";
+import {
+	type DragEvent,
+	Fragment,
+	type ReactNode,
+	useEffect,
+	useRef,
+} from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -7,7 +13,11 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Block, JsonValue } from "../core/note-format";
-import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
+import {
+	BLOCK_DRAG_TYPE,
+	setBlockDragImage,
+	setDragEffect,
+} from "../editor/block-drag";
 
 function inline(value: JsonValue | undefined): ReactNode {
 	if (!Array.isArray(value)) return null;
@@ -121,17 +131,42 @@ export function CanvasCard({
 				return <p>{content || (nested.length ? nested : block.type)}</p>;
 		}
 	};
+	const preview = useRef<HTMLElement | null>(null);
+	useEffect(() => {
+		const clearPreview = () => {
+			preview.current?.remove();
+			preview.current = null;
+		};
+		document.addEventListener("dragend", clearPreview);
+		document.addEventListener("drop", clearPreview);
+		return () => {
+			document.removeEventListener("dragend", clearPreview);
+			document.removeEventListener("drop", clearPreview);
+			clearPreview();
+		};
+	}, []);
 	return (
 		<article
 			className="canvas-card"
 			draggable={draggable}
-			onDragStart={(event: DragEvent) => {
+			onDragStart={(event: DragEvent<HTMLElement>) => {
 				if (!draggable || !root.id) return;
 				event.dataTransfer.setData(
 					BLOCK_DRAG_TYPE,
 					JSON.stringify({ noteId: canvasId, blockId: root.id }),
 				);
-				event.dataTransfer.effectAllowed = "move";
+				setDragEffect(event.dataTransfer, "effectAllowed", "move");
+				preview.current?.remove();
+				const ghost = event.currentTarget.cloneNode(true) as HTMLElement;
+				ghost.classList.add("canvas-card-drag-preview");
+				ghost.querySelector(".canvas-menu")?.remove();
+				document.body.append(ghost);
+				setBlockDragImage(event.dataTransfer, ghost);
+				preview.current = ghost;
+			}}
+			onDragEnd={() => {
+				preview.current?.remove();
+				preview.current = null;
 			}}
 		>
 			{render(root)}

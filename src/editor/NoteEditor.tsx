@@ -3,14 +3,21 @@ import DragHandle from "@tiptap/extension-drag-handle-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { GripVertical } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { BLOCK_DRAG_TYPE, blockDragData, setBlockDragData } from "./block-drag";
+import {
+	BLOCK_DRAG_TYPE,
+	blockDragData,
+	findBlockDropTarget,
+	setBlockDragData,
+	setBlockDragImage,
+	setDragEffect,
+} from "./block-drag";
 import { createExtensions } from "./extensions";
 import { ensureUniqueIds } from "./ids";
 import "./editor.css";
@@ -42,11 +49,16 @@ export function NoteEditor({
 	const draggedBlock = useRef<ProseMirrorNode | null>(null);
 	const dragStartEvent = useRef<DragEvent | null>(null);
 	const preview = useRef<HTMLElement | null>(null);
+	const [dropIndicator, setDropIndicator] = useState<{
+		index: number;
+		top: number;
+	} | null>(null);
 
 	useEffect(() => {
 		const clearPreview = () => {
 			preview.current?.remove();
 			preview.current = null;
+			setDropIndicator(null);
 		};
 		// The extension clears DataTransfer in its dragstart listener. The document
 		// listener runs after it, while the browser still permits setting drag data.
@@ -65,7 +77,7 @@ export function NoteEditor({
 			element.className = "block-drag-preview";
 			element.textContent = firstLine;
 			document.body.append(element);
-			event.dataTransfer.setDragImage(element, 0, 0);
+			setBlockDragImage(event.dataTransfer, element);
 			preview.current = element;
 		};
 		document.addEventListener("dragstart", addDragData);
@@ -96,36 +108,62 @@ export function NoteEditor({
 		editor?.setEditable(editable, false);
 	}, [editor, editable]);
 
+	const updateDropIndicator = (event: React.DragEvent<HTMLElement>) => {
+		if (!event.dataTransfer.types.includes(BLOCK_DRAG_TYPE)) return;
+		event.preventDefault();
+		setDragEffect(event.dataTransfer, "dropEffect", "move");
+		if (!editor) return;
+		const slot = findBlockDropTarget(
+			editor.view.dom,
+			editor.state.doc,
+			event.clientY,
+			event.currentTarget,
+		);
+		setDropIndicator((current) =>
+			current?.index === slot.index && current.top === slot.top
+				? current
+				: { index: slot.index, top: slot.top },
+		);
+	};
+
 	return (
 		<section
 			className="note-editor"
 			aria-label="Note editor drop area"
-			onDragOver={(event) => {
-				if (!onDropBlock || !event.dataTransfer.types.includes(BLOCK_DRAG_TYPE))
-					return;
-				event.preventDefault();
-				event.dataTransfer.dropEffect = "move";
+			onDragEnter={updateDropIndicator}
+			onDragOver={updateDropIndicator}
+			onDragLeave={(event) => {
+				const next = event.relatedTarget;
+				if (next instanceof Node && event.currentTarget.contains(next)) return;
+				setDropIndicator(null);
 			}}
+			onDragEnd={() => setDropIndicator(null)}
 			onDropCapture={(event) => {
+				setDropIndicator(null);
 				if (!event.dataTransfer.types.includes(BLOCK_DRAG_TYPE)) return;
 				const data = blockDragData(event.dataTransfer);
 				if (data?.noteId === noteId) return;
 				event.preventDefault();
 				event.stopPropagation();
-				if (!editor || !onDropBlock) return;
-				if (!data) return;
-				let after: string | null = null;
-				const children = Array.from(editor.view.dom.children);
-				for (let index = 0; index < editor.state.doc.childCount; index++) {
-					const bounds = children[index]?.getBoundingClientRect();
-					if (bounds && event.clientY < bounds.top + bounds.height / 2) break;
-					const id = editor.state.doc.child(index).attrs.id;
-					if (typeof id === "string") after = id;
-				}
+				if (!editor || !onDropBlock || !data) return;
+				const { after } = findBlockDropTarget(
+					editor.view.dom,
+					editor.state.doc,
+					event.clientY,
+					event.currentTarget,
+				);
 				void onDropBlock(data.blockId, data.noteId, after);
 			}}
 		>
 			<EditorContent editor={editor} />
+			{dropIndicator !== null && (
+				<div
+					className="block-drop-indicator prosemirror-dropcursor-block"
+					data-testid="block-drop-indicator"
+					data-drop-index={dropIndicator.index}
+					style={{ top: `${dropIndicator.top}px` }}
+				/>
+			)}
 			{editor && editable && noteId && (
 				<DragHandle
 					editor={editor}

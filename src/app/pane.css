@@ -93,6 +93,30 @@
 	color: var(--foreground);
 	box-shadow: var(--elevation-2);
 }
+.canvas-card-drag-preview {
+	position: absolute;
+	top: -10000px;
+	width: 240px;
+	padding: 10px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	color: var(--foreground);
+	box-shadow: var(--elevation-2);
+	opacity: 0.85;
+	pointer-events: none;
+}
+.canvas-drop-placeholder {
+	position: absolute;
+	width: 240px;
+	height: 56px;
+	border: var(--border-width) dashed var(--primary);
+	border-radius: var(--radius-container);
+	background: var(--primary-container);
+	opacity: 0.35;
+	pointer-events: none;
+	z-index: 4;
+}
 .canvas-card {
 	font-size: var(--font-size-ui);
 	overflow-wrap: anywhere;

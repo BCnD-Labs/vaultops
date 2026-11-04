@@ -40,8 +40,20 @@ function Surface({
 	) => void;
 }) {
 	const [nodes, setNodes] = useState(initial);
+	const [dropSpot, setDropSpot] = useState<{ x: number; y: number } | null>(
+		null,
+	);
 	const flow = useReactFlow<CanvasNode>();
 	useEffect(() => setNodes(initial), [initial]);
+	useEffect(() => {
+		const clear = () => setDropSpot(null);
+		document.addEventListener("dragend", clear);
+		document.addEventListener("drop", clear);
+		return () => {
+			document.removeEventListener("dragend", clear);
+			document.removeEventListener("drop", clear);
+		};
+	}, []);
 	return (
 		<ReactFlow<CanvasNode>
 			nodes={nodes}
@@ -54,16 +66,40 @@ function Surface({
 				)
 			}
 			onNodeDragStop={(_, node) => onMove(node.id, node.position)}
+			onDragEnter={(event) => {
+				if (!event.dataTransfer.types.includes("application/x-vaultops-block"))
+					return;
+				event.preventDefault();
+				event.dataTransfer.dropEffect = "move";
+			}}
 			onDragOver={(event) => {
 				event.preventDefault();
-				event.dataTransfer.dropEffect = event.dataTransfer.types.includes(
+				const valid = event.dataTransfer.types.includes(
 					"application/x-vaultops-block",
+				);
+				event.dataTransfer.dropEffect = valid ? "move" : "none";
+				if (!valid) {
+					setDropSpot(null);
+					return;
+				}
+				const bounds = event.currentTarget.getBoundingClientRect();
+				setDropSpot({
+					x: event.clientX - bounds.left,
+					y: event.clientY - bounds.top,
+				});
+			}}
+			onDragLeave={(event) => {
+				const next = event.relatedTarget;
+				if (
+					next instanceof globalThis.Node &&
+					event.currentTarget.contains(next)
 				)
-					? "move"
-					: "none";
+					return;
+				setDropSpot(null);
 			}}
 			onDrop={(event) => {
 				event.preventDefault();
+				setDropSpot(null);
 				onDropBlock?.(
 					event,
 					flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }),
@@ -75,6 +111,13 @@ function Surface({
 		>
 			<Background color="var(--canvas-dot)" gap={20} size={1} />
 			<Controls showZoom={false} showInteractive={false} />
+			{dropSpot && (
+				<div
+					className="canvas-drop-placeholder"
+					data-testid="canvas-drop-placeholder"
+					style={{ left: `${dropSpot.x}px`, top: `${dropSpot.y}px` }}
+				/>
+			)}
 		</ReactFlow>
 	);
 }

@@ -37,9 +37,14 @@ export function useAutosave(
 	const savedRef = useRef(onSaved);
 	savedRef.current = onSaved;
 
+	// An edit can arrive after a note is on screen but before the effect below
+	// has made its autosave. Keep it here and hand it over, so it is not lost.
+	const early = useRef<Draft | null>(null);
+
 	useEffect(() => {
 		if (!opened?.editable) {
 			current.current = null;
+			early.current = null;
 			setState(SAVED);
 			return;
 		}
@@ -91,6 +96,10 @@ export function useAutosave(
 			},
 		});
 		current.current = auto;
+		if (early.current) {
+			auto.change(early.current);
+			early.current = null;
+		}
 		setState(auto.getState());
 		const unsubscribe = auto.subscribe(setState);
 		return () => {
@@ -115,7 +124,8 @@ export function useAutosave(
 		return state?.kind === "failed" ? state.reason : null;
 	}, []);
 	const change = useCallback((draft: Draft) => {
-		current.current?.change(draft);
+		if (current.current) current.current.change(draft);
+		else early.current = draft;
 	}, []);
 
 	useEffect(() => {

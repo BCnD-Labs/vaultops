@@ -1,11 +1,16 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "./AppShell";
 import { NoteTools } from "./NoteTools";
 import { Sidebar } from "./Sidebar";
+
+// These tests drive the notebook-navigator layout (folders plus a notes list).
+beforeEach(() => {
+	localStorage.setItem("vaultops:sidebar-mode", "navigator");
+});
 
 afterEach(() => {
 	cleanup();

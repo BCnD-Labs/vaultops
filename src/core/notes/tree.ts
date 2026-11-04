@@ -5,6 +5,8 @@ export interface TreeNote {
 	path: string;
 	title: string;
 	readOnly: boolean;
+	/** "canvas" rows get their own icon; anything else is a note. */
+	kind?: "note" | "canvas";
 }
 
 export interface FolderNode {
@@ -21,6 +23,8 @@ export interface NoteNode {
 	name: string;
 	path: string;
 	readOnly: boolean;
+	/** True for a canvas (set only then). */
+	canvas?: boolean;
 }
 
 export type TreeNode = FolderNode | NoteNode;
@@ -76,6 +80,7 @@ export function buildTree(folders: string[], notes: TreeNote[]): TreeNode[] {
 			name: note.title,
 			path: note.path,
 			readOnly: note.readOnly,
+			...(note.kind === "canvas" ? { canvas: true } : {}),
 		});
 	}
 	sortChildren(root.children);
@@ -86,6 +91,18 @@ export function buildTree(folders: string[], notes: TreeNote[]): TreeNode[] {
 export function ancestorsOf(path: string): string[] {
 	const parts = path.split("/").slice(0, -1);
 	return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
+}
+
+/** Only the notes that pass `keep`, and only the folders that still hold one. */
+export function filterTree(
+	nodes: TreeNode[],
+	keep: (path: string) => boolean,
+): TreeNode[] {
+	return nodes.flatMap((node): TreeNode[] => {
+		if (node.kind === "note") return keep(node.path) ? [node] : [];
+		const children = filterTree(node.children, keep);
+		return children.length > 0 ? [{ ...node, children }] : [];
+	});
 }
 
 /** How many notes sit in a folder, in its subfolders too. */

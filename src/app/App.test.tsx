@@ -8,7 +8,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { listTrash } from "../core/notes/trash";
 import { MemoryHost } from "../host/memory-host";
@@ -19,6 +19,11 @@ import { loadVault } from "./session";
 vi.mock("../editor/NoteEditor", () => ({
 	NoteEditor: () => <div className="note-editor" />,
 }));
+
+// These tests drive the notebook-navigator layout (folders plus a notes list).
+beforeEach(() => {
+	localStorage.setItem("vaultops:sidebar-mode", "navigator");
+});
 
 afterEach(() => {
 	cleanup();

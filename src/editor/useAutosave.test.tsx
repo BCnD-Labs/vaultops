@@ -26,3 +26,31 @@ it("keeps an edit made before the autosave for a new note exists", async () => {
 	});
 	expect(await host.kindOf("Renamed.vnote")).toBe("file");
 });
+
+async function twoNotes() {
+	const host = new MemoryHost();
+	await loadVault(host);
+	const a = await openNote(host, (await createNote(host, "", "Alpha")).path);
+	const b = await openNote(host, (await createNote(host, "", "Beta")).path);
+	return { host, a, b };
+}
+
+it("does not write an edit made to the next note into the previous note", async () => {
+	const { host, a, b } = await twoNotes();
+	const alphaBefore = await host.readText(a.path);
+	const { result, rerender } = renderHook(
+		({ value }) => useAutosave(host, value),
+		{ initialProps: { value: a as typeof a | null } },
+	);
+	await act(async () => {});
+	// Same act scope: Beta is committed, but Alpha's autosave is still live.
+	await act(async () => {
+		rerender({ value: b });
+		result.current.change({ doc: b.doc, title: "Beta edited" });
+	});
+	await act(async () => {
+		await result.current.flush();
+	});
+	expect(await host.readText(a.path)).toBe(alphaBefore);
+	expect(await host.kindOf("Alpha.vnote")).toBe("file");
+});

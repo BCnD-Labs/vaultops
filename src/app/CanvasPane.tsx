@@ -97,7 +97,11 @@ export function CanvasPane({
 		draggable: editable,
 	}));
 	return (
-		<section className="canvas-pane" aria-label="Canvas view">
+		<section
+			className="canvas-pane"
+			aria-label="Canvas view"
+			aria-busy={text === null && error === null}
+		>
 			<header className="canvas-bar">
 				<label className="section-label" htmlFor="canvas-switcher">
 					Canvas

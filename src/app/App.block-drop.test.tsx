@@ -140,6 +140,14 @@ async function openEditorAndCanvas(host: MemoryHost) {
 	await screen.findByRole("textbox", { name: "Title" });
 	fireEvent.click(screen.getByTitle("Board.vnote"));
 	await screen.findByRole("region", { name: "Canvas view" });
+	// An empty canvas has no card to wait for; the pane says when it has loaded.
+	await waitFor(() =>
+		expect(
+			screen
+				.getByRole("region", { name: "Canvas view" })
+				.getAttribute("aria-busy"),
+		).toBe("false"),
+	);
 }
 
 it("saves unsaved edits, moves a list and its children, and updates both panes", async () => {
@@ -201,10 +209,11 @@ it("keeps both copies visible and names both files after a failed source write",
 	expect(parseNote(await host.readText(canvas.path)).note?.blocks[0]?.id).toBe(
 		"block",
 	);
+	// The canvas reloads its cards after a failed move; wait for them to return.
 	expect(
-		within(screen.getByRole("region", { name: "Canvas view" })).getByText(
-			"Move me",
-		),
+		await within(
+			screen.getByRole("region", { name: "Canvas view" }),
+		).findByText("Move me"),
 	).toBeTruthy();
 });
 
@@ -351,12 +360,13 @@ it("keeps both copies visible if removing the canvas copy fails", async () => {
 	expect(parseNote(await host.readText(canvas.path)).note?.blocks[0]?.id).toBe(
 		"block",
 	);
-	expect(screen.getByTestId("editor-blocks").textContent).toContain("block");
+	// The canvas reloads its cards after a failed move; wait for them to return.
 	expect(
-		within(screen.getByRole("region", { name: "Canvas view" })).getByText(
-			"Move me",
-		),
+		await within(
+			screen.getByRole("region", { name: "Canvas view" }),
+		).findByText("Move me"),
 	).toBeTruthy();
+	expect(screen.getByTestId("editor-blocks").textContent).toContain("block");
 });
 
 it("refuses a return when unsaved note edits cannot be saved", async () => {

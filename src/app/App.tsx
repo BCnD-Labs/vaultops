@@ -17,6 +17,7 @@ import {
 import { moveBlock } from "../core/notes/move-block";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { moveNote } from "../core/notes/rename";
+import { type TextStats, textStats } from "../core/notes/text-stats";
 import {
 	deleteForever,
 	listTrash,
@@ -79,6 +80,9 @@ import "../ui/theme.css";
 import "./app.css";
 
 /** The window keeps note and save state outside its collapsible sidebars. */
+// How long writing must pause before the status bar recounts.
+const STATS_DELAY_MS = 300;
+
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [screen, setScreen] = useState<
@@ -130,6 +134,18 @@ export function App({ host }: { host: Host }) {
 	const [title, setTitle] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
 	const docRef = useRef(opened?.doc ?? null);
+	// Counts for the status bar. Typing only schedules a recount, so a long
+	// note is counted once the writing pauses, never on every key.
+	const [stats, setStats] = useState<TextStats | null>(null);
+	const statsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const refreshStats = () => {
+		clearTimeout(statsTimer.current);
+		statsTimer.current = setTimeout(
+			() => setStats(textStats(docRef.current)),
+			STATS_DELAY_MS,
+		);
+	};
+	useEffect(() => () => clearTimeout(statsTimer.current), []);
 	const titleRef = useRef("");
 	const titleInput = useRef<HTMLInputElement>(null);
 	const focusTitle = useRef(false);
@@ -301,6 +317,7 @@ export function App({ host }: { host: Host }) {
 					detail: { editable: next.editable },
 				});
 				docRef.current = next.doc;
+				setStats(textStats(next.doc));
 				const text =
 					typeof next.note?.header.title === "string"
 						? next.note.header.title
@@ -790,6 +807,11 @@ export function App({ host }: { host: Host }) {
 					canGoForward={canGoForward(nav)}
 					onBack={() => void goThrough(-1)}
 					onForward={() => void goThrough(1)}
+					stats={
+						screen === "note" && opened && opened.note?.header.kind !== "canvas"
+							? stats
+							: null
+					}
 					tools={
 						<NoteTools
 							key={opened?.path}
@@ -867,6 +889,7 @@ export function App({ host }: { host: Host }) {
 								}}
 								onDocChange={(doc) => {
 									docRef.current = doc;
+									refreshStats();
 									getLogger().count("edits");
 									autosave.change(draftOf(doc, titleRef.current), opened);
 								}}

@@ -440,7 +440,8 @@ body {
 	position: absolute;
 	z-index: 10;
 	left: 50%;
-	bottom: calc(var(--shell-gap) * 2);
+	/* Sits above the status bar (three gaps tall). */
+	bottom: calc(var(--shell-gap) * 5);
 	transform: translateX(-50%);
 	display: flex;
 	align-items: center;
@@ -501,4 +502,29 @@ body {
 	padding: 8px 0;
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);
+}
+
+.status-bar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(var(--shell-gap) * 2);
+	height: calc(var(--shell-gap) * 3);
+	padding-inline: calc(var(--shell-gap) * 1.5);
+	border-top: var(--border-width) solid var(--line);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	white-space: nowrap;
+}
+
+.status-bar-vault {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.status-bar-counts {
+	display: flex;
+	gap: calc(var(--shell-gap) * 2);
 }

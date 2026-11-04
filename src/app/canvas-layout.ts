@@ -2,6 +2,7 @@ import type { Layout } from "react-resizable-panels";
 
 const layoutKey = "vaultops:canvas-split";
 const pathKey = "vaultops:last-canvas";
+const lockKey = "vaultops:canvas-locked";
 
 export function canvasLayout(
 	storage?: Pick<Storage, "getItem">,
@@ -41,5 +42,24 @@ export function lastCanvas(vault: string, path?: string | null): string | null {
 		return paths[vault] ?? null;
 	} catch {
 		return null;
+	}
+}
+
+export function canvasLocked(storage?: Pick<Storage, "getItem">): boolean {
+	try {
+		return (storage ?? localStorage).getItem(lockKey) === "true";
+	} catch {
+		return false;
+	}
+}
+
+export function saveCanvasLocked(
+	locked: boolean,
+	storage?: Pick<Storage, "setItem">,
+) {
+	try {
+		(storage ?? localStorage).setItem(lockKey, String(locked));
+	} catch {
+		/* Optional preference. */
 	}
 }

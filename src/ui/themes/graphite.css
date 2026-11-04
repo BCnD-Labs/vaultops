@@ -64,6 +64,7 @@
 	--text: var(--foreground);
 	--line: var(--border);
 	--canvas-dot: var(--border);
+	--canvas-lock-ring: inset 0 0 0 2px var(--primary-container);
 	--bad: var(--destructive);
 	--hover-layer: 8%;
 	--pressed-layer: 14%;

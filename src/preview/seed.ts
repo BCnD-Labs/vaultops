@@ -63,6 +63,22 @@ export async function seedVault(): Promise<MemoryHost> {
 				"paragraph",
 				"warn",
 			),
+			{ id: "more", type: "toggle", parent: null, attrs: { open: true } },
+			text(
+				"more-summary",
+				"Click the arrow to fold this away",
+				"paragraph",
+				"more",
+			),
+			text(
+				"more-body",
+				"Anything can live inside a toggle.",
+				"paragraph",
+				"more",
+			),
+			{ id: "later", type: "toggle", parent: null },
+			text("later-summary", "A closed toggle", "paragraph", "later"),
+			text("later-body", "Hidden until opened.", "paragraph", "later"),
 			text("read", "Read the class notes", "taskBlock"),
 			{
 				...text("done", "Set up a sample vault", "taskBlock"),

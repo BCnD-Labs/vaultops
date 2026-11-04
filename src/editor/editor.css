@@ -178,6 +178,64 @@
 	margin-top: 0.4rem;
 }
 
+.note-editor .toggle {
+	display: flex;
+	gap: 0.25rem;
+	margin: 0.4rem 0;
+}
+
+.note-editor .toggle-chevron {
+	flex: none;
+	align-self: flex-start;
+	display: inline-flex;
+	padding: 0;
+	margin-top: 0.2rem;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+
+.note-editor .toggle-chevron:disabled {
+	cursor: default;
+}
+
+.note-editor .toggle-chevron:focus-visible {
+	outline: var(--border-width) solid var(--ring);
+}
+
+.note-editor .toggle-chevron svg {
+	width: 1.1rem;
+	height: 1.1rem;
+}
+
+.note-editor .toggle[data-open="true"] > .toggle-chevron svg {
+	transform: rotate(90deg);
+}
+
+.note-editor .toggle-content {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Tiptap puts the toggle's blocks inside one extra wrapper div. */
+.note-editor .toggle-content > [data-node-view-content-react] > * {
+	margin: 0;
+}
+
+.note-editor .toggle-content > [data-node-view-content-react] > * + * {
+	margin-top: 0.4rem;
+}
+
+.note-editor
+	.toggle[data-open="false"]
+	> .toggle-content
+	> [data-node-view-content-react]
+	> :not(:first-child) {
+	display: none;
+}
+
 .note-editor .callout[data-tone="info"],
 .canvas-card .callout[data-tone="info"] {
 	border-left-color: var(--callout-info-accent);

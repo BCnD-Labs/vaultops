@@ -43,6 +43,47 @@ it.each([
 	expect(html).toContain(tag);
 });
 
+const toggleBlocks = (open: boolean): Block[] => [
+	{
+		id: "root",
+		type: "toggle",
+		parent: null,
+		...(open ? { attrs: { open: true } } : {}),
+	},
+	{
+		id: "summary",
+		type: "paragraph",
+		parent: "root",
+		content: [{ type: "text", text: "Summary line" }],
+	},
+	{
+		id: "body",
+		type: "paragraph",
+		parent: "root",
+		content: [{ type: "text", text: "Body line" }],
+	},
+];
+
+it("renders an open toggle with its summary and body", () => {
+	const blocks = toggleBlocks(true);
+	const html = renderToStaticMarkup(
+		<CanvasCard root={blocks[0] as Block} blocks={blocks} />,
+	);
+	expect(html).toContain("Summary line");
+	expect(html).toContain("Body line");
+	expect(html).toContain('data-open="true"');
+});
+
+it("renders a closed toggle with only its summary", () => {
+	const blocks = toggleBlocks(false);
+	const html = renderToStaticMarkup(
+		<CanvasCard root={blocks[0] as Block} blocks={blocks} />,
+	);
+	expect(html).toContain("Summary line");
+	expect(html).not.toContain("Body line");
+	expect(html).toContain('data-open="false"');
+});
+
 it.each(["bulletList", "orderedList", "table"])(
 	"renders nested %s blocks",
 	(type) => {

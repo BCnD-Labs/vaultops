@@ -13,6 +13,7 @@ describe("slash menu items", () => {
 			"Code",
 			"Quote",
 			"Divider",
+			"Toggle",
 			"Callout",
 			"Callout: info",
 			"Callout: tip",
@@ -51,6 +52,12 @@ describe("slash menu items", () => {
 		expect(filterSlashItems("warn").map((i) => i.id)).toEqual([
 			"callout-warning",
 		]);
+	});
+
+	it("finds the toggle by name or by what it does", () => {
+		expect(filterSlashItems("tog").map((i) => i.id)).toEqual(["toggle"]);
+		expect(filterSlashItems("collapse").map((i) => i.id)).toEqual(["toggle"]);
+		expect(filterSlashItems("fold").map((i) => i.id)).toEqual(["toggle"]);
 	});
 
 	it("finds nothing for a word that matches no item", () => {

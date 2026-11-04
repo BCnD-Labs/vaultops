@@ -30,3 +30,25 @@ read-only and does not rewrite it (`checkBlocks`), so nothing is lost.
 
 Fixture: `test-fixtures/callout-divider.vnote` (round-trips byte for byte in
 `src/editor/doc-blocks.test.ts`).
+
+## `toggle` (block type)
+
+- **Where it lives:** a container block, top level or inside another toggle,
+  list item or quote. Its first child is a `paragraph` block, the summary line
+  that stays visible. Every child after it is the body and can be any block,
+  including another toggle. Children's `parent` is the toggle's `id`.
+- **Attributes:** `open`, a boolean. Left out when `false` (closed), so a
+  closed toggle has no `attrs` at all; written as `{"open":true}` while open.
+  Opening or closing a toggle in the app is saved like any other edit.
+- **Example lines:**
+  ```
+  {"id":"t2","type":"toggle","parent":null,"attrs":{"open":true}}
+  {"id":"t2s","type":"paragraph","parent":"t2","content":[{"text":"Summary","type":"text"}]}
+  {"id":"t2b","type":"paragraph","parent":"t2","content":[{"text":"Body","type":"text"}]}
+  ```
+- **Moving:** drag and "move to note" carry the whole toggle with every
+  descendant line (the same rule as every other container).
+- **Older build:** opens the note read-only.
+
+Fixture: `test-fixtures/toggle.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`).

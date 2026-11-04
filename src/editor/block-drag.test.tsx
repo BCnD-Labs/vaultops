@@ -83,6 +83,14 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 		content: [paragraph("cp", "Callout")],
 	},
 	divider: { type: "divider", attrs: { id: "divider" } },
+	toggle: {
+		type: "toggle",
+		attrs: { id: "toggle", open: true },
+		content: [
+			paragraph("ts", "Toggle summary"),
+			paragraph("tb", "Toggle body"),
+		],
+	},
 };
 
 afterEach(() => cleanup());

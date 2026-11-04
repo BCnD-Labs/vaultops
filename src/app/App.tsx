@@ -63,6 +63,8 @@ import {
 	type VaultView,
 } from "./session";
 import { type Selection, selectionForPath } from "./sidebar-selection";
+import type { TabItem } from "./TabBar";
+import { browserTabs, closeTab, openTab, pruneTabs, renameTab } from "./tabs";
 import "../ui/theme.css";
 import "./app.css";
 
@@ -99,6 +101,13 @@ export function App({ host }: { host: Host }) {
 		[openedNote, writable],
 	);
 	const [livePath, setLivePath] = useState<string | null>(null);
+	// Open-note tabs. The state carries its vault, so tabs from one vault are
+	// never shown (or saved) under another while a vault switch settles.
+	const [tabState, setTabState] = useState<{
+		vault: string | null;
+		paths: string[];
+	}>({ vault: null, paths: [] });
+	const tabStore = useRef(browserTabs());
 	const tree = useMemo(
 		() => (view ? buildTree(view.folders, view.notes) : []),
 		[view],
@@ -123,6 +132,37 @@ export function App({ host }: { host: Host }) {
 	const propsRef = useRef<NoteProps | null>({});
 	const [selection, setSelection] = useState<Selection>({ kind: "all" });
 	const vaultName = view?.name ?? null;
+	const viewRef = useRef(view);
+	viewRef.current = view;
+	const tabs = tabState.vault === vaultName ? tabState.paths : [];
+	useEffect(() => {
+		// Bring back this vault's tabs (for notes that still exist) when it opens.
+		const notes = viewRef.current?.notes ?? [];
+		setTabState({
+			vault: vaultName,
+			paths: vaultName
+				? pruneTabs(
+						tabStore.current.get(vaultName),
+						notes.filter((n) => n.kind !== "canvas").map((n) => n.path),
+					)
+				: [],
+		});
+	}, [vaultName]);
+	useEffect(() => {
+		// A note that was trashed, deleted or moved loses its tab.
+		if (!view) return;
+		const existing = view.notes
+			.filter((n) => n.kind !== "canvas")
+			.map((n) => n.path);
+		setTabState((state) => {
+			const paths = pruneTabs(state.paths, existing);
+			return paths === state.paths ? state : { ...state, paths };
+		});
+	}, [view]);
+	useEffect(() => {
+		if (tabState.vault !== null && tabState.vault === vaultName)
+			tabStore.current.set(tabState.vault, tabState.paths);
+	}, [tabState, vaultName]);
 	useEffect(() => {
 		if (!view?.name) {
 			setCanvasPath(null);
@@ -145,6 +185,11 @@ export function App({ host }: { host: Host }) {
 			livePathRef.current = info.path;
 			setLivePath(info.path);
 		}
+		if (info.oldPath !== info.path)
+			setTabState((state) => ({
+				...state,
+				paths: renameTab(state.paths, info.oldPath, info.path),
+			}));
 		setView((v) => {
 			const row = v?.notes.find((n) => n.path === info.oldPath);
 			if (!v || !row) return v;
@@ -232,6 +277,10 @@ export function App({ host }: { host: Host }) {
 				setNotice(next.notice ?? null);
 				livePathRef.current = path;
 				setLivePath(path);
+				setTabState((state) => ({
+					...state,
+					paths: openTab(state.paths, path),
+				}));
 				if (follow) setSelection(selectionForPath(path));
 				const loaded = headerProps(next.note?.header);
 				propsRef.current = loaded;
@@ -486,6 +535,40 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	// Closing the open note's tab saves it first, then shows the neighboring tab
+	// (or an empty editor when it was the last one).
+	const closeNoteTab = async (path: string) => {
+		const closing = closeTab(tabs, path);
+		if (path !== livePathRef.current) {
+			setTabState((state) => ({ ...state, paths: closing.tabs }));
+			return;
+		}
+		if (!(await settle())) return;
+		setTabState((state) => ({ ...state, paths: closing.tabs }));
+		if (closing.next) {
+			await show(closing.next, vaultName);
+			return;
+		}
+		setOpened(null);
+		livePathRef.current = null;
+		setLivePath(null);
+	};
+
+	const tabItems: TabItem[] = tabs.map((path) => {
+		const active = screen === "note" && !!opened && path === livePath;
+		const row = view?.notes.find((n) => n.path === path);
+		const name =
+			path
+				.split("/")
+				.pop()
+				?.replace(/\.vnote$/, "") ?? path;
+		return {
+			path,
+			title: (active && title) || row?.title || name,
+			active,
+		};
+	});
+
 	// Moves the open note to the vault's trash (nothing is erased).
 	const moveToTrash = async () => {
 		if (!opened || !view) return;
@@ -650,6 +733,11 @@ export function App({ host }: { host: Host }) {
 						void startNote(folder, noteTitle)
 					}
 					onNavigateScreen={(next) => void navigate(next)}
+					tabs={tabItems}
+					onSelectTab={(path) => {
+						if (path !== livePath || screen !== "note") void open(path);
+					}}
+					onCloseTab={(path) => void closeNoteTab(path)}
 					tools={
 						<NoteTools
 							key={opened?.path}

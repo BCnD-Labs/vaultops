@@ -16,6 +16,7 @@
 		"allow-make-folder",
 		"allow-kind-of",
 		"allow-move-entry",
+		"allow-remove-trashed",
 		"allow-append-log",
 		"allow-read-app-file",
 		"allow-write-app-file",

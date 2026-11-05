@@ -174,7 +174,12 @@ describe("renameProperty and changeType", () => {
 		const done = renameProperty(base, "Course", "Class");
 		expect(done.ok).toBe(true);
 		if (!done.ok) return;
-		expect(Object.keys(done.props)).toEqual(["Due", "Class", "Mystery", "tags"]);
+		expect(Object.keys(done.props)).toEqual([
+			"Due",
+			"Class",
+			"Mystery",
+			"tags",
+		]);
 		expect(done.props["Class"]).toEqual(base["Course"]);
 	});
 

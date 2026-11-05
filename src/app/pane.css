@@ -600,3 +600,119 @@ button.note-meta-chip:focus-visible {
 	min-height: 0;
 	height: auto;
 }
+
+/* Properties block under the title: stock-Obsidian rows, theme tokens only. */
+.props-block {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+}
+.props-block-header {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 0;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.props-block-header svg {
+	width: 14px;
+	height: 14px;
+	transition: transform 120ms ease;
+}
+.props-block-header[data-state="open"] svg {
+	transform: rotate(90deg);
+}
+.prop-type-icon {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+}
+button.prop-type-icon {
+	cursor: pointer;
+}
+button.prop-type-icon:hover,
+button.prop-type-icon:focus-visible {
+	background: var(--accent);
+	color: var(--foreground);
+}
+.prop-type-icon svg {
+	width: 16px;
+	height: 16px;
+}
+.props-block .prop-name,
+.props-block .prop-name-field {
+	flex: none;
+	width: 30%;
+	box-sizing: border-box;
+	color: var(--muted-foreground);
+}
+.prop-remove {
+	opacity: 0;
+}
+.prop-row:hover .prop-remove,
+.prop-row:focus-within .prop-remove {
+	opacity: 1;
+}
+.prop-add-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 4px;
+	padding: 4px 6px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.prop-add-row:hover,
+.prop-add-row:focus-visible {
+	background: var(--accent);
+	color: var(--foreground);
+}
+.prop-add-row svg,
+.prop-type-list svg {
+	width: 16px;
+	height: 16px;
+}
+.prop-add-popover input {
+	width: 100%;
+	box-sizing: border-box;
+}
+.prop-type-list {
+	list-style: none;
+	margin: 8px 0 0;
+	padding: 0;
+}
+.prop-type-list button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 4px 6px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.prop-type-list button:hover,
+.prop-type-list button:focus-visible {
+	background: var(--accent);
+}

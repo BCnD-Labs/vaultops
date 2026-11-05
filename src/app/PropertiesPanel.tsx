@@ -36,7 +36,7 @@ interface PanelProps {
 	onOpenTag: (tag: string) => void;
 }
 
-const TYPE_LABEL: Record<PropertyType, string> = {
+export const TYPE_LABEL: Record<PropertyType, string> = {
 	text: "Text",
 	number: "Number",
 	date: "Date",
@@ -45,7 +45,7 @@ const TYPE_LABEL: Record<PropertyType, string> = {
 };
 
 /** Chips with a small field to add one more (used for tags and list properties). */
-function Chips(props: {
+export function Chips(props: {
 	label: string;
 	items: string[];
 	editable: boolean;
@@ -108,7 +108,7 @@ function Chips(props: {
 	);
 }
 
-function Control(props: {
+export function Control(props: {
 	item: Extract<PropertyItem, { known: true }>;
 	editable: boolean;
 	onValue: (value: PropertyValue) => void;

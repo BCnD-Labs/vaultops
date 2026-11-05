@@ -220,10 +220,7 @@ export function renameProperty(
 	return { ok: true, props: next };
 }
 
-function convertValue(
-	value: PropertyValue,
-	to: PropertyType,
-): PropertyValue {
+function convertValue(value: PropertyValue, to: PropertyType): PropertyValue {
 	const text = Array.isArray(value)
 		? value.join(", ")
 		: typeof value === "string"
@@ -241,7 +238,9 @@ function convertValue(
 		case "date":
 			return validDate(text.trim()) ? text.trim() : null;
 		case "checkbox":
-			return value === true || ["true", "yes", "1"].includes(text.toLowerCase());
+			return (
+				value === true || ["true", "yes", "1"].includes(text.toLowerCase())
+			);
 		case "list":
 			return text
 				.split(",")

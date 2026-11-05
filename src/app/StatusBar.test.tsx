@@ -24,3 +24,17 @@ it("shows only the vault when no note is open", () => {
 	const bar = container.querySelector(".status-bar") as HTMLElement;
 	expect(bar.textContent).toBe("Class");
 });
+
+it("shows the build commit next to the vault when it is known, and nothing otherwise", () => {
+	const { container, rerender } = render(
+		<StatusBar vault="Class" stats={null} build="abc1234" />,
+	);
+	const bar = container.querySelector(".status-bar") as HTMLElement;
+	expect(bar.textContent).toBe("Classbuild abc1234");
+	expect(
+		bar.querySelector(".status-bar-build")?.getAttribute("title"),
+	).toBeTruthy();
+	rerender(<StatusBar vault="Class" stats={null} build={null} />);
+	expect(bar.textContent).toBe("Class");
+	expect(bar.querySelector(".status-bar-build")).toBeNull();
+});

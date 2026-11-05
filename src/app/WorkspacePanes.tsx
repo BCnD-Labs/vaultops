@@ -1,12 +1,20 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
 	ResizableHandle,
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { NEW_TAB, type PaneId } from "../core/workspace";
+import { setDragEffect } from "../editor/block-drag";
 import type { NoteRow } from "./session";
 import { TabBar, type TabItem } from "./TabBar";
+import {
+	hasTabDrag,
+	landingIndex,
+	nudgeTab,
+	type TabDrag,
+	tabDragData,
+} from "./tab-drag";
 import type { PaneView, WorkspaceHost } from "./useWorkspaceHost";
 import "./pane.css";
 
@@ -28,6 +36,11 @@ const other = (id: PaneId): PaneId => (id === "left" ? "right" : "left");
  * and its own document. It only lays things out and passes tab commands to the
  * workspace host; what a note, a canvas or the empty tab looks like inside a
  * pane is up to the caller. Clicking in a pane focuses it.
+ *
+ * Tabs can be dragged: within a strip to reorder, onto the other pane's strip
+ * (or, while the view is split, onto its body) to move there, and onto the right
+ * edge of a single pane to open beside. Alt+Shift+Left or Right does the same
+ * from the keyboard.
  */
 export function WorkspacePanes({
 	host,
@@ -39,6 +52,14 @@ export function WorkspacePanes({
 	const { left, right } = host.panes;
 	const split = right !== null;
 	const rows = useMemo(() => new Map(notes.map((n) => [n.path, n])), [notes]);
+	// The tab being dragged (drop zones show only then) and the zone it is over.
+	const [dragging, setDragging] = useState<TabDrag | null>(null);
+	const [over, setOver] = useState<PaneId | null>(null);
+	// A moved tab loses keyboard focus when its node moves; hand it back.
+	const [focusTab, setFocusTab] = useState<string | null>(null);
+	useEffect(() => {
+		if (focusTab !== null) setFocusTab(null);
+	}, [focusTab]);
 
 	const tabsOf = (pane: PaneView): TabItem[] =>
 		pane.tabs.map((path) => {
@@ -75,6 +96,66 @@ export function WorkspacePanes({
 		if (host.focused !== id) host.focus(id);
 	};
 
+	const endDrag = () => {
+		setDragging(null);
+		setOver(null);
+	};
+
+	// Move a dropped tab into a pane at a place in that pane's strip.
+	const dropOn = (drag: TabDrag, pane: PaneView, index: number) => {
+		endDrag();
+		void host.moveTab(
+			drag.path,
+			pane.id,
+			landingIndex(pane.tabs, drag, pane.id, index),
+		);
+	};
+
+	const nudge = async (pane: PaneView, path: string, direction: -1 | 1) => {
+		const step = nudgeTab(pane.id, pane.tabs, path, direction, split);
+		if (!step) return;
+		const moved =
+			step.kind === "reorder"
+				? await host.moveTab(path, pane.id, step.index)
+				: await host.moveTab(path, step.to, step.index);
+		if (moved) setFocusTab(path);
+	};
+
+	// While a tab is dragged: the right edge of a single pane opens beside, and
+	// the other pane's body takes the tab.
+	const zone = (pane: PaneView): ReactNode => {
+		if (!dragging) return null;
+		const edge =
+			!split &&
+			pane.id === "left" &&
+			dragging.from === "left" &&
+			pane.tabs.length > 1;
+		if (!edge && !(split && dragging.from !== pane.id)) return null;
+		return (
+			// biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only drop target; the keyboard route is Alt+Shift+Arrow on a tab
+			<div
+				className="pane-drop-zone"
+				data-edge={edge || undefined}
+				data-over={over === pane.id || undefined}
+				onDragOver={(event) => {
+					if (!hasTabDrag(event.dataTransfer)) return;
+					event.preventDefault();
+					setDragEffect(event.dataTransfer, "dropEffect", "move");
+					setOver(pane.id);
+				}}
+				onDragLeave={() => setOver(null)}
+				onDrop={(event) => {
+					event.preventDefault();
+					const drag = tabDragData(event.dataTransfer);
+					endDrag();
+					if (drag) void host.moveTab(drag.path, edge ? "right" : pane.id);
+				}}
+			>
+				{edge ? "Drop to open beside" : "Move here"}
+			</div>
+		);
+	};
+
 	const column = (pane: PaneView) => {
 		// Moving needs somewhere to go: a lone tab can't leave a single pane.
 		const canMove = split || pane.tabs.length > 1;
@@ -103,8 +184,14 @@ export function WorkspacePanes({
 					moveLabel={`Move to ${other(pane.id)} side`}
 					splitOpen={split}
 					onCloseSplit={() => void host.closeSplit()}
+					onDropTab={(drag, index) => dropOn(drag, pane, index)}
+					onTabDragStart={setDragging}
+					onTabDragEnd={endDrag}
+					onNudge={(path, direction) => void nudge(pane, path, direction)}
+					focusRequest={focusTab}
 				/>
 				{content(pane)}
+				{zone(pane)}
 			</div>
 		);
 	};

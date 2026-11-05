@@ -209,3 +209,234 @@ it("shows a placeholder while a note is being read in, then the note", async () 
 	await act(async () => release());
 	await screen.findByRole("heading", { name: "Alpha" });
 });
+
+// happy-dom has no real DataTransfer, and its drag events drop clientX.
+function transfer() {
+	const data = new Map<string, string>();
+	return {
+		get types() {
+			return Array.from(data.keys());
+		},
+		setData: (type: string, value: string) => void data.set(type, value),
+		getData: (type: string) => data.get(type) ?? "",
+		effectAllowed: "",
+		dropEffect: "",
+	};
+}
+
+function dragTo(
+	node: Element,
+	type: "dragover" | "drop",
+	dt: ReturnType<typeof transfer>,
+	clientX = 0,
+) {
+	act(() => {
+		fireEvent(
+			node,
+			Object.assign(new Event(type, { bubbles: true, cancelable: true }), {
+				dataTransfer: dt,
+				clientX,
+			}),
+		);
+	});
+}
+
+/** Tabs 100px wide side by side, so a drop's x picks a place in the strip. */
+function lay(strip: HTMLElement) {
+	for (const [i, node] of strip.querySelectorAll(".tab").entries())
+		node.getBoundingClientRect = () =>
+			({ left: i * 100, width: 100 }) as DOMRect;
+}
+
+const order = (strip: { getAllByRole: (role: "tab") => HTMLElement[] }) =>
+	strip.getAllByRole("tab").map((t) => t.textContent);
+
+async function threeTabs() {
+	const s = await setup();
+	await s.run(() => api.open(s.a));
+	await s.run(() => api.open(s.b));
+	await s.run(() => api.open(s.board));
+	await screen.findByRole("region", { name: "Canvas view" });
+	return s;
+}
+
+it("dragging a tab within its strip reorders it", async () => {
+	const { left } = await threeTabs();
+	const strip = screen.getByRole("tablist", { name: "Open notes" });
+	lay(strip);
+	const dt = transfer();
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Board" }).parentElement as HTMLElement,
+		{ dataTransfer: dt },
+	);
+	dragTo(strip, "drop", dt, 10);
+	await waitFor(() =>
+		expect(order(left())).toEqual(["Board", "Alpha", "Beta"]),
+	);
+});
+
+it("dropping a tab just after itself changes nothing", async () => {
+	const { left } = await threeTabs();
+	const strip = screen.getByRole("tablist", { name: "Open notes" });
+	lay(strip);
+	const dt = transfer();
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Alpha" }).parentElement as HTMLElement,
+		{ dataTransfer: dt },
+	);
+	// Between Alpha and Beta is where Alpha already is.
+	dragTo(strip, "drop", dt, 120);
+	await act(async () => {});
+	expect(order(left())).toEqual(["Alpha", "Beta", "Board"]);
+});
+
+it("dragging a tab forward lands it before the tab it was dropped on", async () => {
+	const { left } = await threeTabs();
+	const strip = screen.getByRole("tablist", { name: "Open notes" });
+	lay(strip);
+	const dt = transfer();
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Alpha" }).parentElement as HTMLElement,
+		{ dataTransfer: dt },
+	);
+	// Before Board: Alpha's own slot closes up, so it lands second.
+	dragTo(strip, "drop", dt, 220);
+	await waitFor(() =>
+		expect(order(left())).toEqual(["Beta", "Alpha", "Board"]),
+	);
+});
+
+it("dragging onto the other pane's strip moves the tab there, at that place", async () => {
+	const { run, b, left, right } = await threeTabs();
+	await run(() => api.moveTab(b, "right"));
+	const rightStrip = await screen.findByRole("tablist", {
+		name: "Open notes, right side",
+	});
+	await run(() => api.open(b, "right"));
+	lay(rightStrip);
+	const dt = transfer();
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Board" }).parentElement as HTMLElement,
+		{ dataTransfer: dt },
+	);
+	dragTo(rightStrip, "drop", dt, 10);
+	await waitFor(() => expect(order(right())).toEqual(["Board", "Beta"]));
+	expect(order(left())).toEqual(["Alpha"]);
+});
+
+it("drop zones exist only while a tab is being dragged", async () => {
+	const { run, b, left, right } = await threeTabs();
+	await run(() => api.moveTab(b, "right"));
+	await screen.findByRole("tablist", { name: "Open notes, right side" });
+	expect(screen.queryByText("Move here")).toBeNull();
+	const dt = transfer();
+	const alpha = left().getByRole("tab", { name: "Alpha" })
+		.parentElement as HTMLElement;
+	fireEvent.dragStart(alpha, { dataTransfer: dt });
+	// One zone, on the pane the tab did not come from.
+	expect(screen.getAllByText("Move here")).toHaveLength(1);
+	expect(right).toBeTruthy();
+	fireEvent.dragEnd(alpha, { dataTransfer: dt });
+	expect(screen.queryByText("Move here")).toBeNull();
+});
+
+it("dropping on the other pane's body moves the tab to its end", async () => {
+	const { run, b, left, right } = await threeTabs();
+	await run(() => api.moveTab(b, "right"));
+	await screen.findByRole("tablist", { name: "Open notes, right side" });
+	const dt = transfer();
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Board" }).parentElement as HTMLElement,
+		{ dataTransfer: dt },
+	);
+	dragTo(screen.getByText("Move here"), "drop", dt);
+	await waitFor(() => expect(order(right())).toEqual(["Beta", "Board"]));
+	expect(screen.queryByText("Move here")).toBeNull();
+});
+
+it("a single pane offers a right-edge zone that opens the tab beside", async () => {
+	const { left } = await threeTabs();
+	const dt = transfer();
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Beta" }).parentElement as HTMLElement,
+		{ dataTransfer: dt },
+	);
+	dragTo(screen.getByText("Drop to open beside"), "drop", dt);
+	const right = await screen.findByRole("tablist", {
+		name: "Open notes, right side",
+	});
+	expect(order(within(right))).toEqual(["Beta"]);
+	expect(order(left())).toEqual(["Alpha", "Board"]);
+});
+
+it("a lone tab gets no edge zone, since it has nowhere to leave to", async () => {
+	const { run, a, left } = await setup();
+	await run(() => api.open(a));
+	await screen.findByRole("heading", { name: "Alpha" });
+	fireEvent.dragStart(
+		left().getByRole("tab", { name: "Alpha" }).parentElement as HTMLElement,
+		{ dataTransfer: transfer() },
+	);
+	expect(screen.queryByText("Drop to open beside")).toBeNull();
+});
+
+it("a drag that is not a tab shows no zones and moves nothing", async () => {
+	const { left } = await threeTabs();
+	const strip = screen.getByRole("tablist", { name: "Open notes" });
+	lay(strip);
+	const dt = transfer();
+	dt.setData("application/x-vaultops-block", "{}");
+	dragTo(strip, "drop", dt, 10);
+	expect(order(left())).toEqual(["Alpha", "Beta", "Board"]);
+	expect(screen.queryByText("Drop to open beside")).toBeNull();
+});
+
+it("Alt+Shift+Arrow reorders a tab, and the tab keeps keyboard focus", async () => {
+	const { left } = await threeTabs();
+	const board = left().getByRole("tab", { name: "Board" });
+	board.focus();
+	fireEvent.keyDown(board, { key: "ArrowLeft", altKey: true, shiftKey: true });
+	await waitFor(() =>
+		expect(order(left())).toEqual(["Alpha", "Board", "Beta"]),
+	);
+	await waitFor(() =>
+		expect(document.activeElement).toBe(
+			left().getByRole("tab", { name: "Board" }),
+		),
+	);
+});
+
+it("Alt+Shift+Arrow at a strip's end crosses to the other pane, and back", async () => {
+	const { run, b, left, right } = await threeTabs();
+	await run(() => api.moveTab(b, "right"));
+	await screen.findByRole("tablist", { name: "Open notes, right side" });
+	const board = left().getByRole("tab", { name: "Board" });
+	fireEvent.keyDown(board, { key: "ArrowRight", altKey: true, shiftKey: true });
+	await waitFor(() => expect(order(right())).toEqual(["Board", "Beta"]));
+	await waitFor(() =>
+		expect(document.activeElement).toBe(
+			right().getByRole("tab", { name: "Board" }),
+		),
+	);
+	fireEvent.keyDown(right().getByRole("tab", { name: "Board" }), {
+		key: "ArrowLeft",
+		altKey: true,
+		shiftKey: true,
+	});
+	await waitFor(() => expect(order(left())).toEqual(["Alpha", "Board"]));
+	expect(order(right())).toEqual(["Beta"]);
+});
+
+it("Alt+Shift+Arrow does nothing at the edge of a single pane's only tab", async () => {
+	const { run, a, left } = await setup();
+	await run(() => api.open(a));
+	await screen.findByRole("heading", { name: "Alpha" });
+	fireEvent.keyDown(left().getByRole("tab", { name: "Alpha" }), {
+		key: "ArrowRight",
+		altKey: true,
+		shiftKey: true,
+	});
+	expect(
+		screen.queryByRole("tablist", { name: "Open notes, right side" }),
+	).toBeNull();
+});

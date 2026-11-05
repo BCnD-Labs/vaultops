@@ -557,7 +557,37 @@ button.note-meta-chip:focus-visible {
 	border-radius: 0;
 }
 .workspace-pane {
+	position: relative;
 	height: 100%;
+}
+/* Above the drop zones, so a tab can still be dropped on its own strip. */
+.workspace-pane .tab-bar {
+	position: relative;
+	z-index: 1;
+}
+/* Where a dragged tab will land: a line on the edge of the tab it goes before. */
+.tab-list .tab[data-drop="before"] {
+	border-left-color: var(--accent);
+}
+.tab-list[data-drop-end="true"] .tab:last-child {
+	border-right-color: var(--accent);
+}
+/* Shown only while a tab is being dragged. */
+.pane-drop-zone {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: var(--border-width) dashed var(--accent);
+	background: color-mix(in srgb, var(--accent) 10%, transparent);
+	color: var(--foreground);
+}
+.pane-drop-zone[data-edge="true"] {
+	inset: 0 0 0 70%;
+}
+.pane-drop-zone[data-over="true"] {
+	background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 /* With two panes, the one that has focus says so on its tab strip. */
 .workspace-pane[data-split="true"][data-focused="true"] .tab-bar {

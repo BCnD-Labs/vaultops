@@ -28,6 +28,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { TextStats } from "../core/notes/text-stats";
+import { buildCommit } from "./build-info";
 import { CommandBar } from "./CommandBar";
 import { NavBar } from "./NavBar";
 import { StatusBar } from "./StatusBar";
@@ -263,7 +264,7 @@ export function AppShell({
 								rightToggle={collapsed.right ? sidebarToggle("right") : null}
 							/>
 							<div className="editor-column-body">{children}</div>
-							<StatusBar vault={vault} stats={stats} />
+							<StatusBar vault={vault} stats={stats} build={buildCommit} />
 						</div>
 						<CommandBar
 							notes={notes}

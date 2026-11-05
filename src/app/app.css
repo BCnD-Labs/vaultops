@@ -524,6 +524,11 @@ body {
 	text-overflow: ellipsis;
 }
 
+.status-bar-build {
+	margin-inline-start: calc(var(--shell-gap) * 2);
+	color: var(--muted-foreground);
+}
+
 .status-bar-counts {
 	display: flex;
 	gap: calc(var(--shell-gap) * 2);

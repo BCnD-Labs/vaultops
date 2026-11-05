@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { parseNote, serializeNote } from "../core/note-format";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { NEW_TAB } from "../core/workspace";
 import { MemoryHost } from "../host/memory-host";
@@ -18,7 +19,7 @@ const doc = (text: string) => ({
 	],
 });
 
-async function setup() {
+async function setup(writable = true) {
 	const host = new MemoryHost();
 	await loadVault(host);
 	const a = (await createNote(host, "", "Alpha")).path;
@@ -31,7 +32,7 @@ async function setup() {
 	const hook = renderHook(() =>
 		useWorkspaceHost({
 			host,
-			writable: true,
+			writable,
 			isCanvas: (path) => path === board,
 			onSaved,
 			onUnsaved,
@@ -224,4 +225,222 @@ it("an empty tab shows no note; recovery text covers only open notes", async () 
 		expect(result.current.panes.left.session.opened).toBeNull(),
 	);
 	expect(result.current.recoveryTexts(new Date())).toEqual([]);
+});
+
+// Block moves between any two shown documents.
+
+/** Give a note the blocks it will be asked to give up (ids are what moves). */
+async function seed(host: MemoryHost, path: string, ids: string[]) {
+	const note = parseNote(await host.readText(path)).note;
+	if (!note) throw new Error("seed: unreadable note");
+	await host.writeTextAtomic(
+		path,
+		serializeNote({
+			...note,
+			blocks: ids.map((id) => ({
+				id,
+				type: "paragraph",
+				parent: null,
+				content: [{ type: "text", text: id }],
+			})),
+		}),
+	);
+}
+
+const blockIds = async (host: MemoryHost, path: string) =>
+	(parseNote(await host.readText(path)).note?.blocks ?? []).map((b) => b.id);
+
+const idOf = async (host: MemoryHost, path: string) =>
+	parseNote(await host.readText(path)).note?.header.noteId as string;
+
+/** Alpha on the left, Beta on the right, both read in. */
+async function side(s: Awaited<ReturnType<typeof setup>>) {
+	await seed(s.host, s.a, ["x", "y"]);
+	await seed(s.host, s.b, ["z"]);
+	await s.run(() => s.result.current.open(s.a));
+	await s.run(() => s.result.current.open(s.b));
+	await s.run(() => s.result.current.moveTab(s.b, "right"));
+	await s.ready("left");
+	await s.ready("right");
+}
+
+it("moves a block from one note into the note beside it, and shows both", async () => {
+	const s = await setup();
+	await side(s);
+	const outcome = await act(async () =>
+		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+			after: "z",
+		}),
+	);
+	expect(outcome).toEqual({ ok: true });
+	expect(await blockIds(s.host, s.a)).toEqual(["y"]);
+	expect(await blockIds(s.host, s.b)).toEqual(["z", "x"]);
+	const shown = (pane: "left" | "right") =>
+		s.result.current.panes[pane]?.session.opened?.note?.blocks.map((b) => b.id);
+	expect(shown("left")).toEqual(["y"]);
+	expect(shown("right")).toEqual(["z", "x"]);
+});
+
+it("saves unsaved text in both notes before the move", async () => {
+	const s = await setup();
+	await side(s);
+	const keep = {
+		type: "doc",
+		content: ["x", "y"].map((id) => ({
+			type: "paragraph",
+			attrs: { id },
+			content: [{ type: "text", text: `${id} edited` }],
+		})),
+	};
+	act(() => s.result.current.panes.left.session.editDoc(keep));
+	const outcome = await act(async () =>
+		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+			after: null,
+		}),
+	);
+	expect(outcome).toEqual({ ok: true });
+	const text = await s.host.readText(s.a);
+	expect(text).toContain("y edited");
+	expect(text).not.toContain("x edited");
+	expect(await s.host.readText(s.b)).toContain("x edited");
+});
+
+it("moves a block from a note onto a canvas and back into a note", async () => {
+	const s = await setup();
+	await seed(s.host, s.a, ["x", "y"]);
+	await s.run(() => s.result.current.open(s.a));
+	await s.run(() => s.result.current.open(s.board));
+	await s.run(() => s.result.current.moveTab(s.board, "right"));
+	await s.ready("left");
+	const before = s.result.current.canvasRevision;
+	let outcome = await act(async () =>
+		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+			x: 40,
+			y: 50,
+		}),
+	);
+	expect(outcome).toEqual({ ok: true });
+	expect(await blockIds(s.host, s.a)).toEqual(["y"]);
+	expect(
+		parseNote(await s.host.readText(s.board)).note?.blocks[0],
+	).toMatchObject({ id: "x", attrs: { x: 40, y: 50 } });
+	expect(s.result.current.canvasRevision).toBeGreaterThan(before);
+	// And the canvas card's "move to note" sends it back into the left note.
+	outcome = await act(() => s.result.current.blockToNote("right", "x"));
+	expect(outcome).toEqual({ ok: true });
+	// "After nothing" means the end of the note.
+	expect(await blockIds(s.host, s.a)).toEqual(["y", "x"]);
+	expect(parseNote(await s.host.readText(s.board)).note?.blocks).toEqual([]);
+});
+
+it("works with the canvas on the left and the note on the right", async () => {
+	const s = await setup();
+	await seed(s.host, s.b, ["z"]);
+	await s.run(() => s.result.current.open(s.board));
+	await s.run(() => s.result.current.open(s.b));
+	await s.run(() => s.result.current.moveTab(s.b, "right"));
+	await s.ready("right");
+	const outcome = await act(async () =>
+		s.result.current.dropBlock("left", "z", await idOf(s.host, s.b), {
+			x: 1,
+			y: 2,
+		}),
+	);
+	expect(outcome).toEqual({ ok: true });
+	expect(await blockIds(s.host, s.b)).toEqual([]);
+	expect(parseNote(await s.host.readText(s.board)).note?.blocks[0]?.id).toBe(
+		"z",
+	);
+});
+
+it("refuses when the source document is not one of the shown documents", async () => {
+	const s = await setup();
+	await side(s);
+	const outcome = await act(() =>
+		s.result.current.dropBlock("right", "x", "some-other-note", {
+			after: null,
+		}),
+	);
+	expect(outcome).toEqual({
+		ok: false,
+		message: "Open the source note before moving this block.",
+	});
+	expect(await blockIds(s.host, s.a)).toEqual(["x", "y"]);
+});
+
+it("refuses to move a block when an unsaved note cannot be saved", async () => {
+	const s = await setup();
+	await side(s);
+	act(() =>
+		s.result.current.panes.left.session.editDoc({
+			type: "doc",
+			content: [
+				{
+					type: "paragraph",
+					attrs: { id: "x" },
+					content: [{ type: "text", text: "edited" }],
+				},
+			],
+		}),
+	);
+	const write = vi
+		.spyOn(s.host, "writeTextAtomic")
+		.mockRejectedValue(new Error("disk full"));
+	const outcome = await act(async () =>
+		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+			after: null,
+		}),
+	);
+	write.mockRestore();
+	expect(outcome.ok).toBe(false);
+	expect(outcome.ok === false && outcome.message).toContain(
+		"Save the notes before moving a block",
+	);
+	expect(await blockIds(s.host, s.b)).toEqual(["z"]);
+});
+
+it("a failed move leaves both copies and shows what is on disk", async () => {
+	const s = await setup();
+	await side(s);
+	const real = s.host.writeTextAtomic.bind(s.host);
+	const write = vi.spyOn(s.host, "writeTextAtomic");
+	write.mockImplementationOnce(real);
+	write.mockRejectedValueOnce(new Error("disk full"));
+	const outcome = await act(async () =>
+		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+			after: null,
+		}),
+	);
+	write.mockRestore();
+	expect(outcome.ok).toBe(false);
+	expect(outcome.ok === false && outcome.message).toContain(
+		"It exists in both files",
+	);
+	expect(await blockIds(s.host, s.a)).toEqual(["x", "y"]);
+	expect(await blockIds(s.host, s.b)).toEqual(["z", "x"]);
+	// The screen follows the disk, not the move that did not finish.
+	expect(
+		s.result.current.panes.right?.session.opened?.note?.blocks.map((b) => b.id),
+	).toEqual(["z", "x"]);
+});
+
+it("refuses every block move in a read-only vault", async () => {
+	const s = await setup(false);
+	const outcome = await act(() =>
+		s.result.current.dropBlock("right", "x", "any", { after: null }),
+	);
+	expect(outcome).toEqual({
+		ok: false,
+		message: "This vault is read-only, so the block was not moved.",
+	});
+});
+
+it("the canvas menu has nowhere to send a block when no note is beside it", async () => {
+	const s = await setup();
+	await s.run(() => s.result.current.open(s.board));
+	const outcome = await act(() => s.result.current.blockToNote("left", "x"));
+	expect(outcome).toEqual({
+		ok: false,
+		message: "Open a note beside the canvas to move this block into.",
+	});
 });

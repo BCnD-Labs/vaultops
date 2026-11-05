@@ -55,6 +55,7 @@ it.each(["horizontal", "vertical"])(
 						createFolder() {},
 						renameFolder() {},
 						deleteFolder() {},
+						deleteNote() {},
 						move() {},
 					}}
 					treeNotice={null}

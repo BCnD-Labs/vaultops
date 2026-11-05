@@ -18,6 +18,7 @@ export function NoteList({
 	locked,
 	searching,
 	onOpen,
+	onTrash,
 }: {
 	notes: NoteRow[];
 	vault: string;
@@ -25,6 +26,7 @@ export function NoteList({
 	locked: boolean;
 	searching: boolean;
 	onOpen: (path: string) => void;
+	onTrash?: (path: string) => void;
 }) {
 	const [filter, setFilter] = useState<NoteFilter>("All");
 	const [collapsed, setCollapsed] = useState(() => noteSections(vault));
@@ -77,6 +79,7 @@ export function NoteList({
 										current={note.path === livePath}
 										locked={locked}
 										onOpen={onOpen}
+										onTrash={onTrash}
 									/>
 								))}
 							</ul>

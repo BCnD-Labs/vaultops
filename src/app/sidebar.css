@@ -33,7 +33,8 @@
 	padding: 6px 8px;
 }
 
-.note-list button {
+/* Plain list buttons only (:where keeps the specificity): the shared Button (data-slot) keeps its own look, as in the trash confirm. */
+.note-list button:where(:not([data-slot])) {
 	width: 100%;
 	text-align: left;
 	background: none;
@@ -51,7 +52,7 @@
 	border-left: var(--border-width) solid var(--line);
 }
 
-.note-list button {
+.note-list button:where(:not([data-slot])) {
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -111,7 +112,8 @@
 	background: var(--accent);
 }
 
-.note-list .tree-row .tree-folder {
+.note-list .tree-row .tree-folder,
+.note-list .tree-row .tree-note {
 	flex: 1;
 	min-width: 0;
 	width: auto;
@@ -130,7 +132,9 @@
 }
 
 .tree-row:hover .tree-actions,
-.tree-row:focus-within .tree-actions {
+.tree-row:focus-within .tree-actions,
+.note-list-entry:hover .tree-actions,
+.note-list-entry:focus-within .tree-actions {
 	opacity: 1;
 }
 
@@ -173,11 +177,11 @@
 	color: inherit;
 }
 
-.note-list button:hover {
+.note-list button:where(:not([data-slot])):hover {
 	background: var(--accent);
 }
 
-.note-list button[aria-current="true"] {
+.note-list button:where(:not([data-slot]))[aria-current="true"] {
 	background: var(--row-raised);
 	color: var(--text);
 }
@@ -260,7 +264,7 @@
 .sidebar .tree-name {
 	font-weight: 600;
 }
-.sidebar .note-list button {
+.sidebar .note-list button:where(:not([data-slot])) {
 	min-height: 28px;
 	padding-top: 4px;
 	padding-bottom: 4px;
@@ -425,4 +429,13 @@
 	font: inherit;
 	font-size: var(--font-size-small);
 	white-space: nowrap;
+}
+
+/* The trash button floats over the top-right corner of a notes-list row. */
+.note-list-entry {
+	position: relative;
+}
+
+.note-list-entry .tree-actions {
+	top: 4px;
 }

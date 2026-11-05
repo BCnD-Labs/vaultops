@@ -29,6 +29,8 @@ export interface TreeActions {
 	createFolder: (parent: string, name: string) => void;
 	renameFolder: (path: string, name: string) => void;
 	deleteFolder: (path: string) => void;
+	/** Move one note or canvas to the trash (it can be restored from there). */
+	deleteNote: (path: string) => void;
 	move: (item: DragItem, into: string) => void;
 }
 
@@ -295,32 +297,75 @@ function Branch({
 			{visible.map((node) =>
 				node.kind === "note" ? (
 					<li key={node.path} title={node.path}>
-						<button
-							type="button"
-							draggable={!ctx.busy}
-							aria-current={node.path === ctx.livePath}
-							onClick={() => ctx.onOpen(node.path)}
-							onDragStart={(e) => {
-								const item: DragItem = {
-									kind: "note",
-									path: node.path,
-									readOnly: node.readOnly,
-								};
-								e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(item));
-								e.dataTransfer.effectAllowed = "move";
-							}}
-						>
-							<span className="tree-icon" aria-hidden="true" />
-							{node.canvas ? (
-								<LayoutDashboard className="tree-icon" aria-hidden="true" />
-							) : (
-								<FileText className="tree-icon" aria-hidden="true" />
-							)}
-							<span className="tree-name">{node.name}</span>
-							{node.readOnly && (
-								<span className="read-only-tag">read-only</span>
-							)}
-						</button>
+						{ctx.confirming === node.path ? (
+							<div className="tree-confirm" role="alert">
+								<p>
+									Move <strong>{node.name}</strong> to the trash? You can
+									restore it from the trash.
+								</p>
+								<div className="tree-confirm-buttons">
+									<Button
+										size="sm"
+										variant="destructive"
+										onClick={() => {
+											ctx.onConfirm(null);
+											ctx.actions.deleteNote(node.path);
+										}}
+									>
+										Move to trash
+									</Button>
+									<Button
+										size="sm"
+										variant="secondary"
+										onClick={() => ctx.onConfirm(null)}
+									>
+										Cancel
+									</Button>
+								</div>
+							</div>
+						) : (
+							<div className="tree-row">
+								<button
+									type="button"
+									className="tree-note"
+									draggable={!ctx.busy}
+									aria-current={node.path === ctx.livePath}
+									onClick={() => ctx.onOpen(node.path)}
+									onDragStart={(e) => {
+										const item: DragItem = {
+											kind: "note",
+											path: node.path,
+											readOnly: node.readOnly,
+										};
+										e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(item));
+										e.dataTransfer.effectAllowed = "move";
+									}}
+								>
+									<span className="tree-icon" aria-hidden="true" />
+									{node.canvas ? (
+										<LayoutDashboard className="tree-icon" aria-hidden="true" />
+									) : (
+										<FileText className="tree-icon" aria-hidden="true" />
+									)}
+									<span className="tree-name">{node.name}</span>
+									{node.readOnly && (
+										<span className="read-only-tag">read-only</span>
+									)}
+								</button>
+								<span className="tree-actions">
+									<button
+										type="button"
+										className="tree-action"
+										aria-label={`Move ${node.canvas ? "canvas" : "note"} ${node.name} to the trash`}
+										title="Move to trash"
+										disabled={ctx.busy}
+										onClick={() => ctx.onConfirm(node.path)}
+									>
+										<Trash2 className="tree-icon" aria-hidden="true" />
+									</button>
+								</span>
+							</div>
+						)}
 					</li>
 				) : (
 					<FolderRow key={`folder:${node.path}`} node={node} ctx={ctx} />

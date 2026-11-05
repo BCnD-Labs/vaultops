@@ -374,6 +374,15 @@
 	padding: 10px;
 }
 
+.lift-blank {
+	position: absolute;
+	top: -10000px;
+	left: -10000px;
+	width: 1px;
+	height: 1px;
+	pointer-events: none;
+}
+
 .lift-hole {
 	position: fixed;
 	top: 0;

@@ -26,6 +26,8 @@ export type LiftOptions = {
 };
 
 type Lift = {
+	/** The empty picture handed to the browser, kept in the page until the drag ends. */
+	blank: HTMLElement;
 	ghost: HTMLElement;
 	hole: HTMLElement;
 	source: HTMLElement;
@@ -55,6 +57,19 @@ function reducedMotion(): boolean {
 
 function clamp(value: number, low: number, high: number): number {
 	return Math.min(high, Math.max(low, value));
+}
+
+/**
+ * The browser still wants a picture for the drag. Safari's engine only uses an
+ * element that is in the page (a loose one can end the drag before it starts),
+ * so this is a 1px element parked off screen, as the old preview was.
+ */
+function blankPicture(): HTMLElement {
+	const blank = document.createElement("div");
+	blank.className = "lift-blank";
+	blank.setAttribute("aria-hidden", "true");
+	document.body.append(blank);
+	return blank;
 }
 
 function place(l: Lift, tilt: number, scale: number): string {
@@ -149,6 +164,7 @@ export function endLift(dropped: boolean) {
 	current = null;
 	listen(false);
 	cancelAnimationFrame(l.frame);
+	l.blank.remove();
 	const { ghost, hole, source } = l;
 	const remove = () => {
 		ghost.remove();
@@ -189,6 +205,7 @@ export function abandonLift() {
 	if (l) {
 		listen(false);
 		cancelAnimationFrame(l.frame);
+		l.blank.remove();
 		l.ghost.remove();
 		l.hole.remove();
 	}
@@ -208,7 +225,8 @@ export function liftBlock(
 	abandonLift();
 	const transfer = event.dataTransfer;
 	if (!transfer || !source) return false;
-	setBlockDragImage(transfer, document.createElement("canvas"));
+	const blank = blankPicture();
+	setBlockDragImage(transfer, blank);
 	const rect = source.getBoundingClientRect();
 	const ghost = buildGhost(source, rect, options);
 	const hole = document.createElement("div");
@@ -217,6 +235,7 @@ export function liftBlock(
 	document.body.append(hole, ghost);
 	const width = ghost.style.width ? Math.min(rect.width, MAX_WIDTH) : 0;
 	current = {
+		blank,
 		ghost,
 		hole,
 		source,

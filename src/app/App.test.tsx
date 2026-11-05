@@ -367,6 +367,7 @@ it("replaces the empty tab with whatever is created or opened from it", async ()
 	await user.click(screen.getByRole("button", { name: /^Alpha/ }));
 	await screen.findByRole("textbox", { name: "Title" });
 	expect(screen.queryByRole("tab", { name: "New tab" })).toBeNull();
+});
 
 it("moves a note to the trash from its sidebar row, after a confirm step", async () => {
 	const host = new MemoryHost();

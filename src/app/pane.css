@@ -556,3 +556,10 @@ button.note-meta-chip:focus-visible {
 .pane-column .tab-bar {
 	border-radius: 0;
 }
+.workspace-pane {
+	height: 100%;
+}
+/* With two panes, the one that has focus says so on its tab strip. */
+.workspace-pane[data-split="true"][data-focused="true"] .tab-bar {
+	border-bottom-color: var(--accent);
+}

@@ -53,6 +53,8 @@ export interface WorkspaceHostOptions {
 	onError: (message: string) => void;
 }
 
+export type WorkspaceHost = ReturnType<typeof useWorkspaceHost>;
+
 const SLOTS = ["left", "right"] as const;
 const DIVIDER = "\n----------------\n\n";
 
@@ -215,7 +217,9 @@ export function useWorkspaceHost({
 			run((ws) => openDoc(ws, path, canvas, pane)),
 		select: (pane: PaneId, path: string) =>
 			run((ws) => selectTab(ws, pane, path, canvas)),
-		close: (path: string) => run((ws) => closeTab(ws, path)),
+		/** Close a tab; name the pane for the empty tab, which each pane can have. */
+		close: (path: string, pane?: PaneId) =>
+			run((ws) => closeTab(ws, path, pane)),
 		newTab: (pane?: PaneId) => run((ws) => openEmptyTab(ws, pane)),
 		split: (path: string) => run((ws) => splitFrom(ws, path, canvas)),
 		moveTab: (path: string, to: PaneId, index?: number) =>

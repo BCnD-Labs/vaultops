@@ -24,7 +24,36 @@ const paragraph = (id: string, text: string): JSONContent => ({
 	attrs: { id },
 	content: [{ type: "text", text }],
 });
+const cellHeader: JSONContent = {
+	type: "tableHeader",
+	attrs: { id: "th" },
+	content: [paragraph("thp", "Header cell")],
+};
+const cell: JSONContent = {
+	type: "tableCell",
+	attrs: { id: "td" },
+	content: [paragraph("tdp", "Body cell")],
+};
+const headerRow: JSONContent = {
+	type: "tableRow",
+	attrs: { id: "tr1" },
+	content: [cellHeader],
+};
+const bodyRow: JSONContent = {
+	type: "tableRow",
+	attrs: { id: "tr2" },
+	content: [cell],
+};
+const table: JSONContent = {
+	type: "table",
+	attrs: { id: "table" },
+	content: [headerRow, bodyRow],
+};
 const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
+	table,
+	tableRow: bodyRow,
+	tableHeader: cellHeader,
+	tableCell: cell,
 	paragraph: paragraph("p", "Paragraph"),
 	heading: {
 		type: "heading",
@@ -94,6 +123,14 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 	},
 };
 
+/** Blocks that are only ever reached through a top-level block that holds them. */
+const HELD_BY: Partial<Record<(typeof BLOCK_TYPES)[number], JSONContent>> = {
+	listItem: blocks.bulletList,
+	tableRow: table,
+	tableHeader: table,
+	tableCell: table,
+};
+
 afterEach(() => {
 	cleanup();
 	abandonLift();
@@ -116,7 +153,7 @@ function dispatchDrag(
 it.each(BLOCK_TYPES)(
 	"prepares a drag for %s with only identifiers and a readable first line",
 	(type) => {
-		const node = schema.nodeFromJSON(blocks[type]);
+		const node = schema.nodeFromJSON(HELD_BY[type] ?? blocks[type]);
 		const transfer = new DataTransfer();
 		const firstLine = setBlockDragData(transfer, "note-1", node);
 		expect(firstLine).toBe(transfer.getData("text/plain"));
@@ -137,8 +174,8 @@ it("uses only the first list item's line for a list preview", () => {
 });
 
 it.each(BLOCK_TYPES)("renders the grip for %s", async (type) => {
-	// A list item is selected through its top-level list wrapper.
-	const root = type === "listItem" ? blocks.bulletList : blocks[type];
+	// A list item or table part is selected through its top-level wrapper.
+	const root = HELD_BY[type] ?? blocks[type];
 	render(
 		<TooltipProvider>
 			<NoteEditor

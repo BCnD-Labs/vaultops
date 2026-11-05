@@ -52,3 +52,22 @@ Fixture: `test-fixtures/callout-divider.vnote` (round-trips byte for byte in
 
 Fixture: `test-fixtures/toggle.vnote` (round-trips byte for byte in
 `src/editor/doc-blocks.test.ts`).
+
+## `table`, `tableRow`, `tableHeader`, `tableCell` (block types)
+
+- **Where it lives:** `table` is a container block, top level or inside
+  another container such as a toggle or a list item. Its children are
+  `tableRow` blocks; a row's children are `tableHeader` or `tableCell` blocks;
+  a cell's children are one or more blocks (normally `paragraph`). Each child's
+  `parent` is its container's `id`.
+- **Attributes:** none are written for a plain table. A cell can carry
+  `colspan`, `rowspan` (whole numbers, default 1) and `colwidth` (a list of
+  pixel widths or null); each is left out when it has its default value.
+- **Header row:** a row of `tableHeader` blocks, normally the first.
+- **Example lines:** see `test-fixtures/table.vnote`.
+- **Moving:** drag and "move to note" carry the whole table with every
+  descendant line. Rows and cells are never moved on their own.
+- **Older build:** opens the note read-only.
+
+Fixture: `test-fixtures/table.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`).

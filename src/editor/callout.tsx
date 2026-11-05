@@ -22,7 +22,7 @@ export const CALLOUT_TONES = [
 ] as const;
 export type CalloutTone = (typeof CALLOUT_TONES)[number];
 
-const ICONS = {
+export const CALLOUT_ICONS = {
 	note: StickyNote,
 	info: Info,
 	tip: Lightbulb,
@@ -36,7 +36,7 @@ export function toneOf(value: unknown): CalloutTone {
 
 function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 	const tone = toneOf(node.attrs.tone);
-	const Icon = ICONS[tone];
+	const Icon = CALLOUT_ICONS[tone];
 	const next = toneOf(CALLOUT_TONES[CALLOUT_TONES.indexOf(tone) + 1]);
 	return (
 		<NodeViewWrapper className="callout" data-tone={tone}>

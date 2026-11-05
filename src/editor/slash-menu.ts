@@ -3,8 +3,20 @@ import Suggestion, {
 	type SuggestionKeyDownProps,
 	type SuggestionProps,
 } from "@tiptap/suggestion";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { placeMenu } from "./menu-placement";
 import { filterSlashItems, type SlashItem } from "./slash-items";
+
+const iconMarkup = new Map<SlashItem["icon"], string>();
+function iconHtml(icon: SlashItem["icon"]): string {
+	let html = iconMarkup.get(icon);
+	if (html === undefined) {
+		html = renderToStaticMarkup(createElement(icon, { "aria-hidden": true }));
+		iconMarkup.set(icon, html);
+	}
+	return html;
+}
 
 /**
  * The popup: a plain DOM list, no framework, placed under the caret, or above
@@ -27,22 +39,46 @@ export function createPopup() {
 			root.append(none);
 			return;
 		}
+		let lastSection: string | null = null;
+		const rows: HTMLElement[] = [];
 		items.forEach((item, index) => {
+			if (item.section !== lastSection) {
+				const heading = document.createElement("div");
+				heading.className = "slash-menu-section";
+				heading.setAttribute("role", "presentation");
+				heading.textContent = item.section;
+				root.append(heading);
+				lastSection = item.section;
+			}
 			const button = document.createElement("button");
 			button.type = "button";
 			button.className = "slash-menu-item";
 			button.setAttribute("role", "option");
 			button.setAttribute("aria-selected", String(index === selected));
-			button.textContent = item.label;
+			button.dataset["id"] = item.id;
+			const icon = document.createElement("span");
+			icon.className = "slash-menu-icon";
+			icon.innerHTML = iconHtml(item.icon);
+			const label = document.createElement("span");
+			label.className = "slash-menu-label";
+			label.textContent = item.label;
+			button.append(icon, label);
+			if (item.hint) {
+				const hint = document.createElement("kbd");
+				hint.className = "slash-menu-hint";
+				hint.textContent = item.hint;
+				button.append(hint);
+			}
 			// mousedown keeps the editor focused; click would blur it first.
 			button.addEventListener("mousedown", (event) => {
 				event.preventDefault();
 				choose(item);
 			});
 			root.append(button);
+			rows.push(button);
 		});
 		// With a long list the menu scrolls: keep the chosen item in view.
-		const current = root.children[selected] as HTMLElement | undefined;
+		const current = rows[selected];
 		current?.scrollIntoView?.({ block: "nearest" });
 	};
 

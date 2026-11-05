@@ -2,6 +2,12 @@ import type { Extensions } from "@tiptap/core";
 import Highlight from "@tiptap/extension-highlight";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
+import {
+	Table,
+	TableCell,
+	TableHeader,
+	TableRow,
+} from "@tiptap/extension-table";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { BLOCK_TYPES } from "./blocks";
@@ -37,6 +43,10 @@ export function createExtensions(): Extensions {
 		Divider,
 		Callout,
 		Toggle,
+		Table,
+		TableRow,
+		TableHeader,
+		TableCell,
 		SlashMenu,
 		UniqueID.configure({
 			attributeName: "id",

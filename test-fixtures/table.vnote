@@ -1,0 +1,14 @@
+{"format":"vaultops-note","v":1,"noteId":"table-1"}
+{"id":"tb0","type":"paragraph","parent":null,"content":[{"text":"Before the table","type":"text"}]}
+{"id":"tb1","type":"table","parent":null}
+{"id":"tb1r1","type":"tableRow","parent":"tb1"}
+{"id":"tb1h1","type":"tableHeader","parent":"tb1r1"}
+{"id":"tb1h1p","type":"paragraph","parent":"tb1h1","content":[{"text":"Name","type":"text"}]}
+{"id":"tb1h2","type":"tableHeader","parent":"tb1r1"}
+{"id":"tb1h2p","type":"paragraph","parent":"tb1h2","content":[{"text":"Count","type":"text"}]}
+{"id":"tb1r2","type":"tableRow","parent":"tb1"}
+{"id":"tb1c1","type":"tableCell","parent":"tb1r2"}
+{"id":"tb1c1p","type":"paragraph","parent":"tb1c1","content":[{"text":"Apples","type":"text"}]}
+{"id":"tb1c2","type":"tableCell","parent":"tb1r2"}
+{"id":"tb1c2p","type":"paragraph","parent":"tb1c2","content":[{"text":"3","type":"text"}]}
+{"id":"tb2","type":"paragraph","parent":null,"content":[{"text":"After the table","type":"text"}]}

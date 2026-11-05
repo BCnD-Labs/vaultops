@@ -304,3 +304,34 @@ describe("divider and callout fixture", () => {
 		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
 	});
 });
+
+describe("table fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/table.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("reads, edits as a document, and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.type)).toEqual([
+			"paragraph",
+			"table",
+			"paragraph",
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+
+	it("refuses a cell outside a row", () => {
+		const result = checkBlocks([
+			{ id: "t", type: "table", parent: null },
+			{ id: "c", type: "tableCell", parent: "t" },
+			{ id: "p", type: "paragraph", parent: "c" },
+		]);
+		expect(result.ok).toBe(false);
+	});
+});

@@ -530,3 +530,29 @@ button.note-meta-chip:focus-visible {
 	height: 100%;
 	overflow: auto;
 }
+
+/* Split view: each side is a column with its own tab strip above its content. */
+.pane-column {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.pane-column > .pane,
+.pane-column > .canvas-pane,
+.pane-column > .split-empty {
+	flex: 1;
+	height: auto;
+	min-height: 0;
+}
+
+/* Two sides that read as two windows: a visible gap between them and a
+   rounded edge on each tab strip's outer corner only. */
+.editor-split [data-slot="resizable-handle"] {
+	width: 4px;
+	background: var(--shell-frame);
+}
+
+.pane-column .tab-bar {
+	border-radius: 0;
+}

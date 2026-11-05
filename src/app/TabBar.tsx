@@ -30,6 +30,8 @@ export function TabBar({
 	onSplit,
 	splitOpen = false,
 	onCloseSplit,
+	label = "Open notes",
+	paneId,
 }: {
 	tabs: TabItem[];
 	onSelect: (path: string) => void;
@@ -39,6 +41,10 @@ export function TabBar({
 	onSplit?: (path: string) => void;
 	splitOpen?: boolean;
 	onCloseSplit?: () => void;
+	/** The tab list's accessible name (a split view has one list per side). */
+	label?: string;
+	/** Set on a split view's tab strips: which side this strip belongs to. */
+	paneId?: "left" | "right";
 }) {
 	const active = useRef<HTMLDivElement | null>(null);
 	const activePath = tabs.find((tab) => tab.active)?.path;
@@ -47,8 +53,8 @@ export function TabBar({
 		active.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
 	}, [activePath]);
 	return (
-		<div className="tab-bar">
-			<div className="tab-list" role="tablist" aria-label="Open notes">
+		<div className="tab-bar" data-pane={paneId}>
+			<div className="tab-list" role="tablist" aria-label={label}>
 				{tabs.map((tab) => {
 					const node = (
 						<div

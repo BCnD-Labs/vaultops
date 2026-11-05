@@ -393,3 +393,33 @@
 	background: color-mix(in srgb, var(--background) 82%, transparent);
 	pointer-events: none;
 }
+
+.note-editor mark,
+.canvas-card mark {
+	padding-inline: 0.1em;
+	border-radius: var(--radius-control);
+	background: var(--editor-highlight-bg);
+	color: var(--editor-highlight-text);
+}
+
+.note-editor sub,
+.note-editor sup,
+.canvas-card sub,
+.canvas-card sup {
+	line-height: 0;
+}
+
+.format-bar {
+	display: flex;
+	gap: 2px;
+	padding: 2px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+}
+
+.format-bar [data-slot="button"][aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--foreground);
+}

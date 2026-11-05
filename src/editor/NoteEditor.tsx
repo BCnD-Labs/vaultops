@@ -2,6 +2,7 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import DragHandle from "@tiptap/extension-drag-handle-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { EditorContent, useEditor } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import { GripVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
 	setDragEffect,
 } from "./block-drag";
 import { createExtensions } from "./extensions";
+import { FormatBar } from "./FormatBar";
 import { ensureUniqueIds } from "./ids";
 import { abandonLift, liftBlock } from "./lift";
 import "./editor.css";
@@ -155,6 +157,19 @@ export function NoteEditor({
 			}}
 		>
 			<EditorContent editor={editor} />
+			{editor && editable && (
+				<BubbleMenu
+					editor={editor}
+					options={{ placement: "top", offset: 8 }}
+					shouldShow={({ editor: current, state }) =>
+						current.isEditable &&
+						!state.selection.empty &&
+						!current.isActive("codeBlock")
+					}
+				>
+					<FormatBar editor={editor} />
+				</BubbleMenu>
+			)}
 			{dropIndicator !== null && (
 				<div
 					className="block-drop-indicator prosemirror-dropcursor-block"

@@ -42,6 +42,8 @@
 	--editor-text: var(--foreground);
 	--editor-bold: var(--editor-text);
 	--editor-italic: var(--editor-text);
+	--editor-highlight-bg: var(--seed-warning-container);
+	--editor-highlight-text: var(--editor-text);
 	--editor-quote: var(--editor-text);
 	--editor-code-bg: var(--surface-container-low);
 	--editor-code-text: var(--editor-text);

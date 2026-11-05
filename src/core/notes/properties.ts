@@ -185,3 +185,95 @@ export function removeProperty(props: Props, name: string): Props {
 	const { [name]: _gone, ...rest } = props;
 	return rest;
 }
+
+/**
+ * Rename a property in place (it keeps its position and everything in its
+ * entry). Names stay unique ignoring capital letters, but a change of capitals
+ * alone is a rename. `tags` is never renamed, and only a list may be called tags.
+ */
+export function renameProperty(
+	props: Props,
+	from: string,
+	rawTo: string,
+): Change {
+	const to = cleanName(rawTo);
+	if (!(from in props)) return { ok: false, message: "No such property." };
+	if (to === "") return { ok: false, message: "Give the property a name." };
+	if (to === from) return { ok: true, props };
+	if (from.toLowerCase() === "tags")
+		return { ok: false, message: "Tags can't be renamed." };
+	const clash = findName(props, to);
+	if (clash !== null && clash !== from) {
+		return { ok: false, message: `There is already a property called ${to}.` };
+	}
+	const entry = props[from];
+	if (
+		to.toLowerCase() === "tags" &&
+		!(isObject(entry) && entry["type"] === "list")
+	) {
+		return { ok: false, message: "Tags is always a list." };
+	}
+	const next: Props = {};
+	for (const [key, value] of Object.entries(props)) {
+		next[key === from ? to : key] = value;
+	}
+	return { ok: true, props: next };
+}
+
+function convertValue(
+	value: PropertyValue,
+	to: PropertyType,
+): PropertyValue {
+	const text = Array.isArray(value)
+		? value.join(", ")
+		: typeof value === "string"
+			? value
+			: typeof value === "number"
+				? String(value)
+				: "";
+	switch (to) {
+		case "text":
+			return text;
+		case "number": {
+			const n = text.trim() === "" ? Number.NaN : Number(text);
+			return Number.isFinite(n) ? n : null;
+		}
+		case "date":
+			return validDate(text.trim()) ? text.trim() : null;
+		case "checkbox":
+			return value === true || ["true", "yes", "1"].includes(text.toLowerCase());
+		case "list":
+			return text
+				.split(",")
+				.map((part) => part.trim())
+				.filter((part) => part !== "")
+				.filter((part, i, all) => all.indexOf(part) === i);
+	}
+}
+
+/**
+ * Change a property's type, carrying the value over when it still makes sense
+ * (text to number, a list to text, and so on) and starting empty when it does
+ * not. The entry's other fields are kept. `tags` stays a list.
+ */
+export function changeType(
+	props: Props,
+	name: string,
+	type: PropertyType,
+): Change {
+	const entry = props[name];
+	if (!isObject(entry) || !isPropertyType(entry["type"])) {
+		return { ok: false, message: "This property can't be edited here." };
+	}
+	if (name.toLowerCase() === "tags" && type !== "list") {
+		return { ok: false, message: "Tags is always a list." };
+	}
+	if (entry["type"] === type) return { ok: true, props };
+	const from = readProps({ [name]: entry })[0];
+	const carried = from?.known ? convertValue(from.value, type) : null;
+	const value = fits(type, carried) ? carried : defaultValue(type);
+	return {
+		ok: true,
+		props: { ...props, [name]: { ...entry, type, value: value as JsonValue } },
+	};
+}

@@ -6,6 +6,7 @@ import {
 	type EntryKind,
 	type Host,
 	HostError,
+	type UpdateScriptStatus,
 } from "./host";
 
 interface FileNode {
@@ -203,6 +204,28 @@ export class MemoryHost implements Host {
 			throw new HostError("invalid-path", "not a valid report name");
 		}
 		this.reports.set(name, text);
+	}
+
+	/**
+	 * Test helpers for the update script stopgap: how many times it was started,
+	 * an error the next start throws, and what the script "reports" (set it to
+	 * `finished` or `failed` to end a run).
+	 */
+	updateScriptStarts = 0;
+	nextUpdateScriptError: HostError | null = null;
+	updateScript: UpdateScriptStatus = { state: "idle", lastLine: "" };
+
+	async startUpdateScript(): Promise<void> {
+		if (this.nextUpdateScriptError) throw this.nextUpdateScriptError;
+		if (this.updateScript.state === "running") {
+			throw new HostError("io", "an update is already running");
+		}
+		this.updateScriptStarts += 1;
+		this.updateScript = { state: "running", lastLine: "" };
+	}
+
+	async updateScriptStatus(): Promise<UpdateScriptStatus> {
+		return { ...this.updateScript };
 	}
 
 	private readonly closeHandlers = new Set<() => Promise<boolean>>();

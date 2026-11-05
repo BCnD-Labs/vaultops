@@ -18,6 +18,7 @@ import {
 	type ThemeChoice,
 	themes,
 } from "../ui/themes";
+import { type UpdateHost, UpdateSection } from "./UpdateSection";
 
 const modes = [
 	["light", "Light"],
@@ -26,11 +27,17 @@ const modes = [
 ] as const;
 
 /**
- * Settings: appearance only for now. Mode and theme apply the moment they
- * change; the color pickers replace single theme colors for the current mode
- * (light or dark) and "Reset" puts that mode back to the theme.
+ * Settings: appearance, then the stopgap Updates section. Mode and theme apply
+ * the moment they change; the color pickers replace single theme colors for the
+ * current mode (light or dark) and "Reset" puts that mode back to the theme.
  */
-export function SettingsScreen() {
+export function SettingsScreen({
+	host,
+	updatePollMs,
+}: {
+	host: UpdateHost;
+	updatePollMs?: number;
+}) {
 	const root = document.documentElement;
 	const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice);
 	const [colors, setColors] = useState(loadColors);
@@ -116,6 +123,7 @@ export function SettingsScreen() {
 			>
 				Reset {mode} colors
 			</Button>
+			<UpdateSection host={host} pollMs={updatePollMs} />
 		</section>
 	);
 }

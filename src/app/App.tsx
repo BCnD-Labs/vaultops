@@ -874,6 +874,7 @@ export function App({ host }: { host: Host }) {
 								busy={busy}
 								writable={writable}
 								screenNotice={screenNotice}
+								updateHost={host}
 								trash={trash}
 								confirmDelete={confirmDelete}
 								opened={opened}

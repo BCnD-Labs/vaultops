@@ -101,5 +101,10 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		chooseReportsFolder: () => host.chooseReportsFolder(),
 		reportsFolder: () => host.reportsFolder(),
 		writeReport: (name, text) => host.writeReport(name, text),
+		startUpdateScript: timed("startUpdateScript", () =>
+			host.startUpdateScript(),
+		),
+		// Not wrapped: it is polled every couple of seconds while an update builds.
+		updateScriptStatus: () => host.updateScriptStatus(),
 	};
 }

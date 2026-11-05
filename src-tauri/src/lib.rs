@@ -7,6 +7,7 @@ pub mod reports;
 #[cfg(test)]
 mod test_util;
 pub mod trash_ops;
+pub mod update_script;
 pub mod vault;
 
 use std::path::{Path, PathBuf};
@@ -222,6 +223,37 @@ fn read_log_tail(app: tauri::AppHandle, max_lines: usize) -> Result<String, Host
     app_files::log_tail(&dir, max_lines).map_err(|e| HostError::from_io(&e))
 }
 
+/// STOPGAP(update-script): start the maintainer's install script (see
+/// `update_script`). The window sends nothing: which script runs, and where, is
+/// decided here.
+#[tauri::command(async)]
+fn start_update_script(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, update_script::UpdateState>,
+) -> Result<(), HostError> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
+    let command = update_script::script_command(&update_script::checkout_root())?;
+    update_script::start(&state, command, &dir)
+}
+
+/// STOPGAP(update-script): where the update script stands and its latest line.
+#[tauri::command(async)]
+fn update_script_status(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, update_script::UpdateState>,
+) -> Result<update_script::Status, HostError> {
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
+    update_script::status(&state, &dir)
+}
+
 /// The file in the settings folder that remembers the reports folder.
 const REPORTS_FOLDER_FILE: &str = "reports-folder.txt";
 
@@ -332,6 +364,7 @@ pub fn run() {
         // Only `restart` is granted to the page, after it has saved the open note.
         .plugin(tauri_plugin_process::init())
         .manage(VaultState::default())
+        .manage(update_script::UpdateState::default())
         .setup(|app| {
             // Reopen the last vault. If it moved or is gone, start with none.
             use tauri::Manager;
@@ -357,7 +390,9 @@ pub fn run() {
             read_log_tail,
             choose_reports_folder,
             reports_folder,
-            write_report
+            write_report,
+            start_update_script,
+            update_script_status
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

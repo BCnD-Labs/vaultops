@@ -18,6 +18,8 @@ cd "/path/to/vaultops" || exit 1
 bash scripts/install-vaultops.sh
 ```
 
+You can also update from inside the app: **Settings, Updates, Update VaultOps**. It asks first, then runs this same script from the code folder the app was built from, shows the script's latest line while it builds (you can keep working), and when it is ready the script asks VaultOps to quit (the open note is saved), installs the new app and opens it. If anything fails, the status line shows the script's last line and the installed app is left as it was. This button is a stopgap (see `docs/stopgaps.md`) until the real updater ships. It needs the app to have been built by this script from a checkout that is still in the same place.
+
 To roll back, quit VaultOps normally. In the Applications folder printed by the installer, rename `VaultOps.app` to `VaultOps (new).app`, then rename `VaultOps (previous).app` to `VaultOps.app` and open it. Each successful update keeps one previous version. Running the installer again replaces that rollback copy.
 
 The installed app has separate browser-style storage from `npm run tauri dev`. On its first launch, it may ask you to open your vault folder again. The installer never changes the vault or its notes.

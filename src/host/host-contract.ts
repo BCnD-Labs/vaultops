@@ -41,6 +41,16 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 			expect(await host.list("")).toEqual([]);
 		});
 
+		it("reports no update script run until one is started, and runs one at a time", async () => {
+			expect(await host.updateScriptStatus()).toEqual({
+				state: "idle",
+				lastLine: "",
+			});
+			await host.startUpdateScript();
+			expect((await host.updateScriptStatus()).state).toBe("running");
+			await expectCode(host.startUpdateScript(), "io");
+		});
+
 		it("reads the end of the log", async () => {
 			expect(await host.readLogTail(5)).toBe("");
 			await host.appendLog("a\nb\nc");

@@ -713,6 +713,11 @@ export function App({ host }: { host: Host }) {
 				await trashFolder(vaultHost, path);
 				return {};
 			}),
+		deleteNote: (path) =>
+			void changeTree(path, async () => {
+				await trashNote(vaultHost, path);
+				return {};
+			}),
 		move: (item, into) =>
 			void changeTree(item.path, async () => {
 				if (item.kind === "folder") {

@@ -19,9 +19,13 @@ import { loadVault, type NoteRow } from "./session";
 import { useWorkspaceHost, type WorkspaceHost } from "./useWorkspaceHost";
 import { WorkspacePanes } from "./WorkspacePanes";
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	reading = false;
+});
 
 let api: WorkspaceHost;
+let reading = false;
 
 function Harness({
 	host,
@@ -51,6 +55,7 @@ function Harness({
 					<SessionNoteView
 						session={pane.session}
 						writable={writable}
+						reading={reading}
 						onLoadDisk={() => {}}
 						onSaveCopy={() => {}}
 						onMoveToTrash={onMoveToTrash}
@@ -212,4 +217,22 @@ it("reloading the same note in place also clears the questions", async () => {
 	act(() => api.panes.left.session.load(fresh, a));
 	expect(screen.queryByText("Move this note to the trash?")).toBeNull();
 	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
+});
+
+it("reading view locks the title and the editor and keeps the text", async () => {
+	reading = true;
+	const { run, a } = await setup();
+	await run(() => api.open(a));
+	const title = (await screen.findByRole("textbox", {
+		name: "Title",
+	})) as HTMLInputElement;
+	expect(title.readOnly).toBe(true);
+	await waitFor(() =>
+		expect(
+			document.querySelector('.ProseMirror[contenteditable="false"]'),
+		).not.toBeNull(),
+	);
+	expect(
+		document.querySelector('.ProseMirror[contenteditable="true"]'),
+	).toBeNull();
 });

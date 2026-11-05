@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
 import { COMMAND_ACTIONS, CommandBar, commandShortcut } from "./CommandBar";
 import type { NoteRow } from "./session";
@@ -37,6 +36,15 @@ const props = () => ({
 
 afterEach(() => cleanup());
 
+/** Render the bar; `open()` asks it to open, as the sidebar button and rail Search do. */
+function renderBar(p = props()) {
+	let request = 0;
+	const view = render(<CommandBar {...p} />);
+	const open = () =>
+		view.rerender(<CommandBar {...p} openRequest={++request} />);
+	return { p, open };
+}
+
 it("recognizes Cmd K on Mac and Ctrl K elsewhere without modifiers", () => {
 	const event = {
 		key: "k",
@@ -57,17 +65,13 @@ it("recognizes Cmd K on Mac and Ctrl K elsewhere without modifiers", () => {
 	expect(commandShortcut({ ...event, repeat: true }, true)).toBe(false);
 });
 
-it("renders the pill and offers all working actions in the palette", async () => {
-	const p = props();
-	const html = renderToStaticMarkup(<CommandBar {...p} />);
-	expect(html).toContain("command-pill");
-	expect(html).toContain("Find or create a note...");
-	expect(html).toContain("[Ctrl K]");
+it("has no floating pill and offers all working actions in the palette", async () => {
 	const user = userEvent.setup();
-	render(<CommandBar {...p} />);
-	await user.click(
-		screen.getByRole("button", { name: "Find or create a note" }),
-	);
+	const { p, open } = renderBar();
+	expect(
+		screen.queryByRole("button", { name: "Find or create a note" }),
+	).toBeNull();
+	open();
 	const dialog = screen.getByRole("dialog", { name: "Find or create a note" });
 	expect(
 		within(dialog).getByRole("combobox", { name: "Find or create a note" }),
@@ -77,9 +81,7 @@ it("renders the pill and offers all working actions in the palette", async () =>
 	await user.click(within(dialog).getByText("Toggle left sidebar"));
 	expect(p.onToggle).toHaveBeenCalledWith("left");
 	expect(screen.queryByRole("dialog")).toBeNull();
-	await user.click(
-		screen.getByRole("button", { name: "Find or create a note" }),
-	);
+	open();
 	await user.click(screen.getByText("New folder"));
 	expect(p.onNewFolder).toHaveBeenCalledOnce();
 	for (const [label, callback, value] of [
@@ -87,21 +89,16 @@ it("renders the pill and offers all working actions in the palette", async () =>
 		["Open Trash", p.onNavigate, "trash"],
 		["Open Vault health", p.onNavigate, "health"],
 	] as const) {
-		await user.click(
-			screen.getByRole("button", { name: "Find or create a note" }),
-		);
+		open();
 		await user.click(screen.getByText(label));
 		expect(callback).toHaveBeenCalledWith(value);
 	}
 });
 
 it("opens a title match and creates a named note in the selected folder only when unmatched", async () => {
-	const p = props();
 	const user = userEvent.setup();
-	render(<CommandBar {...p} />);
-	await user.click(
-		screen.getByRole("button", { name: "Find or create a note" }),
-	);
+	const { p, open } = renderBar();
+	open();
 	const input = screen.getByRole("combobox", { name: "Find or create a note" });
 	await user.type(input, "PROJECT");
 	const items = screen.getAllByRole("option");
@@ -112,9 +109,7 @@ it("opens a title match and creates a named note in the selected folder only whe
 	expect(screen.queryByText(/Create note:/)).toBeNull();
 	await user.keyboard("{Enter}");
 	expect(p.onOpenNote).toHaveBeenCalledWith("Class/Project.vnote");
-	await user.click(
-		screen.getByRole("button", { name: "Find or create a note" }),
-	);
+	open();
 	await user.type(
 		screen.getByRole("combobox", { name: "Find or create a note" }),
 		"Fresh idea",

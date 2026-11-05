@@ -35,7 +35,6 @@ it("renders three regions, independent toggles, breadcrumb and note tools", () =
 		'aria-label="Tags"',
 		'aria-label="Changes"',
 		'aria-label="Settings"',
-		"Find or create a note...",
 	])
 		expect(html).toContain(text);
 });

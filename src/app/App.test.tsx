@@ -72,7 +72,8 @@ it("opens a canvas beside the editor, creates and renames a canvas, and remember
 			}) as HTMLSelectElement
 		).value,
 	).toBe("Sprint board.vnote");
-	expect(screen.getByTitle("Sprint board.vnote")).toBeTruthy();
+	// The sidebar row and the canvas's tab both carry the new path.
+	expect(screen.getAllByTitle("Sprint board.vnote")).toHaveLength(2);
 	expect(localStorage.getItem("vaultops:last-canvas")).toContain(
 		"Sprint board.vnote",
 	);
@@ -91,21 +92,29 @@ it("opens a canvas beside the editor, creates and renames a canvas, and remember
 	);
 });
 
-it("keeps the note editable when a canvas opens and remembers the last canvas", async () => {
+it("opens a canvas as its own tab, putting the note away, and closing it brings the note back", async () => {
 	const host = new MemoryHost();
 	await loadVault(host);
 	await createNote(host, "", "Essay");
 	await createCanvas(host, "", "Board");
 	const user = userEvent.setup();
 	render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByTitle("Board.vnote"));
+	await screen.findByRole("region", { name: "Canvas view" });
+	// The canvas fills the editor: no note beside it, and it has a tab.
+	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+	const tabs = within(screen.getByRole("tablist", { name: "Open notes" }));
+	expect(
+		tabs.getAllByRole("tab").map((tab) => tab.getAttribute("aria-selected")),
+	).toEqual(["false", "true"]);
+	await user.click(screen.getByRole("button", { name: "Close canvas" }));
+	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
 	const title = (await screen.findByRole("textbox", {
 		name: "Title",
 	})) as HTMLInputElement;
-	await user.click(screen.getByTitle("Board.vnote"));
-	await screen.findByRole("region", { name: "Canvas view" });
 	expect(title.readOnly).toBe(false);
-	await user.click(screen.getByRole("button", { name: "Close canvas" }));
-	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
+	expect(tabs.getAllByRole("tab")).toHaveLength(1);
 	expect(localStorage.getItem("vaultops:last-canvas")).toContain("Board.vnote");
 });
 
@@ -428,4 +437,65 @@ it("moves a canvas to the trash from its sidebar row and closes it", async () =>
 		expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull(),
 	);
 	expect(await host.kindOf("Board.vnote")).toBeNull();
+});
+
+it("splits the view from a note tab, fills the right pane with a canvas, and closes the split", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Essay");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	const strip = () =>
+		within(screen.getByRole("tablist", { name: "Open notes" }));
+	fireEvent.contextMenu(
+		strip().getByRole("tab", { name: "Essay" }).parentElement as HTMLElement,
+	);
+	await user.click(await screen.findByRole("menuitem", { name: "Split view" }));
+	// The note stays; the right pane is empty and offers canvases only.
+	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
+	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Create a note" })).toBeNull();
+	await user.click(
+		await screen.findByRole("button", { name: "Create a canvas" }),
+	);
+	await screen.findByRole("region", { name: "Canvas view" });
+	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
+	expect(
+		strip()
+			.getAllByRole("tab")
+			.map((tab) => tab.getAttribute("aria-selected")),
+	).toEqual(["true", "true"]);
+	// "Close split view" keeps both tabs; the canvas just stops showing.
+	fireEvent.contextMenu(
+		strip().getAllByRole("tab")[1]?.parentElement as HTMLElement,
+	);
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Close split view" }),
+	);
+	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
+	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
+	expect(strip().getAllByRole("tab")).toHaveLength(2);
+});
+
+it("ends the split when the canvas in it is closed, and a canvas tab splits beside the note", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Essay");
+	await createCanvas(host, "", "Board");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByTitle("Board.vnote"));
+	await screen.findByRole("region", { name: "Canvas view" });
+	const board = within(
+		screen.getByRole("tablist", { name: "Open notes" }),
+	).getByRole("tab", { name: "Board" });
+	fireEvent.contextMenu(board.parentElement as HTMLElement);
+	await user.click(await screen.findByRole("menuitem", { name: "Split view" }));
+	await screen.findByRole("textbox", { name: "Title" });
+	await screen.findByRole("region", { name: "Canvas view" });
+	await user.click(screen.getByRole("button", { name: "Close Board" }));
+	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
+	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
 });

@@ -524,3 +524,9 @@ button.note-meta-chip:focus-visible {
 	color: var(--muted-foreground);
 	font: inherit;
 }
+
+.split-empty {
+	display: flex;
+	height: 100%;
+	overflow: auto;
+}

@@ -24,6 +24,11 @@ function inline(value: JsonValue | undefined): ReactNode {
 			if (mark.type === "bold") content = <strong>{content}</strong>;
 			if (mark.type === "italic") content = <em>{content}</em>;
 			if (mark.type === "code") content = <code>{content}</code>;
+			if (mark.type === "strike") content = <s>{content}</s>;
+			if (mark.type === "underline") content = <u>{content}</u>;
+			if (mark.type === "highlight") content = <mark>{content}</mark>;
+			if (mark.type === "subscript") content = <sub>{content}</sub>;
+			if (mark.type === "superscript") content = <sup>{content}</sup>;
 		}
 		return <span key={JSON.stringify(part)}>{content}</span>;
 	});

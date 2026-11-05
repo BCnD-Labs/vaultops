@@ -593,3 +593,17 @@ button.note-meta-chip:focus-visible {
 .workspace-pane[data-split="true"][data-focused="true"] .tab-bar {
 	border-bottom-color: var(--accent);
 }
+
+/* The editor area under the nav bar: a message line above the panes. */
+.editor-stack {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+.editor-stack > .editor-split {
+	flex: 1;
+	min-height: 0;
+	height: auto;
+}

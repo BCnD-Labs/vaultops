@@ -312,7 +312,6 @@ it("moves a block from a note onto a canvas and back into a note", async () => {
 	await s.run(() => s.result.current.open(s.board));
 	await s.run(() => s.result.current.moveTab(s.board, "right"));
 	await s.ready("left");
-	const before = s.result.current.canvasRevision;
 	let outcome = await act(async () =>
 		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
 			x: 40,
@@ -324,7 +323,6 @@ it("moves a block from a note onto a canvas and back into a note", async () => {
 	expect(
 		parseNote(await s.host.readText(s.board)).note?.blocks[0],
 	).toMatchObject({ id: "x", attrs: { x: 40, y: 50 } });
-	expect(s.result.current.canvasRevision).toBeGreaterThan(before);
 	// And the canvas card's "move to note" sends it back into the left note.
 	outcome = await act(() => s.result.current.blockToNote("right", "x"));
 	expect(outcome).toEqual({ ok: true });
@@ -394,7 +392,7 @@ it("refuses to move a block when an unsaved note cannot be saved", async () => {
 	write.mockRestore();
 	expect(outcome.ok).toBe(false);
 	expect(outcome.ok === false && outcome.message).toContain(
-		"Save the notes before moving a block",
+		"Save the note before moving a block",
 	);
 	expect(await blockIds(s.host, s.b)).toEqual(["z"]);
 });

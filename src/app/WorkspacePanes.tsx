@@ -168,28 +168,30 @@ export function WorkspacePanes({
 				onPointerDownCapture={() => focus(pane.id)}
 				onFocusCapture={() => focus(pane.id)}
 			>
-				<TabBar
-					paneId={pane.id}
-					label={pane.id === "left" ? "Open notes" : "Open notes, right side"}
-					tabs={tabsOf(pane)}
-					onSelect={(path) => void host.select(pane.id, path)}
-					onClose={(path) => void host.close(path, pane.id)}
-					onNew={() => void host.newTab(pane.id)}
-					onSplit={(path) => void host.split(path)}
-					onMove={
-						canMove
-							? (path) => void host.moveTab(path, other(pane.id))
-							: undefined
-					}
-					moveLabel={`Move to ${other(pane.id)} side`}
-					splitOpen={split}
-					onCloseSplit={() => void host.closeSplit()}
-					onDropTab={(drag, index) => dropOn(drag, pane, index)}
-					onTabDragStart={setDragging}
-					onTabDragEnd={endDrag}
-					onNudge={(path, direction) => void nudge(pane, path, direction)}
-					focusRequest={focusTab}
-				/>
+				{pane.tabs.length > 0 && (
+					<TabBar
+						paneId={pane.id}
+						label={pane.id === "left" ? "Open notes" : "Open notes, right side"}
+						tabs={tabsOf(pane)}
+						onSelect={(path) => void host.select(pane.id, path)}
+						onClose={(path) => void host.close(path, pane.id)}
+						onNew={() => void host.newTab(pane.id)}
+						onSplit={(path) => void host.split(path)}
+						onMove={
+							canMove
+								? (path) => void host.moveTab(path, other(pane.id))
+								: undefined
+						}
+						moveLabel={`Move to ${other(pane.id)} side`}
+						splitOpen={split}
+						onCloseSplit={() => void host.closeSplit()}
+						onDropTab={(drag, index) => dropOn(drag, pane, index)}
+						onTabDragStart={setDragging}
+						onTabDragEnd={endDrag}
+						onNudge={(path, direction) => void nudge(pane, path, direction)}
+						focusRequest={focusTab}
+					/>
+				)}
 				{content(pane)}
 				{zone(pane)}
 			</div>

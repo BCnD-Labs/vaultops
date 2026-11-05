@@ -452,10 +452,10 @@ it("splits the view from a note tab, fills the right pane with a canvas, and clo
 		strip().getByRole("tab", { name: "Essay" }).parentElement as HTMLElement,
 	);
 	await user.click(await screen.findByRole("menuitem", { name: "Split view" }));
-	// The note stays; the right pane is empty and offers canvases only.
+	// The note stays; the right pane is empty and can start a note or a canvas.
 	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
 	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
-	expect(screen.queryByRole("button", { name: "Create a note" })).toBeNull();
+	expect(screen.getByRole("button", { name: "Create a note" })).toBeTruthy();
 	await user.click(
 		await screen.findByRole("button", { name: "Create a canvas" }),
 	);

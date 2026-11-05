@@ -76,7 +76,7 @@ import {
 	type VaultView,
 } from "./session";
 import { type Selection, selectionForPath } from "./sidebar-selection";
-import type { TabItem } from "./TabBar";
+import { TabBar, type TabItem } from "./TabBar";
 import {
 	browserTabs,
 	closeTab,
@@ -776,6 +776,35 @@ export function App({ host }: { host: Host }) {
 			canvas,
 		};
 	});
+	// In a split view each side has its own tab strip: the right one holds the
+	// split canvas (or an empty tab while one is being picked), the left the rest.
+	const rightTabs: TabItem[] = splitOpen
+		? [
+				noteTabs.find((tab) => tab.path === splitCanvas) ?? {
+					path: NEW_TAB,
+					title: "New tab",
+					active: true,
+				},
+			]
+		: [];
+	const leftTabs = noteTabs.filter((tab) => tab.path !== splitCanvas);
+	const rightStrip = (
+		<TabBar
+			paneId="right"
+			label="Open notes, right side"
+			tabs={rightTabs}
+			// The one tab on the right is always the one showing.
+			onSelect={() => {}}
+			onClose={(path) =>
+				path === NEW_TAB ? changeSplit(false) : void closeNoteTab(path)
+			}
+			// "+" empties the right side so another canvas can be picked.
+			onNew={() => selectCanvas(null)}
+			onSplit={(path) => void splitView(path)}
+			splitOpen
+			onCloseSplit={() => changeSplit(false)}
+		/>
+	);
 	const tabItems: TabItem[] =
 		newTab === "none"
 			? noteTabs
@@ -1069,7 +1098,7 @@ export function App({ host }: { host: Host }) {
 						void startNote(folder, noteTitle)
 					}
 					onNavigateScreen={(next) => void navigate(next)}
-					tabs={tabItems}
+					tabs={splitOpen ? [] : tabItems}
 					onSelectTab={(path) => {
 						if (path === NEW_TAB) {
 							if (newTab !== "active" || screen !== "note") void openNewTab();
@@ -1147,14 +1176,38 @@ export function App({ host }: { host: Host }) {
 						}}
 					>
 						{!shownCanvas && (
-							<ResizablePanel id="note" minSize="25%">
+							<ResizablePanel
+								id="note"
+								minSize="25%"
+								className={splitOpen ? "pane-column" : undefined}
+							>
+								{splitOpen && (
+									<TabBar
+										paneId="left"
+										tabs={leftTabs}
+										onSelect={(path) => {
+											if (!leftTabs.find((tab) => tab.path === path)?.active)
+												void open(path);
+										}}
+										onClose={(path) => void closeNoteTab(path)}
+										onNew={() => void openNewTab()}
+										onSplit={(path) => void splitView(path)}
+										splitOpen
+										onCloseSplit={() => changeSplit(false)}
+									/>
+								)}
 								{notePane}
 							</ResizablePanel>
 						)}
 						{splitOpen && !splitCanvas && (
 							<>
 								<ResizableHandle />
-								<ResizablePanel id="canvas" minSize="25%">
+								<ResizablePanel
+									id="canvas"
+									minSize="25%"
+									className="pane-column"
+								>
+									{rightStrip}
 									<div className="split-empty">
 										<NewTab
 											writable={writable && !busy}
@@ -1172,7 +1225,12 @@ export function App({ host }: { host: Host }) {
 						{paneCanvas && view && (
 							<>
 								{splitCanvas && <ResizableHandle />}
-								<ResizablePanel id="canvas" minSize="25%">
+								<ResizablePanel
+									id="canvas"
+									minSize="25%"
+									className={splitCanvas ? "pane-column" : undefined}
+								>
+									{splitCanvas && rightStrip}
 									<CanvasPane
 										key={canvasRefresh}
 										host={vaultHost}

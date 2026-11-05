@@ -461,19 +461,30 @@ it("splits the view from a note tab, fills the right pane with a canvas, and clo
 	);
 	await screen.findByRole("region", { name: "Canvas view" });
 	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
+	// Each side has its own tab strip: the note on the left, the canvas on the right.
+	const right = () =>
+		within(screen.getByRole("tablist", { name: "Open notes, right side" }));
 	expect(
 		strip()
 			.getAllByRole("tab")
-			.map((tab) => tab.getAttribute("aria-selected")),
-	).toEqual(["true", "true"]);
-	// "Close split view" keeps both tabs; the canvas just stops showing.
+			.map((tab) => tab.textContent),
+	).toEqual(["Essay"]);
+	expect(
+		right()
+			.getAllByRole("tab")
+			.map((tab) => tab.textContent),
+	).toEqual(["Untitled canvas"]);
+	// "Close split view" brings the canvas's tab back to the one strip; it just stops showing.
 	fireEvent.contextMenu(
-		strip().getAllByRole("tab")[1]?.parentElement as HTMLElement,
+		right().getAllByRole("tab")[0]?.parentElement as HTMLElement,
 	);
 	await user.click(
 		await screen.findByRole("menuitem", { name: "Close split view" }),
 	);
 	expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull();
+	expect(
+		screen.queryByRole("tablist", { name: "Open notes, right side" }),
+	).toBeNull();
 	expect(screen.getByRole("textbox", { name: "Title" })).toBeTruthy();
 	expect(strip().getAllByRole("tab")).toHaveLength(2);
 });

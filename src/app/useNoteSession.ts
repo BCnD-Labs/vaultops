@@ -70,6 +70,8 @@ export function useNoteSession({
 			openedNote && !writable ? lockedForReadOnlyVault(openedNote) : openedNote,
 		[openedNote, writable],
 	);
+	const openedRef = useRef(opened);
+	openedRef.current = opened;
 
 	// Typing only schedules a recount, so a long note is counted once the
 	// writing pauses, never on every key.
@@ -169,10 +171,13 @@ export function useNoteSession({
 		autosave.change(draftOf(doc, titleRef.current), opened);
 	};
 
-	/** The unsaved text as recovery-file text, or null when no note is open. */
+	/**
+	 * The unsaved text as recovery-file text, or null when no note is on screen
+	 * (a note that was put away was saved first, and its old text is not kept).
+	 */
 	const recoveryText = useCallback((now: Date) => {
 		const doc = docRef.current;
-		if (!doc) return null;
+		if (!doc || openedRef.current === null) return null;
 		return buildRecoveryText({
 			path: livePathRef.current,
 			title: titleRef.current,
@@ -212,3 +217,6 @@ export function useNoteSession({
 		recoveryText,
 	};
 }
+
+/** What `useNoteSession` returns: one live note and everything about it. */
+export type NoteSession = ReturnType<typeof useNoteSession>;

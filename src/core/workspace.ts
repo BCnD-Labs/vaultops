@@ -187,9 +187,19 @@ export function selectTab(
 	);
 }
 
-/** Close a tab wherever it is. An emptied pane closes with it. */
-export function closeTab(ws: Workspace, path: string): Workspace {
-	const id = paneWithTab(ws, path);
+/**
+ * Close a tab wherever it is. An emptied pane closes with it. Name the pane
+ * when the path may be in both: each pane can have its own empty tab.
+ */
+export function closeTab(
+	ws: Workspace,
+	path: string,
+	pane?: PaneId,
+): Workspace {
+	const id =
+		pane && paneOf(ws, pane)?.tabs.includes(path)
+			? pane
+			: paneWithTab(ws, path);
 	if (!id) return ws;
 	const next = withPane(ws, id, without(paneOf(ws, id) as Pane, path));
 	return settled(next);

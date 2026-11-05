@@ -28,6 +28,8 @@ export function TabBar({
 	onClose,
 	onNew,
 	onSplit,
+	onMove,
+	moveLabel = "Move to other side",
 	splitOpen = false,
 	onCloseSplit,
 	label = "Open notes",
@@ -39,6 +41,9 @@ export function TabBar({
 	onNew: () => void;
 	/** Right-click a note or canvas tab, "Split view". */
 	onSplit?: (path: string) => void;
+	/** Right-click a note or canvas tab, "Move to other side" (named by `moveLabel`). */
+	onMove?: (path: string) => void;
+	moveLabel?: string;
 	splitOpen?: boolean;
 	onCloseSplit?: () => void;
 	/** The tab list's accessible name (a split view has one list per side). */
@@ -92,14 +97,21 @@ export function TabBar({
 							</button>
 						</div>
 					);
-					if (!onSplit || tab.path === NEW_TAB) return node;
+					if ((!onSplit && !onMove) || tab.path === NEW_TAB) return node;
 					return (
 						<ContextMenu key={tab.path}>
 							<ContextMenuTrigger asChild>{node}</ContextMenuTrigger>
 							<ContextMenuContent>
-								<ContextMenuItem onSelect={() => onSplit(tab.path)}>
-									Split view
-								</ContextMenuItem>
+								{onSplit && (
+									<ContextMenuItem onSelect={() => onSplit(tab.path)}>
+										Split view
+									</ContextMenuItem>
+								)}
+								{onMove && (
+									<ContextMenuItem onSelect={() => onMove(tab.path)}>
+										{moveLabel}
+									</ContextMenuItem>
+								)}
 								{splitOpen && (
 									<ContextMenuItem onSelect={() => onCloseSplit?.()}>
 										Close split view

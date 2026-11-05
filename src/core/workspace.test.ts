@@ -253,3 +253,23 @@ describe("renaming, pruning, remembering", () => {
 		expect(focusPane(split, "left").focused).toBe("left");
 	});
 });
+
+describe("closing a tab that both panes have", () => {
+	it("closes the empty tab of the named pane only", () => {
+		let ws = splitFrom(opened("a", "b"), "a", isCanvas);
+		ws = openEmptyTab(openEmptyTab(ws, "left"), "right");
+		expect(ws.left.tabs).toContain(NEW_TAB);
+		expect(ws.right?.tabs).toContain(NEW_TAB);
+		const next = closeTab(ws, NEW_TAB, "right");
+		expect(next.right?.tabs).toEqual(["a"]);
+		expect(next.left.tabs).toContain(NEW_TAB);
+	});
+
+	it("falls back to wherever the tab is when the named pane lacks it", () => {
+		const ws = splitFrom(opened("a", "b"), "a", isCanvas);
+		const next = closeTab(ws, "b", "right");
+		// Left emptied, so the right pane takes its place.
+		expect(next.left.tabs).toEqual(["a"]);
+		expect(next.right).toBeNull();
+	});
+});

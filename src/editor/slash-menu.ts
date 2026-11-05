@@ -57,7 +57,8 @@ export function createPopup() {
 			{ width: window.innerWidth, height: window.innerHeight },
 		);
 		root.style.left = `${placed.left}px`;
-		root.style.maxHeight = `${placed.maxHeight}px`;
+		// Never taller than the menu's own cap (see editor.css), or the window allows.
+		root.style.maxHeight = `min(${placed.maxHeight}px, var(--slash-menu-max-height))`;
 		root.dataset.side = placed.side;
 		if (placed.side === "above") {
 			root.style.top = "";

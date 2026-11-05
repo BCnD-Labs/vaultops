@@ -16,6 +16,9 @@ import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { MemoryHost } from "../host/memory-host";
 import { CanvasPane } from "./CanvasPane";
 
+/** The id of the canvas under test, for a card dropped back where it came from. */
+let ownCanvasId = "";
+
 vi.mock("@/components/ui/canvas", async (importOriginal) => {
 	const actual =
 		await importOriginal<typeof import("@/components/ui/canvas")>();
@@ -56,6 +59,19 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 					}}
 				>
 					Drop VaultOps block
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						const dataTransfer = new DataTransfer();
+						dataTransfer.setData(
+							BLOCK_DRAG_TYPE,
+							JSON.stringify({ noteId: ownCanvasId, blockId: "block" }),
+						);
+						onDropBlock({ dataTransfer } as DragEvent, { x: 3, y: 4 });
+					}}
+				>
+					Drop own card
 				</button>
 				<button
 					type="button"
@@ -184,6 +200,41 @@ it("accepts a VaultOps block and explains invalid or read-only drops", async () 
 	fireEvent.click(screen.getByRole("button", { name: "Drop VaultOps block" }));
 	expect((await screen.findByRole("alert")).textContent).toContain("read-only");
 	expect(onDropBlock).toHaveBeenCalledTimes(1);
+});
+
+it("ignores a card dropped back on its own canvas", async () => {
+	const host = new MemoryHost();
+	const made = await createCanvas(host, "", "Board");
+	ownCanvasId =
+		parseNote(await host.readText(made.path)).note?.header.noteId ?? "";
+	expect(ownCanvasId).not.toBe("");
+	const onDropBlock = vi.fn().mockResolvedValue(undefined);
+	render(
+		<CanvasPane
+			host={host}
+			path={made.path}
+			canvases={[
+				{
+					path: made.path,
+					title: "Board",
+					preview: "",
+					readOnly: false,
+					kind: "canvas" as const,
+					tags: [],
+				},
+			]}
+			writable={true}
+			onSelect={vi.fn()}
+			onNew={vi.fn()}
+			onClose={vi.fn()}
+			onDropBlock={onDropBlock}
+		/>,
+	);
+	await screen.findByText("Drag a block here from a note.");
+	fireEvent.click(screen.getByRole("button", { name: "Drop own card" }));
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	expect(onDropBlock).not.toHaveBeenCalled();
+	expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("toggles canvas lock, remembers the state, disables flow pan/zoom/drag while keeping native card drag and Move to open note", async () => {

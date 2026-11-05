@@ -35,24 +35,6 @@
 	background: var(--accent);
 }
 
-.block-drag-preview {
-	position: absolute;
-	top: -10000px;
-	width: 240px;
-	padding: 10px;
-	border: var(--border-width) solid var(--border);
-	border-radius: var(--radius-container);
-	background: var(--surface);
-	color: var(--foreground);
-	box-shadow: var(--elevation-2);
-	font: var(--font-size-ui) var(--font-sans);
-	opacity: 0.85;
-	pointer-events: none;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
 .block-drop-indicator,
 .prosemirror-dropcursor-block {
 	position: absolute;
@@ -354,4 +336,51 @@
 .slash-menu-empty {
 	padding: 4px 8px;
 	color: var(--muted-foreground);
+}
+
+.lift-ghost {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 1000;
+	box-sizing: border-box;
+	overflow: hidden;
+	padding: 0.4rem 0.75rem;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	color: var(--foreground);
+	opacity: 0.96;
+	pointer-events: none;
+	will-change: transform;
+	transition: box-shadow var(--motion-normal);
+}
+
+.lift-ghost--up {
+	box-shadow: var(--elevation-3);
+}
+
+/* The note's own sizing is for the whole page; the picture is one block. */
+.lift-ghost.note-editor {
+	flex: none;
+	font-family: var(--font-editor);
+	font-size: var(--editor-font-size);
+	line-height: var(--editor-line-height);
+	overflow-wrap: anywhere;
+	color: var(--editor-text);
+}
+
+.lift-ghost--card {
+	padding: 10px;
+}
+
+.lift-hole {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 999;
+	border: var(--border-width) dashed var(--line);
+	border-radius: var(--radius-container);
+	background: color-mix(in srgb, var(--background) 82%, transparent);
+	pointer-events: none;
 }

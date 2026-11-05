@@ -15,6 +15,7 @@ import { CanvasCard } from "../app/CanvasCard";
 import { BLOCK_DRAG_TYPE, setBlockDragData } from "./block-drag";
 import { BLOCK_TYPES } from "./blocks";
 import { createExtensions } from "./extensions";
+import { abandonLift } from "./lift";
 import { NoteEditor } from "./NoteEditor";
 
 const schema = getSchema(createExtensions());
@@ -93,7 +94,10 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 	},
 };
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	abandonLift();
+});
 
 function dispatchDrag(
 	type: "dragStart" | "dragOver" | "dragLeave" | "dragEnd" | "drop",
@@ -193,7 +197,7 @@ it("does not change a same-note document when the custom payload is dropped insi
 	expect(() => schema.nodeFromJSON(doc).check()).not.toThrow();
 });
 
-it("sets effectAllowed to move and a card drag image on canvas card dragstart, and cleans it up on dragend", () => {
+it("sets effectAllowed to move and lifts the card on canvas card dragstart, and puts it down on dragend", async () => {
 	const root = {
 		id: "card-1",
 		type: "paragraph" as const,
@@ -224,16 +228,20 @@ it("sets effectAllowed to move and a card drag image on canvas card dragstart, a
 		noteId: "canvas-1",
 		blockId: "card-1",
 	});
+	// The browser's own picture is blanked; the lifted card is drawn instead.
 	expect(setDragImage).toHaveBeenCalledTimes(1);
-	const ghost = setDragImage.mock.calls[0]?.[0] as HTMLElement;
-	expect(ghost.classList.contains("canvas-card")).toBe(true);
-	expect(ghost.classList.contains("canvas-card-drag-preview")).toBe(true);
+	expect(setDragImage.mock.calls[0]?.[0]).toBeInstanceOf(HTMLCanvasElement);
+	const ghost = document.querySelector(".lift-ghost") as HTMLElement;
+	expect(ghost.classList.contains("lift-ghost--card")).toBe(true);
 	expect(ghost.textContent).toContain("Card body");
 	expect(ghost.querySelector(".canvas-menu")).toBeNull();
-	expect(document.body.contains(ghost)).toBe(true);
+	expect(document.querySelector(".lift-hole")).not.toBeNull();
 
 	dispatchDrag("dragEnd", card, dataTransfer);
-	expect(document.body.contains(ghost)).toBe(false);
+	await waitFor(() => {
+		expect(document.querySelector(".lift-ghost")).toBeNull();
+		expect(document.querySelector(".lift-hole")).toBeNull();
+	});
 });
 
 it("sets dropEffect to move on note dragover, shows the indicator at the right block index, and clears it on dragleave, dragend, and drop", async () => {

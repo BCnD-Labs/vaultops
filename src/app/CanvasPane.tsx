@@ -234,21 +234,6 @@ export function CanvasPane({
 			aria-busy={text === null && error === null}
 		>
 			<header className="canvas-bar">
-				<label className="section-label" htmlFor="canvas-switcher">
-					Canvas
-				</label>
-				<select
-					id="canvas-switcher"
-					aria-label="Canvas"
-					value={activePath}
-					onChange={(event) => onSelect(event.target.value)}
-				>
-					{items.map((item) => (
-						<option key={item.path} value={item.path}>
-							{item.title}
-						</option>
-					))}
-				</select>
 				<input
 					ref={nameInput}
 					className="canvas-name"

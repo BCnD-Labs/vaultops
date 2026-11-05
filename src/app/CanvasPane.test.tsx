@@ -409,9 +409,8 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	const nameInput = screen.getByRole("textbox", {
 		name: "Canvas name",
 	}) as HTMLInputElement;
-	const switcher = screen.getByRole("combobox", {
-		name: "Canvas",
-	}) as HTMLSelectElement;
+	// There is no canvas switcher: the sidebar and tabs are how you change canvas.
+	expect(screen.queryByRole("combobox")).toBeNull();
 
 	// A new canvas starts as "Untitled canvas" with the field focused and selected.
 	await waitFor(() => {
@@ -429,7 +428,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	fireEvent.blur(nameInput);
 	expect(await host.kindOf("Untitled canvas.vnote")).toBe("file");
 
-	// Enter commits the rename and updates header title, file name, switcher and open path.
+	// Enter commits the rename and updates header title, file name and open path.
 	fireEvent.change(nameInput, { target: { value: "Roadmap" } });
 	fireEvent.keyDown(nameInput, { key: "Enter" });
 	await waitFor(async () => {
@@ -439,10 +438,6 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect(
 		parseNote(await host.readText("Roadmap.vnote")).note?.header.title,
 	).toBe("Roadmap");
-	expect(switcher.value).toBe("Roadmap.vnote");
-	expect(
-		[...switcher.options].map((o) => ({ value: o.value, text: o.textContent })),
-	).toContainEqual({ value: "Roadmap.vnote", text: "Roadmap" });
 	expect(onSelect).toHaveBeenCalledWith("Roadmap.vnote");
 	expect(onRename).toHaveBeenCalledWith(
 		"Untitled canvas.vnote",
@@ -459,7 +454,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect(
 		parseNote(await host.readText("roadmap.vnote")).note?.header.title,
 	).toBe("roadmap");
-	expect(switcher.value).toBe("roadmap.vnote");
+	expect(onSelect).toHaveBeenLastCalledWith("roadmap.vnote");
 
 	// Duplicate name (including case-only clash) gets " 2" like notes.
 	fireEvent.change(nameInput, { target: { value: "taken" } });
@@ -470,7 +465,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect(
 		parseNote(await host.readText("taken 2.vnote")).note?.header.title,
 	).toBe("taken");
-	expect(switcher.value).toBe("taken 2.vnote");
+	expect(onSelect).toHaveBeenLastCalledWith("taken 2.vnote");
 
 	// Failed rename keeps the old name and shows a notice.
 	const moveSpy = vi
@@ -482,7 +477,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 		"keeps its old name",
 	);
 	expect(nameInput.value).toBe("taken");
-	expect(switcher.value).toBe("taken 2.vnote");
+	expect(onSelect).toHaveBeenLastCalledWith("taken 2.vnote");
 	expect(await host.kindOf("taken 2.vnote")).toBe("file");
 	expect(await host.kindOf("Blocked.vnote")).toBeNull();
 	moveSpy.mockRestore();

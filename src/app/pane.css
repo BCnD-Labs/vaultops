@@ -29,15 +29,6 @@
 	padding: 8px;
 	border-bottom: var(--border-width) solid var(--line);
 }
-.canvas-bar select {
-	min-width: 0;
-	flex: 1;
-	padding: 4px;
-	color: var(--foreground);
-	background: var(--surface-container);
-	border: var(--border-width) solid var(--line);
-	border-radius: var(--radius-control);
-}
 .canvas-name {
 	min-width: 0;
 	flex: 1;
@@ -552,12 +543,27 @@ button.note-meta-chip:focus-visible {
 	position: relative;
 	z-index: 1;
 }
-/* Where a dragged tab will land: a line on the edge of the tab it goes before. */
-.tab-list .tab[data-drop="before"] {
-	border-left-color: var(--accent);
-}
+/* Where a dragged tab will land: a bar on the edge of the tab it goes before,
+   or after the last tab. */
+.tab-list .tab[data-drop="before"],
 .tab-list[data-drop-end="true"] .tab:last-child {
-	border-right-color: var(--accent);
+	position: relative;
+}
+.tab-list .tab[data-drop="before"]::before,
+.tab-list[data-drop-end="true"] .tab:last-child::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	width: 2px;
+	background: var(--accent);
+	pointer-events: none;
+}
+.tab-list .tab[data-drop="before"]::before {
+	left: 0;
+}
+.tab-list[data-drop-end="true"] .tab:last-child::after {
+	right: 0;
 }
 /* Shown only while a tab is being dragged. */
 .pane-drop-zone {

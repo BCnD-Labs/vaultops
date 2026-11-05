@@ -208,6 +208,34 @@ it("a drop reports the place in the strip, by the tab middles", () => {
 	);
 });
 
+it("takes a drop on the blank bar after the last tab, and on the bar's padding", () => {
+	const { onDropTab } = strip();
+	const bar = document.querySelector(".tab-bar") as HTMLElement;
+	const dt = transfer();
+	dt.setData(
+		"application/x-vaultops-tab",
+		JSON.stringify({ path: "a.vnote", from: "left" }),
+	);
+	// Far right of the last tab: the bar is wider than its tabs.
+	expect(drag(bar, "dragover", dt, 600)).toBe(false);
+	expect(
+		(document.querySelector(".tab-list") as HTMLElement).getAttribute(
+			"data-drop-end",
+		),
+	).toBe("true");
+	drag(bar, "drop", dt, 600);
+	expect(onDropTab).toHaveBeenLastCalledWith(
+		{ path: "a.vnote", from: "left" },
+		3,
+	);
+	// And the left padding, before the first tab.
+	drag(bar, "drop", dt, 2);
+	expect(onDropTab).toHaveBeenLastCalledWith(
+		{ path: "a.vnote", from: "left" },
+		0,
+	);
+});
+
 it("marks where a drag would land and clears the mark when it leaves", () => {
 	const { list, tabEl } = strip();
 	const dt = transfer();

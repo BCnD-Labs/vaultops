@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -96,7 +96,28 @@ export function WorkspacePanes({
 		if (host.focused !== id) host.focus(id);
 	};
 
+	// The zones appear a moment after the drag starts: changing the page inside
+	// dragstart makes some engines (Safari's, Chromium) cancel the drag at once.
+	const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const startDrag = (drag: TabDrag) => {
+		if (startTimer.current !== null) clearTimeout(startTimer.current);
+		startTimer.current = setTimeout(() => {
+			startTimer.current = null;
+			setDragging(drag);
+		}, 0);
+	};
+	useEffect(
+		() => () => {
+			if (startTimer.current !== null) clearTimeout(startTimer.current);
+		},
+		[],
+	);
+
 	const endDrag = () => {
+		if (startTimer.current !== null) {
+			clearTimeout(startTimer.current);
+			startTimer.current = null;
+		}
 		setDragging(null);
 		setOver(null);
 	};
@@ -186,7 +207,7 @@ export function WorkspacePanes({
 						splitOpen={split}
 						onCloseSplit={() => void host.closeSplit()}
 						onDropTab={(drag, index) => dropOn(drag, pane, index)}
-						onTabDragStart={setDragging}
+						onTabDragStart={startDrag}
 						onTabDragEnd={endDrag}
 						onNudge={(path, direction) => void nudge(pane, path, direction)}
 						focusRequest={focusTab}

@@ -230,7 +230,7 @@ it("sets effectAllowed to move and lifts the card on canvas card dragstart, and 
 	});
 	// The browser's own picture is blanked; the lifted card is drawn instead.
 	expect(setDragImage).toHaveBeenCalledTimes(1);
-	expect(setDragImage.mock.calls[0]?.[0]).toBeInstanceOf(HTMLCanvasElement);
+	expect(setDragImage.mock.calls[0]?.[0]).toBeInstanceOf(HTMLDivElement);
 	const ghost = document.querySelector(".lift-ghost") as HTMLElement;
 	expect(ghost.classList.contains("lift-ghost--card")).toBe(true);
 	expect(ghost.textContent).toContain("Card body");

@@ -70,7 +70,7 @@ it("sets the VaultOps payload after the handle clears drag data", () => {
 	expect(transfer.setDragImage).toHaveBeenCalledOnce();
 	expect(
 		(transfer.setDragImage as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
-	).toBeInstanceOf(HTMLCanvasElement);
+	).toBeInstanceOf(HTMLDivElement);
 	abandonLift();
 	fireEvent.dragEnd(handle as Element, { dataTransfer: transfer });
 	expect(document.querySelector(".lift-hole")).toBeNull();

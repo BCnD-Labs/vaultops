@@ -191,8 +191,8 @@
 	border: 0;
 	background: transparent;
 	color: inherit;
-	padding: 4px 0;
-	margin-bottom: 8px;
+	padding: var(--space-1) 0;
+	margin-bottom: var(--title-gap);
 	outline: none;
 }
 
@@ -245,7 +245,7 @@
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	min-height: 32px;
+	min-height: var(--row-height);
 }
 
 .prop-name {
@@ -611,7 +611,7 @@ button.note-meta-chip:focus-visible {
 .props-block-header {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	padding: 2px 0;
 	border: 0;
 	background: none;
@@ -669,9 +669,9 @@ button.prop-type-icon:focus-visible {
 .prop-add-row {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	margin-top: 4px;
-	padding: 4px 6px;
+	gap: calc(var(--space-unit) * 1.5);
+	margin-top: var(--space-1);
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
 	border: 0;
 	border-radius: var(--radius-control);
 	background: none;
@@ -695,15 +695,15 @@ button.prop-type-icon:focus-visible {
 }
 .prop-type-list {
 	list-style: none;
-	margin: 8px 0 0;
+	margin: var(--space-2) 0 0;
 	padding: 0;
 }
 .prop-type-list button {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 	width: 100%;
-	padding: 4px 6px;
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
 	border: 0;
 	border-radius: var(--radius-control);
 	background: none;

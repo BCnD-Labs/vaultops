@@ -55,7 +55,7 @@
 }
 
 .note-editor .ProseMirror > * + * {
-	margin-top: 0.6rem;
+	margin-top: var(--block-gap);
 }
 
 .note-editor h1 {
@@ -77,11 +77,11 @@
 }
 
 .note-editor li > p {
-	margin-block: 0.2rem;
+	margin-block: var(--list-gap);
 }
 
 .note-editor li + li {
-	margin-top: 0.2rem;
+	margin-top: var(--list-gap);
 }
 
 /* Tiptap renders an empty paragraph with a trailing break. Only show the hint
@@ -331,8 +331,9 @@
 }
 
 .slash-menu-section {
-	margin-top: 4px;
-	padding: 6px 8px 2px;
+	margin-top: var(--space-1);
+	padding: calc(var(--space-unit) * 1.5) var(--space-2)
+		calc(var(--space-unit) / 2);
 	border-top: var(--border-width) solid var(--line);
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);

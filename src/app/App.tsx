@@ -1,4 +1,3 @@
-import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ResizableHandle,
@@ -15,10 +14,7 @@ import {
 	within,
 } from "../core/notes/folders";
 import { moveBlock } from "../core/notes/move-block";
-import { type OutlineItem, outlineOf } from "../core/notes/outline";
-import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { moveNote } from "../core/notes/rename";
-import { type TextStats, textStats } from "../core/notes/text-stats";
 import {
 	deleteForever,
 	listTrash,
@@ -29,23 +25,14 @@ import {
 } from "../core/notes/trash";
 import { buildTree } from "../core/notes/tree";
 import { parseMaintainer } from "../core/session/maintainer";
-import { buildRecoveryText, joinRecovery } from "../core/session/recovery";
+import { joinRecovery } from "../core/session/recovery";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
-import {
-	allowEditing,
-	lockedForReadOnlyVault,
-	type OpenedNote,
-	openNote,
-} from "../editor/note-io";
+import { openNote } from "../editor/note-io";
 import { createQuitGuard } from "../editor/quit";
-import { type Draft, saveAsCopy } from "../editor/save-draft";
-import {
-	isSaveForOpenNote,
-	type SavedInfo,
-	useAutosave,
-} from "../editor/useAutosave";
+import { saveAsCopy } from "../editor/save-draft";
+import type { SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
 import { AppShell } from "./AppShell";
@@ -85,12 +72,9 @@ import {
 	pruneTabs,
 	renameTab,
 } from "./tabs";
+import { useNoteSession } from "./useNoteSession";
 import "../ui/theme.css";
 import "./app.css";
-
-/** The window keeps note and save state outside its collapsible sidebars. */
-// How long writing must pause before the status bar recounts.
-const STATS_DELAY_MS = 300;
 
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
@@ -103,8 +87,6 @@ export function App({ host }: { host: Host }) {
 	const [screenNotice, setScreenNotice] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
-	const [editorRevision, setEditorRevision] = useState(0);
 	const [canvasPath, setCanvasPath] = useState<string | null>(null);
 	// The empty tab: "none" = no such tab, "open" = in the tab bar but another tab
 	// is showing, "active" = it is the one showing (the editor area is blank).
@@ -135,12 +117,6 @@ export function App({ host }: { host: Host }) {
 		() => (writable ? host : readOnlyHost(host)),
 		[host, writable],
 	);
-	const opened = useMemo(
-		() =>
-			openedNote && !writable ? lockedForReadOnlyVault(openedNote) : openedNote,
-		[openedNote, writable],
-	);
-	const [livePath, setLivePath] = useState<string | null>(null);
 	// Open-note tabs. The state carries its vault, so tabs from one vault are
 	// never shown (or saved) under another while a vault switch settles.
 	const [tabState, setTabState] = useState<{
@@ -157,28 +133,10 @@ export function App({ host }: { host: Host }) {
 		() => (view ? buildTree(view.folders, view.notes) : []),
 		[view],
 	);
-	const [title, setTitle] = useState("");
-	const [notice, setNotice] = useState<string | null>(null);
-	const docRef = useRef(opened?.doc ?? null);
-	// Counts for the status bar. Typing only schedules a recount, so a long
-	// note is counted once the writing pauses, never on every key.
-	const [stats, setStats] = useState<TextStats | null>(null);
-	const [outline, setOutline] = useState<OutlineItem[]>([]);
-	const statsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	const refreshStats = () => {
-		clearTimeout(statsTimer.current);
-		statsTimer.current = setTimeout(() => {
-			setStats(textStats(docRef.current));
-			setOutline(outlineOf(docRef.current));
-		}, STATS_DELAY_MS);
-	};
-	useEffect(() => () => clearTimeout(statsTimer.current), []);
-	const titleRef = useRef("");
 	const titleInput = useRef<HTMLInputElement>(null);
 	const focusTitle = useRef(false);
 	const lastNotes = useRef(browserLastNote());
 	const autoOpened = useRef(false);
-	const livePathRef = useRef<string | null>(null);
 	const [showDebug, setShowDebug] = useState(false);
 	const [maintainer, setMaintainer] = useState(false);
 	const maintainerRef = useRef(false);
@@ -186,8 +144,6 @@ export function App({ host }: { host: Host }) {
 	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [confirmTrash, setConfirmTrash] = useState(false);
 	const [treeNotice, setTreeNotice] = useState<string | null>(null);
-	const [props, setProps] = useState<NoteProps | null>({});
-	const propsRef = useRef<NoteProps | null>({});
 	const [selection, setSelection] = useState<Selection>({ kind: "all" });
 	const vaultName = view?.name ?? null;
 	const viewRef = useRef(view);
@@ -261,11 +217,6 @@ export function App({ host }: { host: Host }) {
 	);
 
 	const onSaved = useCallback((info: SavedInfo) => {
-		if (isSaveForOpenNote(info, livePathRef.current)) {
-			setNotice(info.notice ?? null);
-			livePathRef.current = info.path;
-			setLivePath(info.path);
-		}
 		if (info.oldPath !== info.path) {
 			setTabState((state) => ({
 				...state,
@@ -323,17 +274,33 @@ export function App({ host }: { host: Host }) {
 		});
 	}, []);
 
-	const autosave = useAutosave(vaultHost, opened, onSaved);
-	const flushRef = useRef(autosave.flush);
-	flushRef.current = autosave.flush;
-
-	// Leaving a note (open another, change vault) first saves it; if that
-	// fails the note stays open so nothing typed is lost.
-	const settle = useCallback(async () => {
-		if (await flushRef.current()) return true;
-		setError("This note is not saved yet. Retry saving before leaving it.");
-		return false;
-	}, []);
+	// The one live note: its text, title, properties, autosave and recovery.
+	// Leaving a note (open another, change vault) goes through `settle`, which
+	// saves it first; if that fails the note stays open so nothing typed is lost.
+	const session = useNoteSession({
+		host: vaultHost,
+		writable,
+		onSaved,
+		onUnsaved: setError,
+	});
+	const {
+		opened,
+		livePath,
+		livePathRef,
+		title,
+		props,
+		notice,
+		editorRevision,
+		stats,
+		outline,
+		docRef,
+		settle,
+		flush,
+		recoveryText,
+		load,
+		clear,
+		hide,
+	} = session;
 
 	const show = useCallback(
 		async (
@@ -365,9 +332,7 @@ export function App({ host }: { host: Host }) {
 					splitRef.current = false;
 					setSplit(false);
 					setCanvasTab(true);
-					setOpened(null);
-					livePathRef.current = null;
-					setLivePath(null);
+					clear();
 					return;
 				}
 				getLogger().log({
@@ -377,18 +342,7 @@ export function App({ host }: { host: Host }) {
 					ok: true,
 					detail: { editable: next.editable },
 				});
-				docRef.current = next.doc;
-				setStats(textStats(next.doc));
-				setOutline(outlineOf(next.doc));
-				const text =
-					typeof next.note?.header.title === "string"
-						? next.note.header.title
-						: path;
-				titleRef.current = text;
-				setTitle(text);
-				setNotice(next.notice ?? null);
-				livePathRef.current = path;
-				setLivePath(path);
+				load(next, path);
 				setTabState((state) => ({
 					...state,
 					paths: openTab(state.paths, path),
@@ -399,21 +353,16 @@ export function App({ host }: { host: Host }) {
 						history: visit(state.history, path),
 					}));
 				if (follow) setSelection(selectionForPath(path));
-				const loaded = headerProps(next.note?.header);
-				propsRef.current = loaded;
-				setProps(loaded);
 				setConfirmTrash(false);
 				setConfirmEditing(false);
 				setCanvasTab(false);
 				setScreen("note");
-				setOpened(next);
-				setEditorRevision((revision) => revision + 1);
 				if (vault) lastNotes.current.set(vault, path);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			}
 		},
-		[host, selectCanvas],
+		[host, selectCanvas, load, clear, livePathRef],
 	);
 
 	const open = useCallback(
@@ -437,12 +386,12 @@ export function App({ host }: { host: Host }) {
 			}
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
 				event.preventDefault();
-				void flushRef.current();
+				void flush();
 			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, []);
+	}, [flush]);
 
 	// Saving on quit: the window waits for the save, and stays open if it fails.
 	useEffect(() => {
@@ -451,17 +400,11 @@ export function App({ host }: { host: Host }) {
 		host
 			.onCloseRequested(
 				createQuitGuard(
-					() => flushRef.current(),
+					flush,
 					// Closing with edits that could not be saved: keep their text.
 					async () => {
-						const doc = docRef.current;
-						if (!doc) return true;
-						const fresh = buildRecoveryText({
-							path: livePathRef.current,
-							title: titleRef.current,
-							doc,
-							now: new Date(),
-						});
+						const fresh = recoveryText(new Date());
+						if (fresh === null) return true;
 						try {
 							// Earlier copies stay: closing twice must not replace the first.
 							// Only a missing file means "no earlier copy"; any other read
@@ -492,7 +435,7 @@ export function App({ host }: { host: Host }) {
 			gone = true;
 			remove?.();
 		};
-	}, [host]);
+	}, [host, flush, recoveryText]);
 
 	const run = useCallback(async (task: () => Promise<VaultView | null>) => {
 		setBusy(true);
@@ -585,7 +528,7 @@ export function App({ host }: { host: Host }) {
 				await show(livePathRef.current as string, vaultName);
 			else {
 				autoOpened.current = true;
-				setOpened(null);
+				hide();
 			}
 			setConfirmDelete(null);
 			setScreenNotice(null);
@@ -687,9 +630,7 @@ export function App({ host }: { host: Host }) {
 			await show(closing.next, vaultName);
 			return;
 		}
-		setOpened(null);
-		livePathRef.current = null;
-		setLivePath(null);
+		clear();
 		// Nothing left but the empty tab: it fills the editor.
 		if (newTabRef.current === "open") changeNewTab("active");
 	};
@@ -730,9 +671,7 @@ export function App({ host }: { host: Host }) {
 		setCanvasTab(false);
 		changeSplit(false);
 		setScreen("note");
-		setOpened(null);
-		livePathRef.current = null;
-		setLivePath(null);
+		clear();
 	};
 
 	// Closing the empty tab: when it was showing, the last note tab takes over.
@@ -826,7 +765,7 @@ export function App({ host }: { host: Host }) {
 		const path = livePathRef.current ?? opened.path;
 		setBusy(true);
 		try {
-			setOpened(null);
+			hide();
 			await trashNote(vaultHost, path);
 			const next = await loadVault(host);
 			autoOpened.current = false;
@@ -858,7 +797,7 @@ export function App({ host }: { host: Host }) {
 				// Closing the note must not trigger "reopen the last note" while the
 				// folder is still being changed.
 				autoOpened.current = true;
-				setOpened(null);
+				hide();
 			}
 			const done = await task();
 			if (done.notice) setTreeNotice(done.notice);
@@ -918,13 +857,13 @@ export function App({ host }: { host: Host }) {
 	const loadDisk = async () => {
 		const path = livePathRef.current ?? opened?.path;
 		if (!path) return;
-		autosave.discard();
+		session.discard();
 		await show(path, vaultName);
 	};
 
 	// ...or keep my edits as a separate note, leaving the file alone.
 	const saveCopy = async () => {
-		const draft = autosave.peek();
+		const draft = session.peek();
 		if (!opened || !draft) return;
 		const path = livePathRef.current ?? opened.path;
 		const result = await saveAsCopy(vaultHost, { ...opened, path }, draft);
@@ -932,31 +871,16 @@ export function App({ host }: { host: Host }) {
 			setError(`The copy was not saved: ${result.message}`);
 			return;
 		}
-		autosave.discard();
+		session.discard();
 		setView(await loadVault(host));
 		await show(result.path, vaultName);
-	};
-
-	// What gets saved: the body, the title and, unless the file keeps its props in a
-	// form we can't edit, the properties.
-	const draftOf = (doc: JSONContent, title: string): Draft => ({
-		doc,
-		title,
-		...(propsRef.current ? { props: propsRef.current } : {}),
-	});
-
-	const editProps = (next: NoteProps) => {
-		propsRef.current = next;
-		setProps(next);
-		if (docRef.current)
-			autosave.change(draftOf(docRef.current, titleRef.current), opened);
 	};
 
 	const notePane = (
 		<NotePane
 			props={props}
 			path={livePath}
-			onPropsChange={editProps}
+			onPropsChange={session.editProps}
 			view={view}
 			screen={screen}
 			error={error}
@@ -971,22 +895,12 @@ export function App({ host }: { host: Host }) {
 			liveDoc={docRef.current}
 			title={title}
 			titleInput={titleInput}
-			saveState={autosave.state}
+			saveState={session.saveState}
 			confirmTrash={confirmTrash}
 			confirmEditing={confirmEditing}
 			notice={notice}
-			onTitleChange={(next) => {
-				titleRef.current = next;
-				setTitle(next);
-				if (docRef.current)
-					autosave.change(draftOf(docRef.current, next), opened);
-			}}
-			onDocChange={(doc) => {
-				docRef.current = doc;
-				refreshStats();
-				getLogger().count("edits");
-				autosave.change(draftOf(doc, titleRef.current), opened);
-			}}
+			onTitleChange={session.editTitle}
+			onDocChange={session.editDoc}
 			onDropBlock={async (blockId, canvasId, after) => {
 				let moveStarted = false;
 				try {
@@ -1003,7 +917,7 @@ export function App({ host }: { host: Host }) {
 						throw new Error("Open the source canvas before moving this block.");
 					if (!(await settle()))
 						throw new Error(
-							`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+							`Save the note before moving a block: ${session.failureReason() ?? "the save did not finish"}.`,
 						);
 					const source = await vaultHost.readText(canvasPath);
 					const parsed = parseNote(source);
@@ -1038,7 +952,7 @@ export function App({ host }: { host: Host }) {
 					}
 				/>
 			}
-			onRetry={autosave.retry}
+			onRetry={session.retry}
 			onLoadDisk={loadDisk}
 			onSaveCopy={saveCopy}
 			onMoveToTrash={moveToTrash}
@@ -1046,8 +960,7 @@ export function App({ host }: { host: Host }) {
 			onConfirmEditing={setConfirmEditing}
 			onAllowEditing={() => {
 				if (!opened) return;
-				setOpened(allowEditing(opened));
-				setNotice(null);
+				session.unlock();
 				setConfirmEditing(false);
 			}}
 			onNavigate={navigate}
@@ -1136,7 +1049,7 @@ export function App({ host }: { host: Host }) {
 							}
 							props={props}
 							editable={!!opened?.editable}
-							onChange={editProps}
+							onChange={session.editProps}
 							onOpenTag={(tag) => setSelection({ kind: "tag", value: tag })}
 						/>
 					}
@@ -1154,7 +1067,7 @@ export function App({ host }: { host: Host }) {
 							onStartCanvas={startCanvas}
 							onChooseVault={async () => {
 								if (!(await settle())) return;
-								setOpened(null);
+								hide();
 								setScreen("note");
 								setSelection({ kind: "all" });
 								run(() => chooseAndLoad(host));
@@ -1296,7 +1209,7 @@ export function App({ host }: { host: Host }) {
 												);
 											if (!(await settle()))
 												throw new Error(
-													`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+													`Save the note before moving a block: ${session.failureReason() ?? "the save did not finish"}.`,
 												);
 											const source = livePathRef.current ?? opened.path;
 											await moveBlock(
@@ -1314,7 +1227,7 @@ export function App({ host }: { host: Host }) {
 												? async (blockId) => {
 														if (!(await settle()))
 															throw new Error(
-																`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+																`Save the note before moving a block: ${session.failureReason() ?? "the save did not finish"}.`,
 															);
 														const destination =
 															livePathRef.current ?? opened.path;

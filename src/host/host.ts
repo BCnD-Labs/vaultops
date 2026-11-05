@@ -11,6 +11,15 @@ export interface AppInfo {
 	version: string;
 }
 
+/** STOPGAP(update-script): where the maintainer's install script stands. */
+export type UpdateScriptState = "idle" | "running" | "finished" | "failed";
+
+export interface UpdateScriptStatus {
+	state: UpdateScriptState;
+	/** The script's latest line of output ("" before it says anything). */
+	lastLine: string;
+}
+
 export type EntryKind = "file" | "folder";
 
 export interface DirEntry {
@@ -125,6 +134,16 @@ export interface Host {
 	chooseReportsFolder(): Promise<string | null>;
 	reportsFolder(): Promise<string | null>;
 	writeReport(name: string, text: string): Promise<void>;
+
+	/**
+	 * STOPGAP(update-script): run the maintainer's install script (pull the newest
+	 * `main`, build, install, reopen) from the code folder this app was built from.
+	 * The window sends nothing: which script runs is decided by the host. Fails
+	 * with `io` while a run is going and `not-found` when the script is missing.
+	 * `updateScriptStatus` is read-only and safe to poll.
+	 */
+	startUpdateScript(): Promise<void>;
+	updateScriptStatus(): Promise<UpdateScriptStatus>;
 }
 
 /** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */

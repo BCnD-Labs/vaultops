@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it } from "vitest";
+import { MemoryHost } from "../host/memory-host";
 import { loadColors, toHex } from "../ui/appearance";
 import { loadThemeChoice } from "../ui/themes";
 import { SettingsScreen } from "./SettingsScreen";
@@ -20,7 +21,7 @@ afterEach(() => {
 
 it("switches mode and theme, applies them at once and remembers them", async () => {
 	const user = userEvent.setup();
-	render(<SettingsScreen />);
+	render(<SettingsScreen host={new MemoryHost()} />);
 	await user.click(screen.getByRole("radio", { name: "Dark" }));
 	expect(document.documentElement.getAttribute("data-mode")).toBe("dark");
 	expect(loadThemeChoice().mode).toBe("dark");
@@ -34,7 +35,7 @@ it("switches mode and theme, applies them at once and remembers them", async () 
 
 it("keeps picked colors per mode and resets only the current mode", async () => {
 	const user = userEvent.setup();
-	render(<SettingsScreen />);
+	render(<SettingsScreen host={new MemoryHost()} />);
 	await user.click(screen.getByRole("radio", { name: "Light" }));
 	const reset = () =>
 		screen.getByRole("button", { name: /^Reset (light|dark) colors$/ });
@@ -68,7 +69,7 @@ it("keeps picked colors per mode and resets only the current mode", async () => 
 });
 
 it("offers every color setting with a label", () => {
-	render(<SettingsScreen />);
+	render(<SettingsScreen host={new MemoryHost()} />);
 	for (const label of [
 		"Background (frame and side panels)",
 		"Editor background",
@@ -80,4 +81,10 @@ it("offers every color setting with a label", () => {
 		"Code text",
 	])
 		expect(screen.getByLabelText(label)).toBeTruthy();
+});
+
+it("has an Updates section with the update button", () => {
+	render(<SettingsScreen host={new MemoryHost()} />);
+	expect(screen.getByRole("heading", { name: "Updates" })).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Update VaultOps" })).toBeTruthy();
 });

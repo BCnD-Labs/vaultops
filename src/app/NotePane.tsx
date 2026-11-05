@@ -25,6 +25,7 @@ import { NoteChips, NoteDetails } from "./NoteMetadata";
 import { SettingsScreen } from "./SettingsScreen";
 import type { VaultView } from "./session";
 import { TrashScreen } from "./TrashScreen";
+import type { UpdateHost } from "./UpdateSection";
 import "./pane.css";
 
 interface NotePaneProps {
@@ -34,6 +35,8 @@ interface NotePaneProps {
 	busy: boolean;
 	writable: boolean;
 	screenNotice: string | null;
+	/** STOPGAP(update-script): what the Settings update button talks to. */
+	updateHost: UpdateHost;
 	trash: TrashedNote[];
 	confirmDelete: string | null;
 	opened: OpenedNote | null;
@@ -76,6 +79,7 @@ export function NotePane({
 	busy,
 	writable,
 	screenNotice,
+	updateHost,
 	trash,
 	confirmDelete,
 	opened,
@@ -278,7 +282,7 @@ export function NotePane({
 			{screen === "health" && view && (
 				<HealthScreen report={view.report} onOpen={onOpen} />
 			)}
-			{screen === "settings" && <SettingsScreen />}
+			{screen === "settings" && <SettingsScreen host={updateHost} />}
 			{screen === "note" && canvas && (
 				<p className="empty-pane">Pick a note to edit beside the canvas.</p>
 			)}

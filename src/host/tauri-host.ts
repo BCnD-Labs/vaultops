@@ -8,6 +8,7 @@ import {
 	type Host,
 	HostError,
 	type HostErrorCode,
+	type UpdateScriptStatus,
 } from "./host";
 
 /**
@@ -62,6 +63,8 @@ export const tauriHost: Host = {
 	chooseReportsFolder: () => call<string | null>("choose_reports_folder"),
 	reportsFolder: () => call<string | null>("reports_folder"),
 	writeReport: (name, text) => call<void>("write_report", { name, text }),
+	startUpdateScript: () => call<void>("start_update_script"),
+	updateScriptStatus: () => call<UpdateScriptStatus>("update_script_status"),
 	onCloseRequested: (handler) =>
 		getCurrentWindow().onCloseRequested(async (event) => {
 			if (!(await handler())) event.preventDefault();

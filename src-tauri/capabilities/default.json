@@ -1,7 +1,7 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
-	"description": "Permissions for the main window: window basics and the app's own file commands (all limited to the open vault in Rust). The only network use is the update check, which the Settings button starts.",
+	"description": "Permissions for the main window: window basics and the app's own file commands (all limited to the open vault in Rust). The only network use is the update check, which the Settings button starts. The stopgap Update VaultOps button starts the maintainer's install script (which pulls and builds) and can start nothing else.",
 	"windows": ["main"],
 	"permissions": [
 		"core:event:default",
@@ -23,6 +23,8 @@
 		"allow-choose-reports-folder",
 		"allow-reports-folder",
 		"allow-write-report",
+		"allow-start-update-script",
+		"allow-update-script-status",
 		"updater:allow-check",
 		"updater:allow-download",
 		"updater:allow-install",

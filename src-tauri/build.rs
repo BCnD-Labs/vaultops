@@ -18,6 +18,8 @@ const COMMANDS: &[&str] = &[
     "choose_reports_folder",
     "reports_folder",
     "write_report",
+    "start_update_script",
+    "update_script_status",
 ];
 
 fn main() {

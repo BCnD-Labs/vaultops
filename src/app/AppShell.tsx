@@ -34,7 +34,6 @@ import { NavBar } from "./NavBar";
 import { StatusBar } from "./StatusBar";
 import type { NoteRow } from "./session";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
-import { TabBar, type TabItem } from "./TabBar";
 
 export const ShellNavigation = createContext({
 	tags: 0,
@@ -101,13 +100,6 @@ export function AppShell({
 	onOpenNote = () => {},
 	onCreateNote = () => {},
 	onNavigateScreen = () => {},
-	tabs = [],
-	onSelectTab = () => {},
-	onCloseTab = () => {},
-	onNewTab,
-	onSplitTab,
-	splitOpen = false,
-	onCloseSplit,
 	canGoBack = false,
 	canGoForward = false,
 	stats = null,
@@ -126,15 +118,6 @@ export function AppShell({
 	onOpenNote?: (path: string) => void;
 	onCreateNote?: (folder: string, title: string) => void;
 	onNavigateScreen?: (screen: "trash" | "health" | "settings") => void;
-	tabs?: TabItem[];
-	onSelectTab?: (path: string) => void;
-	onCloseTab?: (path: string) => void;
-	/** The tab bar's +. Without it, + opens the Find or create bar. */
-	onNewTab?: () => void;
-	/** Right-click a tab, Split view. */
-	onSplitTab?: (path: string) => void;
-	splitOpen?: boolean;
-	onCloseSplit?: () => void;
 	canGoBack?: boolean;
 	canGoForward?: boolean;
 	stats?: TextStats | null;
@@ -256,19 +239,6 @@ export function AppShell({
 					<ResizableHandle />
 					<ResizablePanel id="editor" minSize={420} className="shell-editor">
 						<div className="editor-column">
-							{tabs.length > 0 && (
-								<TabBar
-									tabs={tabs}
-									onSelect={onSelectTab}
-									onClose={onCloseTab}
-									onNew={
-										onNewTab ?? (() => setSearchRequest((count) => count + 1))
-									}
-									onSplit={onSplitTab}
-									splitOpen={splitOpen}
-									onCloseSplit={onCloseSplit}
-								/>
-							)}
 							<NavBar
 								vault={vault}
 								path={path}

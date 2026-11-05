@@ -16,9 +16,9 @@ export function NewTab({
 	onClose,
 }: {
 	writable: boolean;
-	/** Left out in the split view's right pane, which holds canvases. */
 	onCreateNote?: () => void;
-	onCreateCanvas: () => void;
+	/** Left out while another pane already shows a canvas (two never show together). */
+	onCreateCanvas?: () => void;
 	/** Only in the split view's right pane: closes the split. */
 	onClose?: () => void;
 }) {
@@ -37,14 +37,16 @@ export function NewTab({
 						Create a note
 					</Button>
 				)}
-				<Button
-					variant="secondary"
-					disabled={!writable}
-					onClick={onCreateCanvas}
-				>
-					<LayoutDashboard aria-hidden="true" />
-					Create a canvas
-				</Button>
+				{onCreateCanvas && (
+					<Button
+						variant="secondary"
+						disabled={!writable}
+						onClick={onCreateCanvas}
+					>
+						<LayoutDashboard aria-hidden="true" />
+						Create a canvas
+					</Button>
+				)}
 				<Button variant="secondary" onClick={openSearch}>
 					<Search aria-hidden="true" />
 					Open a note or canvas

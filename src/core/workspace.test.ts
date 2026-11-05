@@ -273,3 +273,51 @@ describe("closing a tab that both panes have", () => {
 		expect(next.right).toBeNull();
 	});
 });
+
+describe("opening from the empty tab", () => {
+	it("uses the empty tab up when the document is already open", () => {
+		const ws = openDoc(openEmptyTab(opened("a", "b")), "a", isCanvas);
+		expect(ws.left).toEqual({ tabs: ["a", "b"], active: "a" });
+	});
+
+	it("leaves the empty tab alone when its pane is not the one asked", () => {
+		// The empty tab is in the right pane; opening in the left keeps it.
+		let ws = splitFrom(opened("a", "b"), "b", isCanvas);
+		ws = openDoc(ws, "a", isCanvas, "left");
+		expect(ws.right?.tabs).toEqual([NEW_TAB]);
+	});
+
+	it("selecting a tab keeps the empty tab", () => {
+		const ws = selectTab(openEmptyTab(opened("a", "b")), "left", "a", isCanvas);
+		expect(ws.left).toEqual({ tabs: ["a", "b", NEW_TAB], active: "a" });
+	});
+
+	it("closes a right pane whose only tab was the empty tab", () => {
+		const split = splitFrom(opened("a", "b"), "b", isCanvas);
+		expect(split.right?.tabs).toEqual([NEW_TAB]);
+		const ws = openDoc(split, "a", isCanvas);
+		expect(ws.right).toBeNull();
+		expect(ws.left.active).toBe("a");
+	});
+});
+
+describe("splitting from a canvas", () => {
+	it("moves the canvas being looked at to the right, with a note beside it", () => {
+		const ws = splitFrom(opened("n", "c/1"), "c/1", isCanvas);
+		expect(ws.left).toEqual({ tabs: ["n"], active: "n" });
+		expect(ws.right).toEqual({ tabs: ["c/1"], active: "c/1" });
+		expect(ws.focused).toBe("right");
+	});
+
+	it("starts an empty right pane when the canvas is the only tab", () => {
+		const ws = splitFrom(opened("c/1"), "c/1", isCanvas);
+		expect(ws.left).toEqual({ tabs: ["c/1"], active: "c/1" });
+		expect(ws.right).toEqual({ tabs: [NEW_TAB], active: NEW_TAB });
+	});
+
+	it("still keeps a note being looked at on the left", () => {
+		const ws = splitFrom(opened("c/1", "n"), "n", isCanvas);
+		expect(ws.left.active).toBe("n");
+		expect(ws.right).toEqual({ tabs: [NEW_TAB], active: NEW_TAB });
+	});
+});

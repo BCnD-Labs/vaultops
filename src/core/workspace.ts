@@ -86,6 +86,13 @@ function settled(ws: Workspace): Workspace {
 	return ws;
 }
 
+/** Drop a pane's empty tab (which is what it is showing); an emptied pane closes. */
+function settledAfterDropping(ws: Workspace, id: PaneId): Workspace {
+	const pane = paneOf(ws, id) as Pane;
+	const tabs = pane.tabs.filter((tab) => tab !== NEW_TAB);
+	return settled(withPane(ws, id, { tabs, active: neighbor(tabs, 0) }));
+}
+
 /** If two canvases would show, the one in `keep`'s other pane steps aside. */
 function singleCanvas(
 	ws: Workspace,
@@ -127,14 +134,22 @@ export function openDoc(
 ): Workspace {
 	const existing = paneWithTab(ws, path);
 	if (existing) {
-		const target = paneOf(ws, existing) as Pane;
+		// Opening from a pane that is showing its empty tab uses that tab up,
+		// even when the document is already open elsewhere.
+		const asked: PaneId =
+			pane === "right" && !ws.right ? "left" : (pane ?? ws.focused);
+		const asking = paneOf(ws, asked);
+		const base =
+			asking?.active === NEW_TAB ? settledAfterDropping(ws, asked) : ws;
+		const holder = paneWithTab(base, path) as PaneId;
+		const target = paneOf(base, holder) as Pane;
 		return singleCanvas(
 			{
-				...withPane(ws, existing, { ...target, active: path }),
-				focused: existing,
+				...withPane(base, holder, { ...target, active: path }),
+				focused: holder,
 			},
 			isCanvas,
-			existing,
+			holder,
 		);
 	}
 	let dest: PaneId = pane ?? ws.focused;
@@ -207,8 +222,10 @@ export function closeTab(
 
 /**
  * Split the view from a tab. A tab that isn't the one being looked at moves to
- * a new right pane; the tab being looked at stays and the right pane starts
- * with an empty tab. With a split already open, the tab moves to the right.
+ * a new right pane; a note being looked at stays and the right pane starts
+ * with an empty tab; a canvas being looked at moves to the right pane, with the
+ * nearest other tab showing beside it. With a split already open, the tab
+ * moves to the right.
  */
 export function splitFrom(
 	ws: Workspace,
@@ -219,6 +236,19 @@ export function splitFrom(
 	if (!from) return ws;
 	if (!ws.right) {
 		const left = ws.left;
+		// A canvas being looked at goes to the side, and a note beside it shows.
+		if (left.active === path && isCanvas(path) && left.tabs.length > 1) {
+			const rest = without(left, path);
+			return singleCanvas(
+				{
+					left: rest,
+					right: { tabs: [path], active: path },
+					focused: "right",
+				},
+				isCanvas,
+				"right",
+			);
+		}
 		if (left.active === path || left.tabs.length === 1) {
 			return {
 				...ws,

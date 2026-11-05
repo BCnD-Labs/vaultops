@@ -114,7 +114,7 @@ it("keeps a renamed note's tab and brings the tabs back after a restart", async 
 	const host = await vaultWith("Alpha", "Beta");
 	const user = userEvent.setup();
 	const { unmount } = render(<App host={host} />);
-	const title = await titleBox();
+	await titleBox();
 	await user.click(screen.getByTitle("Beta.vnote"));
 	await waitFor(() => expect(tabNames()).toEqual(["Alpha", "Beta"]));
 	await user.click(
@@ -129,7 +129,8 @@ it("keeps a renamed note's tab and brings the tabs back after a restart", async 
 				.value,
 		).toBe("Alpha"),
 	);
-	fireEvent.change(title, { target: { value: "Alpha 2" } });
+	// Switching notes re-creates the title box, so find the current one.
+	fireEvent.change(await titleBox(), { target: { value: "Alpha 2" } });
 	await waitFor(() => expect(tabNames()).toEqual(["Alpha 2", "Beta"]), {
 		timeout: 4000,
 	});

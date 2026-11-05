@@ -159,9 +159,6 @@ export function useWorkspaceHost({
 		return results.every(Boolean);
 	}, []);
 
-	// Bumped after every block move, so a canvas knows to read its file again.
-	const [canvasRevision, setCanvasRevision] = useState(0);
-
 	const paneOf = useCallback((id: PaneId) => {
 		const pane = id === "left" ? current.current.left : current.current.right;
 		return pane?.active && pane.active !== NEW_TAB ? pane.active : null;
@@ -222,7 +219,7 @@ export function useWorkspaceHost({
 					sessions.current[id].failureReason(),
 				).find(Boolean);
 				return refuse(
-					`Save the notes before moving a block: ${why ?? "the save did not finish"}.`,
+					`Save the note before moving a block: ${why ?? "the save did not finish"}.`,
 				);
 			}
 			const found = await find();
@@ -250,7 +247,6 @@ export function useWorkspaceHost({
 			}
 			// Win or lose, show what is on disk now.
 			await Promise.all([reloadPane(from), reloadPane(to)]);
-			setCanvasRevision((count) => count + 1);
 			return failure === null ? { ok: true } : refuse(failure);
 		},
 		[host, writable, canvas, settleAll, paneOf, reloadPane],
@@ -384,8 +380,6 @@ export function useWorkspaceHost({
 		dropBlock,
 		/** Move a block from the canvas in `from` into the note in the other pane. */
 		blockToNote,
-		/** Changes after every block move; a canvas reads its file again when it does. */
-		canvasRevision,
 		/** Save every open note now (quit, window hidden). */
 		flushAll: async () => {
 			const results = await Promise.all(

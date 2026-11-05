@@ -223,7 +223,7 @@ body {
 	flex: none;
 	align-items: center;
 	gap: 2px;
-	height: 36px;
+	height: var(--chrome-bar-height);
 	padding-inline: 8px;
 }
 
@@ -232,7 +232,10 @@ body {
 }
 
 .shell-breadcrumb {
+	display: flex;
 	flex: 1;
+	align-items: center;
+	align-self: stretch;
 	min-width: 0;
 	margin-left: 6px;
 	overflow: hidden;
@@ -280,11 +283,16 @@ body {
 	flex: 1;
 	background: var(--shell-panel);
 }
+/* Same height as the nav bar over the editor, so a sidebar's toggle sits at the
+   same place whether the sidebar is open (here) or collapsed (in the nav bar). */
 .shell-pane-bar {
 	display: flex;
+	flex: none;
 	align-items: center;
 	justify-content: flex-end;
-	padding: 4px;
+	box-sizing: border-box;
+	height: var(--chrome-bar-height);
+	padding-inline: 4px;
 }
 .shell-toggle {
 	border: 0;
@@ -451,8 +459,10 @@ body {
 	height: 100%;
 	overflow: auto;
 }
-.shell-right aside {
-	padding: 8px;
+/* The header bar runs edge to edge like the left sidebar's; the content is
+   inset below it. */
+.shell-right aside > :not(.shell-pane-bar) {
+	margin: 0 8px 8px;
 }
 .shell-right [data-slot="tabs-list"] {
 	border: 0;

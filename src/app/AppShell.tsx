@@ -215,9 +215,19 @@ export function AppShell({
 					orientation="horizontal"
 					className="shell-regions"
 					defaultLayout={defaultLayout}
-					onLayoutChanged={(layout, meta) =>
-						saveLayout(meta.requestedLayout ?? layout)
-					}
+					onLayoutChanged={(layout, meta) => {
+						saveLayout(meta.requestedLayout ?? layout);
+						// Follow the panels themselves: if two sidebars change in one
+						// breath their resize callbacks can leave this state behind, and
+						// a collapsed sidebar's show button then goes missing.
+						const next = {
+							left: left.current?.isCollapsed() ?? false,
+							right: right.current?.isCollapsed() ?? false,
+						};
+						setCollapsed((s) =>
+							s.left === next.left && s.right === next.right ? s : next,
+						);
+					}}
 				>
 					<ResizablePanel
 						id="left"

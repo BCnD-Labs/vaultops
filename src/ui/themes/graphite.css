@@ -33,6 +33,7 @@
 	--shell-border-width: 1px;
 	--shell-radius: var(--radius-2);
 	--shell-gap: 8px;
+	--chrome-bar-height: 36px;
 	--rail-width: 44px;
 	--rail-icon-size: 18px;
 	--section-size: 11px;

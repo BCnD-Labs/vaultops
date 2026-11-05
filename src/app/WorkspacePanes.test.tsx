@@ -333,8 +333,10 @@ it("drop zones exist only while a tab is being dragged", async () => {
 	const alpha = left().getByRole("tab", { name: "Alpha" })
 		.parentElement as HTMLElement;
 	fireEvent.dragStart(alpha, { dataTransfer: dt });
-	// One zone, on the pane the tab did not come from.
-	expect(screen.getAllByText("Move here")).toHaveLength(1);
+	// Not inside dragstart itself (the engines cancel a drag whose page changes
+	// there), but a moment later: one zone, on the pane the tab did not come from.
+	expect(screen.queryByText("Move here")).toBeNull();
+	expect(await screen.findAllByText("Move here")).toHaveLength(1);
 	expect(right).toBeTruthy();
 	fireEvent.dragEnd(alpha, { dataTransfer: dt });
 	expect(screen.queryByText("Move here")).toBeNull();
@@ -349,7 +351,7 @@ it("dropping on the other pane's body moves the tab to its end", async () => {
 		left().getByRole("tab", { name: "Board" }).parentElement as HTMLElement,
 		{ dataTransfer: dt },
 	);
-	dragTo(screen.getByText("Move here"), "drop", dt);
+	dragTo(await screen.findByText("Move here"), "drop", dt);
 	await waitFor(() => expect(order(right())).toEqual(["Beta", "Board"]));
 	expect(screen.queryByText("Move here")).toBeNull();
 });
@@ -361,7 +363,7 @@ it("a single pane offers a right-edge zone that opens the tab beside", async () 
 		left().getByRole("tab", { name: "Beta" }).parentElement as HTMLElement,
 		{ dataTransfer: dt },
 	);
-	dragTo(screen.getByText("Drop to open beside"), "drop", dt);
+	dragTo(await screen.findByText("Drop to open beside"), "drop", dt);
 	const right = await screen.findByRole("tablist", {
 		name: "Open notes, right side",
 	});
@@ -377,6 +379,9 @@ it("a lone tab gets no edge zone, since it has nowhere to leave to", async () =>
 		left().getByRole("tab", { name: "Alpha" }).parentElement as HTMLElement,
 		{ dataTransfer: transfer() },
 	);
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	});
 	expect(screen.queryByText("Drop to open beside")).toBeNull();
 });
 

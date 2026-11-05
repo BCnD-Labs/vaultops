@@ -78,6 +78,7 @@ export function TabBar({
 }) {
 	const active = useRef<HTMLDivElement | null>(null);
 	const list = useRef<HTMLDivElement | null>(null);
+	const bar = useRef<HTMLDivElement | null>(null);
 	const activePath = tabs.find((tab) => tab.active)?.path;
 	// Where a dragged tab would land, while one is over the strip.
 	const [dropAt, setDropAt] = useState<number | null>(null);
@@ -103,30 +104,41 @@ export function TabBar({
 		);
 	};
 	return (
-		<div className="tab-bar" data-pane={paneId}>
+		// The whole bar takes the drop, not just the tabs: the blank space after the
+		// last tab and the padding around the tabs are where a tab is easiest to miss.
+		// biome-ignore lint/a11y/noStaticElementInteractions: dragging is a pointer path; the keyboard route is Alt+Shift+Arrow on the tab button
+		<div
+			ref={bar}
+			className="tab-bar"
+			data-pane={paneId}
+			onDragEnter={(event) => {
+				if (!onDropTab || !hasTabDrag(event.dataTransfer)) return;
+				event.preventDefault();
+			}}
+			onDragOver={(event) => {
+				if (!onDropTab || !hasTabDrag(event.dataTransfer)) return;
+				event.preventDefault();
+				setDragEffect(event.dataTransfer, "dropEffect", "move");
+				setDropAt(indexAt(event.clientX));
+			}}
+			onDragLeave={(event) => {
+				if (!bar.current?.contains(event.relatedTarget as Node | null))
+					setDropAt(null);
+			}}
+			onDrop={(event) => {
+				setDropAt(null);
+				const drag = tabDragData(event.dataTransfer);
+				if (!onDropTab || !drag) return;
+				event.preventDefault();
+				onDropTab(drag, indexAt(event.clientX));
+			}}
+		>
 			<div
 				ref={list}
 				className="tab-list"
 				role="tablist"
 				aria-label={label}
 				data-drop-end={dropAt === tabs.length ? true : undefined}
-				onDragOver={(event) => {
-					if (!onDropTab || !hasTabDrag(event.dataTransfer)) return;
-					event.preventDefault();
-					setDragEffect(event.dataTransfer, "dropEffect", "move");
-					setDropAt(indexAt(event.clientX));
-				}}
-				onDragLeave={(event) => {
-					if (!list.current?.contains(event.relatedTarget as Node | null))
-						setDropAt(null);
-				}}
-				onDrop={(event) => {
-					setDropAt(null);
-					const drag = tabDragData(event.dataTransfer);
-					if (!onDropTab || !drag) return;
-					event.preventDefault();
-					onDropTab(drag, indexAt(event.clientX));
-				}}
 			>
 				{tabs.map((tab, index) => {
 					const node = (

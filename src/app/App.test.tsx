@@ -65,13 +65,7 @@ it("opens a canvas beside the editor, creates and renames a canvas, and remember
 		expect(host.kindOf("Sprint board.vnote")).resolves.toBe("file"),
 	);
 	expect(await host.kindOf("Untitled canvas.vnote")).toBeNull();
-	expect(
-		(
-			within(canvas).getByRole("combobox", {
-				name: "Canvas",
-			}) as HTMLSelectElement
-		).value,
-	).toBe("Sprint board.vnote");
+	expect(within(canvas).queryByRole("combobox")).toBeNull();
 	// The sidebar row and the canvas's tab both carry the new path.
 	expect(screen.getAllByTitle("Sprint board.vnote")).toHaveLength(2);
 	expect(localStorage.getItem("vaultops:last-canvas")).toContain(

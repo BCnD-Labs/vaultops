@@ -19,7 +19,8 @@ import { docToBlocks } from "../editor/doc-blocks";
 import { NoteEditor } from "../editor/NoteEditor";
 import type { OpenedNote } from "../editor/note-io";
 import { SaveStatus } from "../editor/SaveStatus";
-import { NoteChips, NoteDetails } from "./NoteMetadata";
+import { NoteDetails } from "./NoteMetadata";
+import { PropertiesBlock } from "./PropertiesBlock";
 import type { NoteSession } from "./useNoteSession";
 import "./pane.css";
 
@@ -98,7 +99,7 @@ export function NoteView({
 				readOnly={!opened.editable}
 				onChange={(event) => onTitleChange(event.target.value)}
 			/>
-			<NoteChips
+			<PropertiesBlock
 				props={props}
 				editable={opened.editable}
 				onChange={onPropsChange}

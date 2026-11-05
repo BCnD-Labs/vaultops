@@ -26,6 +26,7 @@ const ICONS = {
 	list: List,
 };
 
+/** The chip summary. No longer shown in the note (PropertiesBlock replaced it); kept for now. */
 export function NoteChips({
 	props,
 	editable,

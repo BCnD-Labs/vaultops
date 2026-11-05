@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { parseNote, serializeNote } from "../note-format";
 import {
 	addProperty,
+	changeType,
 	headerProps,
 	type Props,
 	readProps,
 	removeProperty,
+	renameProperty,
 	setValue,
 	withProps,
 } from "./properties";
@@ -157,5 +159,86 @@ describe("properties", () => {
 		expect(headerProps(header({ props: "oops" }))).toBeNull();
 		expect(headerProps(header({ props: [1] }))).toBeNull();
 		expect(headerProps(undefined)).toEqual({});
+	});
+});
+
+describe("renameProperty and changeType", () => {
+	const base: Props = {
+		Due: { type: "date", value: "2026-11-05" },
+		Course: { type: "text", value: "GEG123" },
+		Mystery: { type: "gizmo", value: 7, extra: true },
+		tags: { type: "list", value: ["a"] },
+	};
+
+	it("renames in place, keeping order and the whole entry", () => {
+		const done = renameProperty(base, "Course", "Class");
+		expect(done.ok).toBe(true);
+		if (!done.ok) return;
+		expect(Object.keys(done.props)).toEqual([
+			"Due",
+			"Class",
+			"Mystery",
+			"tags",
+		]);
+		expect(done.props["Class"]).toEqual(base["Course"]);
+	});
+
+	it("allows a capitals-only rename, refuses clashes, blanks and tags", () => {
+		const caps = renameProperty(base, "Course", "COURSE");
+		expect(caps.ok && Object.keys(caps.props)).toContain("COURSE");
+		expect(renameProperty(base, "Course", "due")).toEqual({
+			ok: false,
+			message: "There is already a property called due.",
+		});
+		expect(renameProperty(base, "Course", "  ").ok).toBe(false);
+		expect(renameProperty(base, "tags", "Labels").ok).toBe(false);
+		expect(renameProperty(base, "Course", "Tags").ok).toBe(false);
+		expect(renameProperty(base, "Missing", "X").ok).toBe(false);
+		expect(renameProperty(base, "Course", "Course")).toEqual({
+			ok: true,
+			props: base,
+		});
+		// A list may take the name tags (when there is no tags already).
+		const solo: Props = { Labels: { type: "list", value: [] } };
+		expect(renameProperty(solo, "Labels", "tags").ok).toBe(true);
+	});
+
+	it("carries values across types when they still fit", () => {
+		const text: Props = { N: { type: "text", value: " 42 " } };
+		expect(changeType(text, "N", "number")).toEqual({
+			ok: true,
+			props: { N: { type: "number", value: 42 } },
+		});
+		const words: Props = { L: { type: "list", value: ["a", "b"] } };
+		expect(changeType(words, "L", "text")).toEqual({
+			ok: true,
+			props: { L: { type: "text", value: "a, b" } },
+		});
+		const csv: Props = { T: { type: "text", value: "x, y, x" } };
+		expect(changeType(csv, "T", "list")).toEqual({
+			ok: true,
+			props: { T: { type: "list", value: ["x", "y"] } },
+		});
+		const day: Props = { D: { type: "text", value: "2026-02-30" } };
+		expect(changeType(day, "D", "date")).toEqual({
+			ok: true,
+			props: { D: { type: "date", value: null } },
+		});
+		const yes: Props = { C: { type: "text", value: "Yes" } };
+		expect(changeType(yes, "C", "checkbox")).toEqual({
+			ok: true,
+			props: { C: { type: "checkbox", value: true } },
+		});
+	});
+
+	it("keeps other fields, and refuses tags and properties it does not know", () => {
+		const extra: Props = { N: { type: "text", value: "1", note: "kept" } };
+		expect(changeType(extra, "N", "number")).toEqual({
+			ok: true,
+			props: { N: { type: "number", value: 1, note: "kept" } },
+		});
+		expect(changeType(base, "tags", "text").ok).toBe(false);
+		expect(changeType(base, "Mystery", "text").ok).toBe(false);
+		expect(changeType(base, "Due", "date")).toEqual({ ok: true, props: base });
 	});
 });

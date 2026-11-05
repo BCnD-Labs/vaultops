@@ -265,3 +265,25 @@ it("creates a named note from the command bar and starts the existing folder flo
 		document.activeElement,
 	);
 });
+
+it("opens Find or create a note from a button in the left sidebar, with no floating pill, and returns focus to it", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	const button = await screen.findByRole("button", {
+		name: "Find or create a note",
+	});
+	expect(button.closest(".sidebar")).not.toBeNull();
+	expect(document.querySelector(".command-pill")).toBeNull();
+	expect(
+		screen.getAllByRole("button", { name: "Find or create a note" }),
+	).toHaveLength(1);
+	await user.click(button);
+	expect(
+		screen.getByRole("dialog", { name: "Find or create a note" }),
+	).toBeTruthy();
+	await user.keyboard("{Escape}");
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(document.activeElement).toBe(button);
+});

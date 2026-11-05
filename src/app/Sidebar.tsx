@@ -40,6 +40,7 @@ import { healthCount, healthLabel } from "./HealthScreen";
 import { NoteList } from "./NoteList";
 import { NoteTree, type TreeActions } from "./NoteTree";
 import { noteSort } from "./note-sort";
+import { SearchButton } from "./SearchButton";
 import type { VaultView } from "./session";
 import {
 	type Selection,
@@ -260,6 +261,7 @@ export function Sidebar({
 									</IconAction>
 									{modeToggle}
 								</header>
+								<SearchButton />
 								<div className="section-label">Notes</div>
 								{selection.kind === "tag" && (
 									<Button
@@ -352,6 +354,7 @@ export function Sidebar({
 										</IconAction>
 										{modeToggle}
 									</header>
+									<SearchButton />
 									<div className="section-label">Notes</div>
 									<button
 										type="button"

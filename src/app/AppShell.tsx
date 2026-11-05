@@ -43,6 +43,7 @@ export const ShellNavigation = createContext({
 	toolsVisible: true,
 	propertyRequest: null as { name?: string } | null,
 	openProperties: (_name?: string) => {},
+	openSearch: () => {},
 });
 
 function IconRail({
@@ -198,6 +199,7 @@ export function AppShell({
 					right.current?.expand();
 					setPropertyRequest({ name });
 				},
+				openSearch: () => setSearchRequest((count) => count + 1),
 			}}
 		>
 			<div className="app-shell">

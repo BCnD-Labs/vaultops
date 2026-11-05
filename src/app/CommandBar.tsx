@@ -49,6 +49,14 @@ export function commandShortcut(
 	);
 }
 
+/** Whether this is a Mac (the key hint says Cmd there and Ctrl elsewhere). */
+export function isMacPlatform(): boolean {
+	return (
+		typeof navigator !== "undefined" &&
+		/Mac|iPhone|iPad/.test(navigator.platform)
+	);
+}
+
 export function CommandBar({
 	notes,
 	writable,
@@ -74,9 +82,7 @@ export function CommandBar({
 	const [query, setQuery] = useState("");
 	const returnFocus = useRef<HTMLElement | null>(null);
 	const lastRequest = useRef(openRequest);
-	const mac =
-		typeof navigator !== "undefined" &&
-		/Mac|iPhone|iPad/.test(navigator.platform);
+	const mac = isMacPlatform();
 	const show = () => {
 		if (!open)
 			returnFocus.current = document.activeElement as HTMLElement | null;
@@ -110,16 +116,6 @@ export function CommandBar({
 	const createTitle = createRowTitle(query, matches);
 	return (
 		<>
-			<button
-				type="button"
-				className="command-pill"
-				onClick={show}
-				aria-label="Find or create a note"
-			>
-				<Search aria-hidden="true" />
-				<span>Find or create a note...</span>
-				<kbd>[{mac ? "Cmd" : "Ctrl"} K]</kbd>
-			</button>
 			<CommandDialog
 				open={open}
 				onOpenChange={(next) => {

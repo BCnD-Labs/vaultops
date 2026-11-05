@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "make_folder",
     "kind_of",
     "move_entry",
+    "remove_trashed",
     "append_log",
     "read_app_file",
     "write_app_file",

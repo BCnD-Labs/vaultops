@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { parseNote } from "../core/note-format";
+import type { Placement } from "../core/notes/block-move";
+import { moveBlock } from "../core/notes/move-block";
 import {
 	closeSplit,
 	closeTab,
@@ -54,6 +57,9 @@ export interface WorkspaceHostOptions {
 }
 
 export type WorkspaceHost = ReturnType<typeof useWorkspaceHost>;
+
+/** How a block move ended; a refusal says why, in words for the person. */
+export type BlockMoveResult = { ok: true } | { ok: false; message: string };
 
 const SLOTS = ["left", "right"] as const;
 const DIVIDER = "\n----------------\n\n";
@@ -153,6 +159,146 @@ export function useWorkspaceHost({
 		return results.every(Boolean);
 	}, []);
 
+	// Bumped after every block move, so a canvas knows to read its file again.
+	const [canvasRevision, setCanvasRevision] = useState(0);
+
+	const paneOf = useCallback((id: PaneId) => {
+		const pane = id === "left" ? current.current.left : current.current.right;
+		return pane?.active && pane.active !== NEW_TAB ? pane.active : null;
+	}, []);
+
+	/** Read a pane's note again from disk, after a block move changed its file. */
+	const reloadPane = useCallback(
+		async (id: PaneId) => {
+			const path = sessions.current[id].livePathRef.current;
+			if (path === null) return;
+			try {
+				sessions.current[id].load(await openNote(host, path), path);
+			} catch (reason) {
+				latest.current.onError(
+					reason instanceof Error ? reason.message : String(reason),
+				);
+			}
+		},
+		[host],
+	);
+
+	/** The document id a pane is showing (a note's is read from its session). */
+	const documentId = useCallback(
+		async (id: PaneId): Promise<string | null> => {
+			const path = paneOf(id);
+			if (path === null) return null;
+			if (!canvas(path))
+				return sessions.current[id].opened?.note?.header.noteId ?? null;
+			try {
+				return parseNote(await host.readText(path)).note?.header.noteId ?? null;
+			} catch {
+				return null;
+			}
+		},
+		[host, canvas, paneOf],
+	);
+
+	/**
+	 * Move a block between two shown documents: save every open note, move the
+	 * block on disk (destination written first, so a failure leaves both copies),
+	 * then read both documents again so the screen matches the disk. `find` runs
+	 * after the save, because saving can rename a note and so change its path.
+	 */
+	const moveBetween = useCallback(
+		async (
+			find: () => Promise<{ from: PaneId; to: PaneId } | string>,
+			blockId: string,
+			placement: Placement,
+		): Promise<BlockMoveResult> => {
+			const refuse = (message: string): BlockMoveResult => ({
+				ok: false,
+				message,
+			});
+			if (!writable)
+				return refuse("This vault is read-only, so the block was not moved.");
+			if (!(await settleAll())) {
+				const why = SLOTS.map((id) =>
+					sessions.current[id].failureReason(),
+				).find(Boolean);
+				return refuse(
+					`Save the notes before moving a block: ${why ?? "the save did not finish"}.`,
+				);
+			}
+			const found = await find();
+			if (typeof found === "string") return refuse(found);
+			const { from, to } = found;
+			const source = paneOf(from);
+			const destination = paneOf(to);
+			if (source === null || destination === null)
+				return refuse("Open both documents before moving a block.");
+			for (const id of [from, to]) {
+				const path = id === from ? source : destination;
+				if (canvas(path)) continue;
+				const opened = sessions.current[id].opened;
+				if (!opened?.editable)
+					return refuse(
+						opened?.notice ??
+							"This note is read-only, so the block was not moved.",
+					);
+			}
+			let failure: string | null = null;
+			try {
+				await moveBlock(host, source, destination, blockId, placement);
+			} catch (reason) {
+				failure = reason instanceof Error ? reason.message : String(reason);
+			}
+			// Win or lose, show what is on disk now.
+			await Promise.all([reloadPane(from), reloadPane(to)]);
+			setCanvasRevision((count) => count + 1);
+			return failure === null ? { ok: true } : refuse(failure);
+		},
+		[host, writable, canvas, settleAll, paneOf, reloadPane],
+	);
+
+	/**
+	 * A block was dropped on a pane. The drag carries only the id of the document
+	 * it came from, so find which other pane is showing that one.
+	 */
+	const dropBlock = useCallback(
+		(
+			to: PaneId,
+			blockId: string,
+			sourceId: string,
+			placement: Placement,
+		): Promise<BlockMoveResult> =>
+			moveBetween(
+				async () => {
+					if (paneOf(to) === null)
+						return "Open a note or canvas to move the block into.";
+					for (const from of SLOTS)
+						if (from !== to && (await documentId(from)) === sourceId)
+							return { from, to };
+					return "Open the source note before moving this block.";
+				},
+				blockId,
+				placement,
+			),
+		[moveBetween, paneOf, documentId],
+	);
+
+	/** A canvas card's "move to note": into the note shown beside the canvas. */
+	const blockToNote = useCallback(
+		(from: PaneId, blockId: string): Promise<BlockMoveResult> =>
+			moveBetween(
+				async () => {
+					const to = from === "left" ? "right" : "left";
+					const path = paneOf(to);
+					return path !== null && !canvas(path)
+						? { from, to }
+						: "Open a note beside the canvas to move this block into.";
+				},
+				blockId,
+				{ after: null },
+			),
+		[moveBetween, paneOf, canvas],
+	);
+
 	// Every command saves first, so closing or moving a tab never drops text.
 	const run = useCallback(
 		async (next: (ws: Workspace) => Workspace) => {
@@ -234,6 +380,12 @@ export function useWorkspaceHost({
 			change((ws) => renameDoc(ws, from, to)),
 		restoreFrom,
 		settleAll,
+		/** Move a block dropped on `to` from whichever pane shows document `sourceId`. */
+		dropBlock,
+		/** Move a block from the canvas in `from` into the note in the other pane. */
+		blockToNote,
+		/** Changes after every block move; a canvas reads its file again when it does. */
+		canvasRevision,
 		/** Save every open note now (quit, window hidden). */
 		flushAll: async () => {
 			const results = await Promise.all(

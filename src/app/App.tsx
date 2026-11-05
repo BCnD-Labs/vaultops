@@ -116,6 +116,15 @@ export function App({ host }: { host: Host }) {
 	};
 	const [canvasRefresh, setCanvasRefresh] = useState(0);
 	const [focusCanvas, setFocusCanvas] = useState(false);
+	// A canvas fills the editor as its own tab (the note is put away meanwhile).
+	const [canvasTab, setCanvasTab] = useState(false);
+	// Split view: a canvas (or an empty pane to pick one) beside the open note.
+	const [split, setSplit] = useState(false);
+	const splitRef = useRef(false);
+	const changeSplit = (next: boolean) => {
+		splitRef.current = next;
+		setSplit(next);
+	};
 	const [defaultCanvasLayout] = useState(canvasLayout);
 	// Opening a vault may create it, so loading and choosing a vault use `host`.
 	// Everything that changes notes and folders goes through `vaultHost`, which
@@ -196,7 +205,7 @@ export function App({ host }: { host: Host }) {
 			paths: vaultName
 				? pruneTabs(
 						tabStore.current.get(vaultName),
-						notes.filter((n) => n.kind !== "canvas").map((n) => n.path),
+						notes.map((n) => n.path),
 					)
 				: [],
 		});
@@ -205,15 +214,25 @@ export function App({ host }: { host: Host }) {
 	useEffect(() => {
 		newTabRef.current = "none";
 		setNewTab("none");
+		setCanvasTab(false);
+		splitRef.current = false;
+		setSplit(false);
 	}, [vaultName]);
 	useEffect(() => {
-		// A note that was trashed, deleted or moved loses its tab.
+		// A canvas that was trashed or deleted can no longer fill the editor.
+		if (!view || !canvasTab) return;
+		if (!view.notes.some((n) => n.path === canvasPath && n.kind === "canvas"))
+			setCanvasTab(false);
+	}, [view, canvasTab, canvasPath]);
+	useEffect(() => {
+		// A note or canvas that was trashed, deleted or moved loses its tab.
 		if (!view) return;
+		const all = view.notes.map((n) => n.path);
 		const existing = view.notes
 			.filter((n) => n.kind !== "canvas")
 			.map((n) => n.path);
 		setTabState((state) => {
-			const paths = pruneTabs(state.paths, existing);
+			const paths = pruneTabs(state.paths, all);
 			return paths === state.paths ? state : { ...state, paths };
 		});
 		setNavState((state) => {
@@ -333,8 +352,22 @@ export function App({ host }: { host: Host }) {
 					setNewTab("none");
 				}
 				if (next.note?.header.kind === "canvas") {
+					// A canvas is a tab of its own: it fills the editor and any open
+					// note (already saved by the caller) is put away.
 					selectCanvas(path);
+					setTabState((state) => ({
+						...state,
+						paths: openTab(state.paths, path),
+					}));
 					setScreen("note");
+					// In split view beside an open note, the canvas takes the right pane.
+					if (splitRef.current && livePathRef.current) return;
+					splitRef.current = false;
+					setSplit(false);
+					setCanvasTab(true);
+					setOpened(null);
+					livePathRef.current = null;
+					setLivePath(null);
 					return;
 				}
 				getLogger().log({
@@ -371,6 +404,7 @@ export function App({ host }: { host: Host }) {
 				setProps(loaded);
 				setConfirmTrash(false);
 				setConfirmEditing(false);
+				setCanvasTab(false);
 				setScreen("note");
 				setOpened(next);
 				setEditorRevision((revision) => revision + 1);
@@ -520,16 +554,15 @@ export function App({ host }: { host: Host }) {
 		const rememberedCanvas =
 			canvasPath ?? (view.name ? lastCanvas(view.name) : null);
 		if (pick) void show(pick, view.name);
-		else if (
-			!rememberedCanvas ||
-			!view.notes.some(
-				(row) => row.path === rememberedCanvas && row.kind === "canvas",
-			)
-		) {
-			const firstCanvas = view.notes.find((row) => row.kind === "canvas");
-			if (firstCanvas) selectCanvas(firstCanvas.path);
+		else {
+			// No note to reopen: reopen the last canvas (or the first) as a tab.
+			const canvas =
+				view.notes.find(
+					(row) => row.path === rememberedCanvas && row.kind === "canvas",
+				) ?? view.notes.find((row) => row.kind === "canvas");
+			if (canvas) void show(canvas.path, view.name);
 		}
-	}, [view, opened, show, screen, canvasPath, selectCanvas]);
+	}, [view, opened, show, screen, canvasPath]);
 
 	useEffect(() => {
 		if (opened && focusTitle.current) {
@@ -633,13 +666,24 @@ export function App({ host }: { host: Host }) {
 	// (or an empty editor when it was the last one).
 	const closeNoteTab = async (path: string) => {
 		const closing = closeTab(tabs, path);
-		if (path !== livePathRef.current) {
+		const fullCanvas = canvasTab && path === canvasPath;
+		if (split && !canvasTab && path === canvasPath) {
+			// Closing the canvas that is in the split pane ends the split.
+			changeSplit(false);
 			setTabState((state) => ({ ...state, paths: closing.tabs }));
 			return;
 		}
-		if (!(await settle())) return;
+		if (path !== livePathRef.current && !fullCanvas) {
+			setTabState((state) => ({ ...state, paths: closing.tabs }));
+			return;
+		}
+		if (!fullCanvas && !(await settle())) return;
 		setTabState((state) => ({ ...state, paths: closing.tabs }));
+		if (fullCanvas) setCanvasTab(false);
 		if (closing.next) {
+			// A canvas can only follow a note into the editor as a full tab.
+			if (view?.notes.find((n) => n.path === closing.next)?.kind === "canvas")
+				changeSplit(false);
 			await show(closing.next, vaultName);
 			return;
 		}
@@ -650,10 +694,41 @@ export function App({ host }: { host: Host }) {
 		if (newTabRef.current === "open") changeNewTab("active");
 	};
 
+	// Right-click a tab, "Split view": a canvas opens beside the open note; for a
+	// note, that note opens and the right pane starts empty to pick a canvas in.
+	const splitView = async (path: string) => {
+		if (!view || !(await settle())) return;
+		const isCanvas = view.notes.find((n) => n.path === path)?.kind === "canvas";
+		if (newTabRef.current === "active") changeNewTab("open");
+		let note = livePathRef.current;
+		if (!note || (!isCanvas && note !== path)) {
+			note = isCanvas
+				? ([...tabs]
+						.reverse()
+						.find(
+							(tab) =>
+								view.notes.find((n) => n.path === tab)?.kind !== "canvas",
+						) ?? null)
+				: path;
+			if (!note) {
+				setError("Open a note first, then split the view beside it.");
+				return;
+			}
+			await show(note, vaultName);
+		}
+		changeSplit(true);
+		if (isCanvas) {
+			selectCanvas(path);
+			setTabState((state) => ({ ...state, paths: openTab(state.paths, path) }));
+		} else selectCanvas(null);
+	};
+
 	// "+": show the empty tab (the open note is saved and put away first).
 	const openNewTab = async () => {
 		if (!(await settle())) return;
 		changeNewTab("active");
+		setCanvasTab(false);
+		changeSplit(false);
 		setScreen("note");
 		setOpened(null);
 		livePathRef.current = null;
@@ -668,9 +743,27 @@ export function App({ host }: { host: Host }) {
 		if (wasActive && last) await open(last);
 	};
 
+	// The canvas to show: filling the editor when its tab is the active one, or in
+	// the split pane beside the note. A split with no canvas yet shows an empty pane.
+	const canvasExists =
+		!!canvasPath &&
+		!!view?.notes.some(
+			(row) => row.path === canvasPath && row.kind === "canvas",
+		);
+	const shownCanvas =
+		screen === "note" && canvasTab && canvasExists ? canvasPath : null;
+	const splitOpen = screen === "note" && split && !canvasTab;
+	const splitCanvas = splitOpen && canvasExists ? canvasPath : null;
+	const paneCanvas = shownCanvas ?? splitCanvas;
+
 	const noteTabs: TabItem[] = tabs.map((path) => {
-		const active = screen === "note" && !!opened && path === livePath;
 		const row = view?.notes.find((n) => n.path === path);
+		const canvas = row?.kind === "canvas";
+		const active =
+			screen === "note" &&
+			(canvas
+				? path === (shownCanvas ?? splitCanvas)
+				: !!opened && path === livePath);
 		const name =
 			path
 				.split("/")
@@ -678,8 +771,9 @@ export function App({ host }: { host: Host }) {
 				?.replace(/\.vnote$/, "") ?? path;
 		return {
 			path,
-			title: (active && title) || row?.title || name,
+			title: (active && !canvas && title) || row?.title || name,
 			active,
+			canvas,
 		};
 	});
 	const tabItems: TabItem[] =
@@ -829,6 +923,112 @@ export function App({ host }: { host: Host }) {
 			autosave.change(draftOf(docRef.current, titleRef.current), opened);
 	};
 
+	const notePane = (
+		<NotePane
+			props={props}
+			path={livePath}
+			onPropsChange={editProps}
+			view={view}
+			screen={screen}
+			error={error}
+			busy={busy}
+			writable={writable}
+			screenNotice={screenNotice}
+			updateHost={host}
+			trash={trash}
+			confirmDelete={confirmDelete}
+			opened={opened}
+			editorRevision={editorRevision}
+			liveDoc={docRef.current}
+			title={title}
+			titleInput={titleInput}
+			saveState={autosave.state}
+			confirmTrash={confirmTrash}
+			confirmEditing={confirmEditing}
+			notice={notice}
+			onTitleChange={(next) => {
+				titleRef.current = next;
+				setTitle(next);
+				if (docRef.current)
+					autosave.change(draftOf(docRef.current, next), opened);
+			}}
+			onDocChange={(doc) => {
+				docRef.current = doc;
+				refreshStats();
+				getLogger().count("edits");
+				autosave.change(draftOf(doc, titleRef.current), opened);
+			}}
+			onDropBlock={async (blockId, canvasId, after) => {
+				let moveStarted = false;
+				try {
+					if (!writable || !opened?.editable || !opened.note)
+						throw new Error(
+							"This note is read-only, so the block was not moved.",
+						);
+					if (
+						!canvasPath ||
+						!view?.notes.some(
+							(row) => row.path === canvasPath && row.kind === "canvas",
+						)
+					)
+						throw new Error("Open the source canvas before moving this block.");
+					if (!(await settle()))
+						throw new Error(
+							`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+						);
+					const source = await vaultHost.readText(canvasPath);
+					const parsed = parseNote(source);
+					if (
+						parsed.note?.header.kind !== "canvas" ||
+						parsed.note.header.noteId !== canvasId
+					)
+						throw new Error("The dragged block is not on the open canvas.");
+					const destination = livePathRef.current ?? opened.path;
+					moveStarted = true;
+					await moveBlock(vaultHost, canvasPath, destination, blockId, {
+						after,
+					});
+					await show(destination, vaultName);
+					setCanvasRefresh((count) => count + 1);
+				} catch (reason) {
+					if (moveStarted && opened) {
+						await show(livePathRef.current ?? opened.path, vaultName);
+						setCanvasRefresh((count) => count + 1);
+					}
+					setError(String(reason));
+				}
+			}}
+			blank={
+				<NewTab
+					writable={writable && !busy}
+					onCreateNote={() =>
+						void startNote(selection.kind === "folder" ? selection.value : "")
+					}
+					onCreateCanvas={() =>
+						void startCanvas(selection.kind === "folder" ? selection.value : "")
+					}
+				/>
+			}
+			onRetry={autosave.retry}
+			onLoadDisk={loadDisk}
+			onSaveCopy={saveCopy}
+			onMoveToTrash={moveToTrash}
+			onConfirmTrash={setConfirmTrash}
+			onConfirmEditing={setConfirmEditing}
+			onAllowEditing={() => {
+				if (!opened) return;
+				setOpened(allowEditing(opened));
+				setNotice(null);
+				setConfirmEditing(false);
+			}}
+			onNavigate={navigate}
+			onConfirmDelete={setConfirmDelete}
+			onRestore={(p) => void changeTrash(p, true)}
+			onDelete={(p) => void changeTrash(p, false)}
+			onOpen={open}
+		/>
+	);
+
 	return (
 		<TooltipProvider>
 			<div className="app">
@@ -853,8 +1053,14 @@ export function App({ host }: { host: Host }) {
 				)}
 				<AppShell
 					vault={vaultName ?? "VaultOps"}
-					path={livePath}
-					title={opened ? title : null}
+					path={shownCanvas ?? livePath}
+					title={
+						shownCanvas
+							? (view?.notes.find((n) => n.path === shownCanvas)?.title ?? null)
+							: opened
+								? title
+								: null
+					}
 					notes={view?.notes ?? []}
 					writable={writable && !busy}
 					selectedFolder={selection.kind === "folder" ? selection.value : ""}
@@ -869,14 +1075,18 @@ export function App({ host }: { host: Host }) {
 							if (newTab !== "active" || screen !== "note") void openNewTab();
 							return;
 						}
-						// Picking a note tab keeps the empty tab, only not showing.
+						// Picking a tab keeps the empty tab, only not showing.
 						if (newTab === "active") changeNewTab("open");
-						if (path !== livePath || screen !== "note") void open(path);
+						if (!tabItems.find((tab) => tab.path === path)?.active)
+							void open(path);
 					}}
 					onCloseTab={(path) =>
 						void (path === NEW_TAB ? closeNewTab() : closeNoteTab(path))
 					}
 					onNewTab={() => void openNewTab()}
+					onSplitTab={(path) => void splitView(path)}
+					splitOpen={splitOpen}
+					onCloseSplit={() => changeSplit(false)}
 					canGoBack={canGoBack(nav)}
 					canGoForward={canGoForward(nav)}
 					onBack={() => void goThrough(-1)}
@@ -928,235 +1138,144 @@ export function App({ host }: { host: Host }) {
 					}
 				>
 					<ResizablePanelGroup
-						key={canvasPath ? "with-canvas" : "note-only"}
+						key={shownCanvas ? "canvas" : splitOpen ? "split" : "note"}
 						orientation="horizontal"
 						className="editor-split"
-						defaultLayout={canvasPath ? defaultCanvasLayout : undefined}
-						onLayoutChanged={(layout) => saveCanvasLayout(layout)}
+						defaultLayout={splitOpen ? defaultCanvasLayout : undefined}
+						onLayoutChanged={(layout) => {
+							if (splitOpen) saveCanvasLayout(layout);
+						}}
 					>
-						<ResizablePanel id="note" minSize="25%">
-							<NotePane
-								props={props}
-								path={livePath}
-								onPropsChange={editProps}
-								view={view}
-								screen={screen}
-								error={error}
-								busy={busy}
-								writable={writable}
-								screenNotice={screenNotice}
-								updateHost={host}
-								trash={trash}
-								confirmDelete={confirmDelete}
-								opened={opened}
-								editorRevision={editorRevision}
-								liveDoc={docRef.current}
-								title={title}
-								titleInput={titleInput}
-								saveState={autosave.state}
-								confirmTrash={confirmTrash}
-								confirmEditing={confirmEditing}
-								notice={notice}
-								onTitleChange={(next) => {
-									titleRef.current = next;
-									setTitle(next);
-									if (docRef.current)
-										autosave.change(draftOf(docRef.current, next), opened);
-								}}
-								onDocChange={(doc) => {
-									docRef.current = doc;
-									refreshStats();
-									getLogger().count("edits");
-									autosave.change(draftOf(doc, titleRef.current), opened);
-								}}
-								onDropBlock={async (blockId, canvasId, after) => {
-									let moveStarted = false;
-									try {
-										if (!writable || !opened?.editable || !opened.note)
-											throw new Error(
-												"This note is read-only, so the block was not moved.",
+						{!shownCanvas && (
+							<ResizablePanel id="note" minSize="25%">
+								{notePane}
+							</ResizablePanel>
+						)}
+						{splitOpen && !splitCanvas && (
+							<>
+								<ResizableHandle />
+								<ResizablePanel id="canvas" minSize="25%">
+									<div className="split-empty">
+										<NewTab
+											writable={writable && !busy}
+											onCreateCanvas={() =>
+												void startCanvas(
+													selection.kind === "folder" ? selection.value : "",
+												)
+											}
+											onClose={() => changeSplit(false)}
+										/>
+									</div>
+								</ResizablePanel>
+							</>
+						)}
+						{paneCanvas && view && (
+							<>
+								{splitCanvas && <ResizableHandle />}
+								<ResizablePanel id="canvas" minSize="25%">
+									<CanvasPane
+										key={canvasRefresh}
+										host={vaultHost}
+										path={paneCanvas}
+										canvases={view.notes.filter((row) => row.kind === "canvas")}
+										writable={writable}
+										focusName={focusCanvas}
+										onFocusedName={() => setFocusCanvas(false)}
+										onSelect={(next) => void open(next)}
+										onRename={(oldPath, newPath, nextTitle) => {
+											selectCanvas(newPath);
+											setTabState((state) => ({
+												...state,
+												paths: renameTab(state.paths, oldPath, newPath),
+											}));
+											setView((v) =>
+												v
+													? {
+															...v,
+															report: v.report.map((e) =>
+																e.path === oldPath
+																	? { ...e, path: newPath }
+																	: e,
+															),
+															notes: v.notes
+																.map((n) =>
+																	n.path === oldPath
+																		? {
+																				...n,
+																				path: newPath,
+																				title: nextTitle,
+																			}
+																		: n,
+																)
+																.sort(compareRows),
+														}
+													: v,
 											);
-										if (
-											!canvasPath ||
-											!view?.notes.some(
-												(row) =>
-													row.path === canvasPath && row.kind === "canvas",
+										}}
+										onNew={() => void startCanvas()}
+										onClose={() =>
+											splitCanvas
+												? changeSplit(false)
+												: void closeNoteTab(paneCanvas)
+										}
+										onDropBlock={async (blockId, noteId, position) => {
+											if (!writable)
+												throw new Error(
+													"This vault is read-only, so the block was not moved.",
+												);
+											if (opened && !opened.editable)
+												throw new Error(
+													opened.notice ??
+														"This note is read-only, so the block was not moved.",
+												);
+											if (
+												!opened?.note ||
+												opened.note.header.kind === "canvas" ||
+												opened.note.header.noteId !== noteId
 											)
-										)
-											throw new Error(
-												"Open the source canvas before moving this block.",
+												throw new Error(
+													"Open the source note before moving this block.",
+												);
+											if (!(await settle()))
+												throw new Error(
+													`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+												);
+											const source = livePathRef.current ?? opened.path;
+											await moveBlock(
+												vaultHost,
+												source,
+												paneCanvas,
+												blockId,
+												position,
 											);
-										if (!(await settle()))
-											throw new Error(
-												`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
-											);
-										const source = await vaultHost.readText(canvasPath);
-										const parsed = parseNote(source);
-										if (
-											parsed.note?.header.kind !== "canvas" ||
-											parsed.note.header.noteId !== canvasId
-										)
-											throw new Error(
-												"The dragged block is not on the open canvas.",
-											);
-										const destination = livePathRef.current ?? opened.path;
-										moveStarted = true;
-										await moveBlock(
-											vaultHost,
-											canvasPath,
-											destination,
-											blockId,
-											{ after },
-										);
-										await show(destination, vaultName);
-										setCanvasRefresh((count) => count + 1);
-									} catch (reason) {
-										if (moveStarted && opened) {
-											await show(livePathRef.current ?? opened.path, vaultName);
+											await show(source, vaultName);
 											setCanvasRefresh((count) => count + 1);
-										}
-										setError(String(reason));
-									}
-								}}
-								blank={
-									<NewTab
-										writable={writable && !busy}
-										onCreateNote={() =>
-											void startNote(
-												selection.kind === "folder" ? selection.value : "",
-											)
-										}
-										onCreateCanvas={() =>
-											void startCanvas(
-												selection.kind === "folder" ? selection.value : "",
-											)
+										}}
+										onMoveToNote={
+											opened?.editable && opened.note && writable
+												? async (blockId) => {
+														if (!(await settle()))
+															throw new Error(
+																`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
+															);
+														const destination =
+															livePathRef.current ?? opened.path;
+														await moveBlock(
+															vaultHost,
+															paneCanvas,
+															destination,
+															blockId,
+															{ after: null },
+														);
+														await show(destination, vaultName);
+														setCanvasRefresh((count) => count + 1);
+													}
+												: undefined
 										}
 									/>
-								}
-								onRetry={autosave.retry}
-								onLoadDisk={loadDisk}
-								onSaveCopy={saveCopy}
-								onMoveToTrash={moveToTrash}
-								onConfirmTrash={setConfirmTrash}
-								onConfirmEditing={setConfirmEditing}
-								onAllowEditing={() => {
-									if (!opened) return;
-									setOpened(allowEditing(opened));
-									setNotice(null);
-									setConfirmEditing(false);
-								}}
-								onNavigate={navigate}
-								onConfirmDelete={setConfirmDelete}
-								onRestore={(p) => void changeTrash(p, true)}
-								onDelete={(p) => void changeTrash(p, false)}
-								onOpen={open}
-							/>
-						</ResizablePanel>
-						{screen === "note" &&
-							canvasPath &&
-							view?.notes.some(
-								(row) => row.path === canvasPath && row.kind === "canvas",
-							) && (
-								<>
-									<ResizableHandle />
-									<ResizablePanel id="canvas" minSize="25%">
-										<CanvasPane
-											key={canvasRefresh}
-											host={vaultHost}
-											path={canvasPath}
-											canvases={view.notes.filter(
-												(row) => row.kind === "canvas",
-											)}
-											writable={writable}
-											focusName={focusCanvas}
-											onFocusedName={() => setFocusCanvas(false)}
-											onSelect={selectCanvas}
-											onRename={(oldPath, newPath, nextTitle) => {
-												selectCanvas(newPath);
-												setView((v) =>
-													v
-														? {
-																...v,
-																report: v.report.map((e) =>
-																	e.path === oldPath
-																		? { ...e, path: newPath }
-																		: e,
-																),
-																notes: v.notes
-																	.map((n) =>
-																		n.path === oldPath
-																			? {
-																					...n,
-																					path: newPath,
-																					title: nextTitle,
-																				}
-																			: n,
-																	)
-																	.sort(compareRows),
-															}
-														: v,
-												);
-											}}
-											onNew={() => void startCanvas()}
-											onClose={() => selectCanvas(null)}
-											onDropBlock={async (blockId, noteId, position) => {
-												if (!writable)
-													throw new Error(
-														"This vault is read-only, so the block was not moved.",
-													);
-												if (opened && !opened.editable)
-													throw new Error(
-														opened.notice ??
-															"This note is read-only, so the block was not moved.",
-													);
-												if (
-													!opened?.note ||
-													opened.note.header.kind === "canvas" ||
-													opened.note.header.noteId !== noteId
-												)
-													throw new Error(
-														"Open the source note before moving this block.",
-													);
-												if (!(await settle()))
-													throw new Error(
-														`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
-													);
-												const source = livePathRef.current ?? opened.path;
-												await moveBlock(
-													vaultHost,
-													source,
-													canvasPath,
-													blockId,
-													position,
-												);
-												await show(source, vaultName);
-												setCanvasRefresh((count) => count + 1);
-											}}
-											onMoveToNote={
-												opened?.editable && opened.note && writable
-													? async (blockId) => {
-															if (!(await settle()))
-																throw new Error(
-																	`Save the note before moving a block: ${autosave.failureReason() ?? "the save did not finish"}.`,
-																);
-															const destination =
-																livePathRef.current ?? opened.path;
-															await moveBlock(
-																vaultHost,
-																canvasPath,
-																destination,
-																blockId,
-																{ after: null },
-															);
-															await show(destination, vaultName);
-															setCanvasRefresh((count) => count + 1);
-														}
-													: undefined
-											}
-										/>
-									</ResizablePanel>
-								</>
-							)}
+								</ResizablePanel>
+							</>
+						)}
 					</ResizablePanelGroup>
 				</AppShell>
 			</div>

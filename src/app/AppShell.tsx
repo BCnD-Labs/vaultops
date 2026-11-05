@@ -105,6 +105,9 @@ export function AppShell({
 	onSelectTab = () => {},
 	onCloseTab = () => {},
 	onNewTab,
+	onSplitTab,
+	splitOpen = false,
+	onCloseSplit,
 	canGoBack = false,
 	canGoForward = false,
 	stats = null,
@@ -128,6 +131,10 @@ export function AppShell({
 	onCloseTab?: (path: string) => void;
 	/** The tab bar's +. Without it, + opens the Find or create bar. */
 	onNewTab?: () => void;
+	/** Right-click a tab, Split view. */
+	onSplitTab?: (path: string) => void;
+	splitOpen?: boolean;
+	onCloseSplit?: () => void;
 	canGoBack?: boolean;
 	canGoForward?: boolean;
 	stats?: TextStats | null;
@@ -257,6 +264,9 @@ export function AppShell({
 									onNew={
 										onNewTab ?? (() => setSearchRequest((count) => count + 1))
 									}
+									onSplit={onSplitTab}
+									splitOpen={splitOpen}
+									onCloseSplit={onCloseSplit}
 								/>
 							)}
 							<NavBar

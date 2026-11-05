@@ -143,7 +143,15 @@ async function setup(readOnly = false) {
 async function openEditorAndCanvas(host: MemoryHost) {
 	render(<App host={host} />);
 	await screen.findByRole("textbox", { name: "Title" });
+	// A canvas opens as a tab of its own; "Split view" on its tab puts it beside
+	// the note again, which is where blocks can be dragged between the two.
 	fireEvent.click(screen.getByTitle("Board.vnote"));
+	await screen.findByRole("region", { name: "Canvas view" });
+	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+	const tab = screen.getByRole("tab", { name: "Board" }).parentElement;
+	fireEvent.contextMenu(tab as HTMLElement);
+	fireEvent.click(await screen.findByRole("menuitem", { name: "Split view" }));
+	await screen.findByRole("textbox", { name: "Title" });
 	await screen.findByRole("region", { name: "Canvas view" });
 	// An empty canvas has no card to wait for; the pane says when it has loaded.
 	await waitFor(() =>

@@ -5,6 +5,7 @@ import type { DragHandleProps } from "@tiptap/extension-drag-handle-react";
 import { afterEach, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BLOCK_DRAG_TYPE } from "./block-drag";
+import { abandonLift } from "./lift";
 import { NoteEditor } from "./NoteEditor";
 
 vi.mock("@tiptap/extension-drag-handle-react", () => ({
@@ -31,7 +32,10 @@ vi.mock("@tiptap/extension-drag-handle-react", () => ({
 	},
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	abandonLift();
+});
 
 it("sets the VaultOps payload after the handle clears drag data", () => {
 	render(
@@ -62,9 +66,14 @@ it("sets the VaultOps payload after the handle clears drag data", () => {
 		blockId: "block-1",
 	});
 	expect(transfer.getData("text/plain")).toBe("First line");
+	// The browser's own picture is blanked; the lifted block is drawn instead.
 	expect(transfer.setDragImage).toHaveBeenCalledOnce();
+	expect(
+		(transfer.setDragImage as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
+	).toBeInstanceOf(HTMLCanvasElement);
+	abandonLift();
 	fireEvent.dragEnd(handle as Element, { dataTransfer: transfer });
-	expect(document.querySelector(".block-drag-preview")).toBeNull();
+	expect(document.querySelector(".lift-hole")).toBeNull();
 });
 
 it("drops a canvas block between root blocks and ignores other drags", () => {

@@ -1,4 +1,4 @@
-import type { JSONContent } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import DragHandle from "@tiptap/extension-drag-handle-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -15,11 +15,11 @@ import {
 	blockDragData,
 	findBlockDropTarget,
 	setBlockDragData,
-	setBlockDragImage,
 	setDragEffect,
 } from "./block-drag";
 import { createExtensions } from "./extensions";
 import { ensureUniqueIds } from "./ids";
+import { abandonLift, liftBlock } from "./lift";
 import "./editor.css";
 
 export interface NoteEditorProps {
@@ -48,18 +48,15 @@ export function NoteEditor({
 	latest.current = onChange;
 	const draggedBlock = useRef<ProseMirrorNode | null>(null);
 	const dragStartEvent = useRef<DragEvent | null>(null);
-	const preview = useRef<HTMLElement | null>(null);
+	const draggedPos = useRef<number | null>(null);
+	const editorRef = useRef<Editor | null>(null);
 	const [dropIndicator, setDropIndicator] = useState<{
 		index: number;
 		top: number;
 	} | null>(null);
 
 	useEffect(() => {
-		const clearPreview = () => {
-			preview.current?.remove();
-			preview.current = null;
-			setDropIndicator(null);
-		};
+		const clearIndicator = () => setDropIndicator(null);
 		// The extension clears DataTransfer in its dragstart listener. The document
 		// listener runs after it, while the browser still permits setting drag data.
 		const addDragData = (event: DragEvent) => {
@@ -72,22 +69,22 @@ export function NoteEditor({
 				draggedBlock.current,
 			);
 			if (!firstLine) return;
-			clearPreview();
-			const element = document.createElement("div");
-			element.className = "block-drag-preview";
-			element.textContent = firstLine;
-			document.body.append(element);
-			setBlockDragImage(event.dataTransfer, element);
-			preview.current = element;
+			// Lift the block itself; without its element the browser's own picture stays.
+			const pos = draggedPos.current;
+			const dom = pos === null ? null : editorRef.current?.view.nodeDOM(pos);
+			liftBlock(event, dom instanceof HTMLElement ? dom : null, {
+				kind: "note",
+			});
 		};
 		document.addEventListener("dragstart", addDragData);
-		document.addEventListener("dragend", clearPreview);
-		document.addEventListener("drop", clearPreview);
+		document.addEventListener("dragend", clearIndicator);
+		document.addEventListener("drop", clearIndicator);
 		return () => {
 			document.removeEventListener("dragstart", addDragData);
-			document.removeEventListener("dragend", clearPreview);
-			document.removeEventListener("drop", clearPreview);
-			clearPreview();
+			document.removeEventListener("dragend", clearIndicator);
+			document.removeEventListener("drop", clearIndicator);
+			clearIndicator();
+			abandonLift();
 			dragStartEvent.current = null;
 		};
 	}, [noteId]);
@@ -102,6 +99,8 @@ export function NoteEditor({
 			editor.view.dispatch(editor.state.tr.setMeta("hideDragHandle", true));
 		},
 	});
+
+	editorRef.current = editor;
 
 	useEffect(() => {
 		// Unlocking is not a content edit and must not start autosave.
@@ -168,8 +167,9 @@ export function NoteEditor({
 				<DragHandle
 					editor={editor}
 					className="block-drag-handle"
-					onNodeChange={({ node }) => {
+					onNodeChange={({ node, pos }) => {
 						draggedBlock.current = node;
+						draggedPos.current = node ? pos : null;
 					}}
 					onElementDragStart={(event) => {
 						dragStartEvent.current = event;

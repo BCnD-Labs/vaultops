@@ -347,6 +347,8 @@ export function CanvasPane({
 								!data.noteId
 							)
 								throw new Error("This is not a valid VaultOps block drag.");
+							// A card dropped back on its own canvas has nowhere to move to.
+							if (data.noteId === parsed?.note?.header.noteId) return;
 							await onDropBlock(data.blockId, data.noteId, position);
 							setError(null);
 						} catch (reason) {

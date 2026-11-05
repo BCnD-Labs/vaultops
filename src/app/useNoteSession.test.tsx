@@ -181,3 +181,15 @@ it("shows a note in a read-only vault locked, and writes nothing", async () => {
 	expect(await host.readText(alpha.path)).toBe(before);
 	expect(await host.kindOf("Changed.vnote")).not.toBe("file");
 });
+
+it("keeps no recovery text for a note that was put away", async () => {
+	const { result, alpha } = await setup();
+	act(() => result.current.load(alpha, alpha.path));
+	act(() => result.current.editDoc(doc("left behind")));
+	expect(result.current.recoveryText(new Date())).toContain("left behind");
+	await act(async () => {
+		expect(await result.current.settle()).toBe(true);
+	});
+	act(() => result.current.clear());
+	expect(result.current.recoveryText(new Date())).toBeNull();
+});

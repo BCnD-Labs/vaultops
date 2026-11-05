@@ -495,3 +495,32 @@ button.note-meta-chip:focus-visible {
 	margin: 0;
 	overflow-wrap: anywhere;
 }
+
+.new-tab {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin: auto;
+}
+
+.new-tab .empty-pane {
+	margin: 0;
+}
+
+.new-tab-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 16rem;
+}
+
+.new-tab-actions button {
+	justify-content: flex-start;
+}
+
+.new-tab-actions kbd {
+	margin-left: auto;
+	color: var(--muted-foreground);
+	font: inherit;
+}

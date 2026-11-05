@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { Ellipsis } from "lucide-react";
-import { type Ref, useEffect, useState } from "react";
+import { type ReactNode, type Ref, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -59,6 +59,8 @@ interface NotePaneProps {
 		after: string | null,
 	) => Promise<void>;
 	onRetry: () => void;
+	/** Shown instead of the plain "pick a note" line when no note is open. */
+	blank?: ReactNode;
 	onLoadDisk: () => void;
 	onSaveCopy: () => void;
 	onMoveToTrash: () => void;
@@ -98,6 +100,7 @@ export function NotePane({
 	onDocChange,
 	onDropBlock,
 	onRetry,
+	blank,
 	onLoadDisk,
 	onSaveCopy,
 	onMoveToTrash,
@@ -287,9 +290,13 @@ export function NotePane({
 				<p className="empty-pane">Pick a note to edit beside the canvas.</p>
 			)}
 			{screen === "note" && !canvas && editor}
-			{screen === "note" && !opened && view && view.status !== "none" && (
-				<p className="empty-pane">Pick a note, or start a new one.</p>
-			)}
+			{screen === "note" &&
+				!opened &&
+				view &&
+				view.status !== "none" &&
+				(blank ?? (
+					<p className="empty-pane">Pick a note, or start a new one.</p>
+				))}
 		</main>
 	);
 }

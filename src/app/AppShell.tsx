@@ -104,6 +104,7 @@ export function AppShell({
 	tabs = [],
 	onSelectTab = () => {},
 	onCloseTab = () => {},
+	onNewTab,
 	canGoBack = false,
 	canGoForward = false,
 	stats = null,
@@ -125,6 +126,8 @@ export function AppShell({
 	tabs?: TabItem[];
 	onSelectTab?: (path: string) => void;
 	onCloseTab?: (path: string) => void;
+	/** The tab bar's +. Without it, + opens the Find or create bar. */
+	onNewTab?: () => void;
 	canGoBack?: boolean;
 	canGoForward?: boolean;
 	stats?: TextStats | null;
@@ -251,7 +254,9 @@ export function AppShell({
 									tabs={tabs}
 									onSelect={onSelectTab}
 									onClose={onCloseTab}
-									onNew={() => setSearchRequest((count) => count + 1)}
+									onNew={
+										onNewTab ?? (() => setSearchRequest((count) => count + 1))
+									}
 								/>
 							)}
 							<NavBar

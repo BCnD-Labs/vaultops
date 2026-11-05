@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { TabBar } from "./TabBar";
+import { NEW_TAB } from "./tabs";
 
 afterEach(cleanup);
 
@@ -58,4 +59,18 @@ it("keeps every close button reachable by keyboard", () => {
 		expect(close.tabIndex).toBe(0);
 		expect(close.disabled).toBe(false);
 	}
+});
+
+it("shows the empty tab without a path tooltip", () => {
+	render(
+		<TabBar
+			tabs={[{ path: NEW_TAB, title: "New tab", active: true }]}
+			onSelect={() => {}}
+			onClose={() => {}}
+			onNew={() => {}}
+		/>,
+	);
+	const tab = screen.getByRole("tab", { name: "New tab" });
+	expect(tab.getAttribute("title")).toBeNull();
+	expect(tab.getAttribute("aria-selected")).toBe("true");
 });

@@ -4,6 +4,12 @@
  * "active" value to keep in step.
  */
 
+/**
+ * The id of the empty tab ("new tab"). It holds no note, and a NUL can't be in
+ * a file name, so it never clashes with a note path.
+ */
+export const NEW_TAB = "\u0000new-tab";
+
 /** Add a tab for the note, unless it already has one. */
 export function openTab(tabs: string[], path: string): string[] {
 	return tabs.includes(path) ? tabs : [...tabs, path];

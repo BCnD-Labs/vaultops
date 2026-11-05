@@ -52,6 +52,7 @@ import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { canvasLayout, lastCanvas, saveCanvasLayout } from "./canvas-layout";
 import { browserLastNote, pickInitialNote } from "./last-note";
+import { NewTab } from "./NewTab";
 import { NotePane } from "./NotePane";
 import { NoteTools } from "./NoteTools";
 import type { TreeActions } from "./NoteTree";
@@ -76,7 +77,14 @@ import {
 } from "./session";
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import type { TabItem } from "./TabBar";
-import { browserTabs, closeTab, openTab, pruneTabs, renameTab } from "./tabs";
+import {
+	browserTabs,
+	closeTab,
+	NEW_TAB,
+	openTab,
+	pruneTabs,
+	renameTab,
+} from "./tabs";
 import "../ui/theme.css";
 import "./app.css";
 
@@ -98,6 +106,14 @@ export function App({ host }: { host: Host }) {
 	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
 	const [editorRevision, setEditorRevision] = useState(0);
 	const [canvasPath, setCanvasPath] = useState<string | null>(null);
+	// The empty tab: "none" = no such tab, "open" = in the tab bar but another tab
+	// is showing, "active" = it is the one showing (the editor area is blank).
+	const [newTab, setNewTab] = useState<"none" | "open" | "active">("none");
+	const newTabRef = useRef(newTab);
+	const changeNewTab = (next: "none" | "open" | "active") => {
+		newTabRef.current = next;
+		setNewTab(next);
+	};
 	const [canvasRefresh, setCanvasRefresh] = useState(0);
 	const [focusCanvas, setFocusCanvas] = useState(false);
 	const [defaultCanvasLayout] = useState(canvasLayout);
@@ -184,6 +200,11 @@ export function App({ host }: { host: Host }) {
 					)
 				: [],
 		});
+	}, [vaultName]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: only a vault change closes the empty tab
+	useEffect(() => {
+		newTabRef.current = "none";
+		setNewTab("none");
 	}, [vaultName]);
 	useEffect(() => {
 		// A note that was trashed, deleted or moved loses its tab.
@@ -306,6 +327,11 @@ export function App({ host }: { host: Host }) {
 				setError(null);
 				const started = performance.now();
 				const next = await openNote(host, path);
+				// Opening something from the active empty tab replaces that tab.
+				if (newTabRef.current === "active") {
+					newTabRef.current = "none";
+					setNewTab("none");
+				}
 				if (next.note?.header.kind === "canvas") {
 					selectCanvas(path);
 					setScreen("note");
@@ -620,9 +646,29 @@ export function App({ host }: { host: Host }) {
 		setOpened(null);
 		livePathRef.current = null;
 		setLivePath(null);
+		// Nothing left but the empty tab: it fills the editor.
+		if (newTabRef.current === "open") changeNewTab("active");
 	};
 
-	const tabItems: TabItem[] = tabs.map((path) => {
+	// "+": show the empty tab (the open note is saved and put away first).
+	const openNewTab = async () => {
+		if (!(await settle())) return;
+		changeNewTab("active");
+		setScreen("note");
+		setOpened(null);
+		livePathRef.current = null;
+		setLivePath(null);
+	};
+
+	// Closing the empty tab: when it was showing, the last note tab takes over.
+	const closeNewTab = async () => {
+		const wasActive = newTabRef.current === "active";
+		changeNewTab("none");
+		const last = tabs[tabs.length - 1];
+		if (wasActive && last) await open(last);
+	};
+
+	const noteTabs: TabItem[] = tabs.map((path) => {
 		const active = screen === "note" && !!opened && path === livePath;
 		const row = view?.notes.find((n) => n.path === path);
 		const name =
@@ -636,6 +682,17 @@ export function App({ host }: { host: Host }) {
 			active,
 		};
 	});
+	const tabItems: TabItem[] =
+		newTab === "none"
+			? noteTabs
+			: [
+					...noteTabs,
+					{
+						path: NEW_TAB,
+						title: "New tab",
+						active: screen === "note" && newTab === "active",
+					},
+				];
 
 	// Moves the open note to the vault's trash (nothing is erased).
 	const moveToTrash = async () => {
@@ -808,9 +865,18 @@ export function App({ host }: { host: Host }) {
 					onNavigateScreen={(next) => void navigate(next)}
 					tabs={tabItems}
 					onSelectTab={(path) => {
+						if (path === NEW_TAB) {
+							if (newTab !== "active" || screen !== "note") void openNewTab();
+							return;
+						}
+						// Picking a note tab keeps the empty tab, only not showing.
+						if (newTab === "active") changeNewTab("open");
 						if (path !== livePath || screen !== "note") void open(path);
 					}}
-					onCloseTab={(path) => void closeNoteTab(path)}
+					onCloseTab={(path) =>
+						void (path === NEW_TAB ? closeNewTab() : closeNoteTab(path))
+					}
+					onNewTab={() => void openNewTab()}
 					canGoBack={canGoBack(nav)}
 					canGoForward={canGoForward(nav)}
 					onBack={() => void goThrough(-1)}
@@ -952,6 +1018,21 @@ export function App({ host }: { host: Host }) {
 										setError(String(reason));
 									}
 								}}
+								blank={
+									<NewTab
+										writable={writable && !busy}
+										onCreateNote={() =>
+											void startNote(
+												selection.kind === "folder" ? selection.value : "",
+											)
+										}
+										onCreateCanvas={() =>
+											void startCanvas(
+												selection.kind === "folder" ? selection.value : "",
+											)
+										}
+									/>
+								}
 								onRetry={autosave.retry}
 								onLoadDisk={loadDisk}
 								onSaveCopy={saveCopy}

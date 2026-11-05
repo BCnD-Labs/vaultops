@@ -13,6 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { BLOCK_TYPES } from "./blocks";
 import { Callout } from "./callout";
 import { Divider } from "./divider";
+import { Folding } from "./folding";
 import { SlashMenu } from "./slash-menu";
 import { TaskBlock } from "./task-block";
 import { Toggle } from "./toggle";
@@ -48,6 +49,7 @@ export function createExtensions(): Extensions {
 		TableHeader,
 		TableCell,
 		SlashMenu,
+		Folding,
 		UniqueID.configure({
 			attributeName: "id",
 			types: [...BLOCK_TYPES],

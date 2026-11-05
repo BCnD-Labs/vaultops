@@ -491,3 +491,64 @@
 	opacity: 0.4;
 	pointer-events: none;
 }
+
+/* Folding: a chevron in the margin, hidden blocks, and an ellipsis when folded. */
+.note-editor h1,
+.note-editor h2,
+.note-editor li {
+	position: relative;
+}
+.note-editor .fold-toggle {
+	position: absolute;
+	left: -1.5em;
+	top: 0.35em;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.2em;
+	height: 1.2em;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+.note-editor .fold-toggle::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translate(-0.1em, -0.1em);
+	transition: transform 120ms ease;
+}
+.note-editor .fold-toggle[data-folded="true"]::before {
+	transform: rotate(-45deg);
+}
+.note-editor h1:hover > .fold-toggle,
+.note-editor h2:hover > .fold-toggle,
+.note-editor li:hover > .fold-toggle,
+.note-editor .fold-toggle:focus-visible,
+.note-editor .fold-toggle[data-folded="true"] {
+	opacity: 1;
+}
+.note-editor .fold-hidden {
+	display: none;
+}
+.note-editor .is-folded > p:first-of-type::after,
+.note-editor h1.is-folded::after,
+.note-editor h2.is-folded::after {
+	content: " …";
+	color: var(--muted-foreground);
+}
+
+/* Indent guides: a hairline beside nested lists. */
+.note-editor li > ul,
+.note-editor li > ol {
+	margin-left: 0.4em;
+	padding-left: 1.2em;
+	border-left: var(--border-width) solid var(--line);
+}

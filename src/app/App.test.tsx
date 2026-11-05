@@ -287,3 +287,84 @@ it("opens Find or create a note from a button in the left sidebar, with no float
 	expect(screen.queryByRole("dialog")).toBeNull();
 	expect(document.activeElement).toBe(button);
 });
+
+it("opens an empty tab with +, and closing either tab hands the editor to the other", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Alpha");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByRole("button", { name: "New tab" }));
+	// The empty tab shows the three ways to start, and the note is put away.
+	expect(
+		await screen.findByText("Pick a note, or start a new one."),
+	).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Create a note" })).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Create a canvas" })).toBeTruthy();
+	expect(
+		screen.getByRole("button", { name: /Open a note or canvas/ }),
+	).toBeTruthy();
+	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+	const tabs = within(
+		screen.getByRole("tablist", { name: "Open notes" }),
+	).getAllByRole("tab");
+	expect(tabs.map((tab) => tab.textContent)).toEqual(["Alpha", "New tab"]);
+	expect(tabs.map((tab) => tab.getAttribute("aria-selected"))).toEqual([
+		"false",
+		"true",
+	]);
+	// Closing the empty tab brings the note back.
+	await user.click(screen.getByRole("button", { name: "Close New tab" }));
+	expect(await screen.findByRole("textbox", { name: "Title" })).toBeTruthy();
+	expect(
+		within(screen.getByRole("tablist", { name: "Open notes" }))
+			.getAllByRole("tab")
+			.map((tab) => tab.textContent),
+	).toEqual(["Alpha"]);
+	// With the note's tab closed instead, the empty tab fills the editor.
+	await user.click(screen.getByRole("button", { name: "New tab" }));
+	await screen.findByText("Pick a note, or start a new one.");
+	await user.click(screen.getByRole("tab", { name: "Alpha" }));
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByRole("button", { name: "Close Alpha" }));
+	await screen.findByText("Pick a note, or start a new one.");
+	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+	expect(
+		within(screen.getByRole("tablist", { name: "Open notes" }))
+			.getAllByRole("tab")
+			.map((tab) => tab.textContent),
+	).toEqual(["New tab"]);
+});
+
+it("replaces the empty tab with whatever is created or opened from it", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Alpha");
+	const user = userEvent.setup();
+	render(<App host={host} />);
+	await screen.findByRole("textbox", { name: "Title" });
+	await user.click(screen.getByRole("button", { name: "New tab" }));
+	await user.click(
+		await screen.findByRole("button", { name: "Create a note" }),
+	);
+	await screen.findByRole("textbox", { name: "Title" });
+	expect(
+		within(screen.getByRole("tablist", { name: "Open notes" }))
+			.getAllByRole("tab")
+			.map((tab) => tab.textContent),
+	).toEqual(["Alpha", "Untitled"]);
+	// A canvas made from the empty tab does not leave the empty tab behind either.
+	await user.click(screen.getByRole("button", { name: "New tab" }));
+	await user.click(
+		await screen.findByRole("button", { name: "Create a canvas" }),
+	);
+	await screen.findByRole("region", { name: "Canvas view" });
+	expect(screen.queryByRole("tab", { name: "New tab" })).toBeNull();
+	// Opening an existing note from the sidebar replaces it as well.
+	await user.click(screen.getByRole("button", { name: "New tab" }));
+	await screen.findByText("Pick a note, or start a new one.");
+	await user.click(screen.getByRole("button", { name: /^Alpha/ }));
+	await screen.findByRole("textbox", { name: "Title" });
+	expect(screen.queryByRole("tab", { name: "New tab" })).toBeNull();
+});

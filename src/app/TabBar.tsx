@@ -1,6 +1,7 @@
 import { Plus, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { NEW_TAB } from "./tabs";
 
 export interface TabItem {
 	path: string;
@@ -10,8 +11,8 @@ export interface TabItem {
 
 /**
  * The open notes as tabs, along the top of the editor column. Selecting a tab
- * opens that note; the x (or a middle click) closes it; "+" goes to the Find or
- * create bar, so a new tab always starts with choosing or naming a note.
+ * opens that note; the x (or a middle click) closes it; "+" opens an empty tab
+ * (the NEW_TAB item) that offers to create or open something.
  */
 export function TabBar({
 	tabs,
@@ -51,7 +52,7 @@ export function TabBar({
 							role="tab"
 							className="tab-label"
 							aria-selected={tab.active}
-							title={tab.path}
+							title={tab.path === NEW_TAB ? undefined : tab.path}
 							onClick={() => onSelect(tab.path)}
 						>
 							{tab.title}
@@ -72,7 +73,7 @@ export function TabBar({
 				size="icon"
 				className="tab-new"
 				aria-label="New tab"
-				title="New tab: find or create a note"
+				title="New tab"
 				onClick={onNew}
 			>
 				<Plus aria-hidden="true" />

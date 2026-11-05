@@ -367,4 +367,64 @@ it("replaces the empty tab with whatever is created or opened from it", async ()
 	await user.click(screen.getByRole("button", { name: /^Alpha/ }));
 	await screen.findByRole("textbox", { name: "Title" });
 	expect(screen.queryByRole("tab", { name: "New tab" })).toBeNull();
+
+it("moves a note to the trash from its sidebar row, after a confirm step", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createNote(host, "", "Keep me");
+	await createNote(host, "", "Drop me");
+	const user = userEvent.setup();
+	const { container } = render(<App host={host} />);
+	await screen.findByRole("button", { name: "Move note Drop me to the trash" });
+	const tree = container.querySelector(".sidebar") as HTMLElement;
+	await user.click(
+		within(tree).getByRole("button", {
+			name: "Move note Drop me to the trash",
+		}),
+	);
+	// Asked first; cancelling changes nothing.
+	expect(within(tree).getByText(/to the trash\? You can restore/)).toBeTruthy();
+	await user.click(within(tree).getByRole("button", { name: "Cancel" }));
+	expect(await listTrash(host)).toEqual([]);
+	await user.click(
+		within(tree).getByRole("button", {
+			name: "Move note Drop me to the trash",
+		}),
+	);
+	await user.click(within(tree).getByRole("button", { name: "Move to trash" }));
+	await waitFor(async () => expect(await listTrash(host)).toHaveLength(1));
+	await waitFor(() =>
+		expect(
+			within(tree).queryByRole("button", {
+				name: "Move note Drop me to the trash",
+			}),
+		).toBeNull(),
+	);
+	expect(await host.kindOf("Keep me.vnote")).toBe("file");
+	expect(await host.kindOf("Drop me.vnote")).toBeNull();
+});
+
+it("moves a canvas to the trash from its sidebar row and closes it", async () => {
+	const host = new MemoryHost();
+	await loadVault(host);
+	await createCanvas(host, "", "Board");
+	const user = userEvent.setup();
+	const { container } = render(<App host={host} />);
+	await screen.findByRole("region", { name: "Canvas view" });
+	const tree = container.querySelector(".sidebar") as HTMLElement;
+	// The folder tree view has its own rows, so check it as well as the list.
+	await user.click(
+		within(tree).getByRole("button", { name: "Folder tree view" }),
+	);
+	await user.click(
+		within(tree).getByRole("button", {
+			name: "Move canvas Board to the trash",
+		}),
+	);
+	await user.click(within(tree).getByRole("button", { name: "Move to trash" }));
+	await waitFor(async () => expect(await listTrash(host)).toHaveLength(1));
+	await waitFor(() =>
+		expect(screen.queryByRole("region", { name: "Canvas view" })).toBeNull(),
+	);
+	expect(await host.kindOf("Board.vnote")).toBeNull();
 });

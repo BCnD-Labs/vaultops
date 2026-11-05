@@ -61,6 +61,7 @@ function Harness({
 					createFolder() {},
 					renameFolder() {},
 					deleteFolder() {},
+					deleteNote() {},
 					move() {},
 				}}
 				treeNotice={null}

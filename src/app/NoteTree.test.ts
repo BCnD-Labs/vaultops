@@ -16,6 +16,7 @@ const actions = {
 	createFolder: () => {},
 	renameFolder: () => {},
 	deleteFolder: () => {},
+	deleteNote: () => {},
 	move: () => {},
 };
 

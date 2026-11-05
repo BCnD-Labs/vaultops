@@ -469,6 +469,7 @@ export function Sidebar({
 							locked={locked}
 							searching={query.length > 0}
 							onOpen={onOpen}
+							onTrash={treeActions.deleteNote}
 						/>
 					</section>
 				</ResizablePanel>

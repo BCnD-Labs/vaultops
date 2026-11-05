@@ -42,6 +42,7 @@ it("rail expands Tags on every click and opens the Changes tab", async () => {
 							createFolder() {},
 							renameFolder() {},
 							deleteFolder() {},
+							deleteNote() {},
 							move() {},
 						}}
 						treeNotice={null}

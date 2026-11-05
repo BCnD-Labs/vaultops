@@ -92,9 +92,11 @@ it("blanks the browser's picture and draws the block itself, leaving a slot behi
 	const { transfer, lifted } = start(source, "card", ".menu");
 	expect(lifted).toBe(true);
 	expect(transfer.setDragImage).toHaveBeenCalledOnce();
-	expect(transfer.setDragImage.mock.calls[0]?.[0]).toBeInstanceOf(
-		HTMLCanvasElement,
-	);
+	// Safari's engine needs the picture it is given to be in the page.
+	const blank = transfer.setDragImage.mock.calls[0]?.[0] as HTMLElement;
+	expect(blank).toBeInstanceOf(HTMLDivElement);
+	expect(blank.classList.contains("lift-blank")).toBe(true);
+	expect(document.body.contains(blank)).toBe(true);
 	const picture = ghost() as HTMLElement;
 	expect(picture.textContent).toContain("Hello");
 	expect(picture.querySelector(".menu")).toBeNull();
@@ -157,6 +159,7 @@ it("sets the block down on a drop and removes the slot", async () => {
 	start(block());
 	fire("drop", 200, 200, "move");
 	expect(hole()).toBeNull();
+	expect(document.querySelector(".lift-blank")).toBeNull();
 	await vi.waitFor(() => expect(ghost()).toBeNull());
 });
 

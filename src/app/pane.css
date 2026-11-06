@@ -788,8 +788,9 @@ button.prop-type-icon:focus-visible {
 	color: var(--foreground);
 	font-size: var(--font-size-ui);
 }
-.props-block .prop-name-field,
-.props-block .prop-name {
+/* More specific than ".prop-row > input { flex: 1 }" so the name stays a set width. */
+.props-block .prop-row > .prop-name-field,
+.props-block .prop-row > .prop-name {
 	flex: none;
 	width: 9rem;
 }

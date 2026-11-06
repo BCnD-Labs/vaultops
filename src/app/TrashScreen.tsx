@@ -32,9 +32,8 @@ export function TrashScreen({
 					{confirming === e.trashPath ? (
 						<div className="tree-confirm">
 							<p>
-								Delete this note from the trash? The app can't bring it back,
-								but a copy stays in the vault's hidden .vaultops/recovery
-								folder.
+								Remove this note from the trash? It stays on disk in
+								.vaultops/recovery, where the app can't open it.
 							</p>
 							<Button
 								size="sm"
@@ -42,7 +41,7 @@ export function TrashScreen({
 								disabled={disabled}
 								onClick={() => onDelete(e.trashPath)}
 							>
-								Delete forever
+								Remove from trash
 							</Button>{" "}
 							<Button
 								size="sm"
@@ -69,7 +68,7 @@ export function TrashScreen({
 								disabled={disabled}
 								onClick={() => onConfirm(e.trashPath)}
 							>
-								Delete forever
+								Remove from trash
 							</Button>
 						</>
 					)}

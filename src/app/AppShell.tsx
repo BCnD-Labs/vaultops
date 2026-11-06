@@ -47,7 +47,9 @@ export const ShellNavigation = createContext({
 
 function IconRail({
 	onNavigate,
+	current = "note",
 }: {
+	current?: "note" | "trash" | "health" | "settings";
 	onNavigate: (
 		item: "notes" | "search" | "tags" | "changes" | "settings",
 	) => void;
@@ -70,7 +72,12 @@ function IconRail({
 							size="icon"
 							className={`rail-item rail-${label.toLowerCase()}`}
 							aria-label={label}
-							aria-current={action === "notes" ? "page" : undefined}
+							aria-current={
+								(action === "notes" && current !== "settings") ||
+								(action === "settings" && current === "settings")
+									? "page"
+									: undefined
+							}
 							aria-disabled={reason ? true : undefined}
 							title={reason ?? label}
 							onClick={() => {
@@ -100,6 +107,7 @@ export function AppShell({
 	onOpenNote = () => {},
 	onCreateNote = () => {},
 	onNavigateScreen = () => {},
+	screen = "note",
 	canGoBack = false,
 	canGoForward = false,
 	stats = null,
@@ -119,7 +127,9 @@ export function AppShell({
 	selectedFolder?: string;
 	onOpenNote?: (path: string) => void;
 	onCreateNote?: (folder: string, title: string) => void;
-	onNavigateScreen?: (screen: "trash" | "health" | "settings") => void;
+	onNavigateScreen?: (screen: "note" | "trash" | "health" | "settings") => void;
+	/** Which screen is showing, so the footer buttons can say so. */
+	screen?: "note" | "trash" | "health" | "settings";
 	canGoBack?: boolean;
 	canGoForward?: boolean;
 	stats?: TextStats | null;
@@ -234,7 +244,13 @@ export function AppShell({
 							<div className="shell-pane-bar">{sidebarToggle("left")}</div>
 							{sidebar}
 							<IconRail
+								current={screen}
 								onNavigate={(item) => {
+									if (item === "notes") {
+										left.current?.expand();
+										onNavigateScreen("note");
+										return;
+									}
 									if (item === "search") {
 										setSearchRequest((count) => count + 1);
 										return;
@@ -244,11 +260,10 @@ export function AppShell({
 										return;
 									}
 									(item === "changes" ? right : left).current?.expand();
-									if (item !== "notes")
-										setNavigation((state) => ({
-											...state,
-											[item]: state[item] + 1,
-										}));
+									setNavigation((state) => ({
+										...state,
+										[item]: state[item] + 1,
+									}));
 								}}
 							/>
 						</div>

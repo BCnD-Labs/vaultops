@@ -102,15 +102,15 @@ it("lists newest first, restores the original path, and deletes only after confi
 		html.indexOf("Class/Note 1.vnote"),
 	);
 	expect(html).toContain(entries[0]?.deletedAt?.toLocaleString());
-	await button(TrashScreen(props()), "Delete forever").onClick();
+	await button(TrashScreen(props()), "Remove from trash").onClick();
 	expect(remove).not.toHaveBeenCalled();
 	await button(TrashScreen(props()), "Cancel").onClick();
 	expect(await listTrash(host)).toEqual(entries);
 	await button(TrashScreen(props()), "Restore").onClick();
 	expect(await host.kindOf("Class/Note 2.vnote")).toBe("file");
 	entries = await listTrash(host);
-	await button(TrashScreen(props()), "Delete forever").onClick();
-	await button(TrashScreen(props()), "Delete forever").onClick();
+	await button(TrashScreen(props()), "Remove from trash").onClick();
+	await button(TrashScreen(props()), "Remove from trash").onClick();
 	expect(await listTrash(host)).toEqual([]);
 	const locked = renderToStaticMarkup(
 		createElement(TrashScreen, {

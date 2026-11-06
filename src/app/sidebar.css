@@ -475,7 +475,11 @@
 }
 .tree-row[data-mode="text"] .tree-name,
 .tree-row[data-mode="icon-text"] .tree-name {
-	color: color-mix(in srgb, var(--tone) 70%, var(--foreground));
+	color: color-mix(
+		in srgb,
+		var(--tone) var(--tone-text-mix),
+		var(--foreground)
+	);
 }
 .tree-row[data-mode="border"]:not(.is-over),
 .tree-row[data-mode="border-background"]:not(.is-over) {
@@ -502,7 +506,11 @@
 		color-mix(in srgb, var(--tone) 35%, transparent);
 	border-radius: var(--radius-round);
 	background: color-mix(in srgb, var(--tone) 18%, transparent);
-	color: color-mix(in srgb, var(--tone) 65%, var(--foreground));
+	color: color-mix(
+		in srgb,
+		var(--tone) var(--tone-text-mix),
+		var(--foreground)
+	);
 }
 .chips .chip[data-tone] {
 	padding-right: var(--space-1);
@@ -602,4 +610,10 @@
 	font-size: var(--font-size-small);
 	text-decoration: underline;
 	cursor: pointer;
+}
+
+/* The hover buttons sit over the row, so they take the row's tint instead of an opaque patch. */
+.tree-row[data-mode="background"]:not(.is-over) .tree-actions,
+.tree-row[data-mode="border-background"]:not(.is-over) .tree-actions {
+	background: color-mix(in srgb, var(--tone) 16%, var(--bg));
 }

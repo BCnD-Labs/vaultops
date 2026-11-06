@@ -847,6 +847,7 @@ export function App({ host }: { host: Host }) {
 				<AppearanceProvider host={vaultHost}>
 					<AppShell
 						vault={vaultName ?? "VaultOps"}
+						screen={screen}
 						path={shownPath}
 						title={shownTitle}
 						notes={view?.notes ?? []}

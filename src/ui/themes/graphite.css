@@ -19,6 +19,7 @@
 	--seed-tip: #1b6b3a;
 	--seed-tip-container: #e3f5e9;
 	/* Mid-tone colours for tags and sidebar rows; rules mix them with the text colour. */
+	--tone-text-mix: 45%;
 	--tone-red: #e5484d;
 	--tone-orange: #f76b15;
 	--tone-yellow: #d9a400;
@@ -82,7 +83,7 @@
 	--callout-warning-accent: var(--seed-warning);
 	--callout-danger-bg: var(--destructive-container);
 	--callout-danger-accent: var(--destructive);
-	--editor-divider: var(--border);
+	--editor-divider: color-mix(in srgb, var(--foreground) 30%, transparent);
 	--background: var(--neutral-0);
 	--surface: var(--neutral-0);
 	--surface-container-low: var(--neutral-1);
@@ -150,6 +151,7 @@
 }
 :root[data-theme="graphite"][data-mode="dark"] {
 	color-scheme: dark;
+	--tone-text-mix: 65%;
 	--shell-frame: var(--neutral-0);
 	--seed-accent: #c7c2ba;
 	--neutral-0: #201f1d;
@@ -174,6 +176,7 @@
 @media (prefers-color-scheme: dark) {
 	:root[data-theme="graphite"][data-mode="system"] {
 		color-scheme: dark;
+		--tone-text-mix: 65%;
 		--shell-frame: var(--neutral-0);
 		--seed-accent: #c7c2ba;
 		--neutral-0: #201f1d;

@@ -406,7 +406,6 @@ body {
 	margin-bottom: 0;
 	background: var(--editor-bg);
 	color: var(--foreground);
-	font-weight: 600;
 }
 .tab[data-active="true"]::before,
 .tab[data-active="true"]::after {

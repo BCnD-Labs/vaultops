@@ -743,3 +743,9 @@ select {
 :root .tag-button {
 	font-family: var(--font-heading);
 }
+
+/* The dim behind a dialog is a dark veil, not the theme's text color (which is
+   white in dark themes and made the whole window flash light). */
+[data-slot="dialog-overlay"] {
+	background: color-mix(in srgb, black 50%, transparent);
+}

@@ -1,7 +1,9 @@
+import { X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogTitle,
@@ -231,26 +233,33 @@ export function SettingsScreen({
 		const current = sections.find(([id]) => id === active) ?? sections[0];
 		return (
 			<section className="settings-window">
-				<nav className="settings-nav" aria-label="Settings sections">
-					<DialogTitle className="settings-nav-title">Settings</DialogTitle>
+				<header className="settings-titlebar">
+					<DialogClose className="settings-close" aria-label="Close">
+						<X aria-hidden="true" />
+					</DialogClose>
+					<DialogTitle className="settings-window-title">Settings</DialogTitle>
 					<DialogDescription className="sr-only">
 						Appearance, fonts, interface and update options.
 					</DialogDescription>
-					{sections.map(([id, label]) => (
-						<button
-							key={id}
-							type="button"
-							className="settings-nav-item"
-							aria-current={id === active ? "page" : undefined}
-							onClick={() => setActive(id)}
-						>
-							{label}
-						</button>
-					))}
-				</nav>
-				<div className="settings-content">
-					<h3 className="settings-content-title">{current[1]}</h3>
-					{current[2]}
+				</header>
+				<div className="settings-body">
+					<nav className="settings-nav" aria-label="Settings sections">
+						{sections.map(([id, label]) => (
+							<button
+								key={id}
+								type="button"
+								className="settings-nav-item"
+								aria-current={id === active ? "page" : undefined}
+								onClick={() => setActive(id)}
+							>
+								{label}
+							</button>
+						))}
+					</nav>
+					<div className="settings-content">
+						<h3 className="settings-content-title">{current[1]}</h3>
+						{current[2]}
+					</div>
 				</div>
 			</section>
 		);
@@ -283,7 +292,7 @@ export function SettingsDialog({
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="settings-dialog" showClose>
+			<DialogContent className="settings-dialog" showClose={false}>
 				<SettingsScreen host={host} modal />
 			</DialogContent>
 		</Dialog>

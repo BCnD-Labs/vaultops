@@ -30,6 +30,7 @@ import { saveAsCopy } from "../editor/save-draft";
 import type { SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
+import { AppearanceProvider } from "./AppearanceContext";
 import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { lastCanvas } from "./canvas-layout";
@@ -842,106 +843,108 @@ export function App({ host }: { host: Host }) {
 						onClose={() => setShowMaintainer(false)}
 					/>
 				)}
-				<AppShell
-					vault={vaultName ?? "VaultOps"}
-					path={shownPath}
-					title={shownTitle}
-					notes={view?.notes ?? []}
-					writable={writable && !busy}
-					selectedFolder={selection.kind === "folder" ? selection.value : ""}
-					onOpenNote={(path) => void open(path)}
-					onCreateNote={(folder, noteTitle) =>
-						void startNote(folder, noteTitle)
-					}
-					onNavigateScreen={(next) => void navigate(next)}
-					canGoBack={canGoBack(nav)}
-					canGoForward={canGoForward(nav)}
-					onBack={() => void goThrough(-1)}
-					onForward={() => void goThrough(1)}
-					reading={reading}
-					onToggleReading={
-						screen === "note" && session?.opened
-							? () => setReading((on) => !on)
-							: undefined
-					}
-					stats={screen === "note" && session ? session.stats : null}
-					tools={
-						<NoteTools
-							key={session?.opened?.path}
-							outline={session?.outline ?? []}
-							hasNote={screen === "note" && !!session?.opened}
-							props={session?.props ?? null}
-							editable={!!session?.opened?.editable}
-							onChange={(next) => session?.editProps(next)}
-							onOpenTag={(tag) => setSelection({ kind: "tag", value: tag })}
-						/>
-					}
-					sidebar={
-						<Sidebar
-							view={view}
-							busy={busy}
-							maintainer={maintainer}
-							selection={selection}
-							livePath={shownPath}
-							tree={tree}
-							treeActions={treeActions}
-							treeNotice={treeNotice}
-							onStartNote={startNote}
-							onStartCanvas={startCanvas}
-							onChooseVault={async () => {
-								if (!(await ws.settleAll())) return;
-								setScreen("note");
-								setSelection({ kind: "all" });
-								run(() => chooseAndLoad(host));
-							}}
-							onShowMaintainer={() => setShowMaintainer(true)}
-							onNavigate={navigate}
-							onSelection={setSelection}
-							onOpen={(path) => void open(path, { follow: false })}
-						/>
-					}
-				>
-					{screen === "note" ? (
-						<div className="editor-stack">
-							{error && (
-								<p role="alert" className="notice">
-									Something went wrong: {error}
-								</p>
-							)}
-							{view?.status === "none" && (
-								<p className="empty-pane">
-									No vault is open. Choose a folder to start.
-								</p>
-							)}
-							{view && view.status !== "none" && (
-								<WorkspacePanes
-									host={ws}
-									notes={view.notes}
-									renderNote={renderNote}
-									renderCanvas={renderCanvas}
-									renderEmpty={renderEmpty}
-								/>
-							)}
-						</div>
-					) : (
-						<ScreenPane
-							view={view}
-							screen={screen}
-							error={error}
-							busy={busy}
-							writable={writable}
-							screenNotice={screenNotice}
-							updateHost={host}
-							trash={trash}
-							confirmDelete={confirmDelete}
-							onNavigate={navigate}
-							onConfirmDelete={setConfirmDelete}
-							onRestore={(p) => void changeTrash(p, true)}
-							onDelete={(p) => void changeTrash(p, false)}
-							onOpen={(path) => void open(path)}
-						/>
-					)}
-				</AppShell>
+				<AppearanceProvider host={vaultHost}>
+					<AppShell
+						vault={vaultName ?? "VaultOps"}
+						path={shownPath}
+						title={shownTitle}
+						notes={view?.notes ?? []}
+						writable={writable && !busy}
+						selectedFolder={selection.kind === "folder" ? selection.value : ""}
+						onOpenNote={(path) => void open(path)}
+						onCreateNote={(folder, noteTitle) =>
+							void startNote(folder, noteTitle)
+						}
+						onNavigateScreen={(next) => void navigate(next)}
+						canGoBack={canGoBack(nav)}
+						canGoForward={canGoForward(nav)}
+						onBack={() => void goThrough(-1)}
+						onForward={() => void goThrough(1)}
+						reading={reading}
+						onToggleReading={
+							screen === "note" && session?.opened
+								? () => setReading((on) => !on)
+								: undefined
+						}
+						stats={screen === "note" && session ? session.stats : null}
+						tools={
+							<NoteTools
+								key={session?.opened?.path}
+								outline={session?.outline ?? []}
+								hasNote={screen === "note" && !!session?.opened}
+								props={session?.props ?? null}
+								editable={!!session?.opened?.editable}
+								onChange={(next) => session?.editProps(next)}
+								onOpenTag={(tag) => setSelection({ kind: "tag", value: tag })}
+							/>
+						}
+						sidebar={
+							<Sidebar
+								view={view}
+								busy={busy}
+								maintainer={maintainer}
+								selection={selection}
+								livePath={shownPath}
+								tree={tree}
+								treeActions={treeActions}
+								treeNotice={treeNotice}
+								onStartNote={startNote}
+								onStartCanvas={startCanvas}
+								onChooseVault={async () => {
+									if (!(await ws.settleAll())) return;
+									setScreen("note");
+									setSelection({ kind: "all" });
+									run(() => chooseAndLoad(host));
+								}}
+								onShowMaintainer={() => setShowMaintainer(true)}
+								onNavigate={navigate}
+								onSelection={setSelection}
+								onOpen={(path) => void open(path, { follow: false })}
+							/>
+						}
+					>
+						{screen === "note" ? (
+							<div className="editor-stack">
+								{error && (
+									<p role="alert" className="notice">
+										Something went wrong: {error}
+									</p>
+								)}
+								{view?.status === "none" && (
+									<p className="empty-pane">
+										No vault is open. Choose a folder to start.
+									</p>
+								)}
+								{view && view.status !== "none" && (
+									<WorkspacePanes
+										host={ws}
+										notes={view.notes}
+										renderNote={renderNote}
+										renderCanvas={renderCanvas}
+										renderEmpty={renderEmpty}
+									/>
+								)}
+							</div>
+						) : (
+							<ScreenPane
+								view={view}
+								screen={screen}
+								error={error}
+								busy={busy}
+								writable={writable}
+								screenNotice={screenNotice}
+								updateHost={host}
+								trash={trash}
+								confirmDelete={confirmDelete}
+								onNavigate={navigate}
+								onConfirmDelete={setConfirmDelete}
+								onRestore={(p) => void changeTrash(p, true)}
+								onDelete={(p) => void changeTrash(p, false)}
+								onOpen={(path) => void open(path)}
+							/>
+						)}
+					</AppShell>
+				</AppearanceProvider>
 			</div>
 		</TooltipProvider>
 	);

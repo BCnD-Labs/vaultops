@@ -200,21 +200,6 @@ export function AppShell({
 			}}
 		>
 			<div className="app-shell">
-				<IconRail
-					onNavigate={(item) => {
-						if (item === "search") {
-							setSearchRequest((count) => count + 1);
-							return;
-						}
-						if (item === "settings") {
-							onNavigateScreen("settings");
-							return;
-						}
-						(item === "changes" ? right : left).current?.expand();
-						if (item !== "notes")
-							setNavigation((state) => ({ ...state, [item]: state[item] + 1 }));
-					}}
-				/>
 				<ResizablePanelGroup
 					orientation="horizontal"
 					className="shell-regions"
@@ -248,6 +233,24 @@ export function AppShell({
 						<div className="shell-side" inert={collapsed.left}>
 							<div className="shell-pane-bar">{sidebarToggle("left")}</div>
 							{sidebar}
+							<IconRail
+								onNavigate={(item) => {
+									if (item === "search") {
+										setSearchRequest((count) => count + 1);
+										return;
+									}
+									if (item === "settings") {
+										onNavigateScreen("settings");
+										return;
+									}
+									(item === "changes" ? right : left).current?.expand();
+									if (item !== "notes")
+										setNavigation((state) => ({
+											...state,
+											[item]: state[item] + 1,
+										}));
+								}}
+							/>
 						</div>
 					</ResizablePanel>
 					<ResizableHandle />

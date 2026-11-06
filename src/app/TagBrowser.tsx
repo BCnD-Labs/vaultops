@@ -1,6 +1,9 @@
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { notesWithTag, tagIndex } from "../core/notes/tags";
+import { useAppearance } from "./AppearanceContext";
+import { tagTone } from "./appearance";
+import { TagColourPicker } from "./StylePopover";
 
 interface Row {
 	path: string;
@@ -15,20 +18,33 @@ export function TagIndex(props: {
 	onPick: (tag: string) => void;
 }) {
 	const tags = tagIndex(props.rows);
+	const { appearance, setTag } = useAppearance();
 	if (tags.length === 0) return null;
 	return (
 		<nav className="tag-index" aria-label="Tags">
 			{tags.map(({ tag, count }) => (
-				<button
-					key={tag}
-					type="button"
-					className="sidebar-row tag-button"
-					aria-pressed={props.active?.toLowerCase() === tag.toLowerCase()}
-					onClick={() => props.onPick(tag)}
-				>
-					<span className="tree-name">#{tag}</span>{" "}
-					<span className="sidebar-count">{count}</span>
-				</button>
+				<div key={tag} className="tree-row tag-row">
+					<button
+						type="button"
+						className="sidebar-row tag-button"
+						aria-pressed={props.active?.toLowerCase() === tag.toLowerCase()}
+						onClick={() => props.onPick(tag)}
+					>
+						<span className="tree-name">
+							<span className="tag-pill" data-tone={tagTone(tag, appearance)}>
+								#{tag}
+							</span>
+						</span>{" "}
+						<span className="sidebar-count">{count}</span>
+					</button>
+					<span className="tree-actions">
+						<TagColourPicker
+							name={tag}
+							tone={appearance.tags[tag.toLowerCase()]}
+							onChange={(tone) => setTag(tag, tone)}
+						/>
+					</span>
+				</div>
 			))}
 		</nav>
 	);

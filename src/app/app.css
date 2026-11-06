@@ -209,9 +209,9 @@ body {
 
 .app-shell {
 	display: grid;
-	grid-template-columns: var(--rail-width) minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
 	grid-template-rows: minmax(0, 1fr);
-	padding: var(--shell-gap) var(--shell-gap) var(--shell-gap) 0;
+	padding: var(--shell-gap);
 	box-sizing: border-box;
 	width: 100%;
 	min-width: 0;
@@ -299,13 +299,13 @@ body {
 	color: var(--muted-foreground);
 }
 .icon-rail {
-	grid-column: 1;
-	grid-row: 1 / -1;
 	display: flex;
-	flex-direction: column;
+	flex: none;
 	align-items: center;
-	gap: var(--shell-gap);
-	padding-block: var(--shell-gap);
+	gap: 2px;
+	padding: var(--space-2);
+	background: var(--shell-panel);
+	border-top: var(--border-width) solid var(--shell-border);
 }
 .rail-item {
 	color: var(--muted-foreground);
@@ -318,18 +318,11 @@ body {
 	background: var(--accent);
 	color: var(--accent-foreground);
 }
-.rail-item[aria-current="page"]::before {
-	content: "";
-	position: absolute;
-	inset: 4px auto 4px 0;
-	width: var(--focus-ring-width);
-	background: var(--primary);
-}
 .rail-item[aria-disabled="true"] {
 	cursor: default;
 }
 .rail-settings {
-	margin-top: auto;
+	margin-left: auto;
 }
 .section-label {
 	font-size: var(--section-size);
@@ -478,8 +471,8 @@ body {
 	font-weight: 600;
 }
 .shell-right [data-state="active"][data-slot="tabs-trigger"] {
-	background: var(--accent);
-	color: var(--accent-foreground);
+	border-bottom-color: var(--primary);
+	color: var(--foreground);
 }
 .shell-right [data-slot="tabs-content"] {
 	padding: 8px 0;
@@ -574,4 +567,21 @@ select {
 	select {
 		transition: none;
 	}
+}
+
+/* Tabs (details panel and others): a quiet underline, no browser button fill. */
+[data-slot="tabs-trigger"] {
+	border: 0;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background: none;
+	cursor: pointer;
+}
+[data-slot="tabs-trigger"]:hover {
+	color: var(--foreground);
+}
+[data-slot="tabs-trigger"][data-state="active"] {
+	border-bottom-color: var(--primary);
+	background: none;
+	color: var(--foreground);
 }

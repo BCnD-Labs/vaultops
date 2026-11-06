@@ -26,6 +26,8 @@ import {
 	setValue,
 } from "../core/notes/properties";
 import { addTag, removeTag, tagsOf } from "../core/notes/tags";
+import { useAppearance } from "./AppearanceContext";
+import { tagTone } from "./appearance";
 
 interface PanelProps {
 	/** The note's properties; null when the file keeps them in a form we can't edit. */
@@ -54,6 +56,7 @@ export function Chips(props: {
 	onPick?: (item: string) => void;
 }) {
 	const [draft, setDraft] = useState("");
+	const { appearance } = useAppearance();
 	const add = () => {
 		if (draft.trim() === "") return;
 		props.onAdd(draft);
@@ -62,7 +65,13 @@ export function Chips(props: {
 	return (
 		<span className="chips">
 			{props.items.map((item) => (
-				<span key={item} className="chip">
+				<span
+					key={item}
+					className="chip"
+					data-tone={
+						props.label === "tags" ? tagTone(item, appearance) : undefined
+					}
+				>
 					{props.onPick ? (
 						<button
 							type="button"

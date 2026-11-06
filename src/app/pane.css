@@ -619,6 +619,11 @@ button.note-meta-chip:focus-visible {
 	max-width: var(--editor-width);
 	box-sizing: border-box;
 	margin-inline: auto;
+	/* A quiet panel, so the properties read as their own section above the text. */
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) solid var(--block-outline);
+	border-radius: var(--radius-container);
+	background: color-mix(in srgb, var(--foreground) 3%, transparent);
 }
 .props-block-header {
 	display: inline-flex;

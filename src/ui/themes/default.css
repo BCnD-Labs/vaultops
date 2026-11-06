@@ -18,6 +18,16 @@
 	--seed-warning-container: #fff3d6;
 	--seed-tip: #1b6b3a;
 	--seed-tip-container: #e3f5e9;
+	/* Mid-tone colours for tags and sidebar rows; rules mix them with the text colour. */
+	--tone-red: #e5484d;
+	--tone-orange: #f76b15;
+	--tone-yellow: #d9a400;
+	--tone-green: #30a46c;
+	--tone-teal: #12a594;
+	--tone-blue: #3e63dd;
+	--tone-purple: #8e4ec6;
+	--tone-pink: #d6409f;
+	--tone-gray: #8b8d98;
 	--border-width: 1px;
 	--focus-ring-width: 2px;
 	--radius-1: 8px;

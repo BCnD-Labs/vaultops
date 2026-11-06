@@ -16,6 +16,9 @@ import {
 	type FolderNode,
 	type TreeNode,
 } from "../core/notes/tree";
+import { useAppearance } from "./AppearanceContext";
+import { ICONS, type ItemStyle, modeOf } from "./appearance";
+import { StylePopover } from "./StylePopover";
 
 /** What is being dragged: a note or a folder. */
 export interface DragItem {
@@ -95,6 +98,7 @@ export function NoteTree({
 	const [editing, setEditing] = useState<Editing>(null);
 	const [confirming, setConfirming] = useState<string | null>(null);
 	const [over, setOver] = useState<string | null>(null);
+	const { appearance, setItem } = useAppearance();
 	const lastFolderRequest = useRef(newFolderRequest);
 	useEffect(() => {
 		if (newFolderRequest !== lastFolderRequest.current) {
@@ -145,6 +149,8 @@ export function NoteTree({
 	};
 
 	const ctx: Ctx = {
+		styles: appearance.items,
+		setStyle: setItem,
 		open,
 		foldersOnly,
 		selectedFolder,
@@ -204,7 +210,17 @@ export function NoteTree({
 	);
 }
 
+/** The data attributes the stylesheet reads to paint a row. */
+function toneProps(style: ItemStyle | undefined) {
+	return {
+		"data-tone": style?.tone,
+		"data-mode": style?.tone ? modeOf(style) : undefined,
+	};
+}
+
 interface Ctx {
+	styles: Record<string, ItemStyle>;
+	setStyle: (path: string, style: ItemStyle | null) => void;
 	foldersOnly: boolean;
 	selectedFolder?: string;
 	onSelectFolder?: (path: string) => void;
@@ -324,7 +340,7 @@ function Branch({
 								</div>
 							</div>
 						) : (
-							<div className="tree-row">
+							<div className="tree-row" {...toneProps(ctx.styles[node.path])}>
 								<button
 									type="button"
 									className="tree-note"
@@ -342,17 +358,28 @@ function Branch({
 									}}
 								>
 									<span className="tree-icon" aria-hidden="true" />
-									{node.canvas ? (
-										<LayoutDashboard className="tree-icon" aria-hidden="true" />
-									) : (
-										<FileText className="tree-icon" aria-hidden="true" />
-									)}
+									{(() => {
+										const Icon =
+											ICONS[ctx.styles[node.path]?.icon ?? ""] ??
+											(node.canvas ? LayoutDashboard : FileText);
+										return (
+											<Icon
+												className="tree-icon tree-icon-main"
+												aria-hidden="true"
+											/>
+										);
+									})()}
 									<span className="tree-name">{node.name}</span>
 									{node.readOnly && (
 										<span className="read-only-tag">read-only</span>
 									)}
 								</button>
 								<span className="tree-actions">
+									<StylePopover
+										name={node.name}
+										style={ctx.styles[node.path]}
+										onChange={(next) => ctx.setStyle(node.path, next)}
+									/>
 									<button
 										type="button"
 										className="tree-action"
@@ -431,6 +458,7 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 			// biome-ignore lint/a11y/noStaticElementInteractions: a folder row is a drop target for moving notes and folders into it.
 			<div
 				className={`tree-row${ctx.over === node.path ? " is-over" : ""}`}
+				{...toneProps(ctx.styles[node.path])}
 				onDragOver={(e) => ctx.dragOver(e, node.path)}
 				onDragLeave={(e) => {
 					if (!e.currentTarget.contains(e.relatedTarget as Node | null))
@@ -480,11 +508,21 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 							aria-hidden="true"
 						/>
 					)}
-					<Folder className="tree-icon" aria-hidden="true" />
+					{(() => {
+						const Icon = ICONS[ctx.styles[node.path]?.icon ?? ""] ?? Folder;
+						return (
+							<Icon className="tree-icon tree-icon-main" aria-hidden="true" />
+						);
+					})()}
 					<span className="tree-name">{node.name}</span>
 					{notes > 0 && <span className="sidebar-count">{notes}</span>}
 				</button>
 				<span className="tree-actions">
+					<StylePopover
+						name={node.name}
+						style={ctx.styles[node.path]}
+						onChange={(next) => ctx.setStyle(node.path, next)}
+					/>
 					<button
 						type="button"
 						className="tree-action"

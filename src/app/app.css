@@ -261,7 +261,6 @@ body {
 }
 
 .shell-regions {
-	grid-column: 2;
 	min-height: 0;
 }
 .shell-regions > [data-slot="resizable-handle"] {

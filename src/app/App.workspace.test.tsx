@@ -29,7 +29,7 @@ vi.mock("../editor/NoteEditor", () => ({
 		onDropBlock: (
 			blockId: string,
 			sourceId: string,
-			after: string | null,
+			slot: { after: string | null; near: string[]; start: boolean },
 		) => Promise<void>;
 	}) => {
 		const [initial] = useState(doc);
@@ -38,7 +38,13 @@ vi.mock("../editor/NoteEditor", () => ({
 				<output data-testid="editor-blocks">{JSON.stringify(initial)}</output>
 				<button
 					type="button"
-					onClick={() => void onDropBlock("block", sourceId, null)}
+					onClick={() =>
+						void onDropBlock("block", sourceId, {
+							after: null,
+							near: [],
+							start: false,
+						})
+					}
 				>
 					Drop block here
 				</button>

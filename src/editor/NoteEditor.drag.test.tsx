@@ -115,13 +115,36 @@ it("drops a canvas block between root blocks and ignores other drags", () => {
 	Object.defineProperty(drop, "dataTransfer", { value: transfer });
 	Object.defineProperty(drop, "clientY", { value: 19 });
 	fireEvent(target, drop);
-	expect(onDropBlock).toHaveBeenCalledWith("card", "canvas", "first");
+	expect(onDropBlock).toHaveBeenCalledWith("card", "canvas", {
+		after: "first",
+		near: [],
+		start: false,
+	});
+	const top = new Event("drop", { bubbles: true, cancelable: true });
+	Object.defineProperty(top, "dataTransfer", { value: transfer });
+	Object.defineProperty(top, "clientY", { value: 2 });
+	fireEvent(target, top);
+	expect(onDropBlock).toHaveBeenLastCalledWith("card", "canvas", {
+		after: null,
+		near: [],
+		start: true,
+	});
+	const bottom = new Event("drop", { bubbles: true, cancelable: true });
+	Object.defineProperty(bottom, "dataTransfer", { value: transfer });
+	Object.defineProperty(bottom, "clientY", { value: 39 });
+	fireEvent(target, bottom);
+	expect(onDropBlock).toHaveBeenLastCalledWith("card", "canvas", {
+		after: "second",
+		near: ["first"],
+		start: false,
+	});
+	onDropBlock.mockClear();
 	transfer.setData(
 		BLOCK_DRAG_TYPE,
 		JSON.stringify({ noteId: "note-1", blockId: "first" }),
 	);
 	fireEvent(target, drop);
-	expect(onDropBlock).toHaveBeenCalledTimes(1);
+	expect(onDropBlock).toHaveBeenCalledTimes(0);
 	fireEvent.drop(target, { dataTransfer: new DataTransfer(), clientY: 19 });
-	expect(onDropBlock).toHaveBeenCalledTimes(1);
+	expect(onDropBlock).toHaveBeenCalledTimes(0);
 });

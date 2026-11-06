@@ -341,6 +341,10 @@ it("sets dropEffect to move on note dragover, shows the indicator at the right b
 		dispatchDrag("dragOver", dropArea, transfer, y);
 		expect(transfer.dropEffect).toBe("move");
 		expect(dropIndex()).toBe(expected);
+		// The gap is part of the page flow, between the blocks, not an overlay.
+		expect(
+			dropArea.querySelectorAll(".ProseMirror > .block-drop-slot"),
+		).toHaveLength(1);
 	}
 
 	dispatchDrag("dragLeave", dropArea, makeTransfer());
@@ -355,5 +359,9 @@ it("sets dropEffect to move on note dragover, shows the indicator at the right b
 	expect(dropIndex()).toBe("1");
 	dispatchDrag("drop", dropArea, makeTransfer(), 160);
 	expect(screen.queryByTestId("block-drop-indicator")).toBeNull();
-	expect(onDropBlock).toHaveBeenCalledWith("card-1", "canvas-1", "first");
+	expect(onDropBlock).toHaveBeenCalledWith("card-1", "canvas-1", {
+		after: "first",
+		near: [],
+		start: false,
+	});
 });

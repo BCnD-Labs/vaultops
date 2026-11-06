@@ -36,7 +36,10 @@ export async function moveBlock(
 	const extracted = extractBlock(from.note, blockId);
 	const inserted =
 		"after" in placement
-			? insertBlock(to.note, extracted.lines, placement.after)
+			? insertBlock(to.note, extracted.lines, placement.after, {
+					near: placement.near,
+					start: placement.start,
+				})
 			: placeOnCanvas(to.note, extracted.lines, placement.x, placement.y);
 	const destinationSave = prepareSave(inserted);
 	const sourceSave = prepareSave(extracted.doc);

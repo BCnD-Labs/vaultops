@@ -1,7 +1,14 @@
 import { type Block, isCanvasOnly, type Note } from "../note-format";
 import { attrsOf, connectorEnds, groupMembers } from "./canvas-ops";
 
-export type Placement = { after: string | null } | { x: number; y: number };
+/**
+ * Where a block lands. In a note, `after: null` means the end. A drop from the
+ * editor also says `start` (above the first block) and `near`: the blocks above
+ * the drop, nearest first, used when `after` is not in the saved file.
+ */
+export type Placement =
+	| { after: string | null; near?: string[]; start?: boolean }
+	| { x: number; y: number };
 
 function requireIds(lines: Block[]): Set<string> {
 	const ids = new Set<string>();
@@ -81,15 +88,34 @@ export function insertBlock(
 	doc: Note,
 	lines: Block[],
 	at: string | null,
+	drop?: { near?: string[]; start?: boolean },
 ): Note {
 	if (doc.header.kind === "canvas")
 		throw new Error("Use canvas placement for a canvas.");
 	const root = checkedDestination(doc, lines);
 	let index = doc.blocks.length;
-	if (at !== null) {
-		const anchor = doc.blocks.findIndex((line) => line.id === at);
-		if (anchor < 0) throw new Error(`Block ${at} was not found.`);
-		const descendants = new Set([at]);
+	let anchorId = at;
+	let anchor = -1;
+	if (drop?.start) {
+		index = 0;
+		anchorId = null;
+	} else if (at !== null) {
+		// A drop can name a block the saved file does not have yet; use the
+		// nearest block above it that is saved, or the top if none is.
+		const roots = new Set(
+			doc.blocks.filter((line) => !line.parent && line.id).map((l) => l.id),
+		);
+		const found = [at, ...(drop?.near ?? [])].find((id) => roots.has(id));
+		if (found === undefined) {
+			if (!drop) throw new Error(`Block ${at} was not found.`);
+			index = 0;
+			anchorId = null;
+		} else anchorId = found;
+	}
+	if (anchorId !== null) {
+		const target = anchorId;
+		anchor = doc.blocks.findIndex((line) => line.id === target);
+		const descendants = new Set([target]);
 		index = anchor + 1;
 		while (index < doc.blocks.length) {
 			const line = doc.blocks[index] as Block;

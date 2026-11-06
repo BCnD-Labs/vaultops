@@ -15,8 +15,10 @@ import { Callout } from "./callout";
 import { CodeLanguage } from "./code-language";
 import { DateChip } from "./date-chip";
 import { Divider } from "./divider";
+import { DropSlot } from "./drop-slot";
 import { Folding } from "./folding";
 import { Kbd } from "./kbd";
+import { MoveOut } from "./move-out";
 import { SlashMenu } from "./slash-menu";
 import { TaskBlock } from "./task-block";
 import { Toggle } from "./toggle";
@@ -57,6 +59,8 @@ export function createExtensions(): Extensions {
 		TableCell,
 		SlashMenu,
 		Folding,
+		DropSlot,
+		MoveOut,
 		UniqueID.configure({
 			attributeName: "id",
 			types: [...BLOCK_TYPES],

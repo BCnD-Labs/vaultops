@@ -16,7 +16,7 @@ import {
 import type { Props } from "../core/notes/properties";
 import type { AutosaveState } from "../editor/autosave";
 import { docToBlocks } from "../editor/doc-blocks";
-import { NoteEditor } from "../editor/NoteEditor";
+import { type DropSlot, NoteEditor } from "../editor/NoteEditor";
 import type { OpenedNote } from "../editor/note-io";
 import { SaveStatus } from "../editor/SaveStatus";
 import { NoteDetails } from "./NoteMetadata";
@@ -46,7 +46,7 @@ export interface NoteViewProps {
 	onDropBlock?: (
 		blockId: string,
 		canvasId: string,
-		after: string | null,
+		slot: DropSlot,
 	) => Promise<void>;
 	onRetry: () => void;
 	onLoadDisk: () => void;

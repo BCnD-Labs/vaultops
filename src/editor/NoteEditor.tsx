@@ -1,9 +1,10 @@
 import type { Editor, JSONContent } from "@tiptap/core";
 import DragHandle from "@tiptap/extension-drag-handle-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { dropPoint } from "@tiptap/pm/transform";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { GripVertical } from "lucide-react";
+import { CornerLeftUp, GripVertical } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,10 +19,12 @@ import {
 	setBlockDragData,
 	setDragEffect,
 } from "./block-drag";
+import { type DropSlotState, setDropSlot } from "./drop-slot";
 import { createExtensions } from "./extensions";
 import { FormatBar } from "./FormatBar";
 import { ensureUniqueIds } from "./ids";
 import { abandonLift, liftBlock } from "./lift";
+import { findMovable, type Movable, moveOut, nestLabel } from "./move-out";
 import "./editor.css";
 
 export interface NoteEditorProps {
@@ -34,9 +37,12 @@ export interface NoteEditorProps {
 	onDropBlock?: (
 		blockId: string,
 		canvasId: string,
-		after: string | null,
+		slot: DropSlot,
 	) => Promise<void>;
 }
+
+/** Where in the note a dropped block should land. */
+export type DropSlot = { after: string | null; near: string[]; start: boolean };
 
 /** The Tiptap editor for one note. It does no file access. */
 export function NoteEditor({
@@ -52,9 +58,16 @@ export function NoteEditor({
 	const dragStartEvent = useRef<DragEvent | null>(null);
 	const draggedPos = useRef<number | null>(null);
 	const editorRef = useRef<Editor | null>(null);
-	const [dropIndicator, setDropIndicator] = useState<{
-		index: number;
+	const [dropIndicator, setDropIndicator] = useState<DropSlotState | null>(
+		null,
+	);
+	const sectionRef = useRef<HTMLElement | null>(null);
+	// The block under the pointer that can be taken out of the block holding it.
+	const [movable, setMovable] = useState<{
+		pos: number;
+		from: string;
 		top: number;
+		left: number;
 	} | null>(null);
 
 	useEffect(() => {
@@ -104,32 +117,115 @@ export function NoteEditor({
 
 	editorRef.current = editor;
 
+	// The gap and line that show where a carried block would land.
+	useEffect(() => {
+		if (!editor || editor.isDestroyed) return;
+		setDropSlot(editor.view, dropIndicator);
+	}, [editor, dropIndicator]);
+
 	useEffect(() => {
 		// Unlocking is not a content edit and must not start autosave.
 		editor?.setEditable(editable, false);
 	}, [editor, editable]);
+
+	useEffect(() => {
+		if (!editor) return;
+		const hide = () => setMovable(null);
+		editor.on("update", hide);
+		return () => {
+			editor.off("update", hide);
+		};
+	}, [editor]);
+
+	const trackMovable = (event: React.MouseEvent<HTMLElement>) => {
+		if (!editor || !editable || !sectionRef.current) return;
+		if (
+			event.target instanceof Element &&
+			event.target.closest(".move-out-button, .block-drag-handle")
+		)
+			return;
+		const hit = editor.view.posAtCoords({
+			left: event.clientX,
+			top: event.clientY,
+		});
+		const found: Movable | null = hit
+			? findMovable(
+					editor.state.doc,
+					hit.inside >= 0 ? hit.inside + 1 : hit.pos,
+				)
+			: null;
+		if (!found) {
+			setMovable((current) => (current === null ? current : null));
+			return;
+		}
+		const dom = editor.view.nodeDOM(found.pos);
+		if (!(dom instanceof HTMLElement)) return;
+		const box = dom.getBoundingClientRect();
+		const area = sectionRef.current.getBoundingClientRect();
+		const top = box.top - area.top;
+		const left = box.right - area.left;
+		setMovable((current) =>
+			current?.pos === found.pos && current.top === top && current.left === left
+				? current
+				: { pos: found.pos, from: found.from, top, left },
+		);
+	};
 
 	const updateDropIndicator = (event: React.DragEvent<HTMLElement>) => {
 		if (!event.dataTransfer.types.includes(BLOCK_DRAG_TYPE)) return;
 		event.preventDefault();
 		setDragEffect(event.dataTransfer, "dropEffect", "move");
 		if (!editor) return;
+		const view = editor.view;
+		if (view.dragging?.slice) {
+			// A block of this note: drop exactly where the editor will drop it, which
+			// can be inside another block, and say so.
+			const hit = view.posAtCoords({
+				left: event.clientX,
+				top: event.clientY,
+			});
+			if (!hit) {
+				setDropIndicator(null);
+				return;
+			}
+			const target =
+				dropPoint(view.state.doc, hit.pos, view.dragging.slice) ?? hit.pos;
+			const $target = view.state.doc.resolve(target);
+			const label =
+				$target.depth > 0 ? nestLabel($target.parent.type.name) : null;
+			setDropIndicator({
+				pos: target,
+				index: null,
+				nest:
+					label === null
+						? null
+						: { from: $target.before(), to: $target.after(), label },
+			});
+			return;
+		}
 		const slot = findBlockDropTarget(
 			editor.view.dom,
 			editor.state.doc,
 			event.clientY,
 			event.currentTarget,
 		);
-		setDropIndicator((current) =>
-			current?.index === slot.index && current.top === slot.top
-				? current
-				: { index: slot.index, top: slot.top },
-		);
+		let pos = 0;
+		for (let i = 0; i < slot.index; i++)
+			pos += editor.state.doc.child(i).nodeSize;
+		setDropIndicator({ pos, index: slot.index, nest: null });
 	};
 
 	return (
 		<section
 			className="note-editor"
+			ref={sectionRef}
+			onMouseMove={trackMovable}
+			onMouseLeave={(event) => {
+				const next = event.relatedTarget;
+				if (next instanceof Element && next.closest(".move-out-button")) return;
+				setMovable(null);
+			}}
+			data-block-dragging={dropIndicator !== null || undefined}
 			aria-label="Note editor drop area"
 			onDragEnter={updateDropIndicator}
 			onDragOver={updateDropIndicator}
@@ -147,13 +243,13 @@ export function NoteEditor({
 				event.preventDefault();
 				event.stopPropagation();
 				if (!editor || !onDropBlock || !data) return;
-				const { after } = findBlockDropTarget(
+				const { after, near, start } = findBlockDropTarget(
 					editor.view.dom,
 					editor.state.doc,
 					event.clientY,
 					event.currentTarget,
 				);
-				void onDropBlock(data.blockId, data.noteId, after);
+				void onDropBlock(data.blockId, data.noteId, { after, near, start });
 			}}
 		>
 			<EditorContent editor={editor} />
@@ -170,13 +266,27 @@ export function NoteEditor({
 					<FormatBar editor={editor} />
 				</BubbleMenu>
 			)}
-			{dropIndicator !== null && (
-				<div
-					className="block-drop-indicator prosemirror-dropcursor-block"
-					data-testid="block-drop-indicator"
-					data-drop-index={dropIndicator.index}
-					style={{ top: `${dropIndicator.top}px` }}
-				/>
+			{editor && editable && movable && (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="move-out-button"
+							style={{ top: `${movable.top}px`, left: `${movable.left}px` }}
+							aria-label={`Move out of ${movable.from}`}
+							onMouseDown={(event) => event.preventDefault()}
+							onClick={() => {
+								moveOut(editor, movable.pos);
+								setMovable(null);
+							}}
+						>
+							<CornerLeftUp size={14} aria-hidden="true" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>{`Move out of ${movable.from} (Cmd/Ctrl+Alt+←)`}</TooltipContent>
+				</Tooltip>
 			)}
 			{editor && editable && noteId && (
 				<DragHandle

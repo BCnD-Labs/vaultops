@@ -32,7 +32,7 @@ vi.mock("../editor/NoteEditor", () => ({
 		onDropBlock: (
 			blockId: string,
 			canvasId: string,
-			after: string | null,
+			slot: { after: string | null; near: string[]; start: boolean },
 		) => Promise<void>;
 	}) => {
 		const [initial] = useState(doc);
@@ -41,13 +41,25 @@ vi.mock("../editor/NoteEditor", () => ({
 				<output data-testid="editor-blocks">{JSON.stringify(initial)}</output>
 				<button
 					type="button"
-					onClick={() => void onDropBlock("block", dragCanvasId, "before")}
+					onClick={() =>
+						void onDropBlock("block", dragCanvasId, {
+							after: "before",
+							near: [],
+							start: false,
+						})
+					}
 				>
 					Drop between blocks
 				</button>
 				<button
 					type="button"
-					onClick={() => void onDropBlock("block", dragCanvasId, null)}
+					onClick={() =>
+						void onDropBlock("block", dragCanvasId, {
+							after: null,
+							near: [],
+							start: false,
+						})
+					}
 				>
 					Drop at end
 				</button>

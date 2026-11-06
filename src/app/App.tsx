@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import type { Placement } from "../core/notes/block-move";
 import {
 	createFolder,
 	movedPath,
@@ -696,7 +697,7 @@ export function App({ host }: { host: Host }) {
 		pane: PaneView,
 		blockId: string,
 		sourceId: string,
-		placement: { after: string | null } | { x: number; y: number },
+		placement: Placement,
 	) => {
 		const result = await wsRef.current.dropBlock(
 			pane.id,
@@ -717,9 +718,9 @@ export function App({ host }: { host: Host }) {
 			onLoadDisk={() => void loadDisk(pane)}
 			onSaveCopy={() => void saveCopy(pane)}
 			onMoveToTrash={() => void moveToTrash(pane)}
-			onDropBlock={async (blockId, sourceId, after) => {
+			onDropBlock={async (blockId, sourceId, slot) => {
 				try {
-					await dropBlock(pane, blockId, sourceId, { after });
+					await dropBlock(pane, blockId, sourceId, slot);
 				} catch (reason) {
 					setError(reason instanceof Error ? reason.message : String(reason));
 				}

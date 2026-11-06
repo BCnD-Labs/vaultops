@@ -63,13 +63,69 @@
 	background: var(--primary);
 }
 
-.note-editor:has(> .block-drop-indicator) .prosemirror-dropcursor-block,
-.note-editor:has(> .block-drop-indicator) .prosemirror-dropcursor-inline {
-	display: none;
-}
-
 .note-editor .ProseMirror > * + * {
 	margin-top: var(--block-gap);
+}
+
+/* While a block is carried over the note, just the line appears at the slot it
+   would land in. It is a real element, so the blocks above and below shift a
+   little to make room. */
+.note-editor .block-drop-slot {
+	display: flex;
+	align-items: center;
+	height: var(--focus-ring-width);
+	margin-block: var(--space-unit);
+	pointer-events: none;
+	user-select: none;
+}
+
+.block-drop-slot-line {
+	position: relative;
+	flex: 1;
+	height: var(--focus-ring-width);
+	background: var(--primary);
+	border-radius: var(--radius-round);
+}
+
+.block-drop-slot-line::before {
+	content: "";
+	position: absolute;
+	left: calc(var(--space-unit) * -1);
+	top: 50%;
+	width: calc(var(--space-unit) * 2);
+	height: calc(var(--space-unit) * 2);
+	transform: translateY(-50%);
+	border-radius: var(--radius-round);
+	background: var(--primary);
+}
+
+/* The block a dragged block would end up inside: outlined and named. */
+.note-editor .drop-nest-target {
+	position: relative;
+	outline: var(--focus-ring-width) dashed var(--primary);
+	outline-offset: var(--space-unit);
+	border-radius: var(--radius-control);
+}
+
+.note-editor .drop-nest-target::after {
+	content: attr(data-nest-label);
+	position: absolute;
+	top: 0;
+	right: 0;
+	transform: translateY(-100%);
+	padding: 0 var(--space-2);
+	font-size: var(--font-size-small);
+	line-height: 1.5;
+	color: var(--primary-foreground);
+	background: var(--primary);
+	border-radius: var(--radius-control);
+	pointer-events: none;
+	z-index: 10;
+}
+
+.note-editor[data-block-dragging] .prosemirror-dropcursor-block,
+.note-editor[data-block-dragging] .prosemirror-dropcursor-inline {
+	display: none;
 }
 
 .note-editor h1 {
@@ -652,4 +708,22 @@
 }
 .note-editor .date-chip.ProseMirror-selectednode {
 	border-color: var(--ring);
+}
+
+/* "Move out of the list/quote/…": a small button at the block's right edge,
+   shown only while the pointer is over a block that sits inside another. */
+.note-editor .move-out-button {
+	position: absolute;
+	z-index: 5;
+	width: calc(var(--space-unit) * 6);
+	height: calc(var(--space-unit) * 6);
+	transform: translate(-100%, 0);
+	color: var(--muted-foreground);
+	background: var(--surface);
+	box-shadow: var(--elevation-1);
+}
+
+.note-editor .move-out-button:hover {
+	color: var(--foreground);
+	background: var(--accent);
 }

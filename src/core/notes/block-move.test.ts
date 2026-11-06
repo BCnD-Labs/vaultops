@@ -120,3 +120,24 @@ it("places blocks on a canvas and strips canvas coordinates on return to a note"
 		placeOnCanvas(doc([], true), [line("a")], Number.NaN, 0),
 	).toThrow("finite");
 });
+
+it("drops at the top, and falls back to the nearest saved block above an unsaved one", () => {
+	const dest = doc([line("a"), line("b")]);
+	const moved = [line("m")];
+	const ids = (note: Note) => note.blocks.map((b) => b.id);
+	expect(ids(insertBlock(dest, moved, null, { start: true }))).toEqual([
+		"m",
+		"a",
+		"b",
+	]);
+	expect(
+		ids(insertBlock(dest, moved, "unsaved", { near: ["a", "x"] })),
+	).toEqual(["a", "m", "b"]);
+	expect(ids(insertBlock(dest, moved, "unsaved", { near: ["also"] }))).toEqual([
+		"m",
+		"a",
+		"b",
+	]);
+	expect(ids(insertBlock(dest, moved, null, {}))).toEqual(["a", "b", "m"]);
+	expect(() => insertBlock(dest, moved, "unsaved")).toThrow("not found");
+});

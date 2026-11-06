@@ -66,16 +66,30 @@ export function findBlockDropTarget(
 	doc: ProseMirrorNode,
 	clientY: number,
 	container?: Element | null,
-): { index: number; after: string | null; top: number } {
-	const children = Array.from(editorDom.children);
+): {
+	index: number;
+	after: string | null;
+	/** Blocks above the slot, nearest first, for when `after` is not saved yet. */
+	near: string[];
+	/** The slot is above the first block. */
+	start: boolean;
+	top: number;
+} {
+	// The open gap is not a block, and it must not count as one.
+	const children = Array.from(editorDom.children).filter(
+		(child) => !child.classList.contains("block-drop-slot"),
+	);
 	let index = 0;
-	let after: string | null = null;
+	const above: string[] = [];
+	// Anywhere in a block's top half is the slot above it, the bottom half the
+	// slot below it, so the whole height of the page is a target.
 	for (; index < doc.childCount; index++) {
 		const bounds = children[index]?.getBoundingClientRect();
 		if (bounds && clientY < bounds.top + bounds.height / 2) break;
 		const id = doc.child(index).attrs.id;
-		if (typeof id === "string") after = id;
+		if (typeof id === "string") above.unshift(id);
 	}
+	const after = above[0] ?? null;
 	const origin = (container ?? editorDom).getBoundingClientRect().top;
 	const beforeRect =
 		index > 0 ? children[index - 1]?.getBoundingClientRect() : undefined;
@@ -91,5 +105,11 @@ export function findBlockDropTarget(
 				: beforeRect
 					? beforeRect.bottom
 					: origin;
-	return { index, after, top: edge - origin };
+	return {
+		index,
+		after,
+		near: above.slice(1),
+		start: index === 0,
+		top: edge - origin,
+	};
 }

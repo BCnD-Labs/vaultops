@@ -98,11 +98,12 @@
 }
 
 .note-editor blockquote {
-	margin-left: 0;
-	padding-left: 0.9rem;
-	border-left: var(--border-width) solid var(--border);
+	margin: 0.6rem 0;
+	padding: 0.6rem 0.8rem;
+	border-left: calc(var(--border-width) * 3) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
 	color: var(--editor-quote);
-	opacity: 0.85;
 }
 
 .note-editor hr {
@@ -552,4 +553,16 @@
 	margin-left: 0.4em;
 	padding-left: 1.2em;
 	border-left: var(--border-width) solid var(--line);
+}
+
+/* A faint outline on each block so the structure of a note is visible.
+ * Set --block-outline to transparent in a theme to turn it off. */
+.note-editor .ProseMirror > * {
+	outline: var(--border-width) solid var(--block-outline);
+	outline-offset: calc(var(--space-unit) / 2);
+	border-radius: var(--radius-control);
+}
+.note-editor .ProseMirror > .ProseMirror-selectednode,
+.note-editor .ProseMirror > hr.ProseMirror-selectednode {
+	outline-color: var(--ring);
 }

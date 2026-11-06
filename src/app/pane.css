@@ -83,6 +83,9 @@
 	background: var(--surface);
 	color: var(--foreground);
 	box-shadow: var(--elevation-2);
+	/* The card fills the whole node, so it can be grabbed anywhere on it. */
+	padding: 0;
+	text-align: left;
 }
 .canvas-drop-placeholder {
 	position: absolute;
@@ -96,8 +99,15 @@
 	z-index: 4;
 }
 .canvas-card {
+	position: relative;
+	box-sizing: border-box;
+	min-height: calc(var(--space-unit) * 14);
+	padding: var(--space-3);
 	font-size: var(--font-size-ui);
 	overflow-wrap: anywhere;
+}
+.canvas-pane-locked .canvas-card {
+	cursor: grab;
 }
 .canvas-card p {
 	margin: 0;
@@ -109,8 +119,10 @@
 }
 .canvas-card blockquote {
 	margin: 0;
-	padding-left: 8px;
-	border-left: var(--border-width) solid var(--line);
+	padding: var(--space-1) var(--space-2);
+	border-left: calc(var(--border-width) * 3) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
 }
 .canvas-card hr {
 	margin: 4px 0;
@@ -715,4 +727,47 @@ button.prop-type-icon:focus-visible {
 .prop-type-list button:hover,
 .prop-type-list button:focus-visible {
 	background: var(--accent);
+}
+
+/* Properties: every row reads as a row, and every field as a field. */
+.props-block .prop-row {
+	padding-inline: var(--space-1);
+	border-radius: var(--radius-control);
+}
+.props-block .prop-row:hover {
+	background: var(--surface-container-low);
+}
+.props-block .prop-row > input:not([type="checkbox"]):not(.prop-name-field) {
+	flex: 0 1 16rem;
+	background: var(--surface-container-low);
+	border-color: var(--line);
+}
+.props-block .prop-row > input[type="number"],
+.props-block .prop-row > input[type="date"] {
+	flex: 0 0 11rem;
+}
+.props-block
+	.prop-row
+	> input:not([type="checkbox"]):not(.prop-name-field):focus {
+	border-color: var(--ring);
+}
+.props-block .prop-row > .chips {
+	flex: 1 1 16rem;
+	max-width: 24rem;
+	min-height: var(--row-height);
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+}
+.props-block .prop-name-field {
+	flex: none;
+	width: 9rem;
+}
+.props-block .prop-name {
+	flex: none;
+	width: 9rem;
+}
+.props-block .prop-name-field:hover {
+	border-color: var(--line);
 }

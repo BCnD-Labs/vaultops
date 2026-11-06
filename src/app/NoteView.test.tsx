@@ -261,3 +261,19 @@ it("the note menu holds reading view and the file path, beside move to trash", a
 	);
 	expect(onToggleReading).toHaveBeenCalledTimes(1);
 });
+
+it("keeps a reading view button just before the note menu", async () => {
+	const { run, a } = await setup();
+	await run(() => api.open(a));
+	const user = userEvent.setup();
+	const button = await screen.findByRole("button", {
+		name: "Switch to reading view",
+	});
+	const menu = screen.getByRole("button", { name: "Note actions" });
+	expect(
+		button.compareDocumentPosition(menu) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	onToggleReading.mockClear();
+	await user.click(button);
+	expect(onToggleReading).toHaveBeenCalledTimes(1);
+});

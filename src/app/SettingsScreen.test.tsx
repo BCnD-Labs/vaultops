@@ -116,3 +116,19 @@ it("opens as a dialog titled Settings and closes with its button", async () => {
 	await user.click(screen.getByRole("button", { name: "Close" }));
 	expect(onOpenChange).toHaveBeenCalledWith(false);
 });
+
+it("the settings window lists its sections and shows one at a time", async () => {
+	const user = userEvent.setup();
+	render(
+		<SettingsDialog open onOpenChange={() => {}} host={new MemoryHost()} />,
+	);
+	expect(screen.getByRole("radio", { name: "Dark" })).toBeTruthy();
+	expect(
+		screen.queryByRole("radio", { name: "Atkinson Hyperlegible" }),
+	).toBeNull();
+	await user.click(screen.getByRole("button", { name: "Fonts" }));
+	expect(
+		screen.getByRole("radio", { name: "Atkinson Hyperlegible" }),
+	).toBeTruthy();
+	expect(screen.queryByRole("radio", { name: "Dark" })).toBeNull();
+});

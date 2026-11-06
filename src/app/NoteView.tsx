@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import { Ellipsis } from "lucide-react";
+import { BookOpen, Ellipsis, Pencil } from "lucide-react";
 import { type Ref, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -111,6 +111,30 @@ export function NoteView({
 				onChange={onPropsChange}
 			/>
 			<div className="status-line">
+				{onToggleReading && (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="note-reading"
+								aria-label={
+									reading ? "Switch to editing view" : "Switch to reading view"
+								}
+								onClick={onToggleReading}
+							>
+								{reading ? (
+									<Pencil aria-hidden="true" />
+								) : (
+									<BookOpen aria-hidden="true" />
+								)}
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							{reading ? "Switch to editing view" : "Switch to reading view"}
+						</TooltipContent>
+					</Tooltip>
+				)}
 				{opened.editable && saveState.kind !== "saved" && (
 					<SaveStatus
 						state={saveState}

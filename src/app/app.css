@@ -528,7 +528,7 @@ body {
 	min-width: 0;
 	overflow: hidden;
 	padding: 4px 8px;
-	font-weight: 600;
+	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }

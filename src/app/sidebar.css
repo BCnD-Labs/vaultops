@@ -230,7 +230,7 @@
 	flex: 1;
 	min-width: 0;
 	overflow: hidden;
-	font-weight: 600;
+	font-weight: 500;
 }
 .sidebar-row {
 	border-radius: var(--radius-control);
@@ -262,7 +262,7 @@
 	color: var(--muted-foreground);
 }
 .sidebar .tree-name {
-	font-weight: 600;
+	font-weight: 400;
 }
 .sidebar .note-list button:where(:not([data-slot])) {
 	min-height: 28px;
@@ -302,7 +302,7 @@
 .note-row-title {
 	flex: 1;
 	min-width: 0;
-	font-weight: 600;
+	font-weight: 400;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -616,4 +616,9 @@
 .tree-row[data-mode="background"]:not(.is-over) .tree-actions,
 .tree-row[data-mode="border-background"]:not(.is-over) .tree-actions {
 	background: color-mix(in srgb, var(--tone) 16%, var(--bg));
+}
+
+/* Lighter type in the sidebars: only the active row and the tool tabs stand out. */
+:root .sidebar :is(button, summary, .sidebar-row):not(.vault-switch) {
+	font-weight: 400;
 }

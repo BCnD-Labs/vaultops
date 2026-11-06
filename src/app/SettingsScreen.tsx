@@ -79,18 +79,8 @@ export function SettingsScreen({
 		refreshAppearance(root);
 	};
 
-	return (
-		<section className="vault-screen settings-screen">
-			{modal ? (
-				<>
-					<DialogTitle>Settings</DialogTitle>
-					<DialogDescription className="sr-only">
-						Appearance, interface and update options.
-					</DialogDescription>
-				</>
-			) : (
-				<h2>Settings</h2>
-			)}
+	const appearanceSection = (
+		<>
 			<h3 className="section-label">Appearance</h3>
 			<div className="settings-row">
 				<span id="settings-mode">Mode</span>
@@ -129,6 +119,38 @@ export function SettingsScreen({
 					))}
 				</ToggleGroup>
 			</div>
+			<h3 className="section-label">Colors for {mode} mode</h3>
+			{colorKeys.map((key) => (
+				<div className="settings-row" key={key}>
+					<label htmlFor={`color-${key}`}>{colorLabels[key]}</label>
+					<input
+						id={`color-${key}`}
+						type="color"
+						value={picked[key] ?? currentColor(colorTokens[key][0] ?? "", root)}
+						onChange={(event) =>
+							changeColors({
+								...colors,
+								[mode]: { ...picked, [key]: event.target.value },
+							})
+						}
+					/>
+				</div>
+			))}
+			<p className="settings-note">
+				Colors are saved separately for light and dark mode. Highlight and
+				callout colors arrive with those blocks.
+			</p>
+			<Button
+				variant="secondary"
+				disabled={Object.keys(picked).length === 0}
+				onClick={() => changeColors({ ...colors, [mode]: {} })}
+			>
+				Reset {mode} colors
+			</Button>
+		</>
+	);
+	const fontsSection = (
+		<>
 			<h3 className="section-label">Fonts</h3>
 			<div className="settings-row">
 				<span id="settings-editor-font">Editor font</span>
@@ -168,6 +190,10 @@ export function SettingsScreen({
 					))}
 				</ToggleGroup>
 			</div>
+		</>
+	);
+	const interfaceSection = (
+		<>
 			<h3 className="section-label">Interface</h3>
 			<div className="settings-row">
 				<span id="settings-calendar">Calendar</span>
@@ -184,35 +210,59 @@ export function SettingsScreen({
 					<ToggleGroupItem value="sidebar">Sidebar</ToggleGroupItem>
 				</ToggleGroup>
 			</div>
-			<h3 className="section-label">Colors for {mode} mode</h3>
-			{colorKeys.map((key) => (
-				<div className="settings-row" key={key}>
-					<label htmlFor={`color-${key}`}>{colorLabels[key]}</label>
-					<input
-						id={`color-${key}`}
-						type="color"
-						value={picked[key] ?? currentColor(colorTokens[key][0] ?? "", root)}
-						onChange={(event) =>
-							changeColors({
-								...colors,
-								[mode]: { ...picked, [key]: event.target.value },
-							})
-						}
-					/>
-				</div>
-			))}
-			<p className="settings-note">
-				Colors are saved separately for light and dark mode. Highlight and
-				callout colors arrive with those blocks.
-			</p>
-			<Button
-				variant="secondary"
-				disabled={Object.keys(picked).length === 0}
-				onClick={() => changeColors({ ...colors, [mode]: {} })}
-			>
-				Reset {mode} colors
-			</Button>
+		</>
+	);
+	const updatesSection = (
+		<>
 			<UpdateSection host={host} pollMs={updatePollMs} />
+		</>
+	);
+
+	const sections = [
+		["appearance", "Appearance", appearanceSection],
+		["fonts", "Fonts", fontsSection],
+		["interface", "Interface", interfaceSection],
+		["updates", "Updates", updatesSection],
+	] as const;
+	const [active, setActive] =
+		useState<(typeof sections)[number][0]>("appearance");
+
+	if (modal) {
+		const current = sections.find(([id]) => id === active) ?? sections[0];
+		return (
+			<section className="settings-window">
+				<nav className="settings-nav" aria-label="Settings sections">
+					<DialogTitle className="settings-nav-title">Settings</DialogTitle>
+					<DialogDescription className="sr-only">
+						Appearance, fonts, interface and update options.
+					</DialogDescription>
+					{sections.map(([id, label]) => (
+						<button
+							key={id}
+							type="button"
+							className="settings-nav-item"
+							aria-current={id === active ? "page" : undefined}
+							onClick={() => setActive(id)}
+						>
+							{label}
+						</button>
+					))}
+				</nav>
+				<div className="settings-content">
+					<h3 className="settings-content-title">{current[1]}</h3>
+					{current[2]}
+				</div>
+			</section>
+		);
+	}
+
+	return (
+		<section className="vault-screen settings-screen">
+			<h2>Settings</h2>
+			{appearanceSection}
+			{fontsSection}
+			{interfaceSection}
+			{updatesSection}
 		</section>
 	);
 }
@@ -233,7 +283,7 @@ export function SettingsDialog({
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="settings-dialog">
+			<DialogContent className="settings-dialog" showClose>
 				<SettingsScreen host={host} modal />
 			</DialogContent>
 		</Dialog>

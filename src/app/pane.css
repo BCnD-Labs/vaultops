@@ -1134,39 +1134,40 @@ input.canvas-item-field {
 	display: none;
 }
 
-/* Controls in the settings window: plain and flat, in the chosen theme's colors. */
+/* Controls in the settings window: simple outlined buttons with room around
+   them, in the chosen theme's colors. The chosen choice gets a tinted fill. */
 .settings-window [data-slot="button"] {
 	height: var(--control-height);
-	padding-inline: 12px;
+	padding-inline: 14px;
 	border: var(--border-width) solid var(--border);
 	border-radius: var(--radius-control);
-	background: var(--surface-container);
+	background: transparent;
 	color: var(--foreground);
 	font-weight: 400;
 	box-shadow: none;
 }
 .settings-window [data-slot="toggle-group"] {
-	gap: 0;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
 	padding: 0;
-	overflow: hidden;
+	border: 0;
 	background: none;
-	border-radius: var(--radius-control);
 }
 .settings-window [data-slot="toggle-group-item"] {
 	height: var(--control-height);
-	padding-inline: 12px;
-	border-radius: 0;
+	padding-inline: 14px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--foreground);
 	font-weight: 400;
 }
-.settings-window
-	[data-slot="toggle-group-item"]
-	+ [data-slot="toggle-group-item"] {
-	border-left: var(--border-width) solid var(--border);
+.settings-window [data-slot="toggle-group-item"]:hover {
+	background: var(--accent);
 }
 .settings-window [data-slot="toggle-group-item"][data-state="on"] {
-	background: var(--primary);
-	color: var(--primary-foreground);
-}
-.settings-window .settings-theme-group {
-	flex-wrap: wrap;
+	border-color: var(--primary);
+	background: color-mix(in srgb, var(--primary) 16%, transparent);
+	color: var(--foreground);
 }

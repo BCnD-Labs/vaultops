@@ -83,6 +83,9 @@
 	background: var(--surface);
 	color: var(--foreground);
 	box-shadow: var(--elevation-2);
+	/* The card fills the whole node, so it can be grabbed anywhere on it. */
+	padding: 0;
+	text-align: left;
 }
 .canvas-drop-placeholder {
 	position: absolute;
@@ -96,8 +99,15 @@
 	z-index: 4;
 }
 .canvas-card {
+	position: relative;
+	box-sizing: border-box;
+	min-height: calc(var(--space-unit) * 14);
+	padding: var(--space-3);
 	font-size: var(--font-size-ui);
 	overflow-wrap: anywhere;
+}
+.canvas-pane-locked .canvas-card {
+	cursor: grab;
 }
 .canvas-card p {
 	margin: 0;
@@ -109,8 +119,10 @@
 }
 .canvas-card blockquote {
 	margin: 0;
-	padding-left: 8px;
-	border-left: var(--border-width) solid var(--line);
+	padding: var(--space-1) var(--space-2);
+	border-left: calc(var(--border-width) * 3) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
 }
 .canvas-card hr {
 	margin: 4px 0;
@@ -191,8 +203,8 @@
 	border: 0;
 	background: transparent;
 	color: inherit;
-	padding: 4px 0;
-	margin-bottom: 8px;
+	padding: var(--space-1) 0;
+	margin-bottom: var(--title-gap);
 	outline: none;
 }
 
@@ -245,7 +257,7 @@
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	min-height: 32px;
+	min-height: var(--row-height);
 }
 
 .prop-name {
@@ -611,7 +623,7 @@ button.note-meta-chip:focus-visible {
 .props-block-header {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	padding: 2px 0;
 	border: 0;
 	background: none;
@@ -669,9 +681,9 @@ button.prop-type-icon:focus-visible {
 .prop-add-row {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	margin-top: 4px;
-	padding: 4px 6px;
+	gap: calc(var(--space-unit) * 1.5);
+	margin-top: var(--space-1);
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
 	border: 0;
 	border-radius: var(--radius-control);
 	background: none;
@@ -695,15 +707,15 @@ button.prop-type-icon:focus-visible {
 }
 .prop-type-list {
 	list-style: none;
-	margin: 8px 0 0;
+	margin: var(--space-2) 0 0;
 	padding: 0;
 }
 .prop-type-list button {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 	width: 100%;
-	padding: 4px 6px;
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
 	border: 0;
 	border-radius: var(--radius-control);
 	background: none;
@@ -715,4 +727,245 @@ button.prop-type-icon:focus-visible {
 .prop-type-list button:hover,
 .prop-type-list button:focus-visible {
 	background: var(--accent);
+}
+
+/* Properties: soft rows (like a highlighted row in AFFiNE), small quiet fields. */
+.props-block .prop-row {
+	padding-inline: var(--space-1);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+}
+.props-block .prop-row:hover {
+	background: var(--surface-container-low);
+}
+.props-block .prop-row:focus-within {
+	background: var(--surface-container);
+	border-color: var(--line);
+}
+.props-block .prop-row > input:not([type="checkbox"]):not(.prop-name-field) {
+	flex: 0 1 14rem;
+	padding: calc(var(--space-unit) / 2) var(--space-2);
+	background: var(--surface-container-low);
+	border-color: var(--line);
+}
+.props-block .prop-row > input[type="number"],
+.props-block .prop-row > input[type="date"] {
+	flex: 0 0 10rem;
+}
+.props-block
+	.prop-row
+	> input:not([type="checkbox"]):not(.prop-name-field):focus {
+	background: var(--surface);
+	border-color: var(--ring);
+	outline: none;
+}
+.props-block input::placeholder {
+	color: var(--muted-foreground);
+	opacity: 0.7;
+}
+.props-block .prop-row > .chips {
+	flex: 0 1 14rem;
+	min-height: var(--row-height);
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+}
+.props-block .chips:focus-within {
+	background: var(--surface);
+	border-color: var(--ring);
+}
+.props-block .chip {
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+	line-height: inherit;
+}
+.props-block .chips .chip-input {
+	width: 6rem;
+	padding: 0 var(--space-1);
+	border-color: transparent;
+	background: none;
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+}
+/* More specific than ".prop-row > input { flex: 1 }" so the name stays a set width. */
+.props-block .prop-row > .prop-name-field,
+.props-block .prop-row > .prop-name {
+	flex: none;
+	width: 9rem;
+}
+.props-block .prop-name-field:hover {
+	border-color: var(--line);
+}
+
+/* Canvas items: sticky notes, shapes, labels and group frames. */
+.canvas-pane .react-flow__node.canvas-item-node {
+	padding: 0;
+	border: 0;
+	background: none;
+	box-shadow: none;
+	text-align: left;
+}
+.canvas-item {
+	position: relative;
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+	overflow-wrap: anywhere;
+}
+.canvas-item-text {
+	display: block;
+	white-space: pre-wrap;
+}
+.canvas-item-field {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: var(--space-2);
+	border: var(--border-width) solid var(--ring);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	color: inherit;
+	font: inherit;
+	resize: none;
+}
+input.canvas-item-field {
+	height: auto;
+}
+.canvas-sticky {
+	padding: var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--callout-note-bg);
+	box-shadow: var(--elevation-1);
+}
+.canvas-sticky[data-tone="info"] {
+	background: var(--callout-info-bg);
+}
+.canvas-sticky[data-tone="tip"] {
+	background: var(--callout-tip-bg);
+}
+.canvas-sticky[data-tone="warning"] {
+	background: var(--callout-warning-bg);
+}
+.canvas-sticky[data-tone="danger"] {
+	background: var(--callout-danger-bg);
+}
+.canvas-shape {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-3);
+	text-align: center;
+}
+.canvas-shape-bg {
+	position: absolute;
+	inset: 0;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--callout-note-bg);
+}
+.canvas-shape[data-shape="rounded"] .canvas-shape-bg {
+	border-radius: var(--radius-container);
+}
+.canvas-shape[data-shape="ellipse"] .canvas-shape-bg {
+	clip-path: ellipse(50% 50% at 50% 50%);
+	border: 0;
+}
+.canvas-shape[data-shape="diamond"] .canvas-shape-bg {
+	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+	border: 0;
+}
+.canvas-shape[data-tone="info"] .canvas-shape-bg {
+	background: var(--callout-info-bg);
+}
+.canvas-shape[data-tone="tip"] .canvas-shape-bg {
+	background: var(--callout-tip-bg);
+}
+.canvas-shape[data-tone="warning"] .canvas-shape-bg {
+	background: var(--callout-warning-bg);
+}
+.canvas-shape[data-tone="danger"] .canvas-shape-bg {
+	background: var(--callout-danger-bg);
+}
+.canvas-shape .canvas-item-text,
+.canvas-shape .canvas-item-field {
+	position: relative;
+}
+.canvas-label {
+	width: auto;
+	height: auto;
+	min-width: calc(var(--space-unit) * 10);
+}
+.canvas-label[data-size="s"] {
+	font-size: var(--font-size-small);
+}
+.canvas-label[data-size="l"] {
+	font-size: var(--editor-h2-size);
+}
+.canvas-label .canvas-item-text {
+	min-height: 1.2em;
+}
+.canvas-group {
+	border: var(--border-width) dashed var(--border);
+	border-radius: var(--radius-container);
+	background: var(--surface-container-low);
+	opacity: 0.9;
+}
+.canvas-pane .react-flow__node.canvas-node-group {
+	pointer-events: none;
+}
+.canvas-group-title {
+	display: inline-block;
+	margin: var(--space-2);
+	padding: 0 var(--space-2);
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	pointer-events: all;
+	cursor: grab;
+}
+.canvas-group .canvas-item-field {
+	width: auto;
+	margin: var(--space-2);
+	pointer-events: all;
+}
+.canvas-item-pinned {
+	outline: var(--border-width) dashed var(--destructive);
+	outline-offset: var(--space-1);
+}
+.canvas-handle {
+	width: calc(var(--space-unit) * 2);
+	height: calc(var(--space-unit) * 2);
+	border: var(--border-width) solid var(--primary);
+	background: var(--surface);
+	opacity: 0;
+}
+.react-flow__node:hover .canvas-handle,
+.react-flow__node.selected .canvas-handle {
+	opacity: 1;
+}
+.canvas-pane .react-flow__edge-path {
+	stroke: var(--muted-foreground);
+}
+.canvas-pane .react-flow__edge.selected .react-flow__edge-path {
+	stroke: var(--primary);
+}
+.canvas-selection-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+	font-size: var(--font-size-small);
+}
+.canvas-selection-bar svg {
+	width: 14px;
+	height: 14px;
 }

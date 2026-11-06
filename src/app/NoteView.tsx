@@ -38,6 +38,8 @@ export interface NoteViewProps {
 	confirmEditing: boolean;
 	notice: string | null;
 	writable: boolean;
+	/** Reading view: the note is shown but cannot be typed in. */
+	reading?: boolean;
 	busy: boolean;
 	onTitleChange: (title: string) => void;
 	onDocChange: (doc: JSONContent) => void;
@@ -74,6 +76,7 @@ export function NoteView({
 	confirmEditing,
 	notice,
 	writable,
+	reading = false,
 	busy,
 	onTitleChange,
 	onDocChange,
@@ -96,12 +99,12 @@ export function NoteView({
 				className="title-field"
 				aria-label="Title"
 				value={title}
-				readOnly={!opened.editable}
+				readOnly={!opened.editable || reading}
 				onChange={(event) => onTitleChange(event.target.value)}
 			/>
 			<PropertiesBlock
 				props={props}
-				editable={opened.editable}
+				editable={opened.editable && !reading}
 				onChange={onPropsChange}
 			/>
 			<div className="status-line">
@@ -187,7 +190,7 @@ export function NoteView({
 				key={`${opened.path}:${editorRevision}`}
 				doc={liveDoc ?? opened.doc}
 				noteId={opened.note?.header.noteId}
-				editable={opened.editable}
+				editable={opened.editable && !reading}
 				onChange={(next) => {
 					setDoc(next);
 					onDocChange(next);
@@ -220,6 +223,7 @@ export function NoteView({
 export interface SessionNoteViewProps {
 	session: NoteSession;
 	writable: boolean;
+	reading?: boolean;
 	busy?: boolean;
 	titleInput?: Ref<HTMLInputElement>;
 	onLoadDisk: () => void;
@@ -246,6 +250,7 @@ function PaneNote({
 	session,
 	opened,
 	writable,
+	reading = false,
 	busy = false,
 	titleInput,
 	onLoadDisk,
@@ -270,6 +275,7 @@ function PaneNote({
 			confirmEditing={confirmEditing}
 			notice={session.notice}
 			writable={writable}
+			reading={reading}
 			busy={busy}
 			onTitleChange={session.editTitle}
 			onDocChange={session.editDoc}

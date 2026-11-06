@@ -7,20 +7,37 @@ describe("slash menu items", () => {
 			"Text",
 			"Heading 1",
 			"Heading 2",
-			"Bulleted list",
-			"Numbered list",
-			"Task",
 			"Code",
 			"Quote",
 			"Divider",
+			"Divider: dashed",
+			"Divider: dotted",
+			"Divider: thick",
 			"Toggle",
+			"Bulleted list",
+			"Numbered list",
+			"Task",
 			"Callout",
 			"Callout: info",
 			"Callout: tip",
 			"Callout: warning",
 			"Callout: danger",
+			"Table",
+			"Date",
 		]);
 		expect(SLASH_ITEMS.some((i) => /task list/i.test(i.label))).toBe(false);
+	});
+
+	it("keeps each section together and gives every item an icon", () => {
+		const sections = SLASH_ITEMS.map((i) => i.section);
+		expect(sections.filter((s, i) => s !== sections[i - 1])).toEqual([
+			"Blocks",
+			"Lists",
+			"Callouts",
+			"Insert",
+		]);
+		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
+		expect(filterSlashItems("table").map((i) => i.id)).toEqual(["table"]);
 	});
 
 	it("shows everything for a bare slash", () => {

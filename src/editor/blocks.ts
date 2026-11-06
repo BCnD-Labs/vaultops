@@ -3,8 +3,7 @@
  * The note format needs an id on each of these (see the save guard), and the
  * schema test fails when a node is added to the editor without being listed.
  *
- * Not here yet: tables (with T13a, which needs the table extension) and the
- * inline date chip (inline nodes never get an id).
+ * Not here yet: the inline date chip (inline nodes never get an id).
  */
 export const BLOCK_TYPES = [
 	"paragraph",
@@ -18,6 +17,10 @@ export const BLOCK_TYPES = [
 	"callout",
 	"divider",
 	"toggle",
+	"table",
+	"tableRow",
+	"tableHeader",
+	"tableCell",
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];

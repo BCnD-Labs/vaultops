@@ -120,6 +120,7 @@ export function Control(props: {
 			return (
 				<input
 					aria-label={label}
+					placeholder="Empty"
 					value={item.value as string}
 					disabled={!editable}
 					onChange={(e) => onValue(e.target.value)}
@@ -130,6 +131,7 @@ export function Control(props: {
 				<input
 					aria-label={label}
 					type="number"
+					placeholder="Empty"
 					defaultValue={(item.value as number | null) ?? ""}
 					disabled={!editable}
 					onChange={(e) => {

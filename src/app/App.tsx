@@ -68,6 +68,7 @@ const other = (id: PaneId): PaneId => (id === "left" ? "right" : "left");
 
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
+	const [reading, setReading] = useState(false);
 	const [screen, setScreen] = useState<
 		"note" | "trash" | "health" | "settings"
 	>("note");
@@ -710,6 +711,7 @@ export function App({ host }: { host: Host }) {
 		<SessionNoteView
 			session={pane.session}
 			writable={writable}
+			reading={reading}
 			busy={busy}
 			titleInput={titleInputs[pane.id]}
 			onLoadDisk={() => void loadDisk(pane)}
@@ -855,6 +857,12 @@ export function App({ host }: { host: Host }) {
 					canGoForward={canGoForward(nav)}
 					onBack={() => void goThrough(-1)}
 					onForward={() => void goThrough(1)}
+					reading={reading}
+					onToggleReading={
+						screen === "note" && session?.opened
+							? () => setReading((on) => !on)
+							: undefined
+					}
 					stats={screen === "note" && session ? session.stats : null}
 					tools={
 						<NoteTools

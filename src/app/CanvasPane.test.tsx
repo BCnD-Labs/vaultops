@@ -508,3 +508,68 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 			.disabled,
 	).toBe(true);
 });
+
+it("opens a canvas with an unknown block type read-only and says why", async () => {
+	const host = new MemoryHost();
+	const made = await createCanvas(host, "", "Board");
+	const note = parseNote(await host.readText(made.path)).note;
+	if (!note) throw new Error("missing canvas");
+	note.blocks = [
+		{ id: "z", type: "hologram", parent: null, attrs: { x: 1, y: 2 } },
+	];
+	await host.writeTextAtomic(made.path, serializeNote(note));
+	const before = await host.readText(made.path);
+	render(
+		<CanvasPane
+			host={host}
+			path={made.path}
+			canvases={[]}
+			writable
+			onSelect={vi.fn()}
+			onNew={vi.fn()}
+			onClose={vi.fn()}
+			onDropBlock={vi.fn()}
+		/>,
+	);
+	expect((await screen.findAllByRole("alert"))[0]?.textContent).toContain(
+		"hologram",
+	);
+	expect(
+		(screen.getByRole("button", { name: /Add/ }) as HTMLButtonElement).disabled,
+	).toBe(true);
+	fireEvent.click(screen.getByRole("button", { name: "Drag card" }));
+	await Promise.resolve();
+	expect(await host.readText(made.path)).toBe(before);
+});
+
+it("adds a sticky note from the Add menu and saves it on the canvas", async () => {
+	const user = userEvent.setup();
+	const host = new MemoryHost();
+	const made = await createCanvas(host, "", "Board");
+	render(
+		<CanvasPane
+			host={host}
+			path={made.path}
+			canvases={[]}
+			writable
+			onSelect={vi.fn()}
+			onNew={vi.fn()}
+			onClose={vi.fn()}
+			onDropBlock={vi.fn()}
+		/>,
+	);
+	await screen.findByText("Drag a block here from a note.");
+	await user.click(screen.getByRole("button", { name: /Add/ }));
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Sticky note" }),
+	);
+	await waitFor(async () => {
+		const blocks = parseNote(await host.readText(made.path)).note?.blocks ?? [];
+		expect(blocks.map((b) => b.type)).toEqual(["sticky"]);
+		expect(blocks[0]?.attrs).toMatchObject({ h: 140, w: 180 });
+	});
+	// The new note opens its text field straight away.
+	expect(
+		await screen.findByRole("textbox", { name: "Text of sticky" }),
+	).toBeTruthy();
+});

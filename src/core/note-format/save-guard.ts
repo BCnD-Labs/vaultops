@@ -1,3 +1,4 @@
+import { isCanvasOnly } from "./canvas-types.js";
 import {
 	findIdProblems,
 	type Note,
@@ -10,6 +11,7 @@ const BLOCKING: ReadonlySet<Problem["kind"]> = new Set([
 	"missing-id",
 	"duplicate-id",
 	"inline-id",
+	"canvas-only-in-note",
 ]);
 
 export type SaveCheck =
@@ -24,6 +26,17 @@ export type SaveCheck =
  */
 export function prepareSave(note: Note): SaveCheck {
 	const problems = findIdProblems(note).filter((p) => BLOCKING.has(p.kind));
+	if (note.header.kind !== "canvas") {
+		note.blocks.forEach((block, index) => {
+			if (!isCanvasOnly(block.type)) return;
+			problems.push({
+				kind: "canvas-only-in-note",
+				line: index + 2,
+				...(block.id ? { blockId: block.id } : {}),
+				message: `a ${block.type} can only be on a canvas, not in a note`,
+			});
+		});
+	}
 	if (problems.length > 0) return { ok: false, problems };
 	return { ok: true, text: serializeNote(note) };
 }

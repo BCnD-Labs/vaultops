@@ -105,6 +105,8 @@ export function AppShell({
 	stats = null,
 	onBack = () => {},
 	onForward = () => {},
+	reading = false,
+	onToggleReading,
 }: {
 	sidebar: ReactNode;
 	tools?: ReactNode;
@@ -123,6 +125,8 @@ export function AppShell({
 	stats?: TextStats | null;
 	onBack?: () => void;
 	onForward?: () => void;
+	reading?: boolean;
+	onToggleReading?: () => void;
 }) {
 	const [propertyRequest, setPropertyRequest] = useState<{
 		name?: string;
@@ -257,6 +261,8 @@ export function AppShell({
 								canGoForward={canGoForward}
 								onBack={onBack}
 								onForward={onForward}
+								reading={reading}
+								onToggleReading={onToggleReading}
 								leftToggle={collapsed.left ? sidebarToggle("left") : null}
 								rightToggle={collapsed.right ? sidebarToggle("right") : null}
 							/>
@@ -278,6 +284,7 @@ export function AppShell({
 								}));
 							}}
 							onToggle={toggle}
+							onToggleReading={onToggleReading}
 							onNavigate={onNavigateScreen}
 						/>
 					</ResizablePanel>

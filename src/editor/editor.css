@@ -42,11 +42,25 @@
 	right: 0;
 	max-width: var(--editor-width);
 	margin-inline: auto;
-	height: var(--focus-ring-width);
+	height: calc(var(--focus-ring-width) * 2);
+	margin-top: calc(var(--focus-ring-width) * -1);
 	background: var(--primary);
 	border-radius: var(--radius-round);
 	pointer-events: none;
 	z-index: 10;
+}
+
+/* A round end so the line reads as "drop here", not as a stray border. */
+.block-drop-indicator::before {
+	content: "";
+	position: absolute;
+	left: calc(var(--space-unit) * -1);
+	top: 50%;
+	width: calc(var(--space-unit) * 3);
+	height: calc(var(--space-unit) * 3);
+	transform: translateY(-50%);
+	border-radius: var(--radius-round);
+	background: var(--primary);
 }
 
 .note-editor:has(> .block-drop-indicator) .prosemirror-dropcursor-block,
@@ -55,7 +69,7 @@
 }
 
 .note-editor .ProseMirror > * + * {
-	margin-top: 0.6rem;
+	margin-top: var(--block-gap);
 }
 
 .note-editor h1 {
@@ -77,11 +91,11 @@
 }
 
 .note-editor li > p {
-	margin-block: 0.2rem;
+	margin-block: var(--list-gap);
 }
 
 .note-editor li + li {
-	margin-top: 0.2rem;
+	margin-top: var(--list-gap);
 }
 
 /* Tiptap renders an empty paragraph with a trailing break. Only show the hint
@@ -98,17 +112,31 @@
 }
 
 .note-editor blockquote {
-	margin-left: 0;
-	padding-left: 0.9rem;
-	border-left: var(--border-width) solid var(--border);
+	margin: 0.6rem 0;
+	padding: 0.6rem 0.8rem;
+	border-left: calc(var(--border-width) * 3) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
 	color: var(--editor-quote);
-	opacity: 0.85;
 }
 
 .note-editor hr {
 	margin: 1rem 0;
 	border: 0;
 	border-top: var(--border-width) solid var(--editor-divider);
+}
+
+.note-editor hr[data-style="dashed"] {
+	border-top-style: dashed;
+}
+
+.note-editor hr[data-style="dotted"] {
+	border-top-style: dotted;
+	border-top-width: calc(var(--border-width) * 2);
+}
+
+.note-editor hr[data-style="thick"] {
+	border-top-width: calc(var(--border-width) * 3);
 }
 
 .note-editor hr.ProseMirror-selectednode {
@@ -259,6 +287,7 @@
 }
 
 .note-editor pre {
+	position: relative;
 	padding: 0.6rem 0.8rem;
 	border-radius: var(--radius-control);
 	background: var(--editor-code-bg);
@@ -315,7 +344,9 @@
 }
 
 .slash-menu-item {
-	display: block;
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	width: 100%;
 	text-align: left;
 	padding: 4px 8px;
@@ -326,6 +357,38 @@
 	font: inherit;
 	line-height: 1.3;
 	cursor: pointer;
+}
+
+.slash-menu-section {
+	margin-top: var(--space-1);
+	padding: calc(var(--space-unit) * 1.5) var(--space-2)
+		calc(var(--space-unit) / 2);
+	border-top: var(--border-width) solid var(--line);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.slash-menu-section:first-child {
+	margin-top: 0;
+	border-top: 0;
+}
+
+.slash-menu-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--muted-foreground);
+}
+.slash-menu-icon svg {
+	width: 16px;
+	height: 16px;
+}
+.slash-menu-label {
+	flex: 1;
+	min-width: 0;
+}
+.slash-menu-hint {
+	flex: none;
+	color: var(--muted-foreground);
+	font: inherit;
 }
 
 .slash-menu-item[aria-selected="true"],
@@ -422,4 +485,171 @@
 .format-bar [data-slot="button"][aria-pressed="true"] {
 	background: var(--accent);
 	color: var(--foreground);
+}
+
+/* Tables: a bordered grid, header row tinted, cells that grow with their text. */
+.note-editor table {
+	width: 100%;
+	margin: 0.5em 0;
+	border-collapse: collapse;
+	table-layout: fixed;
+	overflow: hidden;
+}
+.note-editor th,
+.note-editor td {
+	position: relative;
+	min-width: 3em;
+	padding: 4px 8px;
+	border: var(--border-width) solid var(--line);
+	vertical-align: top;
+	box-sizing: border-box;
+}
+.note-editor th {
+	background: var(--surface-container);
+	font-weight: 600;
+	text-align: left;
+}
+.note-editor td > p,
+.note-editor th > p {
+	margin: 0;
+}
+.note-editor .selectedCell::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: var(--accent);
+	opacity: 0.4;
+	pointer-events: none;
+}
+
+/* Folding: a chevron in the margin, hidden blocks, and an ellipsis when folded. */
+.note-editor h1,
+.note-editor h2,
+.note-editor li {
+	position: relative;
+}
+.note-editor .fold-toggle {
+	position: absolute;
+	left: -1.5em;
+	top: 0.35em;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.2em;
+	height: 1.2em;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+.note-editor .fold-toggle::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translate(-0.1em, -0.1em);
+	transition: transform 120ms ease;
+}
+.note-editor .fold-toggle[data-folded="true"]::before {
+	transform: rotate(-45deg);
+}
+.note-editor h1:hover > .fold-toggle,
+.note-editor h2:hover > .fold-toggle,
+.note-editor li:hover > .fold-toggle,
+.note-editor .fold-toggle:focus-visible,
+.note-editor .fold-toggle[data-folded="true"] {
+	opacity: 1;
+}
+.note-editor .fold-hidden {
+	display: none;
+}
+.note-editor .is-folded > p:first-of-type::after,
+.note-editor h1.is-folded::after,
+.note-editor h2.is-folded::after {
+	content: " …";
+	color: var(--muted-foreground);
+}
+
+/* Indent guides: a hairline beside nested lists. */
+.note-editor li > ul,
+.note-editor li > ol {
+	margin-left: 0.4em;
+	padding-left: 1.2em;
+	border-left: var(--border-width) solid var(--line);
+}
+
+/* A faint outline on each block so the structure of a note is visible.
+ * Set --block-outline to transparent in a theme to turn it off. */
+.note-editor .ProseMirror > * {
+	outline: var(--border-width) solid var(--block-outline);
+	outline-offset: calc(var(--space-unit) / 2);
+	border-radius: var(--radius-control);
+}
+.note-editor .ProseMirror > .ProseMirror-selectednode,
+.note-editor .ProseMirror > hr.ProseMirror-selectednode {
+	outline-color: var(--ring);
+}
+
+/* Keyboard key (kbd mark) */
+.note-editor kbd,
+.canvas-card kbd {
+	padding: 0 0.35em;
+	border: var(--border-width) solid var(--border);
+	border-bottom-width: calc(var(--border-width) * 2);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	color: var(--editor-code-text);
+}
+
+/* Code language picker */
+.note-editor pre .code-language {
+	position: absolute;
+	top: var(--space-1);
+	right: var(--space-2);
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	cursor: pointer;
+	opacity: 0.6;
+}
+.note-editor pre:hover .code-language,
+.note-editor pre .code-language:focus {
+	border-color: var(--line);
+	background: var(--surface-container);
+	opacity: 1;
+}
+
+/* Date chip */
+.note-editor .date-chip,
+.canvas-card .date-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	color: var(--foreground);
+	font-size: var(--code-font-size);
+}
+.note-editor .date-chip input {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.note-editor .date-chip.ProseMirror-selectednode {
+	border-color: var(--ring);
 }

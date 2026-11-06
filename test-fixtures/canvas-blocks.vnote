@@ -1,0 +1,8 @@
+{"format":"vaultops-note","v":1,"noteId":"canvas-blocks-1","kind":"canvas"}
+{"id":"c1","type":"paragraph","parent":null,"attrs":{"x":40,"y":40},"content":[{"text":"An ordinary card","type":"text"}]}
+{"id":"s1","type":"sticky","parent":null,"attrs":{"h":120,"tone":"tip","w":160,"x":300,"y":40},"content":[{"text":"Remember this","type":"text"}]}
+{"id":"sh1","type":"shape","parent":null,"attrs":{"future":"keep","h":100,"shape":"ellipse","tone":"info","w":180,"x":40,"y":220},"content":[{"text":"Start","type":"text"}]}
+{"id":"l1","type":"label","parent":null,"attrs":{"size":"l","x":300,"y":220},"content":[{"text":"Phase one","type":"text"}]}
+{"id":"g1","type":"group","parent":null,"attrs":{"h":340,"members":["c1","sh1"],"title":"Left side","w":260,"x":20,"y":10}}
+{"id":"k1","type":"connector","parent":null,"attrs":{"arrow":"end","from":"c1","to":"sh1"}}
+{"id":"k2","type":"connector","parent":null,"attrs":{"arrow":"end","from":"s1","to":"l1"}}

@@ -307,3 +307,13 @@ it("hands focus back to the tab named by focusRequest", () => {
 		screen.getByRole("tab", { name: "Gamma" }),
 	);
 });
+
+it("lists every open tab from the chevron and jumps to the one picked", async () => {
+	const { onSelect } = setup();
+	const user = userEvent.setup();
+	await user.click(screen.getByRole("button", { name: "Show all tabs" }));
+	const items = screen.getAllByRole("menuitem");
+	expect(items.map((item) => item.textContent)).toEqual(["Alpha", "Beta"]);
+	await user.click(items[0] as HTMLElement);
+	expect(onSelect).toHaveBeenCalledWith("a.vnote");
+});

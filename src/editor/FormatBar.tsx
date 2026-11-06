@@ -5,6 +5,7 @@ import {
 	Code,
 	Highlighter,
 	Italic,
+	Keyboard,
 	type LucideIcon,
 	Strikethrough,
 	Subscript,
@@ -69,6 +70,13 @@ export const FORMAT_MARKS: FormatMark[] = [
 		shortcut: "Mod+E",
 		icon: Code,
 		toggle: (editor) => editor.chain().focus().toggleCode().run(),
+	},
+	{
+		name: "kbd",
+		label: "Keyboard key",
+		shortcut: "Mod+Alt+K",
+		icon: Keyboard,
+		toggle: (editor) => editor.chain().focus().toggleMark("kbd").run(),
 	},
 	{
 		name: "subscript",

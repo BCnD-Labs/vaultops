@@ -138,6 +138,14 @@ export function previewOf(blocks: Block[]): string {
 		if (Array.isArray(value)) return value.map(text).join("");
 		if (!value || typeof value !== "object") return "";
 		if (value.type === "hardBreak") return " ";
+		if (
+			value.type === "date" &&
+			value.attrs &&
+			typeof value.attrs === "object" &&
+			!Array.isArray(value.attrs) &&
+			typeof value.attrs.date === "string"
+		)
+			return value.attrs.date;
 		if (value.type === "text" && typeof value.text === "string")
 			return value.text;
 		return text(value.content);

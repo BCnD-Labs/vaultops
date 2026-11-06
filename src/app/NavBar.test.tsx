@@ -61,3 +61,40 @@ it("shows a collapsed sidebar's button at its own end of the bar", () => {
 		.map((b) => b.textContent || b.getAttribute("aria-label"));
 	expect(buttons).toEqual(["Show left", "Back", "Forward", "Show right"]);
 });
+
+it("has no reading toggle or more menu until a note offers one", () => {
+	setup();
+	expect(screen.queryByRole("button", { name: /reading view/ })).toBeNull();
+	expect(screen.queryByRole("button", { name: "More options" })).toBeNull();
+});
+
+it("toggles reading view from the button and from the more menu, and copies the path", async () => {
+	const onToggleReading = vi.fn();
+	const writeText = vi.fn().mockResolvedValue(undefined);
+	setup({ onToggleReading });
+	const user = userEvent.setup();
+	// user-event installs its own clipboard; replace it after setup.
+	vi.stubGlobal("navigator", { clipboard: { writeText } });
+	await user.click(
+		screen.getByRole("button", { name: "Switch to reading view" }),
+	);
+	expect(onToggleReading).toHaveBeenCalledTimes(1);
+	await user.click(screen.getByRole("button", { name: "More options" }));
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Copy file path" }),
+	);
+	expect(writeText).toHaveBeenCalledWith("Class/Week 1/Lecture.vnote");
+	await user.click(screen.getByRole("button", { name: "More options" }));
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Switch to reading view" }),
+	);
+	expect(onToggleReading).toHaveBeenCalledTimes(2);
+	vi.unstubAllGlobals();
+});
+
+it("offers to switch back to editing while reading", () => {
+	setup({ reading: true, onToggleReading: vi.fn() });
+	expect(
+		screen.getByRole("button", { name: "Switch to editing view" }),
+	).toBeTruthy();
+});

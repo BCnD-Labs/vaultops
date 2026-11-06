@@ -17,8 +17,23 @@ function inline(value: JsonValue | undefined): ReactNode {
 		if (!part || typeof part !== "object" || Array.isArray(part)) return null;
 		const text = typeof part.text === "string" ? part.text : "";
 		const marks = Array.isArray(part.marks) ? part.marks : [];
+		const date =
+			part.type === "date" &&
+			part.attrs &&
+			typeof part.attrs === "object" &&
+			!Array.isArray(part.attrs) &&
+			typeof part.attrs.date === "string"
+				? part.attrs.date
+				: "";
 		let content: ReactNode =
-			text || (part.type === "hardBreak" ? <br /> : null);
+			text ||
+			(part.type === "hardBreak" ? (
+				<br />
+			) : date ? (
+				<time className="date-chip" dateTime={date}>
+					{date}
+				</time>
+			) : null);
 		for (const mark of marks) {
 			if (!mark || typeof mark !== "object" || Array.isArray(mark)) continue;
 			if (mark.type === "bold") content = <strong>{content}</strong>;
@@ -27,6 +42,7 @@ function inline(value: JsonValue | undefined): ReactNode {
 			if (mark.type === "strike") content = <s>{content}</s>;
 			if (mark.type === "underline") content = <u>{content}</u>;
 			if (mark.type === "highlight") content = <mark>{content}</mark>;
+			if (mark.type === "kbd") content = <kbd>{content}</kbd>;
 			if (mark.type === "subscript") content = <sub>{content}</sub>;
 			if (mark.type === "superscript") content = <sup>{content}</sup>;
 		}

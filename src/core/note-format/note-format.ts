@@ -35,6 +35,7 @@ export type ProblemKind =
 	| "missing-id"
 	| "duplicate-id"
 	| "inline-id"
+	| "canvas-only-in-note"
 	| "orphan-parent"
 	| "newer-version";
 

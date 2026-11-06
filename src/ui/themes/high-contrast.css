@@ -23,6 +23,20 @@
 	--radius-1: 6px;
 	--radius-2: 10px;
 	--space-unit: 4px;
+	/* One spacing scale: 4, 8, 12, 16, 24, 32. */
+	--space-1: var(--space-unit);
+	--space-2: calc(var(--space-unit) * 2);
+	--space-3: calc(var(--space-unit) * 3);
+	--space-4: calc(var(--space-unit) * 4);
+	--space-6: calc(var(--space-unit) * 6);
+	--space-8: calc(var(--space-unit) * 8);
+	/* Rhythm in the note: gap under the title, row height, block and list gaps. */
+	--title-gap: calc(var(--space-unit) * 1.5);
+	--row-height: var(--space-8);
+	--block-gap: 0.6rem;
+	/* A shade off the background, translucent: visible but never in the way. */
+	--block-outline: color-mix(in srgb, var(--foreground) 9%, transparent);
+	--list-gap: 0.2rem;
 	--size-ui: 13px;
 	--size-small: 12px;
 	--size-title: 26px;

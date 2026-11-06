@@ -70,13 +70,13 @@ const tick = () =>
 		await new Promise((resolve) => setTimeout(resolve, 5));
 	});
 
-it("keeps the calendar in the planner by default, with Tasks and Log under it", () => {
+it("keeps the calendar in the planner by default, with Tasks under it", () => {
 	inSidebar();
 	render(<Planner />);
 	const planner = screen.getByRole("region", { name: "Planner" });
 	expect(planner.querySelector('[aria-label="Calendar"]')).toBeTruthy();
 	expect(screen.getByRole("button", { name: "Tasks" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Log" })).toBeTruthy();
+	expect(screen.queryByRole("button", { name: "Log" })).toBeNull();
 	expect(screen.queryByRole("region", { name: "Calendar group" })).toBeNull();
 });
 
@@ -91,12 +91,12 @@ it("moves the calendar below the right or left sidebar, still one calendar", asy
 		}),
 	);
 	const planner = screen.getByRole("region", { name: "Planner" });
-	// Planner is Tasks then Log; the calendar sits below it in its own group.
+	// Planner is just Tasks; the calendar sits below it in its own group.
 	expect(planner.querySelector('[aria-label="Calendar"]')).toBeNull();
 	const names = Array.from(planner.querySelectorAll(".planner-section")).map(
 		(s) => s.getAttribute("aria-label"),
 	);
-	expect(names).toEqual(["Tasks", "Log"]);
+	expect(names).toEqual(["Tasks"]);
 	expect(screen.getByTestId("right").querySelector(".dock-group")).toBeTruthy();
 	await user.click(screen.getByRole("button", { name: "Move the calendar" }));
 	await user.click(

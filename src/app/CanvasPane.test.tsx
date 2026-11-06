@@ -674,3 +674,34 @@ it("remembers the snap-to-grid choice", async () => {
 	expect(snap.getAttribute("aria-pressed")).toBe("true");
 	expect(localStorage.getItem("vaultops:canvas-snap")).toBe("true");
 });
+
+it("two Ctrl+Z presses in one tick undo two steps and leave a coherent history", async () => {
+	const user = userEvent.setup();
+	const { host, path, props } = await boardWithCard();
+	render(<CanvasPane {...props} />);
+	await screen.findByText("Card");
+	const stickies = async () =>
+		(parseNote(await host.readText(path)).note?.blocks ?? []).filter(
+			(block) => block.type === "sticky",
+		).length;
+	for (const count of [1, 2]) {
+		await user.click(screen.getByRole("button", { name: /Add/ }));
+		await user.click(
+			await screen.findByRole("menuitem", { name: "Sticky note" }),
+		);
+		await waitFor(async () => expect(await stickies()).toBe(count));
+		(document.activeElement as HTMLElement | null)?.blur?.();
+	}
+	const region = screen.getByRole("region", { name: "Canvas view" });
+	fireEvent.keyDown(region, { key: "z", ctrlKey: true });
+	fireEvent.keyDown(region, { key: "z", ctrlKey: true });
+	await waitFor(async () => expect(await stickies()).toBe(0));
+	const undo = screen.getByRole("button", {
+		name: "Undo",
+	}) as HTMLButtonElement;
+	const redo = screen.getByRole("button", {
+		name: "Redo",
+	}) as HTMLButtonElement;
+	await waitFor(() => expect(undo.disabled).toBe(true));
+	expect(redo.disabled).toBe(false);
+});

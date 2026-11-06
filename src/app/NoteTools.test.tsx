@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Props } from "../core/notes/properties";
 import { NoteTools } from "./NoteTools";
 
@@ -125,4 +126,19 @@ it("titles the header with the open tool, in the same row as the icon tabs", asy
 	expect(
 		within(header).getByRole("tab", { name: "Planner" }).getAttribute("title"),
 	).toBe("Planner");
+});
+
+it("has a Journal tool of its own, and the planner no longer carries the log", async () => {
+	const user = userEvent.setup();
+	render(
+		<TooltipProvider>
+			<NoteTools hasNote={false} props={null} editable={false} {...callbacks} />
+		</TooltipProvider>,
+	);
+	const header = document.querySelector(".sidebar-header") as HTMLElement;
+	await user.click(within(header).getByRole("tab", { name: "Journal" }));
+	expect(within(header).getByText("Journal").tagName).toBe("STRONG");
+	expect(await screen.findByRole("region", { name: "Journal" })).toBeTruthy();
+	await user.click(within(header).getByRole("tab", { name: "Planner" }));
+	expect(screen.queryByRole("button", { name: "Log" })).toBeNull();
 });

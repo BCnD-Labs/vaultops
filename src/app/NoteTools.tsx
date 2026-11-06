@@ -2,6 +2,7 @@ import {
 	GitCompareArrows,
 	ListTree,
 	type LucideIcon,
+	NotebookPen,
 	PencilLine,
 	SlidersHorizontal,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import type { OutlineItem } from "../core/notes/outline";
 import { ShellNavigation } from "./AppShell";
 import { OutlinePanel } from "./OutlinePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { JournalPanel } from "./planner/JournalPanel";
 import { PlannerPanel } from "./planner/PlannerPanel";
 
 const TOOLS: [string, string, LucideIcon][] = [
@@ -24,13 +26,17 @@ const TOOLS: [string, string, LucideIcon][] = [
 	["outline", "Outline", ListTree],
 	["changes", "Changes", GitCompareArrows],
 	["planner", "Planner", PencilLine],
+	["journal", "Journal", NotebookPen],
 ];
 
 const TAB_KEY = "vaultops:note-tools-tab";
 function loadTab() {
 	try {
 		const saved = localStorage.getItem(TAB_KEY);
-		return saved === "changes" || saved === "outline" || saved === "planner"
+		return saved === "changes" ||
+			saved === "outline" ||
+			saved === "planner" ||
+			saved === "journal"
 			? saved
 			: "properties";
 	} catch {
@@ -136,6 +142,9 @@ export function NoteTools({
 			</TabsContent>
 			<TabsContent value="planner">
 				<PlannerPanel />
+			</TabsContent>
+			<TabsContent value="journal">
+				<JournalPanel />
 			</TabsContent>
 			<TabsContent value="changes">
 				<p>Commit, history and sync arrive soon.</p>

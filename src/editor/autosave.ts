@@ -61,6 +61,10 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 		for (const listener of [...listeners]) listener(state);
 	}
 
+	// Bumped by discard(): a save already under way then no longer counts.
+	let epoch = 0;
+	let disposed = false;
+
 	function clearTimers(): void {
 		clearTimeout(debounce);
 		clearTimeout(retryTimer);
@@ -81,6 +85,7 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 			let ok = true;
 			while (pending !== null) {
 				const doc = pending;
+				const started = epoch;
 				pending = null;
 				setState(SAVING);
 				let outcome: SaveResult;
@@ -92,6 +97,8 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 						message: error instanceof Error ? error.message : String(error),
 					};
 				}
+				// Discarded while saving: nothing to keep, retry or report.
+				if (started !== epoch) continue;
 				if (outcome.ok) {
 					failures = 0;
 					ok = true;
@@ -108,7 +115,7 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 					...(outcome.conflict ? { conflict: true } : {}),
 				});
 				// A conflict waits for the person's choice; other failures retry.
-				if (!outcome.conflict) scheduleRetry();
+				if (!outcome.conflict && !disposed) scheduleRetry();
 				break;
 			}
 			return ok;
@@ -142,6 +149,7 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 		},
 		peek: () => pending,
 		discard() {
+			epoch += 1;
 			clearTimers();
 			pending = null;
 			failures = 0;
@@ -154,6 +162,9 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 				listeners.delete(listener);
 			};
 		},
-		dispose: clearTimers,
+		dispose() {
+			disposed = true;
+			clearTimers();
+		},
 	};
 }

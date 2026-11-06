@@ -7,7 +7,6 @@ import {
 	useCalendarDragSource,
 } from "./CalendarDock";
 import { CalendarPanel } from "./CalendarPanel";
-import { DailyLog } from "./DailyLog";
 import { NewItemDialog } from "./NewItemDialog";
 import { usePlanner } from "./PlannerContext";
 import { TaskInspector } from "./TaskInspector";
@@ -23,7 +22,7 @@ function loadOpen(id: string) {
 	}
 }
 
-/** One stacked, collapsible part of the planner (Calendar, Tasks, Log). */
+/** One stacked, collapsible part of the planner (Calendar, Tasks). */
 function PlannerSection({
 	id,
 	title,
@@ -74,7 +73,7 @@ function PlannerSection({
 
 /**
  * The planner in the right sidebar, as stacked collapsible sections (VS Code
- * style): Calendar, Tasks, Log. The calendar section can be dragged out of the
+ * style): Calendar and Tasks. The calendar section can be dragged out of the
  * planner to its own place below a sidebar (see CalendarDock); then the planner
  * is just Tasks and Log. In the title-bar setting there is no calendar section.
  */
@@ -141,19 +140,6 @@ export function PlannerPanel() {
 						onOpen={p.openNote}
 					/>
 				)}
-			</PlannerSection>
-			<PlannerSection id="log" title="Log">
-				<DailyLog
-					date={p.date}
-					today={p.today}
-					writable={p.writable}
-					load={p.loadDay}
-					version={p.version}
-					onDate={p.setDate}
-					onAddEntry={p.addEntry}
-					onAddSection={p.addSection}
-					onOpen={(day) => p.openNote(`Journal/${day}.vnote`)}
-				/>
 			</PlannerSection>
 			{dialog && (
 				<NewItemDialog

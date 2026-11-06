@@ -122,30 +122,63 @@ export function serializeNote(note: Note): string {
 	return `${lines.join("\n")}\n`;
 }
 
+/**
+ * Finds the places inside inline content where an `id` sits (they are not
+ * allowed there). Walks with its own stack, not recursion, so a hostile file
+ * with thousands of nested levels cannot overflow the call stack; paths are
+ * only built for the few that are reported.
+ */
 function collectInlineIds(
-	value: unknown,
-	path: string,
+	root: unknown,
+	rootPath: string,
 	out: string[],
-	isAttrs = false,
 ): void {
-	if (Array.isArray(value)) {
-		value.forEach((v, i) => {
-			collectInlineIds(v, `${path}[${i}]`, out);
-		});
-		return;
-	}
-	if (!isObject(value)) return;
-	const attrs = value["attrs"];
-	// An attrs object is reported via its owner, not a second time itself.
-	if (
-		!isAttrs &&
-		(Object.hasOwn(value, "id") ||
-			(isObject(attrs) && Object.hasOwn(attrs, "id")))
-	) {
-		out.push(path);
-	}
-	for (const [k, v] of Object.entries(value)) {
-		collectInlineIds(v, `${path}.${k}`, out, k === "attrs");
+	type Step = {
+		value: unknown;
+		label: string;
+		parent: Step | null;
+		isAttrs: boolean;
+	};
+	const pathOf = (step: Step): string => {
+		const labels: string[] = [];
+		for (let at: Step | null = step; at; at = at.parent) labels.push(at.label);
+		return labels.reverse().join("");
+	};
+	const stack: Step[] = [
+		{ value: root, label: rootPath, parent: null, isAttrs: false },
+	];
+	while (stack.length > 0) {
+		const step = stack.pop() as Step;
+		const { value } = step;
+		if (Array.isArray(value)) {
+			for (let i = value.length - 1; i >= 0; i -= 1)
+				stack.push({
+					value: value[i],
+					label: `[${i}]`,
+					parent: step,
+					isAttrs: false,
+				});
+			continue;
+		}
+		if (!isObject(value)) continue;
+		const attrs = value["attrs"];
+		// An attrs object is reported via its owner, not a second time itself.
+		if (
+			!step.isAttrs &&
+			(Object.hasOwn(value, "id") ||
+				(isObject(attrs) && Object.hasOwn(attrs, "id")))
+		)
+			out.push(pathOf(step));
+		const entries = Object.entries(value);
+		for (let i = entries.length - 1; i >= 0; i -= 1) {
+			const [k, v] = entries[i] as [string, unknown];
+			stack.push({
+				value: v,
+				label: `.${k}`,
+				parent: step,
+				isAttrs: k === "attrs",
+			});
+		}
 	}
 }
 
@@ -206,7 +239,8 @@ export function findIdProblems(note: Note, lineNumbers?: number[]): Problem[] {
 export function parseNote(text: string): ParseResult {
 	const problems: Problem[] = [];
 	const skippedLines: number[] = [];
-	const lines = text.split("\n");
+	// Some editors put a byte-order mark first; it is not part of the header.
+	const lines = text.replace(/^\uFEFF/, "").split("\n");
 	if (lines[lines.length - 1] === "") lines.pop();
 
 	const badHeader = (message: string): ParseResult => ({

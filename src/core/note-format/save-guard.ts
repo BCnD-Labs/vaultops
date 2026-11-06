@@ -14,6 +14,23 @@ const BLOCKING: ReadonlySet<Problem["kind"]> = new Set([
 	"canvas-only-in-note",
 ]);
 
+/** Deeper than any real note; past this a block is refused, not written. */
+const MAX_NESTING = 500;
+
+/** How deep a value nests, counted with a stack so a hostile one cannot overflow. */
+function nestingOf(root: unknown): number {
+	let deepest = 0;
+	const stack: [unknown, number][] = [[root, 1]];
+	while (stack.length > 0) {
+		const [value, depth] = stack.pop() as [unknown, number];
+		if (typeof value !== "object" || value === null) continue;
+		deepest = Math.max(deepest, depth);
+		if (deepest > MAX_NESTING) return deepest;
+		for (const child of Object.values(value)) stack.push([child, depth + 1]);
+	}
+	return deepest;
+}
+
 export type SaveCheck =
 	| { ok: true; text: string }
 	| { ok: false; problems: Problem[] };
@@ -25,6 +42,17 @@ export type SaveCheck =
  * Nothing is fixed or changed here.
  */
 export function prepareSave(note: Note): SaveCheck {
+	const tooDeep: Problem[] = [];
+	note.blocks.forEach((block, index) => {
+		if (nestingOf(block) <= MAX_NESTING) return;
+		tooDeep.push({
+			kind: "bad-block",
+			line: index + 2,
+			...(block.id ? { blockId: block.id } : {}),
+			message: "its content is nested too deeply to save",
+		});
+	});
+	if (tooDeep.length > 0) return { ok: false, problems: tooDeep };
 	const problems = findIdProblems(note).filter((p) => BLOCKING.has(p.kind));
 	if (note.header.kind !== "canvas") {
 		note.blocks.forEach((block, index) => {

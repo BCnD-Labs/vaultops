@@ -13,7 +13,7 @@ import "./planner.css";
 
 type PlannerTab = "tasks" | "calendar" | "log";
 
-/** The wide planner: Tasks, Calendar (day / week / month) and Log, with the selected task beside them. */
+/** The wide planner: Tasks, Calendar (day / week / month) and the Journal (for now, the daily log), with the selected task beside them. */
 export function PlannerScreen() {
 	const p = usePlanner();
 	const [tab, setTab] = useState<PlannerTab>("tasks");
@@ -40,7 +40,7 @@ export function PlannerScreen() {
 					<TabsList aria-label="Planner views">
 						<TabsTrigger value="tasks">Tasks</TabsTrigger>
 						<TabsTrigger value="calendar">Calendar</TabsTrigger>
-						<TabsTrigger value="log">Log</TabsTrigger>
+						<TabsTrigger value="log">Journal</TabsTrigger>
 					</TabsList>
 					<Button
 						size="sm"

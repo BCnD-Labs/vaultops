@@ -295,8 +295,23 @@ export function CanvasPane({
 			renamingRef.current = false;
 		}
 	};
+	/** Changes and undo steps run one after another: a held Ctrl+Z, or two quick
+	 *  edits, must each see the text the one before them saved. */
+	const queue = useRef<Promise<unknown>>(Promise.resolve());
+	const inOrder = <T,>(task: () => Promise<T>): Promise<T> => {
+		const run = queue.current.then(task, task);
+		queue.current = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	};
 	/** Every canvas change goes through here: one atomic, checked write. */
-	const commit = async (
+	const commit = (
+		mutate: (all: typeof blocks) => typeof blocks,
+		action: string,
+	): Promise<boolean> => inOrder(() => commitNow(mutate, action));
+	const commitNow = async (
 		mutate: (all: typeof blocks) => typeof blocks,
 		action: string,
 	): Promise<boolean> => {
@@ -354,7 +369,9 @@ export function CanvasPane({
 		);
 		if (ok) setEditingId(id);
 	};
-	const step = async (direction: "undo" | "redo") => {
+	const step = (direction: "undo" | "redo") =>
+		inOrder(() => stepNow(direction));
+	const stepNow = async (direction: "undo" | "redo") => {
 		const from = direction === "undo" ? undoStack : redoStack;
 		const to = direction === "undo" ? redoStack : undoStack;
 		const current = baseTextRef.current;

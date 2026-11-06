@@ -12,11 +12,36 @@ import {
 } from "../note-format";
 import { isInsideVaultOps } from "../vault/vault";
 
-/** Create a note whose initial blocks are new, uncommitted changes. */
-export async function createNote(
+const creating = new WeakMap<Host, Promise<unknown>>();
+
+/**
+ * Create a note whose initial blocks are new, uncommitted changes. Creations
+ * run one at a time, so two quick ones cannot both pick the same free name.
+ */
+export function createNote(
 	host: Host,
 	folder = "",
 	title = "Untitled",
+	initial?: Partial<Note>,
+): Promise<{ path: string; note: Note }> {
+	const run = (creating.get(host) ?? Promise.resolve()).then(
+		() => createNoteNow(host, folder, title, initial),
+		() => createNoteNow(host, folder, title, initial),
+	);
+	creating.set(
+		host,
+		run.then(
+			() => undefined,
+			() => undefined,
+		),
+	);
+	return run;
+}
+
+async function createNoteNow(
+	host: Host,
+	folder: string,
+	title: string,
 	initial?: Partial<Note>,
 ): Promise<{ path: string; note: Note }> {
 	if (isInsideVaultOps(folder)) {

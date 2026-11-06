@@ -8,6 +8,11 @@ describe("theme choice", () => {
 			expect(themes.map((theme) => theme.id)).toEqual([
 				"default",
 				"graphite",
+				"cards",
+				"clean",
+				"glass",
+				"cosmos",
+				"arcade",
 				"high-contrast",
 			]);
 			expect(modes).toEqual(["light", "dark"]);

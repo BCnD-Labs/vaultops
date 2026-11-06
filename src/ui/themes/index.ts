@@ -1,6 +1,11 @@
 export const themes = [
 	{ id: "default", name: "Mac flat", modes: ["light", "dark"] },
 	{ id: "graphite", name: "Graphite", modes: ["light", "dark"] },
+	{ id: "cards", name: "Cards", modes: ["light", "dark"] },
+	{ id: "clean", name: "Clean", modes: ["light", "dark"] },
+	{ id: "glass", name: "Glass", modes: ["light", "dark"] },
+	{ id: "cosmos", name: "Cosmos", modes: ["light", "dark"] },
+	{ id: "arcade", name: "Arcade", modes: ["light", "dark"] },
 	{ id: "high-contrast", name: "High contrast", modes: ["light", "dark"] },
 ] as const;
 export type ThemeChoice = { id: string; mode: "light" | "dark" | "system" };

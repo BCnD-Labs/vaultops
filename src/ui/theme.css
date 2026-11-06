@@ -12,6 +12,11 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "./themes/default.css";
 @import "./themes/graphite.css";
+@import "./themes/cards.css";
+@import "./themes/clean.css";
+@import "./themes/glass.css";
+@import "./themes/cosmos.css";
+@import "./themes/arcade.css";
 @import "./themes/high-contrast.css";
 
 /*
@@ -35,6 +40,40 @@
 	font-display: swap;
 	src: url("./fonts/atkinson-hyperlegible-next-latin-wght-italic.woff2")
 		format("woff2");
+}
+
+/*
+ * Fonts for the Cards, Clean, Cosmos and Arcade themes, bundled for the same
+ * reason: Inter, Sora and JetBrains Mono (variable weight, Latin subset), all
+ * under the SIL Open Font License 1.1; the license texts are in ./fonts.
+ */
+@font-face {
+	font-family: "Inter Variable";
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+	font-family: "Inter Variable";
+	font-style: italic;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url("./fonts/inter-latin-wght-italic.woff2") format("woff2");
+}
+@font-face {
+	font-family: "Sora Variable";
+	font-style: normal;
+	font-weight: 100 800;
+	font-display: swap;
+	src: url("./fonts/sora-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+	font-family: "JetBrains Mono Variable";
+	font-style: normal;
+	font-weight: 100 800;
+	font-display: swap;
+	src: url("./fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
 }
 
 @theme inline {

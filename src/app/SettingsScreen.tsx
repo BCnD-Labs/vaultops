@@ -82,6 +82,7 @@ export function SettingsScreen({
 			<div className="settings-row">
 				<span id="settings-theme">Theme</span>
 				<ToggleGroup
+					className="settings-theme-group"
 					type="single"
 					aria-labelledby="settings-theme"
 					value={choice.id}

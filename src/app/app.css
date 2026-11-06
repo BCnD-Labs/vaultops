@@ -682,3 +682,10 @@ select {
 		2px
 	);
 }
+
+/* Eight themes do not fit one row. */
+.settings-theme-group {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	max-width: 28rem;
+}

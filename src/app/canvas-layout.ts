@@ -63,3 +63,24 @@ export function saveCanvasLocked(
 		/* Optional preference. */
 	}
 }
+
+const snapKey = "vaultops:canvas-snap";
+
+export function canvasSnap(storage?: Pick<Storage, "getItem">): boolean {
+	try {
+		return (storage ?? localStorage).getItem(snapKey) === "true";
+	} catch {
+		return false;
+	}
+}
+
+export function saveCanvasSnap(
+	snap: boolean,
+	storage?: Pick<Storage, "setItem">,
+) {
+	try {
+		(storage ?? localStorage).setItem(snapKey, String(snap));
+	} catch {
+		/* Optional preference. */
+	}
+}

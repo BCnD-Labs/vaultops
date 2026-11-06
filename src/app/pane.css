@@ -52,6 +52,26 @@
 .canvas-surface-locked {
 	box-shadow: var(--canvas-lock-ring);
 }
+.canvas-cluster {
+	position: absolute;
+	right: 12px;
+	bottom: 56px;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+}
+.canvas-cluster svg {
+	width: 16px;
+	height: 16px;
+}
+.canvas-cluster [aria-pressed="true"] {
+	background: var(--primary-container);
+	color: var(--on-primary-container);
+}
 .canvas-lock {
 	position: absolute;
 	right: 12px;

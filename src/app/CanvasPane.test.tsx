@@ -573,3 +573,104 @@ it("adds a sticky note from the Add menu and saves it on the canvas", async () =
 		await screen.findByRole("textbox", { name: "Text of sticky" }),
 	).toBeTruthy();
 });
+
+async function boardWithCard() {
+	const host = new MemoryHost();
+	const made = await createCanvas(host, "", "Board");
+	const note = parseNote(await host.readText(made.path)).note;
+	if (!note) throw new Error("missing canvas");
+	note.blocks = [
+		{
+			id: "a",
+			type: "paragraph",
+			parent: null,
+			attrs: { x: 12, y: 30 },
+			content: [{ type: "text", text: "Card" }],
+		},
+	];
+	await host.writeTextAtomic(made.path, serializeNote(note));
+	const props = {
+		host,
+		path: made.path,
+		canvases: [
+			{
+				path: made.path,
+				title: "Board",
+				preview: "",
+				readOnly: false,
+				kind: "canvas" as const,
+				tags: [],
+			},
+		],
+		writable: true,
+		onSelect: vi.fn(),
+		onNew: vi.fn(),
+		onClose: vi.fn(),
+		onDropBlock: vi.fn(),
+	};
+	return { host, path: made.path, props };
+}
+const positionOnDisk = async (host: MemoryHost, path: string) =>
+	parseNote(await host.readText(path)).note?.blocks[0]?.attrs;
+
+it("undoes and redoes a move, and the file follows each step", async () => {
+	const user = userEvent.setup();
+	const { host, path, props } = await boardWithCard();
+	render(<CanvasPane {...props} />);
+	await screen.findByText("Card");
+	const undo = screen.getByRole("button", {
+		name: "Undo",
+	}) as HTMLButtonElement;
+	const redo = screen.getByRole("button", {
+		name: "Redo",
+	}) as HTMLButtonElement;
+	expect(undo.disabled).toBe(true);
+	await user.click(screen.getByRole("button", { name: "Drag card" }));
+	await waitFor(async () =>
+		expect(await positionOnDisk(host, path)).toMatchObject({ x: 88, y: 99 }),
+	);
+	await waitFor(() => expect(undo.disabled).toBe(false));
+	await user.click(undo);
+	await waitFor(async () =>
+		expect(await positionOnDisk(host, path)).toMatchObject({ x: 12, y: 30 }),
+	);
+	await waitFor(() => expect(redo.disabled).toBe(false));
+	await user.click(redo);
+	await waitFor(async () =>
+		expect(await positionOnDisk(host, path)).toMatchObject({ x: 88, y: 99 }),
+	);
+});
+
+it("undoes with the keyboard, and refuses (and clears history) if the file changed on disk", async () => {
+	const user = userEvent.setup();
+	const { host, path, props } = await boardWithCard();
+	render(<CanvasPane {...props} />);
+	await screen.findByText("Card");
+	await user.click(screen.getByRole("button", { name: "Drag card" }));
+	const undo = screen.getByRole("button", {
+		name: "Undo",
+	}) as HTMLButtonElement;
+	await waitFor(() => expect(undo.disabled).toBe(false));
+	// Something else edits the file: undo must not overwrite it.
+	const edited = `${await host.readText(path)}\n`;
+	await host.writeTextAtomic(path, edited);
+	fireEvent.keyDown(screen.getByRole("region", { name: "Canvas view" }), {
+		key: "z",
+		ctrlKey: true,
+	});
+	expect(await screen.findByText(/changed on disk/)).toBeTruthy();
+	expect(await host.readText(path)).toBe(edited);
+	await waitFor(() => expect(undo.disabled).toBe(true));
+});
+
+it("remembers the snap-to-grid choice", async () => {
+	const user = userEvent.setup();
+	const { props } = await boardWithCard();
+	render(<CanvasPane {...props} />);
+	await screen.findByText("Card");
+	const snap = screen.getByRole("button", { name: "Snap to grid" });
+	expect(snap.getAttribute("aria-pressed")).toBe("false");
+	await user.click(snap);
+	expect(snap.getAttribute("aria-pressed")).toBe("true");
+	expect(localStorage.getItem("vaultops:canvas-snap")).toBe("true");
+});

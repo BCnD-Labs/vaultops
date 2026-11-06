@@ -27,3 +27,24 @@ export async function saveCanvasEdit(
 	await host.writeTextAtomic(path, saved.text);
 	return saved.text;
 }
+
+/**
+ * Puts back a canvas text from the undo history. The file must still equal
+ * `currentText` (what the screen showed) and `nextText` must still be a clean
+ * canvas, or nothing is written.
+ */
+export async function restoreCanvasText(
+	host: Host,
+	path: string,
+	currentText: string,
+	nextText: string,
+): Promise<void> {
+	const parsed = parseNote(nextText);
+	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
+		throw new Error("That earlier version cannot be restored safely.");
+	if ((await host.readText(path)) !== currentText)
+		throw new Error(
+			"The canvas changed on disk, so undo and redo were cleared. Reload it first.",
+		);
+	await host.writeTextAtomic(path, nextText);
+}

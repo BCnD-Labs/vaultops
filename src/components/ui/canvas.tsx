@@ -3,7 +3,6 @@ import {
 	applyNodeChanges,
 	Background,
 	ConnectionMode,
-	Controls,
 	type Edge,
 	type EdgeChange,
 	Handle,
@@ -76,6 +75,12 @@ export interface SelectionContext {
 export interface CanvasApi {
 	/** The middle of what is on screen, in canvas coordinates. */
 	center: () => { x: number; y: number };
+	zoomIn: () => void;
+	zoomOut: () => void;
+	/** Fit everything on the canvas into view. */
+	fit: () => void;
+	/** A screen point (e.g. a right-click) in canvas coordinates. */
+	at: (clientX: number, clientY: number) => { x: number; y: number };
 }
 
 function ItemNode({ id, data, selected }: NodeProps<CanvasNode>) {
@@ -122,6 +127,7 @@ function Surface({
 	onDropBlock,
 	selectionToolbar,
 	onReady,
+	snap = false,
 }: {
 	nodes: CanvasNode[];
 	edges?: CanvasEdge[];
@@ -137,6 +143,8 @@ function Surface({
 	) => void;
 	selectionToolbar?: (context: SelectionContext) => ReactNode;
 	onReady?: (api: CanvasApi) => void;
+	/** Moved items land on the 20px grid. */
+	snap?: boolean;
 }) {
 	const [nodes, setNodes] = useState(initial);
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -186,8 +194,13 @@ function Surface({
 				const [x, y, zoom] = transform;
 				return { x: (width / 2 - x) / zoom, y: (height / 2 - y) / zoom };
 			},
+			zoomIn: () => void flow.zoomIn({ duration: 150 }),
+			zoomOut: () => void flow.zoomOut({ duration: 150 }),
+			fit: () => void flow.fitView({ duration: 200, padding: 0.2 }),
+			at: (clientX, clientY) =>
+				flow.screenToFlowPosition({ x: clientX, y: clientY }),
 		});
-	}, [onReady, store]);
+	}, [onReady, store, flow]);
 	useEffect(() => {
 		const clear = () => setDropSpot(null);
 		document.addEventListener("dragend", clear);
@@ -333,6 +346,8 @@ function Surface({
 				);
 			}}
 			fitView
+			snapToGrid={snap}
+			snapGrid={[20, 20]}
 			{...canvasFlowProps(locked)}
 			// Drag over empty space to select; pan with the middle or right button,
 			// or by scrolling. Locked, the canvas does neither.
@@ -348,7 +363,6 @@ function Surface({
 			proOptions={{ hideAttribution: true }}
 		>
 			<Background color="var(--canvas-dot)" gap={20} size={1.5} />
-			<Controls showZoom={false} showInteractive={false} />
 			{selectionToolbar && !locked && editable && selectedIds.length > 0 && (
 				<NodeToolbar
 					nodeId={selectedIds}

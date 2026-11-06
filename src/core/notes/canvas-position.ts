@@ -1,5 +1,7 @@
 import type { Host } from "../../host/host";
-import { type Block, parseNote, prepareSave } from "../note-format";
+import type { Block } from "../note-format";
+import { saveCanvasEdit } from "./canvas-edit";
+import { setPositions } from "./canvas-ops";
 
 export function canvasRoots(blocks: Block[]): Block[] {
 	return blocks.filter((block) => block.parent === null && !!block.id);
@@ -23,32 +25,15 @@ export async function saveCanvasPosition(
 	blockId: string,
 	position: { x: number; y: number },
 ): Promise<string> {
-	if (!Number.isFinite(position.x) || !Number.isFinite(position.y))
-		throw new Error("Canvas coordinates must be finite numbers.");
-	const parsed = parseNote(baseText);
-	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
-		throw new Error("This canvas cannot be edited safely.");
-	const index = parsed.note.blocks.findIndex(
-		(block) => block.id === blockId && block.parent === null,
-	);
-	if (index < 0) throw new Error("This card is no longer on the canvas.");
-	const block = parsed.note.blocks[index] as Block;
-	const attrs = block.attrs;
-	parsed.note.blocks[index] = {
-		...block,
-		attrs: {
-			...(attrs && typeof attrs === "object" && !Array.isArray(attrs)
-				? attrs
-				: {}),
-			...position,
+	return saveCanvasEdit(
+		host,
+		path,
+		baseText,
+		(blocks) => {
+			if (!blocks.some((b) => b.id === blockId && b.parent === null))
+				throw new Error("This card is no longer on the canvas.");
+			return setPositions(blocks, { [blockId]: position });
 		},
-	};
-	const saved = prepareSave(parsed.note);
-	if (!saved.ok) throw new Error("The canvas did not pass the save check.");
-	if ((await host.readText(path)) !== baseText)
-		throw new Error(
-			"The canvas changed on disk. Reload it before moving a card.",
-		);
-	await host.writeTextAtomic(path, saved.text);
-	return saved.text;
+		"moving a card",
+	);
 }

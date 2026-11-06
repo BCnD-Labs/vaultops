@@ -99,3 +99,22 @@ describe("describeSaveProblems", () => {
 		expect(text).toContain("block a (line 4)");
 	});
 });
+
+describe("canvas-only blocks", () => {
+	it("refuses a shape, sticky note, label, group or connector in a note", () => {
+		for (const type of ["shape", "sticky", "label", "group", "connector"]) {
+			const result = prepareSave(note([{ id: "x", type, parent: null }]));
+			expect(result.ok).toBe(false);
+			if (!result.ok)
+				expect(result.problems[0]?.kind).toBe("canvas-only-in-note");
+		}
+	});
+
+	it("allows them on a canvas", () => {
+		const canvas: Note = {
+			header: { ...header, kind: "canvas" },
+			blocks: [{ id: "x", type: "shape", parent: null }],
+		};
+		expect(prepareSave(canvas).ok).toBe(true);
+	});
+});

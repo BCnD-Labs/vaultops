@@ -1,4 +1,5 @@
-import type { Block, Note } from "../note-format";
+import { type Block, isCanvasOnly, type Note } from "../note-format";
+import { attrsOf, connectorEnds, groupMembers } from "./canvas-ops";
 
 export type Placement = { after: string | null } | { x: number; y: number };
 
@@ -17,24 +18,54 @@ export function extractBlock(
 	doc: Note,
 	blockId: string,
 ): { lines: Block[]; doc: Note } {
-	if (!doc.blocks.some((line) => line.id === blockId))
-		throw new Error(`Block ${blockId} was not found.`);
+	const root = doc.blocks.find((line) => line.id === blockId);
+	if (!root) throw new Error(`Block ${blockId} was not found.`);
+	if (isCanvasOnly(root.type))
+		throw new Error(
+			"Shapes, sticky notes, labels, groups and connectors stay on the canvas.",
+		);
 	const selected = new Set([blockId]);
 	for (const line of doc.blocks) {
 		if (line.parent && selected.has(line.parent) && line.id)
 			selected.add(line.id);
 	}
+	// On a canvas, what pointed at the moved item lets go: its connectors are
+	// removed and it leaves any group's member list.
+	const remaining: Block[] = [];
+	for (const line of doc.blocks) {
+		if (line.id && selected.has(line.id)) continue;
+		if (line.type === "connector") {
+			const ends = connectorEnds(line);
+			if (selected.has(ends.from) || selected.has(ends.to)) continue;
+		}
+		if (
+			line.type === "group" &&
+			groupMembers(line).some((id) => selected.has(id))
+		) {
+			const { attrs: _old, ...rest } = line;
+			remaining.push({
+				...rest,
+				attrs: {
+					...attrsOf(line),
+					members: groupMembers(line).filter((id) => !selected.has(id)),
+				},
+			});
+			continue;
+		}
+		remaining.push(line);
+	}
 	return {
 		lines: doc.blocks.filter((line) => line.id && selected.has(line.id)),
-		doc: {
-			...doc,
-			blocks: doc.blocks.filter((line) => !line.id || !selected.has(line.id)),
-		},
+		doc: { ...doc, blocks: remaining },
 	};
 }
 
 function checkedDestination(doc: Note, lines: Block[]): Block {
 	if (!lines.length) throw new Error("There is no block to move.");
+	if (lines.some((line) => isCanvasOnly(line.type)))
+		throw new Error(
+			"Shapes, sticky notes, labels, groups and connectors stay on the canvas.",
+		);
 	const ids = requireIds(lines);
 	if (doc.blocks.some((line) => line.id && ids.has(line.id)))
 		throw new Error("The destination already contains a block with this ID.");

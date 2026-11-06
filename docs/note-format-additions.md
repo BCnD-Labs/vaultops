@@ -89,3 +89,37 @@ Fixture: `test-fixtures/toggle.vnote` (round-trips byte for byte in
 
 Fixture for all three: `test-fixtures/inline-and-code.vnote` (round-trips byte
 for byte in `src/editor/doc-blocks.test.ts`).
+
+## Canvas-only blocks: `sticky`, `shape`, `label`, `group`, `connector`
+
+Block types that exist only in a file whose header says `"kind":"canvas"`. They
+are root lines (`parent` null) like any card. A note file that contains one is
+refused at save time (`canvas-only-in-note`), and a move into a note is refused
+before anything is written, so they can never end up in a note.
+
+- **Position and size:** `x`, `y` on every one except `connector`; `w`, `h` on
+  `sticky`, `shape` and `group`. Left out when not set.
+- **`sticky`:** `tone` (`note`, `info`, `tip`, `warning`, `danger`; left out when
+  `note`). Text is the block's `content`, plain text in one text item.
+- **`shape`:** `shape` (`rectangle`, `rounded`, `ellipse`, `diamond`; left out
+  when `rectangle`), `tone` as for a sticky, optional text in `content`.
+- **`label`:** `size` (`s`, `m`, `l`; left out when `m`), text in `content`, no
+  frame.
+- **`group`:** a frame (`x`, `y`, `w`, `h`), an optional `title`, and `members`,
+  a list of the ids of the cards it holds. Membership lives on the group, so
+  deleting a group removes only the group line and its members stay put. A card
+  is in one group at a time. Groups and connectors are never members.
+- **`connector`:** `from` and `to`, the ids of two other root blocks on the same
+  canvas, and `arrow` (`none`, `end` or `both`; the app writes `end`). No
+  coordinates. When a card that a connector touches is deleted, or moved to a
+  note, the connector is removed with it; a card put back on a canvas keeps
+  its connectors because it never left.
+- **Older build:** builds before this one draw a block type they do not know as
+  a plain card and can still move it, which would rewrite its position; they
+  cannot read what a shape or group means. From this build on, a canvas that has
+  a block type this build does not know opens read-only, so a newer file is
+  never changed by an older app. Avoid opening canvases with these blocks in
+  an older build.
+
+Fixture: `test-fixtures/canvas-blocks.vnote` (round-trips byte for byte in
+`src/core/notes/canvas-ops.test.ts`).

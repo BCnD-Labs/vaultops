@@ -1,27 +1,68 @@
-import { Lock, LockOpen } from "lucide-react";
+import { Lock, LockOpen, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Canvas } from "@/components/ui/canvas";
+import {
+	Canvas,
+	type CanvasApi,
+	type CanvasNode,
+} from "@/components/ui/canvas";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { parseNote } from "../core/note-format";
+import { CANVAS_ONLY_TYPES, parseNote } from "../core/note-format";
+import { saveCanvasEdit } from "../core/notes/canvas-edit";
+import {
+	addConnector,
+	addRoot,
+	attrsOf,
+	canvasConnectors,
+	canvasNodes,
+	connectorEnds,
+	createGroup,
+	deleteRoots,
+	groupMembers,
+	newBlockId,
+	numberAttr,
+	patchAttrs,
+	setPositions,
+	setText,
+} from "../core/notes/canvas-ops";
 import {
 	blockPosition,
-	canvasRoots,
 	saveCanvasPosition,
 } from "../core/notes/canvas-position";
 import { renameNote } from "../core/notes/rename";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
+import { BLOCK_TYPES } from "../editor/blocks";
 import type { Host } from "../host/host";
 import { CanvasCard } from "./CanvasCard";
+import { CanvasItem } from "./CanvasItem";
+import { CanvasSelectionBar } from "./CanvasSelectionBar";
 import { canvasLocked, saveCanvasLocked } from "./canvas-layout";
 import { compareRows, type NoteRow } from "./session";
 
 const lockLabel = "Lock canvas: drag cards out to the note";
+
+/** Block types this build can draw and keep safe on a canvas. */
+const KNOWN_TYPES: ReadonlySet<string> = new Set([
+	...BLOCK_TYPES,
+	...CANVAS_ONLY_TYPES,
+]);
+
+const ITEM_SIZE: { [type: string]: { w: number; h: number } } = {
+	sticky: { w: 180, h: 140 },
+	shape: { w: 180, h: 110 },
+	group: { w: 320, h: 220 },
+};
 
 export function CanvasPane({
 	host,
@@ -71,6 +112,8 @@ export function CanvasPane({
 	const [error, setError] = useState<string | null>(null);
 	const [surfaceRevision, setSurfaceRevision] = useState(0);
 	const [locked, setLocked] = useState(canvasLocked);
+	const [editingId, setEditingId] = useState<string | null>(null);
+	const canvasApi = useRef<CanvasApi | null>(null);
 	const nameInput = useRef<HTMLInputElement>(null);
 	const shouldFocus = useRef(focusName);
 	const renamingRef = useRef(false);
@@ -111,13 +154,17 @@ export function CanvasPane({
 	);
 	const blocks =
 		parsed?.note?.header.kind === "canvas" ? parsed.note.blocks : [];
-	const roots = canvasRoots(blocks);
+	const roots = canvasNodes(blocks);
+	const unknownType = blocks.find(
+		(block) => !KNOWN_TYPES.has(block.type),
+	)?.type;
 	const row = items.find((item) => item.path === activePath);
 	const editable =
 		writable &&
 		!row?.readOnly &&
 		parsed?.note?.header.kind === "canvas" &&
-		parsed.problems.length === 0;
+		parsed.problems.length === 0 &&
+		unknownType === undefined;
 	const savedTitle =
 		typeof parsed?.note?.header.title === "string"
 			? parsed.note.header.title
@@ -198,34 +245,157 @@ export function CanvasPane({
 			renamingRef.current = false;
 		}
 	};
-	const nodes = roots.map((block) => ({
-		id: block.id as string,
-		position: blockPosition(block),
-		data: {
-			label: (
-				<CanvasCard
-					root={block}
-					blocks={blocks}
-					canvasId={parsed?.note?.header.noteId ?? ""}
-					draggable={!!editable}
-					onMoveToNote={
-						editable && onMoveToNote
-							? async () => {
-									try {
-										await onMoveToNote(block.id as string);
-										setError(null);
-									} catch (reason) {
-										setError(String(reason));
-									}
+	/** Every canvas change goes through here: one atomic, checked write. */
+	const commit = async (
+		mutate: (all: typeof blocks) => typeof blocks,
+		action: string,
+	): Promise<boolean> => {
+		if (!editable || baseTextRef.current === null) return false;
+		try {
+			const saved = await saveCanvasEdit(
+				host,
+				activePath,
+				baseTextRef.current,
+				mutate,
+				action,
+			);
+			baseTextRef.current = saved;
+			setLoaded({ path: activePath, text: saved });
+			setError(null);
+			return true;
+		} catch (reason) {
+			setError(reason instanceof Error ? reason.message : String(reason));
+			try {
+				const disk = await host.readText(activePath);
+				baseTextRef.current = disk;
+				setLoaded({ path: activePath, text: disk });
+			} catch {
+				/* Keep the last readable canvas. */
+			}
+			setSurfaceRevision((revision) => revision + 1);
+			return false;
+		}
+	};
+	const addItem = async (
+		type: "sticky" | "shape" | "label",
+		extra: { [k: string]: string } = {},
+	) => {
+		const size = ITEM_SIZE[type];
+		const middle = canvasApi.current?.center() ?? { x: 0, y: 0 };
+		const id = newBlockId();
+		const ok = await commit(
+			(all) =>
+				addRoot(all, {
+					id,
+					type,
+					parent: null,
+					attrs: {
+						...extra,
+						...(size ? { h: size.h, w: size.w } : {}),
+						x: Math.round(middle.x - (size?.w ?? 80) / 2),
+						y: Math.round(middle.y - (size?.h ?? 20) / 2),
+					},
+				}),
+			"adding an item",
+		);
+		if (ok) setEditingId(id);
+	};
+	const nodes: CanvasNode[] = roots.map((block) => {
+		const id = block.id as string;
+		const canvasOnly = (CANVAS_ONLY_TYPES as readonly string[]).includes(
+			block.type,
+		);
+		const size = ITEM_SIZE[block.type];
+		const label = canvasOnly ? (
+			<CanvasItem
+				key={id}
+				block={block}
+				editable={!!editable}
+				locked={locked}
+				startEditing={editingId === id}
+				onText={(text) => {
+					setEditingId(null);
+					void commit((all) => setText(all, id, text), "editing the text");
+				}}
+				onTitle={(title) => {
+					setEditingId(null);
+					void commit(
+						(all) => patchAttrs(all, id, { title: title || undefined }),
+						"renaming the group",
+					);
+				}}
+			/>
+		) : (
+			<CanvasCard
+				key={id}
+				root={block}
+				blocks={blocks}
+				canvasId={parsed?.note?.header.noteId ?? ""}
+				draggable={!!editable}
+				onMoveToNote={
+					editable && onMoveToNote
+						? async () => {
+								try {
+									await onMoveToNote(id);
+									setError(null);
+								} catch (reason) {
+									setError(String(reason));
 								}
-							: undefined
-					}
-				/>
-			),
-		},
-		className: "canvas-node",
-		draggable: Boolean(editable && !locked),
-	}));
+							}
+						: undefined
+				}
+			/>
+		);
+		const isGroup = block.type === "group";
+		const width = canvasOnly ? numberAttr(block, "w", size?.w ?? 0) : 0;
+		const height = canvasOnly ? numberAttr(block, "h", size?.h ?? 0) : 0;
+		return {
+			id,
+			type: "item",
+			position: blockPosition(block),
+			data: {
+				label,
+				resizable: Boolean(editable && !locked && size),
+				connectable: Boolean(editable && !locked && !isGroup),
+				...(isGroup ? { members: groupMembers(block) } : {}),
+				onResizeEnd: (
+					itemId: string,
+					box: { x: number; y: number; width: number; height: number },
+				) =>
+					void commit(
+						(all) =>
+							patchAttrs(all, itemId, {
+								h: Math.round(box.height),
+								w: Math.round(box.width),
+								x: Math.round(box.x),
+								y: Math.round(box.y),
+							}),
+						"resizing an item",
+					),
+			},
+			className: canvasOnly
+				? `canvas-item-node canvas-node-${block.type}`
+				: "canvas-node",
+			draggable: Boolean(editable && !locked),
+			...(width > 0 && height > 0 ? { style: { height, width } } : {}),
+			...(isGroup ? { zIndex: -1, dragHandle: ".canvas-group-title" } : {}),
+		};
+	});
+	const present = new Set(roots.map((block) => block.id));
+	const edges = canvasConnectors(blocks).flatMap((block) => {
+		const ends = connectorEnds(block);
+		const arrow = attrsOf(block).arrow;
+		return present.has(ends.from) && present.has(ends.to)
+			? [
+					{
+						id: block.id as string,
+						source: ends.from,
+						target: ends.to,
+						arrow: arrow !== "none",
+					},
+				]
+			: [];
+	});
 	const LockIcon = locked ? Lock : LockOpen;
 	return (
 		<section
@@ -256,6 +426,43 @@ export function CanvasPane({
 						}
 					}}
 				/>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							size="sm"
+							variant="ghost"
+							disabled={!editable || locked}
+							title={locked ? "Unlock the canvas to add items" : undefined}
+						>
+							<Plus aria-hidden="true" /> Add
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="start">
+						<DropdownMenuItem onSelect={() => void addItem("sticky")}>
+							Sticky note
+						</DropdownMenuItem>
+						{(
+							[
+								["rectangle", "Rectangle"],
+								["rounded", "Rounded box"],
+								["ellipse", "Ellipse"],
+								["diamond", "Diamond"],
+							] as const
+						).map(([shape, label]) => (
+							<DropdownMenuItem
+								key={shape}
+								onSelect={() =>
+									void addItem("shape", shape === "rectangle" ? {} : { shape })
+								}
+							>
+								Shape: {label}
+							</DropdownMenuItem>
+						))}
+						<DropdownMenuItem onSelect={() => void addItem("label")}>
+							Label
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 				<Button size="sm" variant="ghost" onClick={onNew} disabled={!writable}>
 					New canvas
 				</Button>
@@ -273,6 +480,12 @@ export function CanvasPane({
 					{error}
 				</p>
 			)}
+			{unknownType !== undefined && (
+				<p role="alert" className="notice">
+					This canvas has a block type ("{unknownType}") that this version does
+					not know, so it is read-only.
+				</p>
+			)}
 			{parsed &&
 				(parsed.note?.header.kind !== "canvas" ||
 					parsed.problems.length > 0) && (
@@ -288,7 +501,62 @@ export function CanvasPane({
 				<Canvas
 					key={surfaceRevision}
 					nodes={nodes}
+					edges={edges}
 					locked={locked}
+					editable={!!editable}
+					onReady={(api) => {
+						canvasApi.current = api;
+					}}
+					onMoveMany={(positions) => {
+						if (locked) return;
+						void commit((all) => setPositions(all, positions), "moving items");
+					}}
+					onConnect={(from, to) =>
+						void commit(
+							(all) => addConnector(all, from, to),
+							"connecting items",
+						)
+					}
+					onDeleteConnectors={(ids) =>
+						void commit(
+							(all) => deleteRoots(all, ids).blocks,
+							"deleting a connector",
+						)
+					}
+					selectionToolbar={({ ids, bounds }) => (
+						<CanvasSelectionBar
+							ids={ids}
+							blocks={blocks}
+							onGroup={(members) => {
+								const box = bounds();
+								if (!box) return;
+								const pad = 24;
+								const title = 28;
+								void commit(
+									(all) =>
+										createGroup(all, members, {
+											h: Math.round(box.height + pad * 2 + title),
+											w: Math.round(box.width + pad * 2),
+											x: Math.round(box.x - pad),
+											y: Math.round(box.y - pad - title),
+										}),
+									"grouping items",
+								);
+							}}
+							onUngroup={(groupId) =>
+								void commit(
+									(all) => deleteRoots(all, [groupId]).blocks,
+									"ungrouping",
+								)
+							}
+							onDelete={(doomed) =>
+								void commit(
+									(all) => deleteRoots(all, doomed).blocks,
+									"deleting items",
+								)
+							}
+						/>
+					)}
 					onMove={async (id, position) => {
 						if (!editable || locked || baseTextRef.current === null) return;
 						try {

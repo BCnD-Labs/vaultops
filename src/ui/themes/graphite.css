@@ -111,7 +111,7 @@
 	--panel: var(--surface-container-low);
 	--text: var(--foreground);
 	--line: var(--border);
-	--canvas-dot: var(--border);
+	--canvas-dot: color-mix(in srgb, var(--foreground) 24%, transparent);
 	--canvas-lock-ring: inset 0 0 0 2px var(--primary-container);
 	--bad: var(--destructive);
 	--hover-layer: 8%;
@@ -163,12 +163,12 @@
 	--seed-container: #423e37;
 	--seed-on-container: #f1ece3;
 	--seed-danger: #ff8999;
-	--seed-danger-container: #502632;
+	--seed-danger-container: #423231;
 	--seed-on-danger: #301019;
 	--seed-warning: #e0b04a;
-	--seed-warning-container: #4a3a12;
+	--seed-warning-container: #3e3728;
 	--seed-tip: #6fd08f;
-	--seed-tip-container: #1f3d2b;
+	--seed-tip-container: #313a30;
 	--shadow-color: #00000059;
 }
 @media (prefers-color-scheme: dark) {
@@ -187,12 +187,12 @@
 		--seed-container: #423e37;
 		--seed-on-container: #f1ece3;
 		--seed-danger: #ff8999;
-		--seed-danger-container: #502632;
+		--seed-danger-container: #423231;
 		--seed-on-danger: #301019;
 		--seed-warning: #e0b04a;
-		--seed-warning-container: #4a3a12;
+		--seed-warning-container: #3e3728;
 		--seed-tip: #6fd08f;
-		--seed-tip-container: #1f3d2b;
+		--seed-tip-container: #313a30;
 		--shadow-color: #00000059;
 	}
 }

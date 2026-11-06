@@ -974,3 +974,22 @@ input.canvas-item-field {
 	width: 14px;
 	height: 14px;
 }
+
+/* Canvas chrome: lighter bar, floating round controls, cards that sit above the dots. */
+.canvas-bar {
+	border-bottom-color: var(--block-outline);
+	padding-inline: var(--space-3);
+}
+.canvas-lock {
+	border-radius: var(--radius-round);
+	box-shadow: var(--elevation-2);
+}
+.canvas-pane .react-flow__controls {
+	overflow: hidden;
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-2);
+}
+.canvas-pane .react-flow__node.canvas-node {
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-1);
+}

@@ -347,7 +347,7 @@ function Surface({
 			elementsSelectable
 			proOptions={{ hideAttribution: true }}
 		>
-			<Background color="var(--canvas-dot)" gap={20} size={1} />
+			<Background color="var(--canvas-dot)" gap={20} size={1.5} />
 			<Controls showZoom={false} showInteractive={false} />
 			{selectionToolbar && !locked && editable && selectedIds.length > 0 && (
 				<NodeToolbar

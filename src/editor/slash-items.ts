@@ -8,7 +8,6 @@ import {
 	ListChecks,
 	ListOrdered,
 	type LucideIcon,
-	Minus,
 	Pilcrow,
 	Quote,
 	Table2,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { CALLOUT_ICONS, CALLOUT_TONES } from "./callout";
 import { todayIso } from "./date-chip";
+import { DIVIDER_ICONS } from "./divider-icons";
 
 /** The groups the menu is divided into, in the order they appear. */
 export const SLASH_SECTIONS = [
@@ -119,7 +119,7 @@ const ITEMS: SlashItem[] = [
 	{
 		id: "divider",
 		section: "Blocks",
-		icon: Minus,
+		icon: DIVIDER_ICONS.solid,
 		label: "Divider",
 		keywords: ["rule", "line", "hr", "separator"],
 		run: (e, r) =>
@@ -131,7 +131,7 @@ const ITEMS: SlashItem[] = [
 		(style): SlashItem => ({
 			id: `divider-${style}`,
 			section: "Blocks",
-			icon: Minus,
+			icon: DIVIDER_ICONS[style],
 			label: `Divider: ${style}`,
 			keywords: [style, "separator"],
 			run: (e, r) =>

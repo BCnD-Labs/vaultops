@@ -4,6 +4,8 @@ import { isInsideVaultOps } from "../vault/vault";
 import { checkVaultPath, nameKey } from "../vault-path/vault-path";
 
 const TRASH = ".vaultops/trash";
+/** Where "delete forever" puts things: hidden from the app, still on disk in the vault. */
+const RECOVERY = ".vaultops/recovery";
 
 export interface TrashedNote {
 	/** Where the file sits now, inside the trash folder. */
@@ -126,13 +128,16 @@ export async function listTrash(host: Host): Promise<TrashedNote[]> {
 }
 
 /**
- * Delete one trashed note forever. This is the only way the app erases a
- * note, and it works only on a note inside the trash: anything else is refused
- * before the host is asked. The confirmation prompt belongs to the Trash screen.
+ * "Delete forever" for now keeps the file: it moves one trashed note into a
+ * hidden recovery folder, `.vaultops/recovery/<time>/<its path>`, which the app
+ * never lists. Nothing is erased, and a fresh time folder per call means a name
+ * can never clash. Only a note inside the trash is accepted: anything else is
+ * refused before the host is asked to move it.
  */
 export async function deleteForever(
 	host: Host,
 	trashPath: string,
+	now: Date = new Date(),
 ): Promise<void> {
 	const parts = trashPath.split("/");
 	const inTrash =
@@ -143,7 +148,15 @@ export async function deleteForever(
 	if (!inTrash || (await host.kindOf(trashPath)) !== "file") {
 		throw new Error("That item is not in the trash.");
 	}
-	await host.removeTrashed(trashPath);
+	await host.makeFolder(RECOVERY);
+	const base = stamp(now);
+	let folder = `${RECOVERY}/${base}`;
+	for (let n = 2; (await host.kindOf(folder)) !== null; n++) {
+		folder = `${RECOVERY}/${base} ${n}`;
+	}
+	const target = join(folder, parts.slice(3).join("/"));
+	await host.makeFolder(split(target).folder);
+	await host.move(trashPath, target);
 }
 
 /**

@@ -495,7 +495,8 @@ export function App({ host }: { host: Host }) {
 		if (!writable || busy || (!restore && confirmDelete !== path)) return;
 		setBusy(true);
 		try {
-			let message = "Note deleted forever.";
+			let message =
+				"Note removed from the trash. A copy is kept in .vaultops/recovery in your vault.";
 			if (restore)
 				message = `Restored to ${(await restoreNote(vaultHost, path)).path}.`;
 			else await deleteForever(vaultHost, path);

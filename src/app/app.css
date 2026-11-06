@@ -353,11 +353,12 @@ body {
 	min-height: 0;
 }
 .tab-bar {
+	--tab-shoulder: var(--radius-control);
 	display: flex;
 	flex: none;
 	align-items: flex-end;
-	gap: 4px;
-	padding: 4px 8px 0;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-1) 0 0;
 	background: var(--shell-frame);
 	border-bottom: var(--border-width) solid var(--line);
 	border-radius: var(--shell-radius) var(--shell-radius) 0 0;
@@ -366,30 +367,71 @@ body {
 	display: flex;
 	flex: 0 1 auto;
 	min-width: 0;
-	gap: 2px;
+	gap: 0;
+	/* Room for the active tab's curved shoulders; the list reaches over the bar's rule. */
+	padding-inline: var(--tab-shoulder);
+	margin-bottom: calc(var(--border-width) * -1);
 	overflow-x: auto;
 	scrollbar-width: none;
 }
+/* Only the active tab has a surface. The others are plain text with a hairline
+   between them, and a soft wash on hover. */
 .tab {
+	position: relative;
 	display: flex;
 	flex: 0 0 auto;
 	align-items: center;
 	max-width: 220px;
 	height: 30px;
-	border: var(--border-width) solid transparent;
-	border-bottom: 0;
-	border-radius: var(--radius-control) var(--radius-control) 0 0;
-	color: var(--foreground);
+	margin-bottom: var(--border-width);
+	border: 0;
+	border-radius: var(--radius-container) var(--radius-container) 0 0;
+	background:
+		linear-gradient(var(--line), var(--line)) right center / var(--border-width)
+		14px no-repeat;
+	color: var(--muted-foreground);
 }
 .tab:hover {
-	background: var(--surface-container);
+	background-color: color-mix(in srgb, var(--foreground) 6%, transparent);
+	background-image: none;
+	color: var(--foreground);
+}
+.tab:has(+ .tab:hover),
+.tab:has(+ .tab[data-active="true"]) {
+	background-image: none;
 }
 .tab[data-active="true"] {
-	margin-bottom: calc(var(--border-width) * -1);
-	height: 31px;
-	border-color: var(--line);
+	z-index: 1;
+	height: calc(30px + var(--border-width));
+	margin-bottom: 0;
 	background: var(--editor-bg);
+	color: var(--foreground);
 	font-weight: 600;
+}
+.tab[data-active="true"]::before,
+.tab[data-active="true"]::after {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	width: var(--tab-shoulder);
+	height: var(--tab-shoulder);
+	pointer-events: none;
+}
+.tab[data-active="true"]::before {
+	right: 100%;
+	background: radial-gradient(
+		circle at 0 0,
+		transparent var(--tab-shoulder),
+		var(--editor-bg) calc(var(--tab-shoulder) + 0.5px)
+	);
+}
+.tab[data-active="true"]::after {
+	left: 100%;
+	background: radial-gradient(
+		circle at 100% 0,
+		transparent var(--tab-shoulder),
+		var(--editor-bg) calc(var(--tab-shoulder) + 0.5px)
+	);
 }
 .tab-label,
 .tab-close {

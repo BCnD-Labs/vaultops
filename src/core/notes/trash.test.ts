@@ -120,15 +120,34 @@ describe("trash", () => {
 	});
 
 	describe("delete forever", () => {
-		it("erases a trashed note and leaves the trash tidy", async () => {
+		it("moves a trashed note to the hidden recovery folder and erases nothing", async () => {
 			const host = await vault();
 			await host.makeFolder("Projects");
 			const { path } = await createNote(host, "Projects", "Plan");
 			const { trashPath } = await trashNote(host, path, T1);
-			await deleteForever(host, trashPath);
+			const before = await host.readText(trashPath);
+			const remove = vi.spyOn(host, "removeTrashed");
+			await deleteForever(host, trashPath, T1);
+			const stamp = T1.toISOString().replace(/[:.]/g, "-");
+			const kept = `.vaultops/recovery/${stamp}/Projects/Plan.vnote`;
 			expect(await host.kindOf(trashPath)).toBeNull();
 			expect(await listTrash(host)).toEqual([]);
-			expect(await host.list(".vaultops/trash")).toEqual([]);
+			expect(await host.readText(kept)).toBe(before);
+			expect(remove).not.toHaveBeenCalled();
+		});
+
+		it("never lets two deletions at the same moment share a recovery folder", async () => {
+			const host = await vault();
+			const a = await createNote(host, "", "Same");
+			const ta = await trashNote(host, a.path, T1);
+			await deleteForever(host, ta.trashPath, T1);
+			const b = await createNote(host, "", "Same");
+			const tb = await trashNote(host, b.path, T1);
+			await deleteForever(host, tb.trashPath, T1);
+			const folders = (await host.list(".vaultops/recovery")).map(
+				(e) => e.name,
+			);
+			expect(folders).toHaveLength(2);
 		});
 
 		it("leaves other trashed notes alone", async () => {

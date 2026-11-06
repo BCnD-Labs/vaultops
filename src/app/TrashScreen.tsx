@@ -31,7 +31,11 @@ export function TrashScreen({
 					</p>
 					{confirming === e.trashPath ? (
 						<div className="tree-confirm">
-							<p>Delete this note forever? This can't be undone.</p>
+							<p>
+								Delete this note from the trash? The app can't bring it back,
+								but a copy stays in the vault's hidden .vaultops/recovery
+								folder.
+							</p>
 							<Button
 								size="sm"
 								variant="destructive"

@@ -130,8 +130,9 @@
 	--elevation-3: 0 10px 40px var(--shadow-color);
 	--shadow-color: #0000002e;
 	--scrim: #00000073;
-	--motion-fast: 120ms;
-	--motion-normal: 180ms;
+	--motion-fast: 140ms;
+	--motion-normal: 200ms;
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 :root[data-theme="high-contrast"] {
 	color-scheme: light;

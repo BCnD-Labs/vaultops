@@ -20,8 +20,8 @@
 	--seed-tip-container: #e3f5e9;
 	--border-width: 1px;
 	--focus-ring-width: 2px;
-	--radius-1: 6px;
-	--radius-2: 10px;
+	--radius-1: 8px;
+	--radius-2: 14px;
 	--space-unit: 4px;
 	/* One spacing scale: 4, 8, 12, 16, 24, 32. */
 	--space-1: var(--space-unit);
@@ -35,7 +35,7 @@
 	--row-height: var(--space-8);
 	--block-gap: 0.6rem;
 	/* A shade off the background, translucent: visible but never in the way. */
-	--block-outline: color-mix(in srgb, var(--foreground) 9%, transparent);
+	--block-outline: color-mix(in srgb, var(--foreground) 6%, transparent);
 	--list-gap: 0.2rem;
 	--size-ui: 13px;
 	--size-small: 12px;
@@ -125,13 +125,15 @@
 	--editor-h2-size: 1.4em;
 	--editor-h3-size: 1.15em;
 	--code-font-size: 0.92em;
-	--elevation-1: none;
-	--elevation-2: 0 6px 20px var(--shadow-color);
-	--elevation-3: 0 10px 40px var(--shadow-color);
+	--elevation-1: 0 1px 2px var(--shadow-color);
+	--elevation-2: 0 2px 6px var(--shadow-color), 0 12px 28px var(--shadow-color);
+	--elevation-3:
+		0 4px 10px var(--shadow-color), 0 20px 48px var(--shadow-color);
 	--shadow-color: #0000002e;
 	--scrim: #00000073;
-	--motion-fast: 120ms;
-	--motion-normal: 180ms;
+	--motion-fast: 140ms;
+	--motion-normal: 200ms;
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 :root[data-theme="default"] {
 	color-scheme: light;
@@ -151,12 +153,12 @@
 	--seed-container: #213b60;
 	--seed-on-container: #d6e7ff;
 	--seed-danger: #ff8999;
-	--seed-danger-container: #502632;
+	--seed-danger-container: #3d3239;
 	--seed-on-danger: #301019;
 	--seed-warning: #e0b04a;
-	--seed-warning-container: #4a3a12;
+	--seed-warning-container: #3a3730;
 	--seed-tip: #6fd08f;
-	--seed-tip-container: #1f3d2b;
+	--seed-tip-container: #2c3a38;
 	--shadow-color: #00000059;
 }
 @media (prefers-color-scheme: dark) {
@@ -175,12 +177,12 @@
 		--seed-container: #213b60;
 		--seed-on-container: #d6e7ff;
 		--seed-danger: #ff8999;
-		--seed-danger-container: #502632;
+		--seed-danger-container: #3d3239;
 		--seed-on-danger: #301019;
 		--seed-warning: #e0b04a;
-		--seed-warning-container: #4a3a12;
+		--seed-warning-container: #3a3730;
 		--seed-tip: #6fd08f;
-		--seed-tip-container: #1f3d2b;
+		--seed-tip-container: #2c3a38;
 		--shadow-color: #00000059;
 	}
 }

@@ -552,3 +552,26 @@ body {
 	cursor: default;
 	opacity: 0.6;
 }
+
+/* Soft hover and focus changes everywhere, so state changes glide instead of snapping. */
+button,
+[role="tab"],
+[role="menuitem"],
+input,
+select {
+	transition:
+		background-color var(--motion-fast) var(--ease-standard),
+		border-color var(--motion-fast) var(--ease-standard),
+		color var(--motion-fast) var(--ease-standard),
+		box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	button,
+	[role="tab"],
+	[role="menuitem"],
+	input,
+	select {
+		transition: none;
+	}
+}

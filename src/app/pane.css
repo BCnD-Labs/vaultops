@@ -634,7 +634,7 @@ button.note-meta-chip:focus-visible {
 .props-block-header svg {
 	width: 14px;
 	height: 14px;
-	transition: transform 120ms ease;
+	transition: transform var(--motion-fast) var(--ease-standard);
 }
 .props-block-header[data-state="open"] svg {
 	transform: rotate(90deg);

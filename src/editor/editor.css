@@ -600,7 +600,7 @@
 	color: var(--muted-foreground);
 	cursor: pointer;
 	opacity: 0;
-	transition: opacity 120ms ease;
+	transition: opacity var(--motion-fast) var(--ease-standard);
 }
 .note-editor .fold-toggle::before {
 	content: "";
@@ -609,7 +609,7 @@
 	border-right: 2px solid currentColor;
 	border-bottom: 2px solid currentColor;
 	transform: rotate(45deg) translate(-0.1em, -0.1em);
-	transition: transform 120ms ease;
+	transition: transform var(--motion-fast) var(--ease-standard);
 }
 .note-editor .fold-toggle[data-folded="true"]::before {
 	transform: rotate(-45deg);

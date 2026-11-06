@@ -17,6 +17,7 @@ export const BLOCK_TYPES = [
 	"callout",
 	"divider",
 	"toggle",
+	"switch",
 	"table",
 	"tableRow",
 	"tableHeader",

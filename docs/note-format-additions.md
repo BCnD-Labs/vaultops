@@ -65,6 +65,25 @@ Fixture: `test-fixtures/callout-divider.vnote` (round-trips byte for byte in
 Fixture: `test-fixtures/toggle.vnote` (round-trips byte for byte in
 `src/editor/doc-blocks.test.ts`).
 
+## `switch` (block type)
+
+- **Where it lives:** a container block, top level or inside another container.
+  Its children are one or more blocks of any kind whose `parent` is the
+  switch's `id`.
+- **Attributes:** `off`, a boolean. Left out when `false` (on), so an on switch
+  has no `attrs` at all; written as `{"off":true}` while off. The switch only
+  changes how the block looks (dimmed, thin border, faint scan lines); it
+  changes no other property. It is shown on canvas cards too.
+- **Example lines:**
+  ```
+  {"id":"s2","type":"switch","parent":null,"attrs":{"off":true}}
+  {"id":"s2p","type":"paragraph","parent":"s2","content":[{"text":"Done for now","type":"text"}]}
+  ```
+- **Older build:** opens the note read-only.
+
+Fixture: `test-fixtures/switch.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`).
+
 ## `kbd` (inline mark)
 
 - **Where it lives:** in a block's `content`, on a text item, like `bold`:

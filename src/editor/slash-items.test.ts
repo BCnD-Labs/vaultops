@@ -14,6 +14,7 @@ describe("slash menu items", () => {
 			"Divider: dotted",
 			"Divider: thick",
 			"Dropdown",
+			"Toggle",
 			"Bulleted list",
 			"Numbered list",
 			"Task",
@@ -72,7 +73,7 @@ describe("slash menu items", () => {
 	});
 
 	it("finds the toggle by name or by what it does", () => {
-		expect(filterSlashItems("tog").map((i) => i.id)).toEqual(["toggle"]);
+		expect(filterSlashItems("tog").map((i) => i.id)).toEqual(["switch"]);
 		expect(filterSlashItems("collapse").map((i) => i.id)).toEqual(["toggle"]);
 		expect(filterSlashItems("fold").map((i) => i.id)).toEqual(["toggle"]);
 	});

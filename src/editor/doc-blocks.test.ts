@@ -282,6 +282,40 @@ describe("toggle fixture", () => {
 	});
 });
 
+describe("switch fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/switch.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("reads, edits as a document, and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.type)).toEqual([
+			"paragraph",
+			"switch",
+			"switch",
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+
+	it("refuses an attribute the switch does not declare", () => {
+		expect(
+			checkBlocks([
+				{ id: "s", type: "switch", parent: null, attrs: { color: "red" } },
+				{ id: "p", type: "paragraph", parent: "s" },
+			]),
+		).toEqual({
+			ok: false,
+			reason: 'an unknown attribute "color" on a switch',
+		});
+	});
+});
+
 describe("divider and callout fixture", () => {
 	const text = readFileSync(
 		new URL("../../test-fixtures/callout-divider.vnote", import.meta.url),

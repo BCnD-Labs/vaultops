@@ -12,6 +12,7 @@ import { UniqueID } from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { BLOCK_TYPES } from "./blocks";
 import { Callout } from "./callout";
+import { SwitchBlock } from "./switch";
 import { CodeLanguage } from "./code-language";
 import { DateChip } from "./date-chip";
 import { Divider } from "./divider";
@@ -53,6 +54,7 @@ export function createExtensions(): Extensions {
 		Divider,
 		Callout,
 		Toggle,
+		SwitchBlock,
 		Table,
 		TableRow,
 		TableHeader,

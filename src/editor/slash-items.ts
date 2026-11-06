@@ -12,6 +12,7 @@ import {
 	Pilcrow,
 	Quote,
 	Table2,
+	ToggleRight,
 } from "lucide-react";
 import { CALLOUT_ICONS, CALLOUT_TONES } from "./callout";
 import { todayIso } from "./date-chip";
@@ -148,9 +149,17 @@ const ITEMS: SlashItem[] = [
 		section: "Blocks",
 		icon: ChevronDown,
 		label: "Dropdown",
-		keywords: ["toggle", "collapse", "expand", "fold", "details", "accordion"],
+		keywords: ["collapse", "expand", "fold", "details", "accordion"],
 		run: (e, r) =>
 			start(e, r).setNode("paragraph").wrapIn("toggle", { open: true }).run(),
+	},
+	{
+		id: "switch",
+		section: "Blocks",
+		icon: ToggleRight,
+		label: "Toggle",
+		keywords: ["switch", "on", "off", "dim", "done"],
+		run: (e, r) => start(e, r).wrapIn("switch", { off: false }).run(),
 	},
 	...CALLOUT_TONES.map(
 		(tone): SlashItem => ({

@@ -121,6 +121,11 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 			paragraph("tb", "Toggle body"),
 		],
 	},
+	switch: {
+		type: "switch",
+		attrs: { id: "switch", off: true },
+		content: [paragraph("sp", "Switch body")],
+	},
 };
 
 /** Blocks that are only ever reached through a top-level block that holds them. */

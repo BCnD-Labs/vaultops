@@ -123,6 +123,18 @@ export function CanvasCard({
 						{nested}
 					</div>
 				);
+			case "switch": {
+				const off =
+					!!block.attrs &&
+					typeof block.attrs === "object" &&
+					!Array.isArray(block.attrs) &&
+					block.attrs.off === true;
+				return (
+					<div className="switch-block" data-off={off}>
+						<div className="switch-content">{nested}</div>
+					</div>
+				);
+			}
 			case "toggle": {
 				// Static: the card shows the saved open or closed state.
 				const open =

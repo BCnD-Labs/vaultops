@@ -729,41 +729,66 @@ button.prop-type-icon:focus-visible {
 	background: var(--accent);
 }
 
-/* Properties: every row reads as a row, and every field as a field. */
+/* Properties: soft rows (like a highlighted row in AFFiNE), small quiet fields. */
 .props-block .prop-row {
 	padding-inline: var(--space-1);
+	border: var(--border-width) solid transparent;
 	border-radius: var(--radius-control);
 }
 .props-block .prop-row:hover {
 	background: var(--surface-container-low);
 }
+.props-block .prop-row:focus-within {
+	background: var(--surface-container);
+	border-color: var(--line);
+}
 .props-block .prop-row > input:not([type="checkbox"]):not(.prop-name-field) {
-	flex: 0 1 16rem;
+	flex: 0 1 14rem;
+	padding: calc(var(--space-unit) / 2) var(--space-2);
 	background: var(--surface-container-low);
 	border-color: var(--line);
 }
 .props-block .prop-row > input[type="number"],
 .props-block .prop-row > input[type="date"] {
-	flex: 0 0 11rem;
+	flex: 0 0 10rem;
 }
 .props-block
 	.prop-row
 	> input:not([type="checkbox"]):not(.prop-name-field):focus {
+	background: var(--surface);
 	border-color: var(--ring);
+	outline: none;
+}
+.props-block input::placeholder {
+	color: var(--muted-foreground);
+	opacity: 0.7;
 }
 .props-block .prop-row > .chips {
-	flex: 1 1 16rem;
-	max-width: 24rem;
+	flex: 0 1 14rem;
 	min-height: var(--row-height);
 	padding: 0 var(--space-1);
 	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
 	background: var(--surface-container-low);
 }
-.props-block .prop-name-field {
-	flex: none;
-	width: 9rem;
+.props-block .chips:focus-within {
+	background: var(--surface);
+	border-color: var(--ring);
 }
+.props-block .chip {
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+	line-height: inherit;
+}
+.props-block .chips .chip-input {
+	width: 6rem;
+	padding: 0 var(--space-1);
+	border-color: transparent;
+	background: none;
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+}
+.props-block .prop-name-field,
 .props-block .prop-name {
 	flex: none;
 	width: 9rem;

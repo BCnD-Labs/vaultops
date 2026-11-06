@@ -42,11 +42,25 @@
 	right: 0;
 	max-width: var(--editor-width);
 	margin-inline: auto;
-	height: var(--focus-ring-width);
+	height: calc(var(--focus-ring-width) * 2);
+	margin-top: calc(var(--focus-ring-width) * -1);
 	background: var(--primary);
 	border-radius: var(--radius-round);
 	pointer-events: none;
 	z-index: 10;
+}
+
+/* A round end so the line reads as "drop here", not as a stray border. */
+.block-drop-indicator::before {
+	content: "";
+	position: absolute;
+	left: calc(var(--space-unit) * -1);
+	top: 50%;
+	width: calc(var(--space-unit) * 3);
+	height: calc(var(--space-unit) * 3);
+	transform: translateY(-50%);
+	border-radius: var(--radius-round);
+	background: var(--primary);
 }
 
 .note-editor:has(> .block-drop-indicator) .prosemirror-dropcursor-block,

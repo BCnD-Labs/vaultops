@@ -1,4 +1,4 @@
-import { CalendarDays, Pin, PinOff } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -16,12 +16,12 @@ import { usePlanner } from "./PlannerContext";
 
 /**
  * The calendar button at the right of the title bar. It stays in place on every
- * screen (the setting in Settings hides it) and opens a month with the chosen
- * day's items; Pin keeps a copy as a tab in the right sidebar.
+ * screen and opens a month with the chosen day's items. It shows only when
+ * Settings puts the calendar in the title bar; the sidebar shows it otherwise.
  */
 export function CalendarPopover() {
 	const p = usePlanner();
-	if (!p.showCalendarButton) return null;
+	if (!p.calendarInTitleBar) return null;
 	return (
 		<Popover>
 			<Tooltip>
@@ -56,15 +56,6 @@ export function CalendarPopover() {
 					onAdd={() => {}}
 				/>
 				<div className="calendar-popover-foot">
-					<Button
-						variant="secondary"
-						size="sm"
-						aria-pressed={p.calendarPinned}
-						onClick={() => p.setCalendarPinned(!p.calendarPinned)}
-					>
-						{p.calendarPinned ? <PinOff /> : <Pin />}
-						{p.calendarPinned ? "Unpin from sidebar" : "Pin to sidebar"}
-					</Button>
 					<Button variant="ghost" size="sm" onClick={p.openScreen}>
 						Open planner
 					</Button>

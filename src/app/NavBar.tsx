@@ -20,12 +20,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CalendarPopover } from "./planner/CalendarPopover";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CalendarPopover } from "./planner/CalendarPopover";
 
 function StepButton({
 	label,
@@ -70,7 +70,7 @@ export function NavBar({
 	canGoForward,
 	onBack,
 	onForward,
-	leftToggle,
+	clearLeftToggle = false,
 	rightToggle,
 	reading = false,
 	onToggleReading,
@@ -82,7 +82,9 @@ export function NavBar({
 	canGoForward: boolean;
 	onBack: () => void;
 	onForward: () => void;
-	leftToggle?: ReactNode;
+	/** The sidebar toggle floats over the window's top left corner while the
+	 *  left sidebar is collapsed; leave room for it. */
+	clearLeftToggle?: boolean;
 	rightToggle?: ReactNode;
 	/** The open note is shown for reading only. */
 	reading?: boolean;
@@ -90,8 +92,7 @@ export function NavBar({
 	onToggleReading?: () => void;
 }) {
 	return (
-		<div className="nav-bar">
-			{leftToggle}
+		<div className="nav-bar" data-clear-toggle={clearLeftToggle || undefined}>
 			<StepButton label="Back" disabled={!canGoBack} onClick={onBack}>
 				<ArrowLeft aria-hidden="true" />
 			</StepButton>

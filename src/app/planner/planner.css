@@ -728,3 +728,121 @@
 	border-radius: var(--radius-round);
 	background: var(--muted-foreground);
 }
+
+/* Stacked, collapsible planner sections (VS Code style). */
+.planner-stack {
+	gap: 0;
+}
+.planner-stack > .planner-side-bar,
+.planner-stack > .plan-error {
+	margin-bottom: var(--space-2);
+}
+.planner-section + .planner-section {
+	border-top: var(--border-width) solid var(--line);
+}
+.planner-section-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.planner-section-head[draggable="true"] {
+	cursor: grab;
+}
+.planner-section-toggle {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: var(--row-height);
+	border: 0;
+	background: none;
+	padding: 0 var(--space-1);
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+	cursor: inherit;
+}
+.planner-section-toggle:hover {
+	color: var(--foreground);
+}
+.planner-section-chevron {
+	width: 14px;
+	height: 14px;
+	transform: rotate(-90deg);
+	transition: transform var(--motion-fast);
+}
+.planner-section-chevron[data-open] {
+	transform: none;
+}
+.planner-side-bare {
+	padding: var(--space-2) 0;
+}
+
+/* The calendar docked below a sidebar's tools: a one-tab group. */
+.dock-group {
+	flex: none;
+	max-height: 60%;
+	overflow: auto;
+	border-top: var(--border-width) solid var(--line);
+	background: var(--shell-panel);
+}
+.dock-tabs {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+}
+.dock-tabs .dock-more {
+	margin-left: auto;
+	color: var(--muted-foreground);
+}
+.dock-tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--control-height);
+	height: var(--control-height);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: var(--accent);
+	color: var(--accent-foreground);
+	cursor: grab;
+}
+.dock-tab svg {
+	width: 16px;
+	height: 16px;
+}
+/* Shown over a sidebar's lower part while the calendar is carried. */
+.dock-zone {
+	position: absolute;
+	z-index: 10;
+	inset: auto 0 0 0;
+	height: 45%;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding: var(--space-3);
+	box-sizing: border-box;
+	border-top: var(--focus-ring-width) solid transparent;
+	background: color-mix(in srgb, var(--primary) 6%, transparent);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.dock-zone[data-over] {
+	border-top-color: var(--primary);
+	background: color-mix(in srgb, var(--primary) 14%, transparent);
+	color: var(--foreground);
+}
+.dock-zone-inline {
+	position: static;
+	height: auto;
+	align-items: center;
+	margin-bottom: var(--space-2);
+	border: var(--border-width) dashed var(--line);
+	border-radius: var(--radius-control);
+}
+.dock-zone-inline[data-over] {
+	border-color: var(--primary);
+}

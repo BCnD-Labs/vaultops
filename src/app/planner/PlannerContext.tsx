@@ -47,11 +47,16 @@ export interface PlannerApi {
 	openNote: (path: string) => void;
 	/** Show the planner on the wide screen. */
 	openScreen: () => void;
-	showCalendarButton: boolean;
-	setShowCalendarButton: (v: boolean) => void;
-	calendarPinned: boolean;
-	setCalendarPinned: (v: boolean) => void;
+	/** True: the calendar lives in the title bar. False: it lives in a sidebar. */
+	calendarInTitleBar: boolean;
+	setCalendarInTitleBar: (v: boolean) => void;
+	/** Where the sidebar calendar sits: inside the planner, or on its own below
+	 *  the tools of the right or left sidebar. */
+	calendarDock: CalendarDock;
+	setCalendarDock: (v: CalendarDock) => void;
 }
+
+export type CalendarDock = "planner" | "right" | "left";
 
 const noop = async () => {};
 const IDLE: PlannerApi = {
@@ -73,10 +78,10 @@ const IDLE: PlannerApi = {
 	loadDay: async () => null,
 	openNote: () => {},
 	openScreen: () => {},
-	showCalendarButton: false,
-	setShowCalendarButton: () => {},
-	calendarPinned: false,
-	setCalendarPinned: () => {},
+	calendarInTitleBar: false,
+	setCalendarInTitleBar: () => {},
+	calendarDock: "planner",
+	setCalendarDock: () => {},
 };
 
 const PlannerCtx = createContext<PlannerApi>(IDLE);
@@ -98,7 +103,15 @@ const saveFlag = (key: string, value: boolean) => {
 	}
 };
 const BUTTON_KEY = "vaultops:calendar-button";
-const PINNED_KEY = "vaultops:calendar-pinned";
+const DOCK_KEY = "vaultops:calendar-dock";
+const loadDock = (): CalendarDock => {
+	try {
+		const v = localStorage.getItem(DOCK_KEY);
+		return v === "right" || v === "left" ? v : "planner";
+	} catch {
+		return "planner";
+	}
+};
 
 /**
  * The planner's state, shared by the title-bar calendar, the right sidebar and
@@ -128,10 +141,10 @@ export function PlannerProvider({
 	const [selectedPath, setSelectedPath] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const [version, setVersion] = useState(0);
-	const [showCalendarButton, setShowButton] = useState(() =>
+	const [calendarInTitleBar, setInTitleBar] = useState(() =>
 		flag(BUTTON_KEY, true),
 	);
-	const [calendarPinned, setPinned] = useState(() => flag(PINNED_KEY, false));
+	const [calendarDock, setDock] = useState(loadDock);
 	const tasks = useMemo(
 		() => notes.flatMap((n) => (n.task ? [n.task] : [])),
 		[notes],
@@ -205,15 +218,19 @@ export function PlannerProvider({
 		loadDay: (day) => loadLog(host, day),
 		openNote: onOpenNote,
 		openScreen: onOpenScreen,
-		showCalendarButton,
-		setShowCalendarButton: (v) => {
-			setShowButton(v);
+		calendarInTitleBar,
+		setCalendarInTitleBar: (v) => {
+			setInTitleBar(v);
 			saveFlag(BUTTON_KEY, v);
 		},
-		calendarPinned,
-		setCalendarPinned: (v) => {
-			setPinned(v);
-			saveFlag(PINNED_KEY, v);
+		calendarDock,
+		setCalendarDock: (v) => {
+			setDock(v);
+			try {
+				localStorage.setItem(DOCK_KEY, v);
+			} catch {
+				/* Not remembering is fine. */
+			}
 		},
 	};
 	return <PlannerCtx.Provider value={api}>{children}</PlannerCtx.Provider>;

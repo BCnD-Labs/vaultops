@@ -32,6 +32,11 @@ import type { TextStats } from "../core/notes/text-stats";
 import { buildCommit } from "./build-info";
 import { CommandBar } from "./CommandBar";
 import { NavBar } from "./NavBar";
+import {
+	CalendarGroup,
+	DockZone,
+	ToolDragProvider,
+} from "./planner/CalendarDock";
 import { StatusBar } from "./StatusBar";
 import type { NoteRow } from "./session";
 import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
@@ -205,147 +210,156 @@ export function AppShell({
 		);
 	};
 	return (
-		<ShellNavigation.Provider
-			value={{
-				...navigation,
-				toolsVisible: !collapsed.right,
-				propertyRequest,
-				openProperties: (name) => {
-					right.current?.expand();
-					setPropertyRequest({ name });
-				},
-				openSearch: () => setSearchRequest((count) => count + 1),
-			}}
-		>
-			<div className="app-shell">
-				<ResizablePanelGroup
-					orientation="horizontal"
-					className="shell-regions"
-					defaultLayout={defaultLayout}
-					onLayoutChanged={(layout, meta) => {
-						saveLayout(meta.requestedLayout ?? layout);
-						// Follow the panels themselves: if two sidebars change in one
-						// breath their resize callbacks can leave this state behind, and
-						// a collapsed sidebar's show button then goes missing.
-						const next = {
-							left: left.current?.isCollapsed() ?? false,
-							right: right.current?.isCollapsed() ?? false,
-						};
-						setCollapsed((s) =>
-							s.left === next.left && s.right === next.right ? s : next,
-						);
-					}}
-				>
-					<ResizablePanel
-						id="left"
-						panelRef={left}
-						defaultSize={300}
-						minSize={220}
-						maxSize={520}
-						collapsible
-						collapsedSize={0}
-						onResize={(size) =>
-							setCollapsed((s) => ({ ...s, left: size.asPercentage === 0 }))
-						}
+		<ToolDragProvider>
+			<ShellNavigation.Provider
+				value={{
+					...navigation,
+					toolsVisible: !collapsed.right,
+					propertyRequest,
+					openProperties: (name) => {
+						right.current?.expand();
+						setPropertyRequest({ name });
+					},
+					openSearch: () => setSearchRequest((count) => count + 1),
+				}}
+			>
+				<div className="app-shell">
+					{/* One toggle for both states, so it never moves or remounts when the
+				    sidebar opens or closes; the sidebar header and the nav bar each
+				    leave room for it. */}
+					<div className="shell-toggle-anchor">{sidebarToggle("left")}</div>
+					<ResizablePanelGroup
+						orientation="horizontal"
+						className="shell-regions"
+						defaultLayout={defaultLayout}
+						onLayoutChanged={(layout, meta) => {
+							saveLayout(meta.requestedLayout ?? layout);
+							// Follow the panels themselves: if two sidebars change in one
+							// breath their resize callbacks can leave this state behind, and
+							// a collapsed sidebar's show button then goes missing.
+							const next = {
+								left: left.current?.isCollapsed() ?? false,
+								right: right.current?.isCollapsed() ?? false,
+							};
+							setCollapsed((s) =>
+								s.left === next.left && s.right === next.right ? s : next,
+							);
+						}}
 					>
-						<div className="shell-side" inert={collapsed.left}>
-							<div className="shell-pane-bar">{sidebarToggle("left")}</div>
-							{sidebar}
-							<IconRail
-								current={screen}
-								onNavigate={(item) => {
-									if (item === "notes") {
-										left.current?.expand();
-										onNavigateScreen("note");
-										return;
-									}
-									if (item === "search") {
-										setSearchRequest((count) => count + 1);
-										return;
-									}
-									if (item === "planner") {
-										right.current?.expand();
+						<ResizablePanel
+							id="left"
+							panelRef={left}
+							defaultSize={300}
+							minSize={220}
+							maxSize={520}
+							collapsible
+							collapsedSize={0}
+							onResize={(size) =>
+								setCollapsed((s) => ({ ...s, left: size.asPercentage === 0 }))
+							}
+						>
+							<div className="shell-side" inert={collapsed.left}>
+								{sidebar}
+								<CalendarGroup side="left" />
+								<DockZone side="left" />
+								<IconRail
+									current={screen}
+									onNavigate={(item) => {
+										if (item === "notes") {
+											left.current?.expand();
+											onNavigateScreen("note");
+											return;
+										}
+										if (item === "search") {
+											setSearchRequest((count) => count + 1);
+											return;
+										}
+										if (item === "planner") {
+											right.current?.expand();
+											setNavigation((state) => ({
+												...state,
+												planner: state.planner + 1,
+											}));
+											return;
+										}
+										if (item === "settings") {
+											onNavigateScreen(item);
+											return;
+										}
+										(item === "changes" ? right : left).current?.expand();
 										setNavigation((state) => ({
 											...state,
-											planner: state.planner + 1,
+											[item]: state[item] + 1,
 										}));
-										return;
-									}
-									if (item === "settings") {
-										onNavigateScreen(item);
-										return;
-									}
-									(item === "changes" ? right : left).current?.expand();
+									}}
+								/>
+							</div>
+						</ResizablePanel>
+						<ResizableHandle />
+						<ResizablePanel id="editor" minSize={420} className="shell-editor">
+							<div className="editor-column">
+								<NavBar
+									vault={vault}
+									path={path}
+									title={title}
+									canGoBack={canGoBack}
+									canGoForward={canGoForward}
+									onBack={onBack}
+									onForward={onForward}
+									reading={reading}
+									onToggleReading={onToggleReading}
+									clearLeftToggle={collapsed.left}
+									rightToggle={collapsed.right ? sidebarToggle("right") : null}
+								/>
+								<div className="editor-column-body">{children}</div>
+								<StatusBar vault={vault} stats={stats} build={buildCommit} />
+							</div>
+							<CommandBar
+								notes={notes}
+								writable={writable}
+								selectedFolder={selectedFolder}
+								openRequest={searchRequest}
+								onOpenNote={onOpenNote}
+								onCreateNote={onCreateNote}
+								onNewFolder={() => {
+									left.current?.expand();
 									setNavigation((state) => ({
 										...state,
-										[item]: state[item] + 1,
+										newFolder: state.newFolder + 1,
 									}));
 								}}
-							/>
-						</div>
-					</ResizablePanel>
-					<ResizableHandle />
-					<ResizablePanel id="editor" minSize={420} className="shell-editor">
-						<div className="editor-column">
-							<NavBar
-								vault={vault}
-								path={path}
-								title={title}
-								canGoBack={canGoBack}
-								canGoForward={canGoForward}
-								onBack={onBack}
-								onForward={onForward}
-								reading={reading}
+								onToggle={toggle}
 								onToggleReading={onToggleReading}
-								leftToggle={collapsed.left ? sidebarToggle("left") : null}
-								rightToggle={collapsed.right ? sidebarToggle("right") : null}
+								onNavigate={onNavigateScreen}
 							/>
-							<div className="editor-column-body">{children}</div>
-							<StatusBar vault={vault} stats={stats} build={buildCommit} />
-						</div>
-						<CommandBar
-							notes={notes}
-							writable={writable}
-							selectedFolder={selectedFolder}
-							openRequest={searchRequest}
-							onOpenNote={onOpenNote}
-							onCreateNote={onCreateNote}
-							onNewFolder={() => {
-								left.current?.expand();
-								setNavigation((state) => ({
-									...state,
-									newFolder: state.newFolder + 1,
-								}));
-							}}
-							onToggle={toggle}
-							onToggleReading={onToggleReading}
-							onNavigate={onNavigateScreen}
-						/>
-					</ResizablePanel>
-					<ResizableHandle />
-					<ResizablePanel
-						id="right"
-						panelRef={right}
-						defaultSize={300}
-						minSize={240}
-						maxSize={480}
-						collapsible
-						collapsedSize={0}
-						className="shell-right"
-						onResize={(size) =>
-							setCollapsed((s) => ({ ...s, right: size.asPercentage === 0 }))
-						}
-					>
-						<aside aria-label="Note details" inert={collapsed.right}>
-							<div className="shell-pane-bar">
-								<span className="section-label">Details</span>
-								{sidebarToggle("right")}
-							</div>
-							{tools}
-						</aside>
-					</ResizablePanel>
-				</ResizablePanelGroup>
-			</div>
-		</ShellNavigation.Provider>
+						</ResizablePanel>
+						<ResizableHandle />
+						<ResizablePanel
+							id="right"
+							panelRef={right}
+							defaultSize={300}
+							minSize={240}
+							maxSize={480}
+							collapsible
+							collapsedSize={0}
+							className="shell-right"
+							onResize={(size) =>
+								setCollapsed((s) => ({ ...s, right: size.asPercentage === 0 }))
+							}
+						>
+							<aside aria-label="Note details" inert={collapsed.right}>
+								<div className="shell-pane-bar">
+									<span className="section-label">Details</span>
+									{sidebarToggle("right")}
+								</div>
+								<div className="shell-right-main">{tools}</div>
+								<CalendarGroup side="right" />
+								<DockZone side="right" />
+							</aside>
+						</ResizablePanel>
+					</ResizablePanelGroup>
+				</div>
+			</ShellNavigation.Provider>
+		</ToolDragProvider>
 	);
 }

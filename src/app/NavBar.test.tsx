@@ -51,15 +51,18 @@ it("shows the vault name when no note is open, and disables both steps", () => {
 		).toBe(true);
 });
 
-it("shows a collapsed sidebar's button at its own end of the bar", () => {
+it("leaves room for the floating left toggle and ends with the right one", () => {
 	setup({
-		leftToggle: <button type="button">Show left</button>,
+		clearLeftToggle: true,
 		rightToggle: <button type="button">Show right</button>,
 	});
+	expect(
+		document.querySelector(".nav-bar")?.hasAttribute("data-clear-toggle"),
+	).toBe(true);
 	const buttons = screen
 		.getAllByRole("button")
 		.map((b) => b.textContent || b.getAttribute("aria-label"));
-	expect(buttons).toEqual(["Show left", "Back", "Forward", "Show right"]);
+	expect(buttons).toEqual(["Back", "Forward", "Show right"]);
 });
 
 it("has no reading toggle or more menu until a note offers one", () => {

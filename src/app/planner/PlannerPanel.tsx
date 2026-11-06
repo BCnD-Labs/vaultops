@@ -1,30 +1,97 @@
-import { Maximize2, Plus } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, Maximize2, Plus } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Agenda } from "./CalendarView";
+import {
+	CalendarMoveMenu,
+	PlannerHomeZone,
+	useCalendarDragSource,
+} from "./CalendarDock";
+import { CalendarPanel } from "./CalendarPanel";
 import { DailyLog } from "./DailyLog";
-import { MiniCalendar } from "./MiniCalendar";
 import { NewItemDialog } from "./NewItemDialog";
 import { usePlanner } from "./PlannerContext";
 import { TaskInspector } from "./TaskInspector";
 import { TaskList } from "./TaskList";
 import "./planner.css";
 
-/** The planner in the right sidebar: a month to pick the day, then Tasks, Day and Log. */
+const OPEN_KEY = "vaultops:planner-open";
+function loadOpen(id: string) {
+	try {
+		return localStorage.getItem(`${OPEN_KEY}:${id}`) !== "0";
+	} catch {
+		return true;
+	}
+}
+
+/** One stacked, collapsible part of the planner (Calendar, Tasks, Log). */
+function PlannerSection({
+	id,
+	title,
+	actions,
+	dragProps,
+	children,
+}: {
+	id: string;
+	title: string;
+	actions?: ReactNode;
+	dragProps?: ReturnType<typeof useCalendarDragSource>;
+	children: ReactNode;
+}) {
+	const [open, setOpen] = useState(() => loadOpen(id));
+	const bodyId = `planner-section-${id}`;
+	return (
+		<section className="planner-section" aria-label={title}>
+			<div className="planner-section-head" role="presentation" {...dragProps}>
+				<button
+					type="button"
+					className="planner-section-toggle"
+					aria-expanded={open}
+					aria-controls={bodyId}
+					onClick={() => {
+						setOpen(!open);
+						try {
+							localStorage.setItem(`${OPEN_KEY}:${id}`, open ? "0" : "1");
+						} catch {
+							/* Not remembering is fine. */
+						}
+					}}
+				>
+					<ChevronDown
+						className="planner-section-chevron"
+						data-open={open || undefined}
+						aria-hidden="true"
+					/>
+					{title}
+				</button>
+				{actions}
+			</div>
+			<div id={bodyId} hidden={!open}>
+				{children}
+			</div>
+		</section>
+	);
+}
+
+/**
+ * The planner in the right sidebar, as stacked collapsible sections (VS Code
+ * style): Calendar, Tasks, Log. The calendar section can be dragged out of the
+ * planner to its own place below a sidebar (see CalendarDock); then the planner
+ * is just Tasks and Log. In the title-bar setting there is no calendar section.
+ */
 export function PlannerPanel() {
 	const p = usePlanner();
-	const [tab, setTab] = useState("tasks");
+	const source = useCalendarDragSource();
 	const [dialog, setDialog] = useState<{ date: string; time?: string } | null>(
 		null,
 	);
+	const calendarHere = !p.calendarInTitleBar && p.calendarDock === "planner";
 	return (
-		<section className="planner-side" aria-label="Planner">
+		<section className="planner-side planner-stack" aria-label="Planner">
 			<div className="planner-side-bar">
 				<Button
 					size="sm"
 					disabled={!p.writable}
-					onClick={() => setDialog({ date: tab === "tasks" ? "" : p.date })}
+					onClick={() => setDialog({ date: "" })}
 				>
 					<Plus /> New
 				</Button>
@@ -38,118 +105,61 @@ export function PlannerPanel() {
 					<Maximize2 />
 				</Button>
 			</div>
-			<MiniCalendar
-				date={p.date}
-				today={p.today}
-				tasks={p.tasks}
-				loggedDays={p.loggedDays}
-				onDate={p.setDate}
-			/>
+			<PlannerHomeZone />
 			{p.notice && (
 				<p role="alert" className="plan-error">
 					{p.notice}
 				</p>
 			)}
-			<Tabs value={tab} onValueChange={setTab}>
-				<TabsList aria-label="Planner views">
-					<TabsTrigger value="tasks">Tasks</TabsTrigger>
-					<TabsTrigger value="day">Day</TabsTrigger>
-					<TabsTrigger value="log">Log</TabsTrigger>
-				</TabsList>
-				<TabsContent value="tasks">
-					<TaskList
-						tasks={p.tasks}
-						today={p.today}
-						selected={p.selectedPath}
+			{calendarHere && (
+				<PlannerSection
+					id="calendar"
+					title="Calendar"
+					dragProps={source}
+					actions={<CalendarMoveMenu />}
+				>
+					<CalendarPanel bare />
+				</PlannerSection>
+			)}
+			<PlannerSection id="tasks" title="Tasks">
+				<TaskList
+					tasks={p.tasks}
+					today={p.today}
+					selected={p.selectedPath}
+					writable={p.writable}
+					onSelect={p.select}
+					onToggle={(t) =>
+						p.patch(t, { status: t.status === "open" ? "closed" : "open" })
+					}
+					onQuickAdd={(title, due) => p.create({ title, kind: "task", due })}
+				/>
+				{p.selected && (
+					<TaskInspector
+						task={p.selected}
 						writable={p.writable}
-						onSelect={p.select}
-						onToggle={(t) =>
-							p.patch(t, { status: t.status === "open" ? "closed" : "open" })
-						}
-						onQuickAdd={(title, due) => p.create({ title, kind: "task", due })}
+						onPatch={p.patch}
+						onOpen={p.openNote}
 					/>
-					{p.selected && (
-						<TaskInspector
-							task={p.selected}
-							writable={p.writable}
-							onPatch={p.patch}
-							onOpen={p.openNote}
-						/>
-					)}
-				</TabsContent>
-				<TabsContent value="day">
-					<Agenda
-						date={p.date}
-						tasks={p.tasks}
-						selected={p.selectedPath}
-						writable={p.writable}
-						onSelect={p.select}
-						onAdd={(d) => setDialog({ date: d })}
-					/>
-					{p.selected && (
-						<TaskInspector
-							task={p.selected}
-							writable={p.writable}
-							onPatch={p.patch}
-							onOpen={p.openNote}
-						/>
-					)}
-				</TabsContent>
-				<TabsContent value="log">
-					<DailyLog
-						date={p.date}
-						today={p.today}
-						writable={p.writable}
-						load={p.loadDay}
-						version={p.version}
-						onDate={p.setDate}
-						onAddEntry={p.addEntry}
-						onAddSection={p.addSection}
-						onOpen={(day) => p.openNote(`Journal/${day}.vnote`)}
-					/>
-				</TabsContent>
-			</Tabs>
+				)}
+			</PlannerSection>
+			<PlannerSection id="log" title="Log">
+				<DailyLog
+					date={p.date}
+					today={p.today}
+					writable={p.writable}
+					load={p.loadDay}
+					version={p.version}
+					onDate={p.setDate}
+					onAddEntry={p.addEntry}
+					onAddSection={p.addSection}
+					onOpen={(day) => p.openNote(`Journal/${day}.vnote`)}
+				/>
+			</PlannerSection>
 			{dialog && (
 				<NewItemDialog
 					key={`${dialog.date}${dialog.time ?? ""}`}
 					open
 					defaults={dialog}
-					onClose={() => setDialog(null)}
-					onCreate={p.create}
-				/>
-			)}
-		</section>
-	);
-}
-
-/** The pinned calendar tab: a month and the chosen day's items. */
-export function CalendarPanel() {
-	const p = usePlanner();
-	const [dialog, setDialog] = useState<string | null>(null);
-	return (
-		<section className="planner-side" aria-label="Calendar">
-			<MiniCalendar
-				date={p.date}
-				today={p.today}
-				tasks={p.tasks}
-				loggedDays={p.loggedDays}
-				onDate={p.setDate}
-			/>
-			<Agenda
-				date={p.date}
-				tasks={p.tasks}
-				selected={p.selectedPath}
-				writable={p.writable}
-				onSelect={(t) => {
-					p.select(t);
-				}}
-				onAdd={(d) => setDialog(d)}
-			/>
-			{dialog !== null && (
-				<NewItemDialog
-					key={dialog}
-					open
-					defaults={{ date: dialog }}
 					onClose={() => setDialog(null)}
 					onCreate={p.create}
 				/>

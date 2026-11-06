@@ -8,8 +8,8 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Field } from "./Field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Field } from "./Field";
 
 export interface NewItem {
 	title: string;

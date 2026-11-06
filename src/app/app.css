@@ -274,6 +274,7 @@ body {
 	box-sizing: border-box;
 }
 .shell-side {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -500,6 +501,20 @@ body {
 .shell-right aside > :not(.shell-pane-bar) {
 	margin: 0 8px 8px;
 }
+.shell-right aside {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+.shell-right aside > .shell-right-main {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+.shell-right aside > .dock-group {
+	margin: 0;
+}
 .shell-right [data-slot="tabs-list"] {
 	border: 0;
 	border-bottom: var(--border-width) solid var(--line);
@@ -624,4 +639,46 @@ select {
 	border-bottom-color: var(--primary);
 	background: none;
 	color: var(--foreground);
+}
+
+/* The left sidebar's toggle: one button over the window's top left corner, in
+   the same place whether the sidebar is open or collapsed. Its anchor matches
+   where the nav bar's first button sat while the sidebar was collapsed (the
+   collapsed panel, two gaps and three borders in). */
+.app-shell {
+	position: relative;
+	--toggle-left: calc(
+		var(--shell-gap) *
+		2 +
+		var(--shell-border-width) *
+		3 +
+		8px
+	);
+	--toggle-top: calc(var(--shell-gap) + var(--shell-border-width));
+}
+.shell-toggle-anchor {
+	position: absolute;
+	z-index: 20;
+	top: var(--toggle-top);
+	left: var(--toggle-left);
+	display: flex;
+	align-items: center;
+	height: var(--chrome-bar-height);
+}
+/* Collapsed: the nav bar's own padding sits 8px in, the toggle is already there. */
+.nav-bar[data-clear-toggle] {
+	padding-left: calc(8px + var(--control-height) + 2px);
+}
+/* Open: the first sidebar header starts at the panel edge, so it clears the
+   toggle's whole span from there. */
+.sidebar-header-first {
+	box-sizing: border-box;
+	min-height: var(--chrome-bar-height);
+	padding-left: calc(
+		var(--toggle-left) -
+		var(--shell-gap) -
+		var(--shell-border-width) +
+		var(--control-height) +
+		2px
+	);
 }

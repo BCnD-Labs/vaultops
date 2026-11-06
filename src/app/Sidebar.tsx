@@ -236,7 +236,7 @@ export function Sidebar({
 						expandAll={picked !== null}
 						header={(create) => (
 							<>
-								<header className="sidebar-header">
+								<header className="sidebar-header sidebar-header-first">
 									{vaultMenu}
 									<IconAction
 										label="New folder"
@@ -319,7 +319,7 @@ export function Sidebar({
 							onSelectFolder={(value) => onSelection({ kind: "folder", value })}
 							header={(create) => (
 								<>
-									<header className="sidebar-header">
+									<header className="sidebar-header sidebar-header-first">
 										{vaultMenu}
 										<IconAction
 											label="New folder"

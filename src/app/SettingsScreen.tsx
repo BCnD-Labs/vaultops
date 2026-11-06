@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
 	colorKeys,
@@ -100,14 +99,19 @@ export function SettingsScreen({
 			</div>
 			<h3 className="section-label">Interface</h3>
 			<div className="settings-row">
-				<label htmlFor="settings-calendar-button">
-					Calendar button in the title bar
-				</label>
-				<Switch
-					id="settings-calendar-button"
-					checked={planner.showCalendarButton}
-					onCheckedChange={planner.setShowCalendarButton}
-				/>
+				<span id="settings-calendar">Calendar</span>
+				<ToggleGroup
+					type="single"
+					aria-labelledby="settings-calendar"
+					value={planner.calendarInTitleBar ? "titlebar" : "sidebar"}
+					onValueChange={(value) => {
+						// Exactly one place at a time; a click on the chosen one does nothing.
+						if (value) planner.setCalendarInTitleBar(value === "titlebar");
+					}}
+				>
+					<ToggleGroupItem value="titlebar">Title bar</ToggleGroupItem>
+					<ToggleGroupItem value="sidebar">Sidebar</ToggleGroupItem>
+				</ToggleGroup>
 			</div>
 			<h3 className="section-label">Colors for {mode} mode</h3>
 			{colorKeys.map((key) => (

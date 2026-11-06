@@ -15,6 +15,7 @@ it("is named Find or create a note, shows the key hint, and asks the shell to op
 			value={{
 				tags: 0,
 				changes: 0,
+				planner: 0,
 				newFolder: 0,
 				toolsVisible: true,
 				propertyRequest: null,

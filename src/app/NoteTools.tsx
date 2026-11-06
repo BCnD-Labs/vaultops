@@ -9,13 +9,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { OutlineItem } from "../core/notes/outline";
 import { ShellNavigation } from "./AppShell";
 import { OutlinePanel } from "./OutlinePanel";
+import { CalendarPanel, PlannerPanel } from "./planner/PlannerPanel";
+import { usePlanner } from "./planner/PlannerContext";
 import { PropertiesPanel } from "./PropertiesPanel";
 
 const TAB_KEY = "vaultops:note-tools-tab";
 function loadTab() {
 	try {
 		const saved = localStorage.getItem(TAB_KEY);
-		return saved === "changes" || saved === "outline" ? saved : "properties";
+		return saved === "changes" ||
+			saved === "outline" ||
+			saved === "planner" ||
+			saved === "calendar"
+			? saved
+			: "properties";
 	} catch {
 		return "properties";
 	}
@@ -31,8 +38,10 @@ export function NoteTools({
 }) {
 	const [tab, setTab] = useState(loadTab);
 	const panel = useRef<HTMLElement>(null);
-	const { changes, propertyRequest, toolsVisible } =
+	const { changes, planner, propertyRequest, toolsVisible } =
 		useContext(ShellNavigation);
+	const { calendarPinned } = usePlanner();
+	const shownTab = tab === "calendar" && !calendarPinned ? "properties" : tab;
 	useEffect(() => {
 		if (!changes) return;
 		setTab("changes");
@@ -42,6 +51,15 @@ export function NoteTools({
 			/* Storage is optional. */
 		}
 	}, [changes]);
+	useEffect(() => {
+		if (!planner) return;
+		setTab("planner");
+		try {
+			localStorage.setItem(TAB_KEY, "planner");
+		} catch {
+			/* Storage is optional. */
+		}
+	}, [planner]);
 	useEffect(() => {
 		if (!propertyRequest) return;
 		setTab("properties");
@@ -68,7 +86,7 @@ export function NoteTools({
 	}, [propertyRequest, tab, toolsVisible]);
 	return (
 		<Tabs
-			value={tab}
+			value={shownTab}
 			onValueChange={(value) => {
 				setTab(value);
 				try {
@@ -82,6 +100,8 @@ export function NoteTools({
 				<TabsTrigger value="properties">Properties</TabsTrigger>
 				<TabsTrigger value="outline">Outline</TabsTrigger>
 				<TabsTrigger value="changes">Changes</TabsTrigger>
+				<TabsTrigger value="planner">Planner</TabsTrigger>
+				{calendarPinned && <TabsTrigger value="calendar">Calendar</TabsTrigger>}
 			</TabsList>
 			<TabsContent value="properties">
 				{hasNote ? (
@@ -98,6 +118,12 @@ export function NoteTools({
 				) : (
 					<p>Open a note to see its outline.</p>
 				)}
+			</TabsContent>
+			<TabsContent value="planner">
+				<PlannerPanel />
+			</TabsContent>
+			<TabsContent value="calendar">
+				<CalendarPanel />
 			</TabsContent>
 			<TabsContent value="changes">
 				<p>Commit, history and sync arrive soon.</p>

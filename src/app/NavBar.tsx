@@ -20,6 +20,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CalendarPopover } from "./planner/CalendarPopover";
 import {
 	Tooltip,
 	TooltipContent,
@@ -163,6 +164,7 @@ export function NavBar({
 					</DropdownMenu>
 				</>
 			)}
+			<CalendarPopover />
 			{rightToggle}
 		</div>
 	);

@@ -450,7 +450,7 @@ function TimedDay({
 	);
 }
 
-function Agenda({
+export function Agenda({
 	date,
 	tasks,
 	selected,

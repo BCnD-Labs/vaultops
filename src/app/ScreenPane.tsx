@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
 import type { TrashedNote } from "../core/notes/trash";
-import type { Host } from "../host/host";
-import { PlannerScreen } from "./planner/PlannerScreen";
 import { HealthScreen } from "./HealthScreen";
+import { PlannerScreen } from "./planner/PlannerScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import type { VaultView } from "./session";
 import { TrashScreen } from "./TrashScreen";
@@ -25,9 +24,6 @@ interface ScreenPaneProps {
 	onRestore: (path: string) => void;
 	onDelete: (path: string) => void;
 	onOpen: (path: string) => void;
-	/** The vault host planner writes go through (refuses writes when read-only). */
-	host: Host;
-	onPlannerChanged: (paths: string[]) => Promise<void>;
 }
 
 /**
@@ -50,8 +46,6 @@ export function ScreenPane({
 	onRestore,
 	onDelete,
 	onOpen,
-	host,
-	onPlannerChanged,
 }: ScreenPaneProps) {
 	if (screen === "planner") {
 		return (
@@ -61,13 +55,7 @@ export function ScreenPane({
 						Something went wrong: {error}
 					</p>
 				)}
-				<PlannerScreen
-					notes={view?.notes ?? []}
-					host={host}
-					writable={writable}
-					onChanged={onPlannerChanged}
-					onOpenNote={onOpen}
-				/>
+				<PlannerScreen />
 			</main>
 		);
 	}

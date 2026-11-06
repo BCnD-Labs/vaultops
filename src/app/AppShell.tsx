@@ -39,6 +39,7 @@ import { loadLayout, saveLayout, sidebarShortcut } from "./shell-layout";
 export const ShellNavigation = createContext({
 	tags: 0,
 	changes: 0,
+	planner: 0,
 	newFolder: 0,
 	toolsVisible: true,
 	propertyRequest: null as { name?: string } | null,
@@ -78,7 +79,6 @@ function IconRail({
 								(action === "notes" &&
 									current !== "settings" &&
 									current !== "planner") ||
-								(action === "planner" && current === "planner") ||
 								(action === "settings" && current === "settings")
 									? "page"
 									: undefined
@@ -151,6 +151,7 @@ export function AppShell({
 	const [navigation, setNavigation] = useState({
 		tags: 0,
 		changes: 0,
+		planner: 0,
 		newFolder: 0,
 	});
 	const [searchRequest, setSearchRequest] = useState(0);
@@ -262,7 +263,15 @@ export function AppShell({
 										setSearchRequest((count) => count + 1);
 										return;
 									}
-									if (item === "settings" || item === "planner") {
+									if (item === "planner") {
+										right.current?.expand();
+										setNavigation((state) => ({
+											...state,
+											planner: state.planner + 1,
+										}));
+										return;
+									}
+									if (item === "settings") {
 										onNavigateScreen(item);
 										return;
 									}

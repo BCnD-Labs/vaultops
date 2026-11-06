@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
 	colorKeys,
@@ -18,6 +19,7 @@ import {
 	type ThemeChoice,
 	themes,
 } from "../ui/themes";
+import { usePlanner } from "./planner/PlannerContext";
 import { type UpdateHost, UpdateSection } from "./UpdateSection";
 
 const modes = [
@@ -39,6 +41,7 @@ export function SettingsScreen({
 	updatePollMs?: number;
 }) {
 	const root = document.documentElement;
+	const planner = usePlanner();
 	const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice);
 	const [colors, setColors] = useState(loadColors);
 	const mode = resolveMode(choice.mode, systemIsDark());
@@ -94,6 +97,17 @@ export function SettingsScreen({
 						</ToggleGroupItem>
 					))}
 				</ToggleGroup>
+			</div>
+			<h3 className="section-label">Interface</h3>
+			<div className="settings-row">
+				<label htmlFor="settings-calendar-button">
+					Calendar button in the title bar
+				</label>
+				<Switch
+					id="settings-calendar-button"
+					checked={planner.showCalendarButton}
+					onCheckedChange={planner.setShowCalendarButton}
+				/>
 			</div>
 			<h3 className="section-label">Colors for {mode} mode</h3>
 			{colorKeys.map((key) => (

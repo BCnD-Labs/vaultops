@@ -18,6 +18,8 @@ it("is named Find or create a note, shows the key hint, and asks the shell to op
 				planner: 0,
 				newFolder: 0,
 				toolsVisible: true,
+				leftCollapsed: false,
+				rightCollapsed: false,
 				propertyRequest: null,
 				openProperties: () => {},
 				openSearch,

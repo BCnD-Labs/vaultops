@@ -227,10 +227,6 @@ body {
 	padding-inline: 8px;
 }
 
-.nav-bar .shell-toggle:last-child {
-	margin-left: auto;
-}
-
 .shell-breadcrumb {
 	display: flex;
 	flex: 1;
@@ -283,17 +279,6 @@ body {
 	flex: 1;
 	background: var(--shell-panel);
 }
-/* Same height as the nav bar over the editor, so a sidebar's toggle sits at the
-   same place whether the sidebar is open (here) or collapsed (in the nav bar). */
-.shell-pane-bar {
-	display: flex;
-	flex: none;
-	align-items: center;
-	justify-content: flex-end;
-	box-sizing: border-box;
-	height: var(--chrome-bar-height);
-	padding-inline: 4px;
-}
 .shell-toggle {
 	border: 0;
 	color: var(--muted-foreground);
@@ -330,9 +315,6 @@ body {
 	text-transform: uppercase;
 	color: var(--muted-foreground);
 	padding: 6px 8px;
-}
-.shell-pane-bar .section-label {
-	margin-right: auto;
 }
 .shell-editor {
 	position: relative;
@@ -494,15 +476,12 @@ body {
 }
 .shell-right {
 	height: 100%;
-	overflow: auto;
-}
-/* The header bar runs edge to edge like the left sidebar's; the content is
-   inset below it. */
-.shell-right aside > :not(.shell-pane-bar) {
-	margin: 0 8px 8px;
+	overflow-x: hidden;
+	overflow-y: auto;
 }
 .shell-right aside {
 	position: relative;
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -515,22 +494,48 @@ body {
 .shell-right aside > .dock-group {
 	margin: 0;
 }
-.shell-right [data-slot="tabs-list"] {
+/* Icon tabs in the header row, styled like the left sidebar's icon buttons. */
+.sidebar-tabs {
 	border: 0;
-	border-bottom: var(--border-width) solid var(--line);
-	border-radius: 0;
+	gap: 2px;
 }
-.shell-right [data-slot="tabs-trigger"] {
-	border: 0;
+.sidebar-tabs [data-slot="tabs-trigger"] {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--control-height);
+	height: var(--control-height);
 	margin: 0;
-	font-weight: 600;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
 }
-.shell-right [data-state="active"][data-slot="tabs-trigger"] {
-	border-bottom-color: var(--primary);
+.sidebar-tabs [data-slot="tabs-trigger"] svg {
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.5;
+}
+.sidebar-tabs [data-slot="tabs-trigger"]:hover {
 	color: var(--foreground);
 }
+.sidebar-tabs [data-state="active"][data-slot="tabs-trigger"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.sidebar-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	padding: 4px 8px;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 .shell-right [data-slot="tabs-content"] {
-	padding: 8px 0;
+	min-width: 0;
+	padding: 8px;
+	overflow-x: hidden;
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);
 }
@@ -688,4 +693,41 @@ select {
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	max-width: 28rem;
+}
+
+.shell-toggle-anchor-right {
+	left: auto;
+	right: var(--toggle-left);
+}
+.nav-bar[data-clear-right-toggle] {
+	padding-right: calc(8px + var(--control-height) + 2px);
+}
+/* The right header clears its floating toggle the way the left one does. */
+.sidebar-header-last {
+	box-sizing: border-box;
+	min-height: var(--chrome-bar-height);
+	padding-right: calc(
+		var(--toggle-left) -
+		var(--shell-gap) -
+		var(--shell-border-width) +
+		var(--control-height) +
+		2px
+	);
+}
+
+/* Tabs on top, title bar under them. The top row of each pane is what sits
+   beside the window's floating sidebar toggles, so it leaves room for them. */
+.tab-bar {
+	box-sizing: border-box;
+	min-height: var(--chrome-bar-height);
+}
+.pane-column[data-clear-left] > :is(.tab-bar, .nav-bar):first-child {
+	padding-left: calc(8px + var(--control-height) + 4px);
+}
+.pane-column[data-clear-right] > :is(.tab-bar, .nav-bar):first-child {
+	padding-right: calc(8px + var(--control-height) + 4px);
+}
+/* The title bar is the active tab's own header: same surface, no rule above. */
+.pane-column > .nav-bar {
+	background: var(--editor-bg);
 }

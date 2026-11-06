@@ -50,6 +50,11 @@ function Harness({
 				<section aria-label="Canvas view">{path}</section>
 			)}
 			renderEmpty={(pane) => <p>Empty {pane.id}</p>}
+			renderTitleBar={(pane, doc) => (
+				<div data-testid={`title-${pane.id}`}>
+					{`${doc.title ?? "-"}|${doc.focused ? "focused" : "idle"}|${doc.last ? "last" : "inner"}`}
+				</div>
+			)}
 		/>
 	);
 }
@@ -444,4 +449,23 @@ it("Alt+Shift+Arrow does nothing at the edge of a single pane's only tab", async
 	expect(
 		screen.queryByRole("tablist", { name: "Open notes, right side" }),
 	).toBeNull();
+});
+
+it("each pane gets a title bar for the tab it shows, under its own tab strip", async () => {
+	const { a, b, run, menu, left } = await setup();
+	await run(() => api.open(a));
+	expect(screen.getByTestId("title-left").textContent).toBe(
+		"Alpha|focused|last",
+	);
+	const strip = screen.getByRole("tablist", { name: "Open notes" });
+	const bar = screen.getByTestId("title-left");
+	// Tabs first, then the title bar.
+	expect(
+		strip.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	await run(() => api.open(b));
+	await menu(left().getByRole("tab", { name: /Beta/ }), "Split view");
+	expect(screen.getByTestId("title-left").textContent).toMatch(/\|inner$/);
+	// A new split starts with an empty tab, which has no document to name.
+	expect(screen.getByTestId("title-right").textContent).toBe("-|focused|last");
 });

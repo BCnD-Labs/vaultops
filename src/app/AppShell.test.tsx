@@ -20,6 +20,7 @@ it("renders three regions, independent toggles, breadcrumb and note tools", () =
 	expect(html.match(/data-panel=/g)).toHaveLength(3);
 	// One left toggle serves both the open and the collapsed sidebar.
 	expect(html.match(/aria-label="Toggle left sidebar"/g)).toHaveLength(1);
+	expect(html.match(/aria-label="Toggle right sidebar"/g)).toHaveLength(1);
 	for (const text of [
 		'id="left"',
 		'id="editor"',

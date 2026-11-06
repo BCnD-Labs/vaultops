@@ -1,4 +1,11 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	ResizableHandle,
 	ResizablePanel,
@@ -6,6 +13,7 @@ import {
 } from "@/components/ui/resizable";
 import { NEW_TAB, type PaneId } from "../core/workspace";
 import { setDragEffect } from "../editor/block-drag";
+import { ShellNavigation } from "./AppShell";
 import type { NoteRow } from "./session";
 import { TabBar, type TabItem } from "./TabBar";
 import {
@@ -27,6 +35,18 @@ export interface WorkspacePanesProps {
 	renderCanvas: (path: string, pane: PaneView) => ReactNode;
 	/** The empty tab, or a pane with no tab at all. */
 	renderEmpty: (pane: PaneView) => ReactNode;
+	/** The title bar under a pane's tab strip, for the document it shows. */
+	renderTitleBar?: (pane: PaneView, doc: PaneDoc) => ReactNode;
+}
+
+/** What a pane's title bar says about the tab being shown. */
+export interface PaneDoc {
+	/** The note's or canvas's path; null for the empty tab. */
+	path: string | null;
+	title: string | null;
+	focused: boolean;
+	/** The pane at the window's right end (it carries the calendar button). */
+	last: boolean;
 }
 
 const other = (id: PaneId): PaneId => (id === "left" ? "right" : "left");
@@ -48,8 +68,10 @@ export function WorkspacePanes({
 	renderNote,
 	renderCanvas,
 	renderEmpty,
+	renderTitleBar,
 }: WorkspacePanesProps) {
 	const { left, right } = host.panes;
+	const { leftCollapsed, rightCollapsed } = useContext(ShellNavigation);
 	const split = right !== null;
 	const rows = useMemo(() => new Map(notes.map((n) => [n.path, n])), [notes]);
 	// The tab being dragged (drop zones show only then) and the zone it is over.
@@ -76,6 +98,17 @@ export function WorkspacePanes({
 			const live = active && !canvas && pane.ready ? pane.session.title : "";
 			return { path, title: live || row?.title || name, active, canvas };
 		});
+
+	const docOf = (pane: PaneView): PaneDoc => {
+		const shown = pane.active && pane.active !== NEW_TAB ? pane.active : null;
+		const item = tabsOf(pane).find((tab) => tab.path === shown);
+		return {
+			path: shown,
+			title: shown ? (item?.title ?? null) : null,
+			focused: host.focused === pane.id,
+			last: split ? pane.id === "right" : true,
+		};
+	};
 
 	const content = (pane: PaneView): ReactNode => {
 		if (pane.kind === "canvas" && pane.active)
@@ -186,6 +219,10 @@ export function WorkspacePanes({
 				data-pane-id={pane.id}
 				data-focused={host.focused === pane.id}
 				data-split={split}
+				data-clear-left={(pane.id === "left" && leftCollapsed) || undefined}
+				data-clear-right={
+					((split ? pane.id === "right" : true) && rightCollapsed) || undefined
+				}
 				onPointerDownCapture={() => focus(pane.id)}
 				onFocusCapture={() => focus(pane.id)}
 			>
@@ -213,6 +250,7 @@ export function WorkspacePanes({
 						focusRequest={focusTab}
 					/>
 				)}
+				{renderTitleBar?.(pane, docOf(pane))}
 				{content(pane)}
 				{zone(pane)}
 			</div>

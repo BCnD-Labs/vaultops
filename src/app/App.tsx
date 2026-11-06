@@ -35,6 +35,7 @@ import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { lastCanvas } from "./canvas-layout";
 import { browserLastNote, pickInitialNote } from "./last-note";
+import { NavBar } from "./NavBar";
 import { NewTab } from "./NewTab";
 import { NoteTools } from "./NoteTools";
 import type { TreeActions } from "./NoteTree";
@@ -63,7 +64,7 @@ import {
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import { browserTabs, pruneTabs } from "./tabs";
 import { type PaneView, useWorkspaceHost } from "./useWorkspaceHost";
-import { WorkspacePanes } from "./WorkspacePanes";
+import { type PaneDoc, WorkspacePanes } from "./WorkspacePanes";
 import "../ui/theme.css";
 import "./app.css";
 
@@ -820,6 +821,25 @@ export function App({ host }: { host: Host }) {
 
 	// The empty tab, or a pane with no tab: the ways to start. A canvas is not
 	// offered while another pane already shows one (two never show together).
+	const renderTitleBar = (pane: PaneView, doc: PaneDoc) => (
+		<NavBar
+			vault={vaultName ?? "VaultOps"}
+			path={doc.path}
+			title={doc.title}
+			controls={doc.focused}
+			calendar={doc.last}
+			canGoBack={canGoBack(nav)}
+			canGoForward={canGoForward(nav)}
+			onBack={() => void goThrough(-1)}
+			onForward={() => void goThrough(1)}
+			reading={reading}
+			onToggleReading={
+				doc.focused && pane.kind === "note" && pane.session.opened
+					? () => setReading((on) => !on)
+					: undefined
+			}
+		/>
+	);
 	const renderEmpty = (pane: PaneView) => {
 		const canvasShown = [left, right].some(
 			(p) => p && p.id !== pane.id && p.kind === "canvas",
@@ -892,6 +912,9 @@ export function App({ host }: { host: Host }) {
 								void startNote(folder, noteTitle)
 							}
 							onNavigateScreen={(next) => void navigate(next)}
+							titleInPanes={
+								screen === "note" && !!view && view.status !== "none"
+							}
 							canGoBack={canGoBack(nav)}
 							canGoForward={canGoForward(nav)}
 							onBack={() => void goThrough(-1)}
@@ -958,6 +981,7 @@ export function App({ host }: { host: Host }) {
 											renderNote={renderNote}
 											renderCanvas={renderCanvas}
 											renderEmpty={renderEmpty}
+											renderTitleBar={renderTitleBar}
 										/>
 									)}
 								</div>

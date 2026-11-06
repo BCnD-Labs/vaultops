@@ -71,7 +71,9 @@ export function NavBar({
 	onBack,
 	onForward,
 	clearLeftToggle = false,
-	rightToggle,
+	clearRightToggle = false,
+	controls = true,
+	calendar = true,
 	reading = false,
 	onToggleReading,
 }: {
@@ -85,20 +87,38 @@ export function NavBar({
 	/** The sidebar toggle floats over the window's top left corner while the
 	 *  left sidebar is collapsed; leave room for it. */
 	clearLeftToggle?: boolean;
-	rightToggle?: ReactNode;
+	/** Same for the right sidebar's toggle at the window's top right. */
+	clearRightToggle?: boolean;
+	/** Back, forward, reading view and more. A pane that is not focused shows only
+	 *  where its note lives, since those act on the focused pane. */
+	controls?: boolean;
+	/** The title-bar calendar button (shown once per window). */
+	calendar?: boolean;
 	/** The open note is shown for reading only. */
 	reading?: boolean;
 	/** Given only while a note is open: shows the reading toggle and the more menu. */
 	onToggleReading?: () => void;
 }) {
 	return (
-		<div className="nav-bar" data-clear-toggle={clearLeftToggle || undefined}>
-			<StepButton label="Back" disabled={!canGoBack} onClick={onBack}>
-				<ArrowLeft aria-hidden="true" />
-			</StepButton>
-			<StepButton label="Forward" disabled={!canGoForward} onClick={onForward}>
-				<ArrowRight aria-hidden="true" />
-			</StepButton>
+		<div
+			className="nav-bar"
+			data-clear-toggle={clearLeftToggle || undefined}
+			data-clear-right-toggle={clearRightToggle || undefined}
+		>
+			{controls && (
+				<>
+					<StepButton label="Back" disabled={!canGoBack} onClick={onBack}>
+						<ArrowLeft aria-hidden="true" />
+					</StepButton>
+					<StepButton
+						label="Forward"
+						disabled={!canGoForward}
+						onClick={onForward}
+					>
+						<ArrowRight aria-hidden="true" />
+					</StepButton>
+				</>
+			)}
 			<Breadcrumb className="shell-breadcrumb">
 				<BreadcrumbList>
 					{title !== null && (
@@ -114,7 +134,7 @@ export function NavBar({
 					</BreadcrumbItem>
 				</BreadcrumbList>
 			</Breadcrumb>
-			{onToggleReading && (
+			{controls && onToggleReading && (
 				<>
 					<StepButton
 						label={
@@ -165,8 +185,7 @@ export function NavBar({
 					</DropdownMenu>
 				</>
 			)}
-			<CalendarPopover />
-			{rightToggle}
+			{calendar && <CalendarPopover />}
 		</div>
 	);
 }

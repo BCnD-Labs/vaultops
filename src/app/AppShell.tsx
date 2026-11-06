@@ -47,6 +47,9 @@ export const ShellNavigation = createContext({
 	planner: 0,
 	newFolder: 0,
 	toolsVisible: true,
+	/** Whether each sidebar is collapsed, so the window's top row can leave room for its toggle. */
+	leftCollapsed: false,
+	rightCollapsed: false,
 	propertyRequest: null as { name?: string } | null,
 	openProperties: (_name?: string) => {},
 	openSearch: () => {},
@@ -125,6 +128,7 @@ export function AppShell({
 	onForward = () => {},
 	reading = false,
 	onToggleReading,
+	titleInPanes = false,
 }: {
 	sidebar: ReactNode;
 	tools?: ReactNode;
@@ -149,6 +153,9 @@ export function AppShell({
 	onForward?: () => void;
 	reading?: boolean;
 	onToggleReading?: () => void;
+	/** The panes draw their own title bars under their tab strips, so the
+	 *  window-wide one is left out. */
+	titleInPanes?: boolean;
 }) {
 	const [propertyRequest, setPropertyRequest] = useState<{
 		name?: string;
@@ -215,6 +222,8 @@ export function AppShell({
 				value={{
 					...navigation,
 					toolsVisible: !collapsed.right,
+					leftCollapsed: collapsed.left,
+					rightCollapsed: collapsed.right,
 					propertyRequest,
 					openProperties: (name) => {
 						right.current?.expand();
@@ -228,6 +237,9 @@ export function AppShell({
 				    sidebar opens or closes; the sidebar header and the nav bar each
 				    leave room for it. */}
 					<div className="shell-toggle-anchor">{sidebarToggle("left")}</div>
+					<div className="shell-toggle-anchor shell-toggle-anchor-right">
+						{sidebarToggle("right")}
+					</div>
 					<ResizablePanelGroup
 						orientation="horizontal"
 						className="shell-regions"
@@ -298,19 +310,21 @@ export function AppShell({
 						<ResizableHandle />
 						<ResizablePanel id="editor" minSize={420} className="shell-editor">
 							<div className="editor-column">
-								<NavBar
-									vault={vault}
-									path={path}
-									title={title}
-									canGoBack={canGoBack}
-									canGoForward={canGoForward}
-									onBack={onBack}
-									onForward={onForward}
-									reading={reading}
-									onToggleReading={onToggleReading}
-									clearLeftToggle={collapsed.left}
-									rightToggle={collapsed.right ? sidebarToggle("right") : null}
-								/>
+								{!titleInPanes && (
+									<NavBar
+										vault={vault}
+										path={path}
+										title={title}
+										canGoBack={canGoBack}
+										canGoForward={canGoForward}
+										onBack={onBack}
+										onForward={onForward}
+										reading={reading}
+										onToggleReading={onToggleReading}
+										clearLeftToggle={collapsed.left}
+										clearRightToggle={collapsed.right}
+									/>
+								)}
 								<div className="editor-column-body">{children}</div>
 								<StatusBar vault={vault} stats={stats} build={buildCommit} />
 							</div>
@@ -348,10 +362,6 @@ export function AppShell({
 							}
 						>
 							<aside aria-label="Note details" inert={collapsed.right}>
-								<div className="shell-pane-bar">
-									<span className="section-label">Details</span>
-									{sidebarToggle("right")}
-								</div>
 								<div className="shell-right-main">{tools}</div>
 								<CalendarGroup side="right" />
 								<DockZone side="right" />

@@ -111,3 +111,18 @@ it("edits properties and tags and creates a typed property from the popover", as
 	);
 	expect(screen.getByRole("spinbutton", { name: "Pages" })).toBeTruthy();
 });
+
+it("titles the header with the open tool, in the same row as the icon tabs", async () => {
+	const user = userEvent.setup();
+	render(
+		<NoteTools hasNote={false} props={null} editable={false} {...callbacks} />,
+	);
+	const header = document.querySelector(".sidebar-header") as HTMLElement;
+	expect(within(header).getByText("Properties").tagName).toBe("STRONG");
+	await user.click(within(header).getByRole("tab", { name: "Changes" }));
+	expect(within(header).getByText("Changes").tagName).toBe("STRONG");
+	// Icon-only tabs still carry their names for assistive tech and hover.
+	expect(
+		within(header).getByRole("tab", { name: "Planner" }).getAttribute("title"),
+	).toBe("Planner");
+});

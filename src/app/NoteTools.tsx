@@ -1,4 +1,11 @@
 import {
+	CalendarDays,
+	GitCompareArrows,
+	ListTree,
+	type LucideIcon,
+	SlidersHorizontal,
+} from "lucide-react";
+import {
 	type ComponentProps,
 	useContext,
 	useEffect,
@@ -11,6 +18,13 @@ import { ShellNavigation } from "./AppShell";
 import { OutlinePanel } from "./OutlinePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { PlannerPanel } from "./planner/PlannerPanel";
+
+const TOOLS: [string, string, LucideIcon][] = [
+	["properties", "Properties", SlidersHorizontal],
+	["outline", "Outline", ListTree],
+	["changes", "Changes", GitCompareArrows],
+	["planner", "Planner", CalendarDays],
+];
 
 const TAB_KEY = "vaultops:note-tools-tab";
 function loadTab() {
@@ -90,12 +104,20 @@ export function NoteTools({
 				}
 			}}
 		>
-			<TabsList aria-label="Note details">
-				<TabsTrigger value="properties">Properties</TabsTrigger>
-				<TabsTrigger value="outline">Outline</TabsTrigger>
-				<TabsTrigger value="changes">Changes</TabsTrigger>
-				<TabsTrigger value="planner">Planner</TabsTrigger>
-			</TabsList>
+			{/* The same header row as the left sidebar: a bold title, icon buttons,
+			    and room at the end for the floating toggle. */}
+			<header className="sidebar-header sidebar-header-last">
+				<strong className="sidebar-title">
+					{TOOLS.find(([id]) => id === tab)?.[1] ?? "Details"}
+				</strong>
+				<TabsList aria-label="Note details" className="sidebar-tabs">
+					{TOOLS.map(([id, label, Icon]) => (
+						<TabsTrigger key={id} value={id} aria-label={label} title={label}>
+							<Icon aria-hidden="true" />
+						</TabsTrigger>
+					))}
+				</TabsList>
+			</header>
 			<TabsContent value="properties">
 				{hasNote ? (
 					<section ref={panel} tabIndex={-1} aria-label="Note properties">

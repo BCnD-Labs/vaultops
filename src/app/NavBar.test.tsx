@@ -51,10 +51,10 @@ it("shows the vault name when no note is open, and disables both steps", () => {
 		).toBe(true);
 });
 
-it("leaves room for the floating left toggle and ends with the right one", () => {
+it("leaves room for the floating sidebar toggles", () => {
 	setup({
 		clearLeftToggle: true,
-		rightToggle: <button type="button">Show right</button>,
+		clearRightToggle: true,
 	});
 	expect(
 		document.querySelector(".nav-bar")?.hasAttribute("data-clear-toggle"),
@@ -62,7 +62,10 @@ it("leaves room for the floating left toggle and ends with the right one", () =>
 	const buttons = screen
 		.getAllByRole("button")
 		.map((b) => b.textContent || b.getAttribute("aria-label"));
-	expect(buttons).toEqual(["Back", "Forward", "Show right"]);
+	expect(buttons).toEqual(["Back", "Forward"]);
+	expect(
+		document.querySelector(".nav-bar")?.hasAttribute("data-clear-right-toggle"),
+	).toBe(true);
 });
 
 it("has no reading toggle or more menu until a note offers one", () => {
@@ -100,4 +103,17 @@ it("offers to switch back to editing while reading", () => {
 	expect(
 		screen.getByRole("button", { name: "Switch to editing view" }),
 	).toBeTruthy();
+});
+
+it("shows only where the note lives when it has no controls, and no calendar button on request", () => {
+	setup({ controls: false, calendar: false, onToggleReading: () => {} });
+	expect(screen.getByText("Lecture")).toBeTruthy();
+	for (const name of [
+		"Back",
+		"Forward",
+		"Switch to reading view",
+		"More options",
+		"Calendar",
+	])
+		expect(screen.queryByRole("button", { name })).toBeNull();
 });

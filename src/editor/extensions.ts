@@ -12,7 +12,6 @@ import { UniqueID } from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { BLOCK_TYPES } from "./blocks";
 import { Callout } from "./callout";
-import { SwitchBlock } from "./switch";
 import { CodeLanguage } from "./code-language";
 import { DateChip } from "./date-chip";
 import { Divider } from "./divider";
@@ -21,6 +20,7 @@ import { Folding } from "./folding";
 import { Kbd } from "./kbd";
 import { MoveOut } from "./move-out";
 import { SlashMenu } from "./slash-menu";
+import { SwitchBlock } from "./switch";
 import { TaskBlock } from "./task-block";
 import { Toggle } from "./toggle";
 

@@ -1017,3 +1017,14 @@ input.canvas-item-field {
 .planner-pane {
 	padding: 0;
 }
+
+/* Settings window: its own scroll, so the page behind never moves. */
+.settings-dialog {
+	max-width: min(640px, calc(100vw - 48px));
+	max-height: min(80vh, 760px);
+	overflow-y: auto;
+}
+.settings-dialog .settings-screen {
+	margin: 0;
+	padding: 0;
+}

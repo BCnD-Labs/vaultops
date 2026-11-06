@@ -26,6 +26,7 @@ afterEach(() => {
 
 let api: WorkspaceHost;
 let reading = false;
+const onToggleReading = vi.fn();
 
 function Harness({
 	host,
@@ -56,6 +57,7 @@ function Harness({
 						session={pane.session}
 						writable={writable}
 						reading={reading}
+						onToggleReading={onToggleReading}
 						onLoadDisk={() => {}}
 						onSaveCopy={() => {}}
 						onMoveToTrash={onMoveToTrash}
@@ -193,14 +195,20 @@ it("a note loaded into the pane starts with nothing to confirm", async () => {
 	expect(screen.queryByText("Move this note to the trash?")).toBeNull();
 });
 
-it("a read-only vault shows the note locked, with no note actions", async () => {
+it("a read-only vault shows the note locked, with no way to trash it", async () => {
 	const { run, a } = await setup(false);
 	await run(() => api.open(a));
 	const title = (await screen.findByRole("textbox", {
 		name: "Title",
 	})) as HTMLInputElement;
 	expect(title.readOnly).toBe(true);
-	expect(screen.queryByRole("button", { name: "Note actions" })).toBeNull();
+	await userEvent
+		.setup()
+		.click(screen.getByRole("button", { name: "Note actions" }));
+	expect(
+		await screen.findByRole("menuitem", { name: "Copy file path" }),
+	).toBeTruthy();
+	expect(screen.queryByRole("menuitem", { name: "Move to trash" })).toBeNull();
 });
 
 it("reloading the same note in place also clears the questions", async () => {
@@ -235,4 +243,21 @@ it("reading view locks the title and the editor and keeps the text", async () =>
 	expect(
 		document.querySelector('.ProseMirror[contenteditable="true"]'),
 	).toBeNull();
+});
+
+it("the note menu holds reading view and the file path, beside move to trash", async () => {
+	const { run, a } = await setup();
+	await run(() => api.open(a));
+	const user = userEvent.setup();
+	await user.click(await screen.findByRole("button", { name: "Note actions" }));
+	for (const name of [
+		"Switch to reading view",
+		"Copy file path",
+		"Move to trash",
+	])
+		expect(await screen.findByRole("menuitem", { name })).toBeTruthy();
+	await user.click(
+		screen.getByRole("menuitem", { name: "Switch to reading view" }),
+	);
+	expect(onToggleReading).toHaveBeenCalledTimes(1);
 });

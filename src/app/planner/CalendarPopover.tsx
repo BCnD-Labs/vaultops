@@ -18,6 +18,8 @@ import { usePlanner } from "./PlannerContext";
  * The calendar button at the right of the title bar. It stays in place on every
  * screen and opens a month with the chosen day's items. It shows only when
  * Settings puts the calendar in the title bar; the sidebar shows it otherwise.
+ * It fades in when the pointer comes near and out a second after it leaves
+ * (CSS: `.calendar-reveal`), and stays while open or focused.
  */
 export function CalendarPopover() {
 	const p = usePlanner();
@@ -30,7 +32,7 @@ export function CalendarPopover() {
 						<Button
 							variant="ghost"
 							size="icon"
-							className="nav-step"
+							className="nav-step calendar-reveal"
 							aria-label="Calendar"
 						>
 							<CalendarDays aria-hidden="true" />

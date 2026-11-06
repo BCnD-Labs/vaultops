@@ -1,10 +1,4 @@
-import {
-	ArrowLeft,
-	ArrowRight,
-	BookOpen,
-	Ellipsis,
-	Pencil,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import {
 	Breadcrumb,
@@ -14,12 +8,6 @@ import {
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
 	Tooltip,
 	TooltipContent,
@@ -74,8 +62,6 @@ export function NavBar({
 	clearRightToggle = false,
 	controls = true,
 	calendar = true,
-	reading = false,
-	onToggleReading,
 }: {
 	vault: string;
 	path: string | null;
@@ -89,15 +75,11 @@ export function NavBar({
 	clearLeftToggle?: boolean;
 	/** Same for the right sidebar's toggle at the window's top right. */
 	clearRightToggle?: boolean;
-	/** Back, forward, reading view and more. A pane that is not focused shows only
+	/** Back and forward. A pane that is not focused shows only
 	 *  where its note lives, since those act on the focused pane. */
 	controls?: boolean;
 	/** The title-bar calendar button (shown once per window). */
 	calendar?: boolean;
-	/** The open note is shown for reading only. */
-	reading?: boolean;
-	/** Given only while a note is open: shows the reading toggle and the more menu. */
-	onToggleReading?: () => void;
 }) {
 	return (
 		<div
@@ -134,57 +116,6 @@ export function NavBar({
 					</BreadcrumbItem>
 				</BreadcrumbList>
 			</Breadcrumb>
-			{controls && onToggleReading && (
-				<>
-					<StepButton
-						label={
-							reading ? "Switch to editing view" : "Switch to reading view"
-						}
-						disabled={false}
-						onClick={onToggleReading}
-					>
-						{reading ? (
-							<Pencil aria-hidden="true" />
-						) : (
-							<BookOpen aria-hidden="true" />
-						)}
-					</StepButton>
-					<DropdownMenu>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<DropdownMenuTrigger asChild>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="nav-step"
-										aria-label="More options"
-									>
-										<Ellipsis aria-hidden="true" />
-									</Button>
-								</DropdownMenuTrigger>
-							</TooltipTrigger>
-							<TooltipContent>More options</TooltipContent>
-						</Tooltip>
-						<DropdownMenuContent align="end">
-							<DropdownMenuItem onSelect={onToggleReading}>
-								{reading ? "Switch to editing view" : "Switch to reading view"}
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								disabled={!path}
-								onSelect={() => {
-									try {
-										void navigator.clipboard?.writeText(path ?? "");
-									} catch {
-										/* Clipboard is optional. */
-									}
-								}}
-							>
-								Copy file path
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
-				</>
-			)}
 			{calendar && <CalendarPopover />}
 		</div>
 	);

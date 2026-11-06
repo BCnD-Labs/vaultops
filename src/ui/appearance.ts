@@ -1,3 +1,4 @@
+import { applyFonts, loadFontChoice } from "./fonts";
 import { applyTheme, loadThemeChoice, type ThemeChoice } from "./themes";
 
 /**
@@ -128,6 +129,7 @@ export function applyColors(
 export function refreshAppearance(root: HTMLElement) {
 	const choice = loadThemeChoice();
 	applyTheme(root, choice);
+	applyFonts(root, loadFontChoice());
 	applyColors(root, loadColors()[resolveMode(choice.mode, systemIsDark())]);
 }
 

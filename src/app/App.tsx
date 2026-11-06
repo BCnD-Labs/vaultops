@@ -52,6 +52,7 @@ import {
 } from "./nav-history";
 import { PlannerProvider } from "./planner/PlannerContext";
 import { ScreenPane } from "./ScreenPane";
+import { SettingsDialog } from "./SettingsScreen";
 import { Sidebar } from "./Sidebar";
 import {
 	chooseAndLoad,
@@ -73,9 +74,10 @@ const other = (id: PaneId): PaneId => (id === "left" ? "right" : "left");
 export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [reading, setReading] = useState(false);
-	const [screen, setScreen] = useState<
-		"note" | "trash" | "health" | "settings" | "planner"
-	>("note");
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [screen, setScreen] = useState<"note" | "trash" | "health" | "planner">(
+		"note",
+	);
 	const [trash, setTrash] = useState<TrashedNote[]>([]);
 	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 	const [screenNotice, setScreenNotice] = useState<string | null>(null);
@@ -471,6 +473,11 @@ export function App({ host }: { host: Host }) {
 	const navigate = async (
 		next: "trash" | "health" | "settings" | "planner" | "note",
 	) => {
+		// Settings is a window over the workspace, not a screen: nothing to settle.
+		if (next === "settings") {
+			setSettingsOpen(true);
+			return;
+		}
 		if (!(await ws.settleAll())) return;
 		setBusy(true);
 		try {
@@ -740,6 +747,7 @@ export function App({ host }: { host: Host }) {
 			session={pane.session}
 			writable={writable}
 			reading={reading}
+			onToggleReading={() => setReading((on) => !on)}
 			busy={busy}
 			titleInput={titleInputs[pane.id]}
 			onLoadDisk={() => void loadDisk(pane)}
@@ -832,12 +840,6 @@ export function App({ host }: { host: Host }) {
 			canGoForward={canGoForward(nav)}
 			onBack={() => void goThrough(-1)}
 			onForward={() => void goThrough(1)}
-			reading={reading}
-			onToggleReading={
-				doc.focused && pane.kind === "note" && pane.session.opened
-					? () => setReading((on) => !on)
-					: undefined
-			}
 		/>
 	);
 	const renderEmpty = (pane: PaneView) => {
@@ -993,7 +995,6 @@ export function App({ host }: { host: Host }) {
 									busy={busy}
 									writable={writable}
 									screenNotice={screenNotice}
-									updateHost={host}
 									trash={trash}
 									confirmDelete={confirmDelete}
 									onNavigate={navigate}
@@ -1004,6 +1005,11 @@ export function App({ host }: { host: Host }) {
 								/>
 							)}
 						</AppShell>
+						<SettingsDialog
+							open={settingsOpen}
+							onOpenChange={setSettingsOpen}
+							host={host}
+						/>
 					</PlannerProvider>
 				</AppearanceProvider>
 			</div>

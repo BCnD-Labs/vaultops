@@ -40,6 +40,8 @@ export interface NoteViewProps {
 	writable: boolean;
 	/** Reading view: the note is shown but cannot be typed in. */
 	reading?: boolean;
+	/** Reading view and edit view swap from the note's menu. */
+	onToggleReading?: () => void;
 	busy: boolean;
 	onTitleChange: (title: string) => void;
 	onDocChange: (doc: JSONContent) => void;
@@ -77,6 +79,7 @@ export function NoteView({
 	notice,
 	writable,
 	reading = false,
+	onToggleReading,
 	busy,
 	onTitleChange,
 	onDocChange,
@@ -127,7 +130,7 @@ export function NoteView({
 						</button>
 					</span>
 				) : (
-					writable && (
+					(writable || onToggleReading) && (
 						<DropdownMenu>
 							<Tooltip>
 								<TooltipTrigger asChild>
@@ -146,9 +149,30 @@ export function NoteView({
 								<TooltipContent>Note actions</TooltipContent>
 							</Tooltip>
 							<DropdownMenuContent align="end">
-								<DropdownMenuItem onSelect={() => onConfirmTrash(true)}>
-									Move to trash
+								{onToggleReading && (
+									<DropdownMenuItem onSelect={onToggleReading}>
+										{reading
+											? "Switch to editing view"
+											: "Switch to reading view"}
+									</DropdownMenuItem>
+								)}
+								<DropdownMenuItem
+									disabled={!path}
+									onSelect={() => {
+										try {
+											void navigator.clipboard?.writeText(path ?? "");
+										} catch {
+											/* Clipboard is optional. */
+										}
+									}}
+								>
+									Copy file path
 								</DropdownMenuItem>
+								{writable && (
+									<DropdownMenuItem onSelect={() => onConfirmTrash(true)}>
+										Move to trash
+									</DropdownMenuItem>
+								)}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)
@@ -224,6 +248,7 @@ export interface SessionNoteViewProps {
 	session: NoteSession;
 	writable: boolean;
 	reading?: boolean;
+	onToggleReading?: () => void;
 	busy?: boolean;
 	titleInput?: Ref<HTMLInputElement>;
 	onLoadDisk: () => void;
@@ -251,6 +276,7 @@ function PaneNote({
 	opened,
 	writable,
 	reading = false,
+	onToggleReading,
 	busy = false,
 	titleInput,
 	onLoadDisk,
@@ -276,6 +302,7 @@ function PaneNote({
 			notice={session.notice}
 			writable={writable}
 			reading={reading}
+			onToggleReading={onToggleReading}
 			busy={busy}
 			onTitleChange={session.editTitle}
 			onDocChange={session.editDoc}

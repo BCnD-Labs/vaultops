@@ -1,0 +1,21 @@
+/*
+ * Font choices that sit on top of any theme (see ../fonts.ts). Loaded after the
+ * themes so a choice wins; the doubled :root outranks a theme's own selector.
+ * --font-heading is what titles, tags and headings use: the theme's font unless
+ * a heading font is picked.
+ */
+:root {
+	--font-heading: var(--font-sans);
+}
+
+:root:root[data-editor-font="atkinson"] {
+	--font-editor: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+}
+
+:root:root[data-heading-font="inter"] {
+	--font-heading: "Inter Variable", "Inter", system-ui, sans-serif;
+}
+
+:root:root[data-heading-font="sora"] {
+	--font-heading: "Sora Variable", system-ui, sans-serif;
+}

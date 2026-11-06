@@ -319,8 +319,6 @@ export function AppShell({
 										canGoForward={canGoForward}
 										onBack={onBack}
 										onForward={onForward}
-										reading={reading}
-										onToggleReading={onToggleReading}
 										clearLeftToggle={collapsed.left}
 										clearRightToggle={collapsed.right}
 									/>

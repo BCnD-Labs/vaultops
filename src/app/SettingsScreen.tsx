@@ -1,5 +1,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
 	colorKeys,
@@ -12,6 +18,13 @@ import {
 	saveColors,
 	systemIsDark,
 } from "../ui/appearance";
+import {
+	editorFonts,
+	type FontChoice,
+	headingFonts,
+	loadFontChoice,
+	saveFontChoice,
+} from "../ui/fonts";
 import {
 	loadThemeChoice,
 	saveThemeChoice,
@@ -35,13 +48,17 @@ const modes = [
 export function SettingsScreen({
 	host,
 	updatePollMs,
+	modal = false,
 }: {
 	host: UpdateHost;
 	updatePollMs?: number;
+	/** Shown inside a dialog: the heading is the dialog's title. */
+	modal?: boolean;
 }) {
 	const root = document.documentElement;
 	const planner = usePlanner();
 	const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice);
+	const [fonts, setFonts] = useState<FontChoice>(loadFontChoice);
 	const [colors, setColors] = useState(loadColors);
 	const mode = resolveMode(choice.mode, systemIsDark());
 	const picked = colors[mode];
@@ -49,6 +66,11 @@ export function SettingsScreen({
 	const change = (next: ThemeChoice) => {
 		setChoice(next);
 		saveThemeChoice(next);
+		refreshAppearance(root);
+	};
+	const changeFonts = (next: FontChoice) => {
+		setFonts(next);
+		saveFontChoice(next);
 		refreshAppearance(root);
 	};
 	const changeColors = (next: typeof colors) => {
@@ -59,7 +81,16 @@ export function SettingsScreen({
 
 	return (
 		<section className="vault-screen settings-screen">
-			<h2>Settings</h2>
+			{modal ? (
+				<>
+					<DialogTitle>Settings</DialogTitle>
+					<DialogDescription className="sr-only">
+						Appearance, interface and update options.
+					</DialogDescription>
+				</>
+			) : (
+				<h2>Settings</h2>
+			)}
 			<h3 className="section-label">Appearance</h3>
 			<div className="settings-row">
 				<span id="settings-mode">Mode</span>
@@ -94,6 +125,45 @@ export function SettingsScreen({
 					{themes.map((theme) => (
 						<ToggleGroupItem key={theme.id} value={theme.id}>
 							{theme.name}
+						</ToggleGroupItem>
+					))}
+				</ToggleGroup>
+			</div>
+			<h3 className="section-label">Fonts</h3>
+			<div className="settings-row">
+				<span id="settings-editor-font">Editor font</span>
+				<ToggleGroup
+					className="settings-theme-group"
+					type="single"
+					aria-labelledby="settings-editor-font"
+					value={fonts.editor}
+					onValueChange={(value) => {
+						const next = editorFonts.find(([id]) => id === value);
+						if (next) changeFonts({ ...fonts, editor: next[0] });
+					}}
+				>
+					{editorFonts.map(([id, label]) => (
+						<ToggleGroupItem key={id} value={id}>
+							{label}
+						</ToggleGroupItem>
+					))}
+				</ToggleGroup>
+			</div>
+			<div className="settings-row">
+				<span id="settings-heading-font">Titles, tags and headings</span>
+				<ToggleGroup
+					className="settings-theme-group"
+					type="single"
+					aria-labelledby="settings-heading-font"
+					value={fonts.heading}
+					onValueChange={(value) => {
+						const next = headingFonts.find(([id]) => id === value);
+						if (next) changeFonts({ ...fonts, heading: next[0] });
+					}}
+				>
+					{headingFonts.map(([id, label]) => (
+						<ToggleGroupItem key={id} value={id}>
+							{label}
 						</ToggleGroupItem>
 					))}
 				</ToggleGroup>
@@ -144,5 +214,28 @@ export function SettingsScreen({
 			</Button>
 			<UpdateSection host={host} pollMs={updatePollMs} />
 		</section>
+	);
+}
+
+/**
+ * Settings as a window over the workspace: the panes, tabs and notes behind it
+ * stay exactly as they were, and closing it (Esc, the X, or a click outside)
+ * puts you right back.
+ */
+export function SettingsDialog({
+	open,
+	onOpenChange,
+	host,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	host: UpdateHost;
+}) {
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="settings-dialog">
+				<SettingsScreen host={host} modal />
+			</DialogContent>
+		</Dialog>
 	);
 }

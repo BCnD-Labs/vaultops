@@ -731,3 +731,15 @@ select {
 .pane-column > .nav-bar {
 	background: var(--editor-bg);
 }
+
+/* Titles, tags and headings use the heading font (Settings > Fonts), which is the
+   theme's own font unless one is picked; the editor's body text has its own. */
+:root .title-field,
+:root .note-editor :is(h1, h2, h3, h4, h5, h6),
+:root .chip,
+:root .note-meta-chip,
+:root .section-label,
+:root .sidebar-title,
+:root .tag-button {
+	font-family: var(--font-heading);
+}

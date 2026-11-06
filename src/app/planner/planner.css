@@ -846,3 +846,27 @@
 .dock-zone-inline[data-over] {
 	border-color: var(--primary);
 }
+
+/* Title-bar calendar: out of the way until the pointer is near it. The fade-out
+   waits a second so a slip of the mouse does not make it vanish mid-reach. */
+.calendar-reveal {
+	position: relative;
+	opacity: 0;
+	transition: opacity 220ms ease 1000ms;
+}
+.calendar-reveal::before {
+	content: "";
+	position: absolute;
+	inset: -8px -6px;
+}
+.calendar-reveal:hover,
+.calendar-reveal:focus-visible,
+.calendar-reveal[data-state="open"] {
+	opacity: 1;
+	transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+	.calendar-reveal {
+		transition: none;
+	}
+}

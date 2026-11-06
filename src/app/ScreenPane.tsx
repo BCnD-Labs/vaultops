@@ -2,21 +2,17 @@ import { Button } from "@/components/ui/button";
 import type { TrashedNote } from "../core/notes/trash";
 import { HealthScreen } from "./HealthScreen";
 import { PlannerScreen } from "./planner/PlannerScreen";
-import { SettingsScreen } from "./SettingsScreen";
 import type { VaultView } from "./session";
 import { TrashScreen } from "./TrashScreen";
-import type { UpdateHost } from "./UpdateSection";
 import "./pane.css";
 
 interface ScreenPaneProps {
 	view: VaultView | null;
-	screen: "trash" | "health" | "settings" | "planner";
+	screen: "trash" | "health" | "planner";
 	error: string | null;
 	busy: boolean;
 	writable: boolean;
 	screenNotice: string | null;
-	/** STOPGAP(update-script): what the Settings update button talks to. */
-	updateHost: UpdateHost;
 	trash: TrashedNote[];
 	confirmDelete: string | null;
 	onNavigate: (screen: "note") => void;
@@ -27,7 +23,7 @@ interface ScreenPaneProps {
 }
 
 /**
- * Trash, vault health and settings: the screens that take the place of the
+ * Trash and vault health (and the planner): the screens that take the place of the
  * editor panes. The panes (and the notes open in them) stay as they were, so
  * "Back to notes" returns to the same tabs.
  */
@@ -38,7 +34,6 @@ export function ScreenPane({
 	busy,
 	writable,
 	screenNotice,
-	updateHost,
 	trash,
 	confirmDelete,
 	onNavigate,
@@ -92,7 +87,6 @@ export function ScreenPane({
 			{screen === "health" && view && (
 				<HealthScreen report={view.report} onOpen={onOpen} />
 			)}
-			{screen === "settings" && <SettingsScreen host={updateHost} />}
 		</main>
 	);
 }

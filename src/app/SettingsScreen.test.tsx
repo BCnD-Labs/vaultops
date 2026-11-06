@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { MemoryHost } from "../host/memory-host";
 import { loadColors, toHex } from "../ui/appearance";
 import { loadThemeChoice } from "../ui/themes";
-import { SettingsScreen } from "./SettingsScreen";
+import { SettingsDialog, SettingsScreen } from "./SettingsScreen";
 
 // Look literals (hex colors) are not allowed in component files, so build them.
 const red = toHex(204, 0, 0);
@@ -87,4 +87,32 @@ it("has an Updates section with the update button", () => {
 	render(<SettingsScreen host={new MemoryHost()} />);
 	expect(screen.getByRole("heading", { name: "Updates" })).toBeTruthy();
 	expect(screen.getByRole("button", { name: "Update VaultOps" })).toBeTruthy();
+});
+
+it("picks the editor font and the heading font apart from the theme", async () => {
+	const user = userEvent.setup();
+	render(<SettingsScreen host={new MemoryHost()} />);
+	await user.click(
+		screen.getByRole("radio", { name: "Atkinson Hyperlegible" }),
+	);
+	await user.click(screen.getByRole("radio", { name: "Sora" }));
+	expect(document.documentElement.getAttribute("data-editor-font")).toBe(
+		"atkinson",
+	);
+	expect(document.documentElement.getAttribute("data-heading-font")).toBe(
+		"sora",
+	);
+	document.documentElement.removeAttribute("data-editor-font");
+	document.documentElement.removeAttribute("data-heading-font");
+});
+
+it("opens as a dialog titled Settings and closes with its button", async () => {
+	const user = userEvent.setup();
+	const onOpenChange = vi.fn();
+	render(
+		<SettingsDialog open onOpenChange={onOpenChange} host={new MemoryHost()} />,
+	);
+	expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+	await user.click(screen.getByRole("button", { name: "Close" }));
+	expect(onOpenChange).toHaveBeenCalledWith(false);
 });

@@ -1,8 +1,8 @@
 import {
-	CalendarDays,
 	GitCompareArrows,
 	ListTree,
 	type LucideIcon,
+	PencilLine,
 	SlidersHorizontal,
 } from "lucide-react";
 import {
@@ -23,7 +23,7 @@ const TOOLS: [string, string, LucideIcon][] = [
 	["properties", "Properties", SlidersHorizontal],
 	["outline", "Outline", ListTree],
 	["changes", "Changes", GitCompareArrows],
-	["planner", "Planner", CalendarDays],
+	["planner", "Planner", PencilLine],
 ];
 
 const TAB_KEY = "vaultops:note-tools-tab";

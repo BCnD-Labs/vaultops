@@ -57,3 +57,15 @@ it("draws items and connectors with the real canvas and offers its centre", () =
 	expect(Number.isFinite(centre?.x)).toBe(true);
 	expect(Number.isFinite(centre?.y)).toBe(true);
 });
+
+it("keeps a locked canvas's items grabbable so they can be dragged out to a note", () => {
+	const { container } = render(
+		<div style={{ width: 800, height: 600 }}>
+			<Canvas nodes={nodes} locked editable onMove={vi.fn()} />
+		</div>,
+	);
+	const wrappers = container.querySelectorAll<HTMLElement>(".react-flow__node");
+	expect(wrappers.length).toBe(2);
+	for (const wrapper of wrappers)
+		expect(wrapper.style.pointerEvents).not.toBe("none");
+});

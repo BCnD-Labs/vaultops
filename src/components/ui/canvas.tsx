@@ -108,9 +108,11 @@ function ItemNode({ id, data, selected }: NodeProps<CanvasNode>) {
 
 const nodeTypes = { item: ItemNode };
 
+const NO_EDGES: CanvasEdge[] = [];
+
 function Surface({
 	nodes: initial,
-	edges: initialEdges = [],
+	edges: initialEdges = NO_EDGES,
 	locked = false,
 	editable = false,
 	onMove,
@@ -339,7 +341,10 @@ function Surface({
 			panOnDrag={locked ? false : [1, 2]}
 			nodesConnectable={!arrange}
 			connectionMode={ConnectionMode.Loose}
-			elementsSelectable={!locked}
+			// Always selectable: React Flow gives an item that can be neither dragged
+			// nor selected "pointer-events: none", and a locked canvas still has to
+			// let a card be grabbed and dragged out to a note.
+			elementsSelectable
 			proOptions={{ hideAttribution: true }}
 		>
 			<Background color="var(--canvas-dot)" gap={20} size={1} />

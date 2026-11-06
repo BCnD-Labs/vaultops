@@ -2,6 +2,8 @@ import { headerProps } from "../core/notes/properties";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { type HealthEntry, scanVault } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
+import type { PlannerTask } from "../core/planner/rules";
+import { taskFromNote } from "../core/planner/task-note";
 import { openVault, type VaultResult } from "../core/vault/vault";
 import type { Host } from "../host/host";
 
@@ -13,6 +15,8 @@ export interface NoteRow {
 	kind?: "note" | "canvas";
 	/** Tags from the note's `tags` list property. */
 	tags: string[];
+	/** Set when the note is a planner task or event (and readable). */
+	task?: PlannerTask;
 }
 
 /** Everything the window shows about the open vault. */
@@ -88,6 +92,12 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			kind: n.kind,
 			preview: n.preview,
 			tags: tagsOf(headerProps(n.note.header)),
+			...(n.readOnly || n.kind === "canvas"
+				? {}
+				: (() => {
+						const task = taskFromNote(n.path, n.note, n.preview);
+						return task ? { task } : {};
+					})()),
 		}))
 		.sort(compareRows);
 	return {

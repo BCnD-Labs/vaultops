@@ -1,6 +1,7 @@
 import type { Editor, Range } from "@tiptap/core";
 import {
 	CalendarDays,
+	ChevronDown,
 	Code,
 	Heading1,
 	Heading2,
@@ -11,7 +12,6 @@ import {
 	Pilcrow,
 	Quote,
 	Table2,
-	ToggleRight,
 } from "lucide-react";
 import { CALLOUT_ICONS, CALLOUT_TONES } from "./callout";
 import { todayIso } from "./date-chip";
@@ -146,9 +146,9 @@ const ITEMS: SlashItem[] = [
 	{
 		id: "toggle",
 		section: "Blocks",
-		icon: ToggleRight,
-		label: "Toggle",
-		keywords: ["collapse", "expand", "fold", "details", "accordion"],
+		icon: ChevronDown,
+		label: "Dropdown",
+		keywords: ["toggle", "collapse", "expand", "fold", "details", "accordion"],
 		run: (e, r) =>
 			start(e, r).setNode("paragraph").wrapIn("toggle", { open: true }).run(),
 	},

@@ -13,7 +13,7 @@ describe("slash menu items", () => {
 			"Divider: dashed",
 			"Divider: dotted",
 			"Divider: thick",
-			"Toggle",
+			"Dropdown",
 			"Bulleted list",
 			"Numbered list",
 			"Task",

@@ -72,7 +72,7 @@ export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [reading, setReading] = useState(false);
 	const [screen, setScreen] = useState<
-		"note" | "trash" | "health" | "settings"
+		"note" | "trash" | "health" | "settings" | "planner"
 	>("note");
 	const [trash, setTrash] = useState<TrashedNote[]>([]);
 	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -466,12 +466,28 @@ export function App({ host }: { host: Host }) {
 		}
 	});
 
-	const navigate = async (next: "trash" | "health" | "settings" | "note") => {
+	const navigate = async (
+		next: "trash" | "health" | "settings" | "planner" | "note",
+	) => {
 		if (!(await ws.settleAll())) return;
 		setBusy(true);
 		try {
 			if (next === "trash") setTrash(await listTrash(host));
 			if (next === "health") changeView(await loadVault(host));
+			if (next === "note") {
+				// Notes the planner wrote while it was on screen: read them again so a
+				// later edit in the pane can't write the old text over the change.
+				const touched = plannerTouched.current;
+				plannerTouched.current = new Set();
+				for (const pane of [left, right]) {
+					if (
+						pane &&
+						pane.kind === "note" &&
+						touched.has(pane.session.livePathRef.current ?? "")
+					)
+						await reloadPane(pane);
+				}
+			}
 			if (
 				next === "note" &&
 				focusedPane.kind === "note" &&
@@ -489,6 +505,13 @@ export function App({ host }: { host: Host }) {
 		} finally {
 			setBusy(false);
 		}
+	};
+
+	// Notes written by the planner screen (see `navigate`).
+	const plannerTouched = useRef(new Set<string>());
+	const plannerChanged = async (paths: string[]) => {
+		for (const path of paths) plannerTouched.current.add(path);
+		changeView(await loadVault(host));
 	};
 
 	const changeTrash = async (path: string, restore: boolean) => {
@@ -943,6 +966,8 @@ export function App({ host }: { host: Host }) {
 								onRestore={(p) => void changeTrash(p, true)}
 								onDelete={(p) => void changeTrash(p, false)}
 								onOpen={(path) => void open(path)}
+								host={vaultHost}
+								onPlannerChanged={plannerChanged}
 							/>
 						)}
 					</AppShell>

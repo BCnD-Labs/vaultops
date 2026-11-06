@@ -1,4 +1,5 @@
 import {
+	CalendarDays,
 	FileText,
 	GitCompareArrows,
 	PanelLeft,
@@ -49,9 +50,9 @@ function IconRail({
 	onNavigate,
 	current = "note",
 }: {
-	current?: "note" | "trash" | "health" | "settings";
+	current?: "note" | "trash" | "health" | "settings" | "planner";
 	onNavigate: (
-		item: "notes" | "search" | "tags" | "changes" | "settings",
+		item: "notes" | "planner" | "search" | "tags" | "changes" | "settings",
 	) => void;
 }) {
 	return (
@@ -59,6 +60,7 @@ function IconRail({
 			{(
 				[
 					["Notes", FileText, "notes", null],
+					["Planner", CalendarDays, "planner", null],
 					["Search", Search, "search", null],
 					["Tags", Tags, "tags", null],
 					["Changes", GitCompareArrows, "changes", null],
@@ -73,7 +75,10 @@ function IconRail({
 							className={`rail-item rail-${label.toLowerCase()}`}
 							aria-label={label}
 							aria-current={
-								(action === "notes" && current !== "settings") ||
+								(action === "notes" &&
+									current !== "settings" &&
+									current !== "planner") ||
+								(action === "planner" && current === "planner") ||
 								(action === "settings" && current === "settings")
 									? "page"
 									: undefined
@@ -127,9 +132,11 @@ export function AppShell({
 	selectedFolder?: string;
 	onOpenNote?: (path: string) => void;
 	onCreateNote?: (folder: string, title: string) => void;
-	onNavigateScreen?: (screen: "note" | "trash" | "health" | "settings") => void;
+	onNavigateScreen?: (
+		screen: "note" | "trash" | "health" | "settings" | "planner",
+	) => void;
 	/** Which screen is showing, so the footer buttons can say so. */
-	screen?: "note" | "trash" | "health" | "settings";
+	screen?: "note" | "trash" | "health" | "settings" | "planner";
 	canGoBack?: boolean;
 	canGoForward?: boolean;
 	stats?: TextStats | null;
@@ -255,8 +262,8 @@ export function AppShell({
 										setSearchRequest((count) => count + 1);
 										return;
 									}
-									if (item === "settings") {
-										onNavigateScreen("settings");
+									if (item === "settings" || item === "planner") {
+										onNavigateScreen(item);
 										return;
 									}
 									(item === "changes" ? right : left).current?.expand();

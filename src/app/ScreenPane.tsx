@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import type { TrashedNote } from "../core/notes/trash";
+import type { Host } from "../host/host";
+import { PlannerScreen } from "./planner/PlannerScreen";
 import { HealthScreen } from "./HealthScreen";
 import { SettingsScreen } from "./SettingsScreen";
 import type { VaultView } from "./session";
@@ -9,7 +11,7 @@ import "./pane.css";
 
 interface ScreenPaneProps {
 	view: VaultView | null;
-	screen: "trash" | "health" | "settings";
+	screen: "trash" | "health" | "settings" | "planner";
 	error: string | null;
 	busy: boolean;
 	writable: boolean;
@@ -23,6 +25,9 @@ interface ScreenPaneProps {
 	onRestore: (path: string) => void;
 	onDelete: (path: string) => void;
 	onOpen: (path: string) => void;
+	/** The vault host planner writes go through (refuses writes when read-only). */
+	host: Host;
+	onPlannerChanged: (paths: string[]) => Promise<void>;
 }
 
 /**
@@ -45,7 +50,27 @@ export function ScreenPane({
 	onRestore,
 	onDelete,
 	onOpen,
+	host,
+	onPlannerChanged,
 }: ScreenPaneProps) {
+	if (screen === "planner") {
+		return (
+			<main className="pane planner-pane">
+				{error && (
+					<p role="alert" className="notice">
+						Something went wrong: {error}
+					</p>
+				)}
+				<PlannerScreen
+					notes={view?.notes ?? []}
+					host={host}
+					writable={writable}
+					onChanged={onPlannerChanged}
+					onOpenNote={onOpen}
+				/>
+			</main>
+		);
+	}
 	return (
 		<main className="pane">
 			{error && (

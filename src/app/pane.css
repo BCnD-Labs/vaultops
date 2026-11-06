@@ -993,3 +993,7 @@ input.canvas-item-field {
 	border-radius: var(--radius-container);
 	box-shadow: var(--elevation-1);
 }
+
+.planner-pane {
+	padding: 0;
+}

@@ -126,6 +126,19 @@
 	border-top: var(--border-width) solid var(--editor-divider);
 }
 
+.note-editor hr[data-style="dashed"] {
+	border-top-style: dashed;
+}
+
+.note-editor hr[data-style="dotted"] {
+	border-top-style: dotted;
+	border-top-width: calc(var(--border-width) * 2);
+}
+
+.note-editor hr[data-style="thick"] {
+	border-top-width: calc(var(--border-width) * 3);
+}
+
 .note-editor hr.ProseMirror-selectednode {
 	outline: var(--border-width) solid var(--ring);
 	outline-offset: 0.35rem;
@@ -274,6 +287,7 @@
 }
 
 .note-editor pre {
+	position: relative;
 	padding: 0.6rem 0.8rem;
 	border-radius: var(--radius-control);
 	background: var(--editor-code-bg);
@@ -579,4 +593,63 @@
 .note-editor .ProseMirror > .ProseMirror-selectednode,
 .note-editor .ProseMirror > hr.ProseMirror-selectednode {
 	outline-color: var(--ring);
+}
+
+/* Keyboard key (kbd mark) */
+.note-editor kbd,
+.canvas-card kbd {
+	padding: 0 0.35em;
+	border: var(--border-width) solid var(--border);
+	border-bottom-width: calc(var(--border-width) * 2);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	color: var(--editor-code-text);
+}
+
+/* Code language picker */
+.note-editor pre .code-language {
+	position: absolute;
+	top: var(--space-1);
+	right: var(--space-2);
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	cursor: pointer;
+	opacity: 0.6;
+}
+.note-editor pre:hover .code-language,
+.note-editor pre .code-language:focus {
+	border-color: var(--line);
+	background: var(--surface-container);
+	opacity: 1;
+}
+
+/* Date chip */
+.note-editor .date-chip,
+.canvas-card .date-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	color: var(--foreground);
+	font-size: var(--code-font-size);
+}
+.note-editor .date-chip input {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.note-editor .date-chip.ProseMirror-selectednode {
+	border-color: var(--ring);
 }

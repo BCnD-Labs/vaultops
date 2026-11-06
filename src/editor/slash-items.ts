@@ -1,5 +1,6 @@
 import type { Editor, Range } from "@tiptap/core";
 import {
+	CalendarDays,
 	Code,
 	Heading1,
 	Heading2,
@@ -14,6 +15,7 @@ import {
 	ToggleRight,
 } from "lucide-react";
 import { CALLOUT_ICONS, CALLOUT_TONES } from "./callout";
+import { todayIso } from "./date-chip";
 
 /** The groups the menu is divided into, in the order they appear. */
 export const SLASH_SECTIONS = [
@@ -41,8 +43,7 @@ const start = (editor: Editor, range: Range) =>
 
 /**
  * The menu's items, in order. No separate "task list": several tasks in a row
- * are already a list. The inline date item arrives with the date chip, and
- * "Link to note" with note links.
+ * are already a list. "Link to note" arrives with note links.
  */
 const ITEMS: SlashItem[] = [
 	{
@@ -126,6 +127,22 @@ const ITEMS: SlashItem[] = [
 				.insertContent([{ type: "divider" }, { type: "paragraph" }])
 				.run(),
 	},
+	...(["dashed", "dotted", "thick"] as const).map(
+		(style): SlashItem => ({
+			id: `divider-${style}`,
+			section: "Blocks",
+			icon: Minus,
+			label: `Divider: ${style}`,
+			keywords: [style, "separator"],
+			run: (e, r) =>
+				start(e, r)
+					.insertContent([
+						{ type: "divider", attrs: { style } },
+						{ type: "paragraph" },
+					])
+					.run(),
+		}),
+	),
 	{
 		id: "toggle",
 		section: "Blocks",
@@ -153,6 +170,17 @@ const ITEMS: SlashItem[] = [
 		icon: Table2,
 		run: (e, r) =>
 			start(e, r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+	},
+	{
+		id: "date",
+		label: "Date",
+		keywords: ["today", "calendar", "day"],
+		section: "Insert",
+		icon: CalendarDays,
+		run: (e, r) =>
+			start(e, r)
+				.insertContent([{ type: "date", attrs: { date: todayIso() } }])
+				.run(),
 	},
 ];
 

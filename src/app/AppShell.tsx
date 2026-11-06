@@ -284,6 +284,7 @@ export function AppShell({
 								}));
 							}}
 							onToggle={toggle}
+							onToggleReading={onToggleReading}
 							onNavigate={onNavigateScreen}
 						/>
 					</ResizablePanel>

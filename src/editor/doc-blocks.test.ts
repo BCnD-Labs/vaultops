@@ -335,3 +335,40 @@ describe("table fixture", () => {
 		expect(result.ok).toBe(false);
 	});
 });
+
+describe("divider styles fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/divider-styles.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("keeps each divider's style and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(
+			doc.content?.slice(1).map((node) => node.attrs?.style ?? null),
+		).toEqual([null, "dashed", "dotted", "thick"]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+});
+
+describe("inline and code fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/inline-and-code.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("keeps the kbd mark, the date chip and the code language byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+});

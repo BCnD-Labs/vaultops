@@ -452,6 +452,9 @@ body {
 	width: 26px;
 	height: 26px;
 }
+.tab-bar [role="menuitem"][data-active="true"] {
+	font-weight: 600;
+}
 .shell-regions > [data-slot="resizable-panel"]:has(> .shell-editor) {
 	background: var(--editor-bg);
 }

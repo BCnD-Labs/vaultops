@@ -1,12 +1,4 @@
-import {
-	FileText,
-	FolderPlus,
-	HeartPulse,
-	PanelLeft,
-	PanelRight,
-	Search,
-	Trash2,
-} from "lucide-react";
+import { FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
 	CommandDialog,
@@ -16,8 +8,10 @@ import {
 	CommandList,
 } from "@/components/ui/command";
 import { createRowTitle, matchNoteTitles } from "../core/notes/quick-switch";
+import { type CommandContext, filterCommands, groupCommands } from "./commands";
 import type { NoteRow } from "./session";
 
+/** The commands the bar always has, by name (the reading command needs a note). */
 export const COMMAND_ACTIONS = [
 	"New folder",
 	"Toggle left sidebar",
@@ -67,6 +61,7 @@ export function CommandBar({
 	onNewFolder,
 	onToggle,
 	onNavigate,
+	onToggleReading,
 }: {
 	notes: NoteRow[];
 	writable: boolean;
@@ -77,6 +72,7 @@ export function CommandBar({
 	onNewFolder: () => void;
 	onToggle: (side: "left" | "right") => void;
 	onNavigate: (screen: "trash" | "health") => void;
+	onToggleReading?: () => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
@@ -114,6 +110,12 @@ export function CommandBar({
 		query,
 	);
 	const createTitle = createRowTitle(query, matches);
+	const context: CommandContext = {
+		onNewFolder,
+		onToggle,
+		onNavigate,
+		onToggleReading,
+	};
 	return (
 		<>
 			<CommandDialog
@@ -160,35 +162,20 @@ export function CommandBar({
 							))}
 						</CommandGroup>
 					)}
-					<CommandGroup heading="Actions">
-						{COMMAND_ACTIONS.map((label, index) => {
-							const icons = [
-								FolderPlus,
-								PanelLeft,
-								PanelRight,
-								Trash2,
-								HeartPulse,
-							];
-							const Icon = icons[index] ?? Search;
-							return (
+					{groupCommands(filterCommands(query, context)).map((entry) => (
+						<CommandGroup key={entry.group} heading={entry.group}>
+							{entry.commands.map((command) => (
 								<CommandItem
-									key={label}
-									value={label}
-									disabled={index === 0 && !writable}
-									onSelect={() =>
-										closeAnd(() => {
-											if (index === 0) onNewFolder();
-											else if (index === 1) onToggle("left");
-											else if (index === 2) onToggle("right");
-											else onNavigate(index === 3 ? "trash" : "health");
-										})
-									}
+									key={command.id}
+									value={command.label}
+									disabled={command.needsWrite === true && !writable}
+									onSelect={() => closeAnd(() => command.run(context))}
 								>
-									<Icon aria-hidden="true" /> {label}
+									<command.icon aria-hidden="true" /> {command.label}
 								</CommandItem>
-							);
-						})}
-					</CommandGroup>
+							))}
+						</CommandGroup>
+					))}
 				</CommandList>
 			</CommandDialog>
 		</>

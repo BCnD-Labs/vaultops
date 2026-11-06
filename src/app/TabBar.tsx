@@ -1,4 +1,4 @@
-import { LayoutDashboard, Plus, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,6 +7,12 @@ import {
 	ContextMenuItem,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { setDragEffect } from "../editor/block-drag";
 import {
 	dropIndex,
@@ -223,6 +229,33 @@ export function TabBar({
 					);
 				})}
 			</div>
+			{tabs.length > 0 && (
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="tab-new"
+							aria-label="Show all tabs"
+							title="Show all tabs"
+						>
+							<ChevronDown aria-hidden="true" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						{tabs.map((tab) => (
+							<DropdownMenuItem
+								key={tab.path}
+								data-active={tab.active}
+								onSelect={() => onSelect(tab.path)}
+							>
+								{tab.canvas && <LayoutDashboard aria-hidden="true" />}
+								{tab.title}
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuContent>
+				</DropdownMenu>
+			)}
 			<Button
 				variant="ghost"
 				size="icon"

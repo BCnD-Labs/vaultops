@@ -10,6 +10,9 @@ describe("slash menu items", () => {
 			"Code",
 			"Quote",
 			"Divider",
+			"Divider: dashed",
+			"Divider: dotted",
+			"Divider: thick",
 			"Toggle",
 			"Bulleted list",
 			"Numbered list",
@@ -20,6 +23,7 @@ describe("slash menu items", () => {
 			"Callout: warning",
 			"Callout: danger",
 			"Table",
+			"Date",
 		]);
 		expect(SLASH_ITEMS.some((i) => /task list/i.test(i.label))).toBe(false);
 	});

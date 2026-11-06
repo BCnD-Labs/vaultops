@@ -1,0 +1,2198 @@
+diff -ruN -x node_modules -x '* 2*' a/src/app/CanvasItem.test.tsx b/src/app/CanvasItem.test.tsx
+--- a/src/app/CanvasItem.test.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/app/CanvasItem.test.tsx	2026-11-06 03:16:49.107001545 +0000
+@@ -0,0 +1,131 @@
++// @vitest-environment happy-dom
++import { cleanup, fireEvent, render, screen } from "@testing-library/react";
++import { afterEach, expect, it, vi } from "vitest";
++import type { Block } from "../core/note-format";
++import { CanvasItem } from "./CanvasItem";
++import { CanvasSelectionBar } from "./CanvasSelectionBar";
++
++afterEach(cleanup);
++
++const sticky: Block = {
++	id: "s",
++	type: "sticky",
++	parent: null,
++	content: [{ text: "Hello", type: "text" }],
++};
++
++it("edits a sticky note's text on double click and saves it when you leave the field", () => {
++	const onText = vi.fn();
++	render(
++		<CanvasItem block={sticky} editable onText={onText} onTitle={vi.fn()} />,
++	);
++	fireEvent.doubleClick(screen.getByText("Hello"));
++	const field = screen.getByRole("textbox", { name: "Text of sticky" });
++	fireEvent.change(field, { target: { value: "Changed" } });
++	fireEvent.blur(field);
++	expect(onText).toHaveBeenCalledWith("Changed");
++});
++
++it("drops the change on Escape and does not edit while locked or read-only", () => {
++	const onText = vi.fn();
++	const view = render(
++		<CanvasItem block={sticky} editable onText={onText} onTitle={vi.fn()} />,
++	);
++	fireEvent.doubleClick(screen.getByText("Hello"));
++	const field = screen.getByRole("textbox", { name: "Text of sticky" });
++	fireEvent.change(field, { target: { value: "Nope" } });
++	fireEvent.keyDown(field, { key: "Escape" });
++	expect(onText).not.toHaveBeenCalled();
++	view.rerender(
++		<CanvasItem
++			block={sticky}
++			editable
++			locked
++			onText={onText}
++			onTitle={vi.fn()}
++		/>,
++	);
++	fireEvent.doubleClick(screen.getByText("Hello"));
++	expect(screen.queryByRole("textbox")).toBeNull();
++	view.rerender(
++		<CanvasItem
++			block={sticky}
++			editable={false}
++			onText={onText}
++			onTitle={vi.fn()}
++		/>,
++	);
++	fireEvent.doubleClick(screen.getByText("Hello"));
++	expect(screen.queryByRole("textbox")).toBeNull();
++});
++
++const card = (id: string): Block => ({ id, type: "paragraph", parent: null });
++const link: Block = {
++	id: "k",
++	type: "connector",
++	parent: null,
++	attrs: { from: "a", to: "b" },
++};
++
++it("groups two or more items, but not one, and not a selection that holds a group", () => {
++	const onGroup = vi.fn();
++	const props = {
++		blocks: [card("a"), card("b")],
++		onGroup,
++		onUngroup: vi.fn(),
++		onDelete: vi.fn(),
++	};
++	const view = render(<CanvasSelectionBar ids={["a"]} {...props} />);
++	expect(
++		(screen.getByRole("button", { name: /Group/ }) as HTMLButtonElement)
++			.disabled,
++	).toBe(true);
++	view.rerender(<CanvasSelectionBar ids={["a", "b"]} {...props} />);
++	fireEvent.click(screen.getByRole("button", { name: /Group/ }));
++	expect(onGroup).toHaveBeenCalledWith(["a", "b"]);
++});
++
++it("asks before deleting, names the connectors that go too, and only then deletes", () => {
++	const onDelete = vi.fn();
++	render(
++		<CanvasSelectionBar
++			ids={["a"]}
++			blocks={[card("a"), card("b"), link]}
++			onGroup={vi.fn()}
++			onUngroup={vi.fn()}
++			onDelete={onDelete}
++		/>,
++	);
++	fireEvent.click(screen.getByRole("button", { name: /Delete/ }));
++	expect(onDelete).not.toHaveBeenCalled();
++	expect(screen.getByText(/Delete 1 item and 1 connector/)).toBeTruthy();
++	fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
++	expect(onDelete).not.toHaveBeenCalled();
++	fireEvent.click(screen.getByRole("button", { name: /Delete/ }));
++	fireEvent.click(screen.getByRole("button", { name: "Delete" }));
++	expect(onDelete).toHaveBeenCalledWith(["a"]);
++});
++
++it("offers Ungroup for a single selected group", () => {
++	const onUngroup = vi.fn();
++	render(
++		<CanvasSelectionBar
++			ids={["g"]}
++			blocks={[
++				card("a"),
++				card("b"),
++				{
++					id: "g",
++					type: "group",
++					parent: null,
++					attrs: { members: ["a", "b"] },
++				},
++			]}
++			onGroup={vi.fn()}
++			onUngroup={onUngroup}
++			onDelete={vi.fn()}
++		/>,
++	);
++	fireEvent.click(screen.getByRole("button", { name: /Ungroup/ }));
++	expect(onUngroup).toHaveBeenCalledWith("g");
++});
+diff -ruN -x node_modules -x '* 2*' a/src/app/CanvasItem.tsx b/src/app/CanvasItem.tsx
+--- a/src/app/CanvasItem.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/app/CanvasItem.tsx	2026-11-06 03:14:58.356001492 +0000
+@@ -0,0 +1,108 @@
++import { useEffect, useState } from "react";
++import type { Block } from "../core/note-format";
++import { attrsOf, textOf } from "../core/notes/canvas-ops";
++
++const TONES = ["note", "info", "tip", "warning", "danger"] as const;
++
++export function itemTone(block: Block): string {
++	const tone = attrsOf(block).tone;
++	return TONES.find((t) => t === tone) ?? "note";
++}
++
++function attrString(block: Block, name: string, fallback: string): string {
++	const value = attrsOf(block)[name];
++	return typeof value === "string" && value !== "" ? value : fallback;
++}
++
++/**
++ * A sticky note, shape, label or group frame on a canvas. Text is plain text
++ * edited in place (double-click, or straight away for a new item); Enter with
++ * Cmd or Ctrl, or leaving the field, saves it and Escape drops the change.
++ */
++export function CanvasItem({
++	block,
++	editable,
++	locked = false,
++	startEditing = false,
++	onText,
++	onTitle,
++}: {
++	block: Block;
++	editable: boolean;
++	locked?: boolean;
++	startEditing?: boolean;
++	onText: (text: string) => void;
++	onTitle: (title: string) => void;
++}) {
++	const isGroup = block.type === "group";
++	const saved = isGroup ? attrString(block, "title", "") : textOf(block);
++	const [draft, setDraft] = useState<string | null>(
++		startEditing ? saved : null,
++	);
++	useEffect(() => {
++		if (startEditing) setDraft(saved);
++	}, [startEditing, saved]);
++	const finish = (keep: boolean) => {
++		const next = draft;
++		setDraft(null);
++		if (!keep || next === null || next === saved) return;
++		if (isGroup) onTitle(next);
++		else onText(next);
++	};
++	const text =
++		draft !== null ? (
++			isGroup ? (
++				<input
++					className="canvas-item-field nodrag nowheel nopan"
++					aria-label="Group title"
++					// biome-ignore lint/a11y/noAutofocus: the field exists to be typed in.
++					autoFocus
++					value={draft}
++					onChange={(event) => setDraft(event.target.value)}
++					onBlur={() => finish(true)}
++					onKeyDown={(event) => {
++						if (event.key === "Enter") finish(true);
++						else if (event.key === "Escape") finish(false);
++					}}
++				/>
++			) : (
++				<textarea
++					className="canvas-item-field nodrag nowheel nopan"
++					aria-label={`Text of ${block.type}`}
++					// biome-ignore lint/a11y/noAutofocus: the field exists to be typed in.
++					autoFocus
++					value={draft}
++					onChange={(event) => setDraft(event.target.value)}
++					onBlur={() => finish(true)}
++					onKeyDown={(event) => {
++						if (event.key === "Escape") finish(false);
++						else if (event.key === "Enter" && (event.metaKey || event.ctrlKey))
++							finish(true);
++					}}
++				/>
++			)
++		) : (
++			<span className={isGroup ? "canvas-group-title" : "canvas-item-text"}>
++				{saved || (isGroup ? "Group" : "")}
++			</span>
++		);
++	const edit = () => editable && !locked && setDraft(saved);
++	const className = `canvas-item canvas-${block.type}${locked ? " canvas-item-pinned" : ""}`;
++	const pinned = locked
++		? "Shapes, sticky notes, labels, groups and connectors stay on the canvas."
++		: undefined;
++	return (
++		<article
++			aria-label={block.type === "sticky" ? "Sticky note" : block.type}
++			className={className}
++			data-tone={itemTone(block)}
++			data-shape={attrString(block, "shape", "rectangle")}
++			data-size={attrString(block, "size", "m")}
++			title={pinned}
++			onDoubleClick={edit}
++		>
++			{block.type === "shape" && <span className="canvas-shape-bg" />}
++			{text}
++		</article>
++	);
++}
+diff -ruN -x node_modules -x '* 2*' a/src/app/CanvasPane.test.tsx b/src/app/CanvasPane.test.tsx
+--- a/src/app/CanvasPane.test.tsx	2026-11-06 02:07:42.265516400 +0000
++++ b/src/app/CanvasPane.test.tsx	2026-11-06 03:16:49.117001545 +0000
+@@ -508,3 +508,68 @@
+ 			.disabled,
+ 	).toBe(true);
+ });
++
++it("opens a canvas with an unknown block type read-only and says why", async () => {
++	const host = new MemoryHost();
++	const made = await createCanvas(host, "", "Board");
++	const note = parseNote(await host.readText(made.path)).note;
++	if (!note) throw new Error("missing canvas");
++	note.blocks = [
++		{ id: "z", type: "hologram", parent: null, attrs: { x: 1, y: 2 } },
++	];
++	await host.writeTextAtomic(made.path, serializeNote(note));
++	const before = await host.readText(made.path);
++	render(
++		<CanvasPane
++			host={host}
++			path={made.path}
++			canvases={[]}
++			writable
++			onSelect={vi.fn()}
++			onNew={vi.fn()}
++			onClose={vi.fn()}
++			onDropBlock={vi.fn()}
++		/>,
++	);
++	expect((await screen.findAllByRole("alert"))[0]?.textContent).toContain(
++		"hologram",
++	);
++	expect(
++		(screen.getByRole("button", { name: /Add/ }) as HTMLButtonElement).disabled,
++	).toBe(true);
++	fireEvent.click(screen.getByRole("button", { name: "Drag card" }));
++	await Promise.resolve();
++	expect(await host.readText(made.path)).toBe(before);
++});
++
++it("adds a sticky note from the Add menu and saves it on the canvas", async () => {
++	const user = userEvent.setup();
++	const host = new MemoryHost();
++	const made = await createCanvas(host, "", "Board");
++	render(
++		<CanvasPane
++			host={host}
++			path={made.path}
++			canvases={[]}
++			writable
++			onSelect={vi.fn()}
++			onNew={vi.fn()}
++			onClose={vi.fn()}
++			onDropBlock={vi.fn()}
++		/>,
++	);
++	await screen.findByText("Drag a block here from a note.");
++	await user.click(screen.getByRole("button", { name: /Add/ }));
++	await user.click(
++		await screen.findByRole("menuitem", { name: "Sticky note" }),
++	);
++	await waitFor(async () => {
++		const blocks = parseNote(await host.readText(made.path)).note?.blocks ?? [];
++		expect(blocks.map((b) => b.type)).toEqual(["sticky"]);
++		expect(blocks[0]?.attrs).toMatchObject({ h: 140, w: 180 });
++	});
++	// The new note opens its text field straight away.
++	expect(
++		await screen.findByRole("textbox", { name: "Text of sticky" }),
++	).toBeTruthy();
++});
+diff -ruN -x node_modules -x '* 2*' a/src/app/CanvasPane.tsx b/src/app/CanvasPane.tsx
+--- a/src/app/CanvasPane.tsx	2026-11-06 02:07:42.265792774 +0000
++++ b/src/app/CanvasPane.tsx	2026-11-06 03:14:48.917001488 +0000
+@@ -1,28 +1,69 @@
+-import { Lock, LockOpen } from "lucide-react";
++import { Lock, LockOpen, Plus } from "lucide-react";
+ import { useEffect, useMemo, useRef, useState } from "react";
+ import { Button } from "@/components/ui/button";
+-import { Canvas } from "@/components/ui/canvas";
++import {
++	Canvas,
++	type CanvasApi,
++	type CanvasNode,
++} from "@/components/ui/canvas";
++import {
++	DropdownMenu,
++	DropdownMenuContent,
++	DropdownMenuItem,
++	DropdownMenuTrigger,
++} from "@/components/ui/dropdown-menu";
+ import {
+ 	Tooltip,
+ 	TooltipContent,
+ 	TooltipProvider,
+ 	TooltipTrigger,
+ } from "@/components/ui/tooltip";
+-import { parseNote } from "../core/note-format";
++import { CANVAS_ONLY_TYPES, parseNote } from "../core/note-format";
++import { saveCanvasEdit } from "../core/notes/canvas-edit";
++import {
++	addConnector,
++	addRoot,
++	attrsOf,
++	canvasConnectors,
++	canvasNodes,
++	connectorEnds,
++	createGroup,
++	deleteRoots,
++	groupMembers,
++	newBlockId,
++	numberAttr,
++	patchAttrs,
++	setPositions,
++	setText,
++} from "../core/notes/canvas-ops";
+ import {
+ 	blockPosition,
+-	canvasRoots,
+ 	saveCanvasPosition,
+ } from "../core/notes/canvas-position";
+ import { renameNote } from "../core/notes/rename";
+ import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
++import { BLOCK_TYPES } from "../editor/blocks";
+ import type { Host } from "../host/host";
+ import { CanvasCard } from "./CanvasCard";
++import { CanvasItem } from "./CanvasItem";
++import { CanvasSelectionBar } from "./CanvasSelectionBar";
+ import { canvasLocked, saveCanvasLocked } from "./canvas-layout";
+ import { compareRows, type NoteRow } from "./session";
+ 
+ const lockLabel = "Lock canvas: drag cards out to the note";
+ 
++/** Block types this build can draw and keep safe on a canvas. */
++const KNOWN_TYPES: ReadonlySet<string> = new Set([
++	...BLOCK_TYPES,
++	...CANVAS_ONLY_TYPES,
++]);
++
++const ITEM_SIZE: { [type: string]: { w: number; h: number } } = {
++	sticky: { w: 180, h: 140 },
++	shape: { w: 180, h: 110 },
++	group: { w: 320, h: 220 },
++};
++
+ export function CanvasPane({
+ 	host,
+ 	path,
+@@ -71,6 +112,8 @@
+ 	const [error, setError] = useState<string | null>(null);
+ 	const [surfaceRevision, setSurfaceRevision] = useState(0);
+ 	const [locked, setLocked] = useState(canvasLocked);
++	const [editingId, setEditingId] = useState<string | null>(null);
++	const canvasApi = useRef<CanvasApi | null>(null);
+ 	const nameInput = useRef<HTMLInputElement>(null);
+ 	const shouldFocus = useRef(focusName);
+ 	const renamingRef = useRef(false);
+@@ -111,13 +154,17 @@
+ 	);
+ 	const blocks =
+ 		parsed?.note?.header.kind === "canvas" ? parsed.note.blocks : [];
+-	const roots = canvasRoots(blocks);
++	const roots = canvasNodes(blocks);
++	const unknownType = blocks.find(
++		(block) => !KNOWN_TYPES.has(block.type),
++	)?.type;
+ 	const row = items.find((item) => item.path === activePath);
+ 	const editable =
+ 		writable &&
+ 		!row?.readOnly &&
+ 		parsed?.note?.header.kind === "canvas" &&
+-		parsed.problems.length === 0;
++		parsed.problems.length === 0 &&
++		unknownType === undefined;
+ 	const savedTitle =
+ 		typeof parsed?.note?.header.title === "string"
+ 			? parsed.note.header.title
+@@ -198,34 +245,157 @@
+ 			renamingRef.current = false;
+ 		}
+ 	};
+-	const nodes = roots.map((block) => ({
+-		id: block.id as string,
+-		position: blockPosition(block),
+-		data: {
+-			label: (
+-				<CanvasCard
+-					root={block}
+-					blocks={blocks}
+-					canvasId={parsed?.note?.header.noteId ?? ""}
+-					draggable={!!editable}
+-					onMoveToNote={
+-						editable && onMoveToNote
+-							? async () => {
+-									try {
+-										await onMoveToNote(block.id as string);
+-										setError(null);
+-									} catch (reason) {
+-										setError(String(reason));
+-									}
++	/** Every canvas change goes through here: one atomic, checked write. */
++	const commit = async (
++		mutate: (all: typeof blocks) => typeof blocks,
++		action: string,
++	): Promise<boolean> => {
++		if (!editable || baseTextRef.current === null) return false;
++		try {
++			const saved = await saveCanvasEdit(
++				host,
++				activePath,
++				baseTextRef.current,
++				mutate,
++				action,
++			);
++			baseTextRef.current = saved;
++			setLoaded({ path: activePath, text: saved });
++			setError(null);
++			return true;
++		} catch (reason) {
++			setError(reason instanceof Error ? reason.message : String(reason));
++			try {
++				const disk = await host.readText(activePath);
++				baseTextRef.current = disk;
++				setLoaded({ path: activePath, text: disk });
++			} catch {
++				/* Keep the last readable canvas. */
++			}
++			setSurfaceRevision((revision) => revision + 1);
++			return false;
++		}
++	};
++	const addItem = async (
++		type: "sticky" | "shape" | "label",
++		extra: { [k: string]: string } = {},
++	) => {
++		const size = ITEM_SIZE[type];
++		const middle = canvasApi.current?.center() ?? { x: 0, y: 0 };
++		const id = newBlockId();
++		const ok = await commit(
++			(all) =>
++				addRoot(all, {
++					id,
++					type,
++					parent: null,
++					attrs: {
++						...extra,
++						...(size ? { h: size.h, w: size.w } : {}),
++						x: Math.round(middle.x - (size?.w ?? 80) / 2),
++						y: Math.round(middle.y - (size?.h ?? 20) / 2),
++					},
++				}),
++			"adding an item",
++		);
++		if (ok) setEditingId(id);
++	};
++	const nodes: CanvasNode[] = roots.map((block) => {
++		const id = block.id as string;
++		const canvasOnly = (CANVAS_ONLY_TYPES as readonly string[]).includes(
++			block.type,
++		);
++		const size = ITEM_SIZE[block.type];
++		const label = canvasOnly ? (
++			<CanvasItem
++				key={id}
++				block={block}
++				editable={!!editable}
++				locked={locked}
++				startEditing={editingId === id}
++				onText={(text) => {
++					setEditingId(null);
++					void commit((all) => setText(all, id, text), "editing the text");
++				}}
++				onTitle={(title) => {
++					setEditingId(null);
++					void commit(
++						(all) => patchAttrs(all, id, { title: title || undefined }),
++						"renaming the group",
++					);
++				}}
++			/>
++		) : (
++			<CanvasCard
++				key={id}
++				root={block}
++				blocks={blocks}
++				canvasId={parsed?.note?.header.noteId ?? ""}
++				draggable={!!editable}
++				onMoveToNote={
++					editable && onMoveToNote
++						? async () => {
++								try {
++									await onMoveToNote(id);
++									setError(null);
++								} catch (reason) {
++									setError(String(reason));
+ 								}
+-							: undefined
+-					}
+-				/>
+-			),
+-		},
+-		className: "canvas-node",
+-		draggable: Boolean(editable && !locked),
+-	}));
++							}
++						: undefined
++				}
++			/>
++		);
++		const isGroup = block.type === "group";
++		const width = canvasOnly ? numberAttr(block, "w", size?.w ?? 0) : 0;
++		const height = canvasOnly ? numberAttr(block, "h", size?.h ?? 0) : 0;
++		return {
++			id,
++			type: "item",
++			position: blockPosition(block),
++			data: {
++				label,
++				resizable: Boolean(editable && !locked && size),
++				connectable: Boolean(editable && !locked && !isGroup),
++				...(isGroup ? { members: groupMembers(block) } : {}),
++				onResizeEnd: (
++					itemId: string,
++					box: { x: number; y: number; width: number; height: number },
++				) =>
++					void commit(
++						(all) =>
++							patchAttrs(all, itemId, {
++								h: Math.round(box.height),
++								w: Math.round(box.width),
++								x: Math.round(box.x),
++								y: Math.round(box.y),
++							}),
++						"resizing an item",
++					),
++			},
++			className: canvasOnly
++				? `canvas-item-node canvas-node-${block.type}`
++				: "canvas-node",
++			draggable: Boolean(editable && !locked),
++			...(width > 0 && height > 0 ? { style: { height, width } } : {}),
++			...(isGroup ? { zIndex: -1, dragHandle: ".canvas-group-title" } : {}),
++		};
++	});
++	const present = new Set(roots.map((block) => block.id));
++	const edges = canvasConnectors(blocks).flatMap((block) => {
++		const ends = connectorEnds(block);
++		const arrow = attrsOf(block).arrow;
++		return present.has(ends.from) && present.has(ends.to)
++			? [
++					{
++						id: block.id as string,
++						source: ends.from,
++						target: ends.to,
++						arrow: arrow !== "none",
++					},
++				]
++			: [];
++	});
+ 	const LockIcon = locked ? Lock : LockOpen;
+ 	return (
+ 		<section
+@@ -256,6 +426,43 @@
+ 						}
+ 					}}
+ 				/>
++				<DropdownMenu>
++					<DropdownMenuTrigger asChild>
++						<Button
++							size="sm"
++							variant="ghost"
++							disabled={!editable || locked}
++							title={locked ? "Unlock the canvas to add items" : undefined}
++						>
++							<Plus aria-hidden="true" /> Add
++						</Button>
++					</DropdownMenuTrigger>
++					<DropdownMenuContent align="start">
++						<DropdownMenuItem onSelect={() => void addItem("sticky")}>
++							Sticky note
++						</DropdownMenuItem>
++						{(
++							[
++								["rectangle", "Rectangle"],
++								["rounded", "Rounded box"],
++								["ellipse", "Ellipse"],
++								["diamond", "Diamond"],
++							] as const
++						).map(([shape, label]) => (
++							<DropdownMenuItem
++								key={shape}
++								onSelect={() =>
++									void addItem("shape", shape === "rectangle" ? {} : { shape })
++								}
++							>
++								Shape: {label}
++							</DropdownMenuItem>
++						))}
++						<DropdownMenuItem onSelect={() => void addItem("label")}>
++							Label
++						</DropdownMenuItem>
++					</DropdownMenuContent>
++				</DropdownMenu>
+ 				<Button size="sm" variant="ghost" onClick={onNew} disabled={!writable}>
+ 					New canvas
+ 				</Button>
+@@ -273,6 +480,12 @@
+ 					{error}
+ 				</p>
+ 			)}
++			{unknownType !== undefined && (
++				<p role="alert" className="notice">
++					This canvas has a block type ("{unknownType}") that this version does
++					not know, so it is read-only.
++				</p>
++			)}
+ 			{parsed &&
+ 				(parsed.note?.header.kind !== "canvas" ||
+ 					parsed.problems.length > 0) && (
+@@ -288,7 +501,62 @@
+ 				<Canvas
+ 					key={surfaceRevision}
+ 					nodes={nodes}
++					edges={edges}
+ 					locked={locked}
++					editable={!!editable}
++					onReady={(api) => {
++						canvasApi.current = api;
++					}}
++					onMoveMany={(positions) => {
++						if (locked) return;
++						void commit((all) => setPositions(all, positions), "moving items");
++					}}
++					onConnect={(from, to) =>
++						void commit(
++							(all) => addConnector(all, from, to),
++							"connecting items",
++						)
++					}
++					onDeleteConnectors={(ids) =>
++						void commit(
++							(all) => deleteRoots(all, ids).blocks,
++							"deleting a connector",
++						)
++					}
++					selectionToolbar={({ ids, bounds }) => (
++						<CanvasSelectionBar
++							ids={ids}
++							blocks={blocks}
++							onGroup={(members) => {
++								const box = bounds();
++								if (!box) return;
++								const pad = 24;
++								const title = 28;
++								void commit(
++									(all) =>
++										createGroup(all, members, {
++											h: Math.round(box.height + pad * 2 + title),
++											w: Math.round(box.width + pad * 2),
++											x: Math.round(box.x - pad),
++											y: Math.round(box.y - pad - title),
++										}),
++									"grouping items",
++								);
++							}}
++							onUngroup={(groupId) =>
++								void commit(
++									(all) => deleteRoots(all, [groupId]).blocks,
++									"ungrouping",
++								)
++							}
++							onDelete={(doomed) =>
++								void commit(
++									(all) => deleteRoots(all, doomed).blocks,
++									"deleting items",
++								)
++							}
++						/>
++					)}
+ 					onMove={async (id, position) => {
+ 						if (!editable || locked || baseTextRef.current === null) return;
+ 						try {
+diff -ruN -x node_modules -x '* 2*' a/src/app/CanvasSelectionBar.tsx b/src/app/CanvasSelectionBar.tsx
+--- a/src/app/CanvasSelectionBar.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/app/CanvasSelectionBar.tsx	2026-11-06 03:14:19.346001474 +0000
+@@ -0,0 +1,95 @@
++import { Group, Trash2, Ungroup } from "lucide-react";
++import { useState } from "react";
++import { Button } from "@/components/ui/button";
++import type { Block } from "../core/note-format";
++import { deleteRoots } from "../core/notes/canvas-ops";
++
++/** The small bar over a selection: group, ungroup, delete (after a confirmation). */
++export function CanvasSelectionBar({
++	ids,
++	blocks,
++	onGroup,
++	onUngroup,
++	onDelete,
++}: {
++	ids: string[];
++	blocks: Block[];
++	onGroup: (ids: string[]) => void;
++	onUngroup: (id: string) => void;
++	onDelete: (ids: string[]) => void;
++}) {
++	const [confirming, setConfirming] = useState(false);
++	const picked = blocks.filter((b) => b.id && ids.includes(b.id));
++	const groups = picked.filter((b) => b.type === "group");
++	const groupable = picked.filter(
++		(b) => b.type !== "group" && b.type !== "connector",
++	);
++	let connectors = 0;
++	try {
++		connectors = deleteRoots(blocks, ids).connectorsRemoved;
++	} catch {
++		/* The selection changed under us; the bar is about to be redrawn. */
++	}
++	if (confirming) {
++		const items = ids.length;
++		return (
++			<div
++				className="canvas-selection-bar"
++				role="toolbar"
++				aria-label="Confirm delete"
++			>
++				<span>
++					Delete {items} {items === 1 ? "item" : "items"}
++					{connectors > 0
++						? ` and ${connectors} ${connectors === 1 ? "connector" : "connectors"}`
++						: ""}
++					{groups.length > 0 ? " (a group's items stay)" : ""}?
++				</span>
++				<Button
++					size="sm"
++					variant="destructive"
++					onClick={() => {
++						setConfirming(false);
++						onDelete(ids);
++					}}
++				>
++					Delete
++				</Button>
++				<Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
++					Cancel
++				</Button>
++			</div>
++		);
++	}
++	return (
++		<div className="canvas-selection-bar" role="toolbar" aria-label="Selection">
++			<Button
++				size="sm"
++				variant="ghost"
++				disabled={groupable.length < 2 || groups.length > 0}
++				title={
++					groups.length > 0
++						? "Ungroup first"
++						: groupable.length < 2
++							? "Select at least two items"
++							: "Group these items"
++				}
++				onClick={() => onGroup(groupable.map((b) => b.id as string))}
++			>
++				<Group aria-hidden="true" /> Group
++			</Button>
++			{groups.length === 1 && ids.length === 1 && (
++				<Button
++					size="sm"
++					variant="ghost"
++					onClick={() => onUngroup(groups[0]?.id as string)}
++				>
++					<Ungroup aria-hidden="true" /> Ungroup
++				</Button>
++			)}
++			<Button size="sm" variant="ghost" onClick={() => setConfirming(true)}>
++				<Trash2 aria-hidden="true" /> Delete
++			</Button>
++		</div>
++	);
++}
+diff -ruN -x node_modules -x '* 2*' a/src/app/pane.css b/src/app/pane.css
+--- a/src/app/pane.css	2026-11-06 03:05:24.983709717 +0000
++++ b/src/app/pane.css	2026-11-06 03:14:34.095001481 +0000
+@@ -797,3 +797,175 @@
+ .props-block .prop-name-field:hover {
+ 	border-color: var(--line);
+ }
++
++/* Canvas items: sticky notes, shapes, labels and group frames. */
++.canvas-pane .react-flow__node.canvas-item-node {
++	padding: 0;
++	border: 0;
++	background: none;
++	box-shadow: none;
++	text-align: left;
++}
++.canvas-item {
++	position: relative;
++	box-sizing: border-box;
++	width: 100%;
++	height: 100%;
++	color: var(--foreground);
++	font-size: var(--font-size-ui);
++	overflow-wrap: anywhere;
++}
++.canvas-item-text {
++	display: block;
++	white-space: pre-wrap;
++}
++.canvas-item-field {
++	box-sizing: border-box;
++	width: 100%;
++	height: 100%;
++	padding: var(--space-2);
++	border: var(--border-width) solid var(--ring);
++	border-radius: var(--radius-control);
++	background: var(--surface);
++	color: inherit;
++	font: inherit;
++	resize: none;
++}
++input.canvas-item-field {
++	height: auto;
++}
++.canvas-sticky {
++	padding: var(--space-3);
++	border: var(--border-width) solid var(--line);
++	border-radius: var(--radius-control);
++	background: var(--callout-note-bg);
++	box-shadow: var(--elevation-1);
++}
++.canvas-sticky[data-tone="info"] {
++	background: var(--callout-info-bg);
++}
++.canvas-sticky[data-tone="tip"] {
++	background: var(--callout-tip-bg);
++}
++.canvas-sticky[data-tone="warning"] {
++	background: var(--callout-warning-bg);
++}
++.canvas-sticky[data-tone="danger"] {
++	background: var(--callout-danger-bg);
++}
++.canvas-shape {
++	display: flex;
++	align-items: center;
++	justify-content: center;
++	padding: var(--space-3);
++	text-align: center;
++}
++.canvas-shape-bg {
++	position: absolute;
++	inset: 0;
++	border: var(--border-width) solid var(--line);
++	border-radius: var(--radius-control);
++	background: var(--callout-note-bg);
++}
++.canvas-shape[data-shape="rounded"] .canvas-shape-bg {
++	border-radius: var(--radius-container);
++}
++.canvas-shape[data-shape="ellipse"] .canvas-shape-bg {
++	clip-path: ellipse(50% 50% at 50% 50%);
++	border: 0;
++}
++.canvas-shape[data-shape="diamond"] .canvas-shape-bg {
++	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
++	border: 0;
++}
++.canvas-shape[data-tone="info"] .canvas-shape-bg {
++	background: var(--callout-info-bg);
++}
++.canvas-shape[data-tone="tip"] .canvas-shape-bg {
++	background: var(--callout-tip-bg);
++}
++.canvas-shape[data-tone="warning"] .canvas-shape-bg {
++	background: var(--callout-warning-bg);
++}
++.canvas-shape[data-tone="danger"] .canvas-shape-bg {
++	background: var(--callout-danger-bg);
++}
++.canvas-shape .canvas-item-text,
++.canvas-shape .canvas-item-field {
++	position: relative;
++}
++.canvas-label {
++	width: auto;
++	height: auto;
++	min-width: calc(var(--space-unit) * 10);
++}
++.canvas-label[data-size="s"] {
++	font-size: var(--font-size-small);
++}
++.canvas-label[data-size="l"] {
++	font-size: var(--editor-h2-size);
++}
++.canvas-label .canvas-item-text {
++	min-height: 1.2em;
++}
++.canvas-group {
++	border: var(--border-width) dashed var(--border);
++	border-radius: var(--radius-container);
++	background: var(--surface-container-low);
++	opacity: 0.9;
++}
++.canvas-pane .react-flow__node.canvas-node-group {
++	pointer-events: none;
++}
++.canvas-group-title {
++	display: inline-block;
++	margin: var(--space-2);
++	padding: 0 var(--space-2);
++	border-radius: var(--radius-control);
++	background: var(--surface-container);
++	color: var(--muted-foreground);
++	font-size: var(--font-size-small);
++	pointer-events: all;
++	cursor: grab;
++}
++.canvas-group .canvas-item-field {
++	width: auto;
++	margin: var(--space-2);
++	pointer-events: all;
++}
++.canvas-item-pinned {
++	outline: var(--border-width) dashed var(--destructive);
++	outline-offset: var(--space-1);
++}
++.canvas-handle {
++	width: calc(var(--space-unit) * 2);
++	height: calc(var(--space-unit) * 2);
++	border: var(--border-width) solid var(--primary);
++	background: var(--surface);
++	opacity: 0;
++}
++.react-flow__node:hover .canvas-handle,
++.react-flow__node.selected .canvas-handle {
++	opacity: 1;
++}
++.canvas-pane .react-flow__edge-path {
++	stroke: var(--muted-foreground);
++}
++.canvas-pane .react-flow__edge.selected .react-flow__edge-path {
++	stroke: var(--primary);
++}
++.canvas-selection-bar {
++	display: flex;
++	align-items: center;
++	gap: var(--space-1);
++	padding: var(--space-1);
++	border: var(--border-width) solid var(--line);
++	border-radius: var(--radius-control);
++	background: var(--surface);
++	box-shadow: var(--elevation-2);
++	font-size: var(--font-size-small);
++}
++.canvas-selection-bar svg {
++	width: 14px;
++	height: 14px;
++}
+diff -ruN -x node_modules -x '* 2*' a/src/components/ui/canvas.test.tsx b/src/components/ui/canvas.test.tsx
+--- a/src/components/ui/canvas.test.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/components/ui/canvas.test.tsx	2026-11-06 03:17:01.774001551 +0000
+@@ -0,0 +1,59 @@
++// @vitest-environment happy-dom
++import { cleanup, render } from "@testing-library/react";
++import { afterEach, beforeAll, expect, it, vi } from "vitest";
++import { Canvas, type CanvasApi, type CanvasNode } from "./canvas";
++
++beforeAll(() => {
++	class Observer {
++		observe() {}
++		unobserve() {}
++		disconnect() {}
++	}
++	vi.stubGlobal("ResizeObserver", Observer);
++	vi.stubGlobal(
++		"DOMMatrixReadOnly",
++		class {
++			m22 = 1;
++			constructor() {}
++		},
++	);
++});
++
++afterEach(cleanup);
++
++const nodes: CanvasNode[] = [
++	{
++		id: "a",
++		type: "item",
++		position: { x: 0, y: 0 },
++		data: { label: <span>Alpha</span>, connectable: true, resizable: true },
++	},
++	{
++		id: "b",
++		type: "item",
++		position: { x: 200, y: 0 },
++		data: { label: <span>Beta</span> },
++	},
++];
++
++it("draws items and connectors with the real canvas and offers its centre", () => {
++	let api: CanvasApi | null = null;
++	const { getByText } = render(
++		<div style={{ width: 800, height: 600 }}>
++			<Canvas
++				nodes={nodes}
++				edges={[{ id: "k", source: "a", target: "b", arrow: true }]}
++				editable
++				onMove={vi.fn()}
++				onReady={(ready) => {
++					api = ready;
++				}}
++			/>
++		</div>,
++	);
++	expect(getByText("Alpha")).toBeTruthy();
++	expect(getByText("Beta")).toBeTruthy();
++	const centre = (api as CanvasApi | null)?.center();
++	expect(Number.isFinite(centre?.x)).toBe(true);
++	expect(Number.isFinite(centre?.y)).toBe(true);
++});
+diff -ruN -x node_modules -x '* 2*' a/src/components/ui/canvas.tsx b/src/components/ui/canvas.tsx
+--- a/src/components/ui/canvas.tsx	2026-11-04 18:52:57.129295129 +0000
++++ b/src/components/ui/canvas.tsx	2026-11-06 03:13:14.100001443 +0000
+@@ -1,17 +1,58 @@
+ import {
++	applyEdgeChanges,
+ 	applyNodeChanges,
+ 	Background,
++	ConnectionMode,
+ 	Controls,
++	type Edge,
++	type EdgeChange,
++	Handle,
++	MarkerType,
+ 	type Node,
+ 	type NodeChange,
++	type NodeProps,
++	NodeResizer,
++	NodeToolbar,
++	Position,
+ 	ReactFlow,
+ 	ReactFlowProvider,
++	SelectionMode,
+ 	useReactFlow,
++	useStoreApi,
+ } from "@xyflow/react";
+-import { type ReactNode, useEffect, useState } from "react";
++import {
++	type ReactNode,
++	useCallback,
++	useEffect,
++	useMemo,
++	useRef,
++	useState,
++} from "react";
+ import "@xyflow/react/dist/style.css";
+ 
+-export interface CanvasNode extends Node<{ label: ReactNode }> {}
++export interface CanvasNodeData extends Record<string, unknown> {
++	label: ReactNode;
++	/** Shows resize handles while the item is selected. */
++	resizable?: boolean;
++	/** Shows connection dots on the four sides. */
++	connectable?: boolean;
++	/** For a group: the ids of its members, which move with it. */
++	members?: string[];
++	onResizeEnd?: (
++		id: string,
++		box: { x: number; y: number; width: number; height: number },
++	) => void;
++}
++
++export interface CanvasNode extends Node<CanvasNodeData> {}
++
++export interface CanvasEdge {
++	id: string;
++	source: string;
++	target: string;
++	/** Draw an arrowhead at the target end. */
++	arrow?: boolean;
++}
+ 
+ export function canvasFlowProps(locked = false) {
+ 	return {
+@@ -25,26 +66,126 @@
+ 	};
+ }
+ 
++export interface SelectionContext {
++	ids: string[];
++	/** The box around the selected items, in canvas coordinates. */
++	bounds: () => { x: number; y: number; width: number; height: number } | null;
++}
++
++/** What the surface offers the screen around it. */
++export interface CanvasApi {
++	/** The middle of what is on screen, in canvas coordinates. */
++	center: () => { x: number; y: number };
++}
++
++function ItemNode({ id, data, selected }: NodeProps<CanvasNode>) {
++	return (
++		<>
++			{data.resizable && (
++				<NodeResizer
++					isVisible={selected}
++					minWidth={80}
++					minHeight={40}
++					onResizeEnd={(_, box) => data.onResizeEnd?.(id, box)}
++				/>
++			)}
++			{data.connectable &&
++				[Position.Top, Position.Right, Position.Bottom, Position.Left].map(
++					(position) => (
++						<Handle
++							key={position}
++							id={position}
++							type="source"
++							position={position}
++							className="canvas-handle"
++						/>
++					),
++				)}
++			{data.label}
++		</>
++	);
++}
++
++const nodeTypes = { item: ItemNode };
++
+ function Surface({
+ 	nodes: initial,
++	edges: initialEdges = [],
+ 	locked = false,
++	editable = false,
+ 	onMove,
++	onMoveMany,
++	onConnect,
++	onDeleteConnectors,
+ 	onDropBlock,
++	selectionToolbar,
++	onReady,
+ }: {
+ 	nodes: CanvasNode[];
++	edges?: CanvasEdge[];
+ 	locked?: boolean;
++	editable?: boolean;
+ 	onMove: (id: string, position: { x: number; y: number }) => void;
++	onMoveMany?: (positions: { [id: string]: { x: number; y: number } }) => void;
++	onConnect?: (from: string, to: string) => void;
++	onDeleteConnectors?: (ids: string[]) => void;
+ 	onDropBlock?: (
+ 		event: React.DragEvent,
+ 		position: { x: number; y: number },
+ 	) => void;
++	selectionToolbar?: (context: SelectionContext) => ReactNode;
++	onReady?: (api: CanvasApi) => void;
+ }) {
+ 	const [nodes, setNodes] = useState(initial);
++	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+ 	const [dropSpot, setDropSpot] = useState<{ x: number; y: number } | null>(
+ 		null,
+ 	);
+ 	const flow = useReactFlow<CanvasNode>();
+-	useEffect(() => setNodes(initial), [initial]);
++	const store = useStoreApi();
++	const dragStart = useRef<Map<string, { x: number; y: number }>>(new Map());
++	// Keep what is selected when the items are redrawn after a save.
++	useEffect(
++		() =>
++			setNodes((current) =>
++				initial.map((node) => ({
++					...node,
++					selected: current.find((c) => c.id === node.id)?.selected ?? false,
++				})),
++			),
++		[initial],
++	);
++	const edges = useMemo<Edge[]>(
++		() =>
++			initialEdges.map((edge) => ({
++				id: edge.id,
++				source: edge.source,
++				target: edge.target,
++				className: "canvas-edge",
++				...(edge.arrow ? { markerEnd: { type: MarkerType.ArrowClosed } } : {}),
++			})),
++		[initialEdges],
++	);
++	const [edgeState, setEdgeState] = useState<Edge[]>(edges);
++	useEffect(
++		() =>
++			setEdgeState((current) =>
++				edges.map((edge) => ({
++					...edge,
++					selected: current.find((c) => c.id === edge.id)?.selected ?? false,
++				})),
++			),
++		[edges],
++	);
++	useEffect(() => {
++		onReady?.({
++			center: () => {
++				const { width, height, transform } = store.getState();
++				const [x, y, zoom] = transform;
++				return { x: (width / 2 - x) / zoom, y: (height / 2 - y) / zoom };
++			},
++		});
++	}, [onReady, store]);
+ 	useEffect(() => {
+ 		const clear = () => setDropSpot(null);
+ 		document.addEventListener("dragend", clear);
+@@ -54,9 +195,23 @@
+ 			document.removeEventListener("drop", clear);
+ 		};
+ 	}, []);
++	const onSelectionChange = useCallback(
++		({ nodes: picked }: { nodes: Node[] }) =>
++			setSelectedIds((current) => {
++				const next = picked.map((node) => node.id);
++				return current.length === next.length &&
++					current.every((id, i) => id === next[i])
++					? current
++					: next;
++			}),
++		[],
++	);
++	const arrange = locked || !editable;
+ 	return (
+ 		<ReactFlow<CanvasNode>
+ 			nodes={nodes}
++			edges={edgeState}
++			nodeTypes={nodeTypes}
+ 			onNodesChange={(changes: NodeChange<CanvasNode>[]) =>
+ 				setNodes((current) =>
+ 					applyNodeChanges(
+@@ -65,7 +220,77 @@
+ 					),
+ 				)
+ 			}
+-			onNodeDragStop={(_, node) => onMove(node.id, node.position)}
++			onEdgesChange={(changes: EdgeChange[]) =>
++				setEdgeState((current) =>
++					applyEdgeChanges(
++						changes.filter((change) => change.type !== "remove"),
++						current,
++					),
++				)
++			}
++			onSelectionChange={onSelectionChange}
++			onNodeDragStart={() => {
++				dragStart.current = new Map(
++					flow.getNodes().map((node) => [node.id, { ...node.position }]),
++				);
++			}}
++			onNodeDrag={(_, __, dragged) => {
++				// A group carries its members along while it is dragged.
++				const moving = new Set(dragged.map((node) => node.id));
++				const follow = new Map<string, { x: number; y: number }>();
++				for (const node of dragged) {
++					const members = node.data.members;
++					const from = dragStart.current.get(node.id);
++					if (!members || !from) continue;
++					const dx = node.position.x - from.x;
++					const dy = node.position.y - from.y;
++					for (const id of members) {
++						const origin = dragStart.current.get(id);
++						if (origin && !moving.has(id))
++							follow.set(id, { x: origin.x + dx, y: origin.y + dy });
++					}
++				}
++				if (follow.size === 0) return;
++				setNodes((current) =>
++					current.map((node) => {
++						const position = follow.get(node.id);
++						return position ? { ...node, position } : node;
++					}),
++				);
++			}}
++			onNodeDragStop={(_, __, dragged) => {
++				const moved: { [id: string]: { x: number; y: number } } = {};
++				for (const node of dragged) {
++					moved[node.id] = { ...node.position };
++					const members = node.data.members;
++					const from = dragStart.current.get(node.id);
++					if (!members || !from) continue;
++					const dx = node.position.x - from.x;
++					const dy = node.position.y - from.y;
++					for (const id of members) {
++						const origin = dragStart.current.get(id);
++						if (origin && !dragged.some((d) => d.id === id))
++							moved[id] = { x: origin.x + dx, y: origin.y + dy };
++					}
++				}
++				const ids = Object.keys(moved);
++				const only = ids[0];
++				if (ids.length === 1 && only !== undefined && moved[only])
++					onMove(only, moved[only]);
++				else if (ids.length > 1) onMoveMany?.(moved);
++			}}
++			onConnect={(connection) => {
++				if (connection.source && connection.target)
++					onConnect?.(connection.source, connection.target);
++			}}
++			// Delete only ever removes selected connectors; items are deleted from the
++			// toolbar after a confirmation.
++			onBeforeDelete={async ({ edges: doomed }) => ({
++				nodes: [],
++				edges: doomed,
++			})}
++			onEdgesDelete={(doomed) => onDeleteConnectors?.(doomed.map((e) => e.id))}
++			deleteKeyCode={arrange ? null : ["Backspace", "Delete"]}
+ 			onDragEnter={(event) => {
+ 				if (!event.dataTransfer.types.includes("application/x-vaultops-block"))
+ 					return;
+@@ -107,10 +332,38 @@
+ 			}}
+ 			fitView
+ 			{...canvasFlowProps(locked)}
++			// Drag over empty space to select; pan with the middle or right button,
++			// or by scrolling. Locked, the canvas does neither.
++			selectionOnDrag={!locked}
++			selectionMode={SelectionMode.Full}
++			panOnDrag={locked ? false : [1, 2]}
++			nodesConnectable={!arrange}
++			connectionMode={ConnectionMode.Loose}
++			elementsSelectable={!locked}
+ 			proOptions={{ hideAttribution: true }}
+ 		>
+ 			<Background color="var(--canvas-dot)" gap={20} size={1} />
+ 			<Controls showZoom={false} showInteractive={false} />
++			{selectionToolbar && !locked && editable && selectedIds.length > 0 && (
++				<NodeToolbar
++					nodeId={selectedIds}
++					isVisible
++					position={Position.Top}
++					offset={12}
++				>
++					{selectionToolbar({
++						ids: selectedIds,
++						bounds: () => {
++							const picked = flow
++								.getNodes()
++								.filter((n) => selectedIds.includes(n.id));
++							if (picked.length === 0) return null;
++							const box = flow.getNodesBounds(picked);
++							return box;
++						},
++					})}
++				</NodeToolbar>
++			)}
+ 			{dropSpot && (
+ 				<div
+ 					className="canvas-drop-placeholder"
+diff -ruN -x node_modules -x '* 2*' a/src/core/note-format/canvas-types.ts b/src/core/note-format/canvas-types.ts
+--- a/src/core/note-format/canvas-types.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/core/note-format/canvas-types.ts	2026-11-06 03:10:38.841001369 +0000
+@@ -0,0 +1,17 @@
++/**
++ * Block types that exist only on a canvas. They are never moved into a note and
++ * a note file that contains one is refused at save time (`canvas-only-in-note`).
++ */
++export const CANVAS_ONLY_TYPES = [
++	"shape",
++	"sticky",
++	"label",
++	"group",
++	"connector",
++] as const;
++
++export type CanvasOnlyType = (typeof CANVAS_ONLY_TYPES)[number];
++
++export function isCanvasOnly(type: string): boolean {
++	return (CANVAS_ONLY_TYPES as readonly string[]).includes(type);
++}
+diff -ruN -x node_modules -x '* 2*' a/src/core/note-format/index.ts b/src/core/note-format/index.ts
+--- a/src/core/note-format/index.ts	2026-10-22 17:30:02.000000000 +0000
++++ b/src/core/note-format/index.ts	2026-11-06 03:10:38.841001369 +0000
+@@ -1,2 +1,3 @@
++export * from "./canvas-types.js";
+ export * from "./note-format.js";
+ export * from "./save-guard.js";
+diff -ruN -x node_modules -x '* 2*' a/src/core/note-format/note-format.ts b/src/core/note-format/note-format.ts
+--- a/src/core/note-format/note-format.ts	2026-11-04 01:22:40.000000000 +0000
++++ b/src/core/note-format/note-format.ts	2026-11-06 03:10:38.841001369 +0000
+@@ -35,6 +35,7 @@
+ 	| "missing-id"
+ 	| "duplicate-id"
+ 	| "inline-id"
++	| "canvas-only-in-note"
+ 	| "orphan-parent"
+ 	| "newer-version";
+ 
+diff -ruN -x node_modules -x '* 2*' a/src/core/note-format/save-guard.test.ts b/src/core/note-format/save-guard.test.ts
+--- a/src/core/note-format/save-guard.test.ts	2026-10-22 17:30:02.000000000 +0000
++++ b/src/core/note-format/save-guard.test.ts	2026-11-06 03:11:31.714001394 +0000
+@@ -99,3 +99,22 @@
+ 		expect(text).toContain("block a (line 4)");
+ 	});
+ });
++
++describe("canvas-only blocks", () => {
++	it("refuses a shape, sticky note, label, group or connector in a note", () => {
++		for (const type of ["shape", "sticky", "label", "group", "connector"]) {
++			const result = prepareSave(note([{ id: "x", type, parent: null }]));
++			expect(result.ok).toBe(false);
++			if (!result.ok)
++				expect(result.problems[0]?.kind).toBe("canvas-only-in-note");
++		}
++	});
++
++	it("allows them on a canvas", () => {
++		const canvas: Note = {
++			header: { ...header, kind: "canvas" },
++			blocks: [{ id: "x", type: "shape", parent: null }],
++		};
++		expect(prepareSave(canvas).ok).toBe(true);
++	});
++});
+diff -ruN -x node_modules -x '* 2*' a/src/core/note-format/save-guard.ts b/src/core/note-format/save-guard.ts
+--- a/src/core/note-format/save-guard.ts	2026-10-22 17:30:02.000000000 +0000
++++ b/src/core/note-format/save-guard.ts	2026-11-06 03:10:38.841001369 +0000
+@@ -1,3 +1,4 @@
++import { isCanvasOnly } from "./canvas-types.js";
+ import {
+ 	findIdProblems,
+ 	type Note,
+@@ -10,6 +11,7 @@
+ 	"missing-id",
+ 	"duplicate-id",
+ 	"inline-id",
++	"canvas-only-in-note",
+ ]);
+ 
+ export type SaveCheck =
+@@ -24,6 +26,17 @@
+  */
+ export function prepareSave(note: Note): SaveCheck {
+ 	const problems = findIdProblems(note).filter((p) => BLOCKING.has(p.kind));
++	if (note.header.kind !== "canvas") {
++		note.blocks.forEach((block, index) => {
++			if (!isCanvasOnly(block.type)) return;
++			problems.push({
++				kind: "canvas-only-in-note",
++				line: index + 2,
++				...(block.id ? { blockId: block.id } : {}),
++				message: `a ${block.type} can only be on a canvas, not in a note`,
++			});
++		});
++	}
+ 	if (problems.length > 0) return { ok: false, problems };
+ 	return { ok: true, text: serializeNote(note) };
+ }
+diff -ruN -x node_modules -x '* 2*' a/src/core/notes/block-move.ts b/src/core/notes/block-move.ts
+--- a/src/core/notes/block-move.ts	2026-11-04 01:22:40.000000000 +0000
++++ b/src/core/notes/block-move.ts	2026-11-06 03:11:06.293001382 +0000
+@@ -1,4 +1,5 @@
+-import type { Block, Note } from "../note-format";
++import { type Block, isCanvasOnly, type Note } from "../note-format";
++import { attrsOf, connectorEnds, groupMembers } from "./canvas-ops";
+ 
+ export type Placement = { after: string | null } | { x: number; y: number };
+ 
+@@ -17,24 +18,54 @@
+ 	doc: Note,
+ 	blockId: string,
+ ): { lines: Block[]; doc: Note } {
+-	if (!doc.blocks.some((line) => line.id === blockId))
+-		throw new Error(`Block ${blockId} was not found.`);
++	const root = doc.blocks.find((line) => line.id === blockId);
++	if (!root) throw new Error(`Block ${blockId} was not found.`);
++	if (isCanvasOnly(root.type))
++		throw new Error(
++			"Shapes, sticky notes, labels, groups and connectors stay on the canvas.",
++		);
+ 	const selected = new Set([blockId]);
+ 	for (const line of doc.blocks) {
+ 		if (line.parent && selected.has(line.parent) && line.id)
+ 			selected.add(line.id);
+ 	}
++	// On a canvas, what pointed at the moved item lets go: its connectors are
++	// removed and it leaves any group's member list.
++	const remaining: Block[] = [];
++	for (const line of doc.blocks) {
++		if (line.id && selected.has(line.id)) continue;
++		if (line.type === "connector") {
++			const ends = connectorEnds(line);
++			if (selected.has(ends.from) || selected.has(ends.to)) continue;
++		}
++		if (
++			line.type === "group" &&
++			groupMembers(line).some((id) => selected.has(id))
++		) {
++			const { attrs: _old, ...rest } = line;
++			remaining.push({
++				...rest,
++				attrs: {
++					...attrsOf(line),
++					members: groupMembers(line).filter((id) => !selected.has(id)),
++				},
++			});
++			continue;
++		}
++		remaining.push(line);
++	}
+ 	return {
+ 		lines: doc.blocks.filter((line) => line.id && selected.has(line.id)),
+-		doc: {
+-			...doc,
+-			blocks: doc.blocks.filter((line) => !line.id || !selected.has(line.id)),
+-		},
++		doc: { ...doc, blocks: remaining },
+ 	};
+ }
+ 
+ function checkedDestination(doc: Note, lines: Block[]): Block {
+ 	if (!lines.length) throw new Error("There is no block to move.");
++	if (lines.some((line) => isCanvasOnly(line.type)))
++		throw new Error(
++			"Shapes, sticky notes, labels, groups and connectors stay on the canvas.",
++		);
+ 	const ids = requireIds(lines);
+ 	if (doc.blocks.some((line) => line.id && ids.has(line.id)))
+ 		throw new Error("The destination already contains a block with this ID.");
+diff -ruN -x node_modules -x '* 2*' a/src/core/notes/canvas-edit.ts b/src/core/notes/canvas-edit.ts
+--- a/src/core/notes/canvas-edit.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/core/notes/canvas-edit.ts	2026-11-06 03:11:06.293001382 +0000
+@@ -0,0 +1,29 @@
++import type { Host } from "../../host/host";
++import { type Block, parseNote, prepareSave } from "../note-format";
++
++/**
++ * The one way a canvas is changed on disk. `mutate` gets the canvas's blocks
++ * (parsed from `baseText`, the text the screen showed) and returns the new
++ * blocks. The result must pass the save check, and the file must still equal
++ * `baseText`, or nothing is written. Returns the text that was saved.
++ */
++export async function saveCanvasEdit(
++	host: Host,
++	path: string,
++	baseText: string,
++	mutate: (blocks: Block[]) => Block[],
++	action = "editing it",
++): Promise<string> {
++	const parsed = parseNote(baseText);
++	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
++		throw new Error("This canvas cannot be edited safely.");
++	const saved = prepareSave({
++		...parsed.note,
++		blocks: mutate(parsed.note.blocks),
++	});
++	if (!saved.ok) throw new Error("The canvas did not pass the save check.");
++	if ((await host.readText(path)) !== baseText)
++		throw new Error(`The canvas changed on disk. Reload it before ${action}.`);
++	await host.writeTextAtomic(path, saved.text);
++	return saved.text;
++}
+diff -ruN -x node_modules -x '* 2*' a/src/core/notes/canvas-ops.test.ts b/src/core/notes/canvas-ops.test.ts
+--- a/src/core/notes/canvas-ops.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/core/notes/canvas-ops.test.ts	2026-11-06 03:11:44.516001400 +0000
+@@ -0,0 +1,220 @@
++import { readFileSync } from "node:fs";
++import { expect, it, vi } from "vitest";
++import { MemoryHost } from "../../host/memory-host";
++import {
++	type Block,
++	type Note,
++	parseNote,
++	serializeNote,
++} from "../note-format";
++import { extractBlock, insertBlock } from "./block-move";
++import { saveCanvasEdit } from "./canvas-edit";
++import {
++	addConnector,
++	addRoot,
++	canvasConnectors,
++	canvasNodes,
++	createGroup,
++	deleteRoots,
++	groupMembers,
++	groupOf,
++	patchAttrs,
++	setText,
++	textOf,
++} from "./canvas-ops";
++import { moveBlock } from "./move-block";
++
++const card = (id: string, x = 0, y = 0): Block => ({
++	id,
++	type: "paragraph",
++	parent: null,
++	attrs: { x, y },
++	content: [{ text: id, type: "text" }],
++});
++const canvasNote = (blocks: Block[]): Note => ({
++	header: { format: "vaultops-note", v: 1, noteId: "board", kind: "canvas" },
++	blocks,
++});
++
++it("keeps connectors out of the nodes and lists them separately", () => {
++	const blocks = addConnector([card("a"), card("b")], "a", "b", "c1");
++	expect(canvasNodes(blocks).map((b) => b.id)).toEqual(["a", "b"]);
++	expect(canvasConnectors(blocks).map((b) => b.id)).toEqual(["c1"]);
++});
++
++it("refuses a connector to itself, to a missing item, or a repeat", () => {
++	const blocks = [card("a"), card("b")];
++	expect(() => addConnector(blocks, "a", "a")).toThrow("two different");
++	expect(() => addConnector(blocks, "a", "zzz")).toThrow("on the canvas");
++	const linked = addConnector(blocks, "a", "b");
++	expect(() => addConnector(linked, "a", "b")).toThrow("already connected");
++});
++
++it("deleting a card also removes its children and the connectors that touch it", () => {
++	const blocks: Block[] = [
++		card("a"),
++		{ id: "a-child", type: "paragraph", parent: "a" },
++		card("b"),
++		card("c"),
++		...addConnector([card("a"), card("b")], "a", "b", "ab").slice(2),
++		{
++			id: "bc",
++			type: "connector",
++			parent: null,
++			attrs: { from: "b", to: "c" },
++		},
++	];
++	const result = deleteRoots(blocks, ["a"]);
++	expect(result.blocks.map((b) => b.id)).toEqual(["b", "c", "bc"]);
++	expect(result.connectorsRemoved).toBe(1);
++});
++
++it("deleting a group removes only the group, not its members", () => {
++	const grouped = createGroup(
++		[card("a"), card("b"), card("c")],
++		["a", "b"],
++		{ x: 0, y: 0, w: 100, h: 50 },
++		"g",
++	);
++	expect(groupMembers(grouped.find((b) => b.id === "g") as Block)).toEqual([
++		"a",
++		"b",
++	]);
++	const after = deleteRoots(grouped, ["g"]);
++	expect(after.blocks.map((b) => b.id)).toEqual(["a", "b", "c"]);
++});
++
++it("deleting a member takes its id out of the group's list", () => {
++	const grouped = createGroup(
++		[card("a"), card("b"), card("c")],
++		["a", "b", "c"],
++		{ x: 0, y: 0, w: 100, h: 50 },
++		"g",
++	);
++	const after = deleteRoots(grouped, ["b"]).blocks;
++	expect(groupMembers(after.find((b) => b.id === "g") as Block)).toEqual([
++		"a",
++		"c",
++	]);
++});
++
++it("a block is in one group at a time, and groups need two members", () => {
++	const frame = { x: 0, y: 0, w: 10, h: 10 };
++	const first = createGroup(
++		[card("a"), card("b"), card("c")],
++		["a", "b"],
++		frame,
++		"g1",
++	);
++	const second = createGroup(first, ["b", "c"], frame, "g2");
++	expect(groupOf(second, "b")?.id).toBe("g2");
++	expect(groupMembers(second.find((b) => b.id === "g1") as Block)).toEqual([
++		"a",
++	]);
++	expect(() => createGroup(second, ["a"], frame)).toThrow("at least two");
++	expect(() => createGroup(second, ["a", "g2"], frame)).toThrow("at least two");
++});
++
++it("sets and clears attributes and text without touching other fields", () => {
++	let blocks = patchAttrs([card("a", 1, 2)], "a", { w: 200, x: undefined });
++	expect(blocks[0]?.attrs).toEqual({ w: 200, y: 2 });
++	blocks = setText(blocks, "a", "Hello");
++	expect(textOf(blocks[0] as Block)).toBe("Hello");
++	blocks = setText(blocks, "a", "");
++	expect(blocks[0]?.content).toBeUndefined();
++	expect(() => patchAttrs(blocks, "nope", { w: 1 })).toThrow("no longer");
++	expect(() => addRoot(blocks, card("a"))).toThrow("already has");
++});
++
++it("never moves a canvas-only block into a note, and says so", () => {
++	const board = canvasNote([
++		card("a"),
++		{ id: "s", type: "shape", parent: null, attrs: { x: 1, y: 1 } },
++		{ id: "g", type: "group", parent: null, attrs: { members: ["a"] } },
++	]);
++	expect(() => extractBlock(board, "s")).toThrow("stay on the canvas");
++	expect(() => extractBlock(board, "g")).toThrow("stay on the canvas");
++	const note: Note = {
++		header: { format: "vaultops-note", v: 1, noteId: "n" },
++		blocks: [],
++	};
++	expect(() =>
++		insertBlock(note, [{ id: "s2", type: "sticky", parent: null }], null),
++	).toThrow("stay on the canvas");
++});
++
++it("moving a card to a note removes its connectors and its place in a group", () => {
++	const board = canvasNote(
++		createGroup(
++			addConnector([card("a"), card("b")], "a", "b", "ab"),
++			["a", "b"],
++			{ x: 0, y: 0, w: 10, h: 10 },
++			"g",
++		),
++	);
++	const result = extractBlock(board, "a");
++	expect(result.doc.blocks.map((b) => b.id)).toEqual(["b", "g"]);
++	expect(groupMembers(result.doc.blocks[1] as Block)).toEqual(["b"]);
++});
++
++it("refuses to write a canvas-only block to a note file, nothing is moved", async () => {
++	const host = new MemoryHost();
++	await host.writeTextAtomic(
++		"Board.vnote",
++		serializeNote(
++			canvasNote([
++				{ id: "s", type: "shape", parent: null, attrs: { x: 0, y: 0 } },
++			]),
++		),
++	);
++	await host.writeTextAtomic(
++		"Note.vnote",
++		serializeNote({
++			header: { format: "vaultops-note", v: 1, noteId: "n" },
++			blocks: [],
++		}),
++	);
++	const write = vi.spyOn(host, "writeTextAtomic");
++	await expect(
++		moveBlock(host, "Board.vnote", "Note.vnote", "s", { after: null }),
++	).rejects.toThrow("stay on the canvas");
++	expect(write).not.toHaveBeenCalled();
++});
++
++it("saves an edit only if the file is unchanged and the result passes the check", async () => {
++	const host = new MemoryHost();
++	const text = serializeNote(canvasNote([card("a")]));
++	await host.writeTextAtomic("Board.vnote", text);
++	const saved = await saveCanvasEdit(host, "Board.vnote", text, (blocks) =>
++		patchAttrs(blocks, "a", { w: 5 }),
++	);
++	expect(parseNote(saved).note?.blocks[0]?.attrs).toEqual({ w: 5, x: 0, y: 0 });
++	// The file moved on: a second edit based on the old text is refused.
++	await expect(
++		saveCanvasEdit(host, "Board.vnote", text, (blocks) => blocks),
++	).rejects.toThrow("changed on disk");
++	await expect(
++		saveCanvasEdit(host, "Board.vnote", saved, () => [
++			{ type: "paragraph", parent: null },
++		]),
++	).rejects.toThrow("save check");
++});
++
++it("reads the canvas-blocks fixture and saves it back byte for byte", () => {
++	const text = readFileSync(
++		new URL("../../../test-fixtures/canvas-blocks.vnote", import.meta.url),
++		"utf8",
++	);
++	const parsed = parseNote(text);
++	expect(parsed.problems).toEqual([]);
++	if (!parsed.note) throw new Error("fixture did not parse");
++	expect(canvasNodes(parsed.note.blocks).map((b) => b.type)).toEqual([
++		"paragraph",
++		"sticky",
++		"shape",
++		"label",
++		"group",
++	]);
++	expect(canvasConnectors(parsed.note.blocks)).toHaveLength(2);
++	expect(serializeNote(parsed.note)).toBe(text);
++});
+diff -ruN -x node_modules -x '* 2*' a/src/core/notes/canvas-ops.ts b/src/core/notes/canvas-ops.ts
+--- a/src/core/notes/canvas-ops.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/core/notes/canvas-ops.ts	2026-11-06 03:11:06.610001382 +0000
+@@ -0,0 +1,254 @@
++import { type Block, isCanvasOnly, type JsonValue } from "../note-format";
++
++type Attrs = { [k: string]: JsonValue };
++
++export function attrsOf(block: Block): Attrs {
++	const attrs = block.attrs;
++	return attrs && typeof attrs === "object" && !Array.isArray(attrs)
++		? (attrs as Attrs)
++		: {};
++}
++
++export function numberAttr(
++	block: Block,
++	name: string,
++	fallback: number,
++): number {
++	const value = attrsOf(block)[name];
++	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
++}
++
++/** The cards, shapes, groups and so on that sit on the canvas: every root except connectors. */
++export function canvasNodes(blocks: Block[]): Block[] {
++	return blocks.filter(
++		(block) =>
++			block.parent === null && !!block.id && block.type !== "connector",
++	);
++}
++
++export function canvasConnectors(blocks: Block[]): Block[] {
++	return blocks.filter(
++		(block) =>
++			block.parent === null && !!block.id && block.type === "connector",
++	);
++}
++
++export function connectorEnds(block: Block): { from: string; to: string } {
++	const attrs = attrsOf(block);
++	return {
++		from: typeof attrs.from === "string" ? attrs.from : "",
++		to: typeof attrs.to === "string" ? attrs.to : "",
++	};
++}
++
++export function groupMembers(group: Block): string[] {
++	const members = attrsOf(group).members;
++	return Array.isArray(members)
++		? members.filter((id): id is string => typeof id === "string")
++		: [];
++}
++
++export function newBlockId(): string {
++	return crypto.randomUUID();
++}
++
++function mapBlock(
++	blocks: Block[],
++	id: string,
++	change: (block: Block) => Block,
++): Block[] {
++	if (!blocks.some((block) => block.id === id && block.parent === null))
++		throw new Error("This item is no longer on the canvas.");
++	return blocks.map((block) =>
++		block.id === id && block.parent === null ? change(block) : block,
++	);
++}
++
++function withAttrs(block: Block, attrs: Attrs): Block {
++	const { attrs: _old, ...rest } = block;
++	return Object.keys(attrs).length > 0 ? { ...rest, attrs } : rest;
++}
++
++/** Set attributes on a root block; a value of `undefined` removes the attribute. */
++export function patchAttrs(
++	blocks: Block[],
++	id: string,
++	patch: { [k: string]: JsonValue | undefined },
++): Block[] {
++	return mapBlock(blocks, id, (block) => {
++		const next: Attrs = { ...attrsOf(block) };
++		for (const [name, value] of Object.entries(patch)) {
++			if (value === undefined) delete next[name];
++			else next[name] = value;
++		}
++		return withAttrs(block, next);
++	});
++}
++
++export function setPositions(
++	blocks: Block[],
++	positions: { [id: string]: { x: number; y: number } },
++): Block[] {
++	for (const position of Object.values(positions))
++		if (!Number.isFinite(position.x) || !Number.isFinite(position.y))
++			throw new Error("Canvas coordinates must be finite numbers.");
++	let next = blocks;
++	for (const [id, position] of Object.entries(positions))
++		next = patchAttrs(next, id, { x: position.x, y: position.y });
++	return next;
++}
++
++/** Plain text as one text item (an empty string leaves no content). */
++export function setText(blocks: Block[], id: string, text: string): Block[] {
++	return mapBlock(blocks, id, (block) => {
++		const { content: _old, ...rest } = block;
++		return text === "" ? rest : { ...rest, content: [{ text, type: "text" }] };
++	});
++}
++
++export function textOf(block: Block): string {
++	const content = block.content;
++	if (!Array.isArray(content)) return "";
++	return content
++		.map((part) =>
++			part &&
++			typeof part === "object" &&
++			!Array.isArray(part) &&
++			typeof part.text === "string"
++				? part.text
++				: "",
++		)
++		.join("");
++}
++
++export function addRoot(blocks: Block[], root: Block): Block[] {
++	if (!root.id || root.parent !== null)
++		throw new Error("A new canvas item needs an id and no parent.");
++	if (blocks.some((block) => block.id === root.id))
++		throw new Error("The canvas already has an item with this id.");
++	return [...blocks, root];
++}
++
++/**
++ * Remove roots and everything inside them. Their ids also leave every group's
++ * member list and any connector that touched them is removed too. Deleting a
++ * group removes only the group: its members stay where they are.
++ */
++export function deleteRoots(
++	blocks: Block[],
++	ids: string[],
++): { blocks: Block[]; connectorsRemoved: number } {
++	const doomed = new Set(ids);
++	for (const id of ids)
++		if (!blocks.some((block) => block.id === id && block.parent === null))
++			throw new Error("This item is no longer on the canvas.");
++	for (const block of blocks)
++		if (block.parent && doomed.has(block.parent) && block.id)
++			doomed.add(block.id);
++	let connectorsRemoved = 0;
++	const kept: Block[] = [];
++	for (const block of blocks) {
++		if (block.id && doomed.has(block.id)) continue;
++		if (block.type === "connector") {
++			const ends = connectorEnds(block);
++			if (doomed.has(ends.from) || doomed.has(ends.to)) {
++				connectorsRemoved++;
++				continue;
++			}
++		}
++		if (block.type === "group") {
++			const members = groupMembers(block);
++			if (members.some((id) => doomed.has(id))) {
++				kept.push(
++					withAttrs(block, {
++						...attrsOf(block),
++						members: members.filter((id) => !doomed.has(id)),
++					}),
++				);
++				continue;
++			}
++		}
++		kept.push(block);
++	}
++	return { blocks: kept, connectorsRemoved };
++}
++
++/**
++ * Group the given roots. A group is a frame (`x`, `y`, `w`, `h`), an optional
++ * title and a list of member ids. A block is in one group at a time, so it
++ * leaves any group it was in. Groups and connectors are never members.
++ */
++export function createGroup(
++	blocks: Block[],
++	ids: string[],
++	frame: { x: number; y: number; w: number; h: number },
++	groupId: string = newBlockId(),
++): Block[] {
++	const members = ids.filter((id) => {
++		const block = blocks.find((b) => b.id === id && b.parent === null);
++		return !!block && block.type !== "group" && block.type !== "connector";
++	});
++	if (members.length < 2)
++		throw new Error("Select at least two items to group.");
++	if (
++		![frame.x, frame.y, frame.w, frame.h].every((n) => Number.isFinite(n)) ||
++		frame.w <= 0 ||
++		frame.h <= 0
++	)
++		throw new Error("The group frame is not valid.");
++	const moved = new Set(members);
++	const cleaned = blocks.map((block) =>
++		block.type === "group" && groupMembers(block).some((id) => moved.has(id))
++			? withAttrs(block, {
++					...attrsOf(block),
++					members: groupMembers(block).filter((id) => !moved.has(id)),
++				})
++			: block,
++	);
++	return addRoot(cleaned, {
++		id: groupId,
++		type: "group",
++		parent: null,
++		attrs: { h: frame.h, members, w: frame.w, x: frame.x, y: frame.y },
++	});
++}
++
++export function groupOf(blocks: Block[], id: string): Block | undefined {
++	return blocks.find(
++		(block) => block.type === "group" && groupMembers(block).includes(id),
++	);
++}
++
++export function addConnector(
++	blocks: Block[],
++	from: string,
++	to: string,
++	connectorId: string = newBlockId(),
++): Block[] {
++	const ok = (id: string) =>
++		blocks.some(
++			(block) =>
++				block.id === id && block.parent === null && block.type !== "connector",
++		);
++	if (from === to) throw new Error("A connector needs two different items.");
++	if (!ok(from) || !ok(to))
++		throw new Error("Both ends of a connector must be on the canvas.");
++	if (
++		canvasConnectors(blocks).some((c) => {
++			const ends = connectorEnds(c);
++			return ends.from === from && ends.to === to;
++		})
++	)
++		throw new Error("These two items are already connected.");
++	return addRoot(blocks, {
++		id: connectorId,
++		type: "connector",
++		parent: null,
++		attrs: { arrow: "end", from, to },
++	});
++}
++
++/** Items that stay on the canvas: canvas-only types, and any type this build does not know. */
++export function staysOnCanvas(block: Block, noteTypes: readonly string[]) {
++	return isCanvasOnly(block.type) || !noteTypes.includes(block.type);
++}
+diff -ruN -x node_modules -x '* 2*' a/src/core/notes/canvas-position.ts b/src/core/notes/canvas-position.ts
+--- a/src/core/notes/canvas-position.ts	2026-11-04 01:22:40.000000000 +0000
++++ b/src/core/notes/canvas-position.ts	2026-11-06 03:11:06.607001382 +0000
+@@ -1,5 +1,7 @@
+ import type { Host } from "../../host/host";
+-import { type Block, parseNote, prepareSave } from "../note-format";
++import type { Block } from "../note-format";
++import { saveCanvasEdit } from "./canvas-edit";
++import { setPositions } from "./canvas-ops";
+ 
+ export function canvasRoots(blocks: Block[]): Block[] {
+ 	return blocks.filter((block) => block.parent === null && !!block.id);
+@@ -23,32 +25,15 @@
+ 	blockId: string,
+ 	position: { x: number; y: number },
+ ): Promise<string> {
+-	if (!Number.isFinite(position.x) || !Number.isFinite(position.y))
+-		throw new Error("Canvas coordinates must be finite numbers.");
+-	const parsed = parseNote(baseText);
+-	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
+-		throw new Error("This canvas cannot be edited safely.");
+-	const index = parsed.note.blocks.findIndex(
+-		(block) => block.id === blockId && block.parent === null,
+-	);
+-	if (index < 0) throw new Error("This card is no longer on the canvas.");
+-	const block = parsed.note.blocks[index] as Block;
+-	const attrs = block.attrs;
+-	parsed.note.blocks[index] = {
+-		...block,
+-		attrs: {
+-			...(attrs && typeof attrs === "object" && !Array.isArray(attrs)
+-				? attrs
+-				: {}),
+-			...position,
++	return saveCanvasEdit(
++		host,
++		path,
++		baseText,
++		(blocks) => {
++			if (!blocks.some((b) => b.id === blockId && b.parent === null))
++				throw new Error("This card is no longer on the canvas.");
++			return setPositions(blocks, { [blockId]: position });
+ 		},
+-	};
+-	const saved = prepareSave(parsed.note);
+-	if (!saved.ok) throw new Error("The canvas did not pass the save check.");
+-	if ((await host.readText(path)) !== baseText)
+-		throw new Error(
+-			"The canvas changed on disk. Reload it before moving a card.",
+-		);
+-	await host.writeTextAtomic(path, saved.text);
+-	return saved.text;
++		"moving a card",
++	);
+ }
+diff -ruN -x node_modules -x '* 2*' a/docs/note-format-additions.md b/docs/note-format-additions.md
+--- a/docs/note-format-additions.md	2026-11-06 03:17:59.256001579 +0000
++++ b/docs/note-format-additions.md	2026-11-06 03:12:00.012001407 +0000
+@@ -89,3 +89,37 @@
+ 
+ Fixture for all three: `test-fixtures/inline-and-code.vnote` (round-trips byte
+ for byte in `src/editor/doc-blocks.test.ts`).
++
++## Canvas-only blocks: `sticky`, `shape`, `label`, `group`, `connector`
++
++Block types that exist only in a file whose header says `"kind":"canvas"`. They
++are root lines (`parent` null) like any card. A note file that contains one is
++refused at save time (`canvas-only-in-note`), and a move into a note is refused
++before anything is written, so they can never end up in a note.
++
++- **Position and size:** `x`, `y` on every one except `connector`; `w`, `h` on
++  `sticky`, `shape` and `group`. Left out when not set.
++- **`sticky`:** `tone` (`note`, `info`, `tip`, `warning`, `danger`; left out when
++  `note`). Text is the block's `content`, plain text in one text item.
++- **`shape`:** `shape` (`rectangle`, `rounded`, `ellipse`, `diamond`; left out
++  when `rectangle`), `tone` as for a sticky, optional text in `content`.
++- **`label`:** `size` (`s`, `m`, `l`; left out when `m`), text in `content`, no
++  frame.
++- **`group`:** a frame (`x`, `y`, `w`, `h`), an optional `title`, and `members`,
++  a list of the ids of the cards it holds. Membership lives on the group, so
++  deleting a group removes only the group line and its members stay put. A card
++  is in one group at a time. Groups and connectors are never members.
++- **`connector`:** `from` and `to`, the ids of two other root blocks on the same
++  canvas, and `arrow` (`none`, `end` or `both`; the app writes `end`). No
++  coordinates. When a card that a connector touches is deleted, or moved to a
++  note, the connector is removed with it; a card put back on a canvas keeps
++  its connectors because it never left.
++- **Older build:** builds before this one draw a block type they do not know as
++  a plain card and can still move it, which would rewrite its position; they
++  cannot read what a shape or group means. From this build on, a canvas that has
++  a block type this build does not know opens read-only, so a newer file is
++  never changed by an older app. Avoid opening canvases with these blocks in
++  an older build.
++
++Fixture: `test-fixtures/canvas-blocks.vnote` (round-trips byte for byte in
++`src/core/notes/canvas-ops.test.ts`).
+diff -ruN -x node_modules -x '* 2*' a/test-fixtures/canvas-blocks.vnote b/test-fixtures/canvas-blocks.vnote
+--- a/test-fixtures/canvas-blocks.vnote	1970-01-01 00:00:00.000000000 +0000
++++ b/test-fixtures/canvas-blocks.vnote	2026-11-06 03:11:48.475001402 +0000
+@@ -0,0 +1,8 @@
++{"format":"vaultops-note","v":1,"noteId":"canvas-blocks-1","kind":"canvas"}
++{"id":"c1","type":"paragraph","parent":null,"attrs":{"x":40,"y":40},"content":[{"text":"An ordinary card","type":"text"}]}
++{"id":"s1","type":"sticky","parent":null,"attrs":{"h":120,"tone":"tip","w":160,"x":300,"y":40},"content":[{"text":"Remember this","type":"text"}]}
++{"id":"sh1","type":"shape","parent":null,"attrs":{"future":"keep","h":100,"shape":"ellipse","tone":"info","w":180,"x":40,"y":220},"content":[{"text":"Start","type":"text"}]}
++{"id":"l1","type":"label","parent":null,"attrs":{"size":"l","x":300,"y":220},"content":[{"text":"Phase one","type":"text"}]}
++{"id":"g1","type":"group","parent":null,"attrs":{"h":340,"members":["c1","sh1"],"title":"Left side","w":260,"x":20,"y":10}}
++{"id":"k1","type":"connector","parent":null,"attrs":{"arrow":"end","from":"c1","to":"sh1"}}
++{"id":"k2","type":"connector","parent":null,"attrs":{"arrow":"end","from":"s1","to":"l1"}}

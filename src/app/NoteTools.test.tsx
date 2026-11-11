@@ -1,0 +1,200 @@
+// @vitest-environment happy-dom
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import type { Props } from "../core/notes/properties";
+import { MemoryHost } from "../host/memory-host";
+import { AppearanceProvider } from "./AppearanceContext";
+import { NoteTools } from "./NoteTools";
+
+const properties: Props = { Summary: { type: "text", value: "hello" } };
+const callbacks = { onChange: () => {}, onOpenTag: () => {} };
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+	localStorage.clear();
+});
+
+it.each([true, false])("renders both tabs with hasNote=%s", (hasNote) => {
+	for (const tab of ["properties", "changes"]) {
+		localStorage.setItem("vaultops:note-tools-tab", tab);
+		const html = renderToStaticMarkup(
+			<NoteTools
+				hasNote={hasNote}
+				props={properties}
+				editable
+				{...callbacks}
+			/>,
+		);
+		expect(html).toContain("Properties");
+		expect(html).toContain("Changes");
+		if (tab === "changes") {
+			expect(html).toContain("Commit, history and sync arrive soon.");
+			expect(html).toContain("No changes to show yet.");
+			expect(html).not.toContain("Summary");
+		} else {
+			expect(html).toContain(
+				hasNote ? "Summary" : "Open a note to see its properties.",
+			);
+		}
+	}
+});
+
+it("remembers the chosen tab across remounts and tolerates unavailable storage", async () => {
+	const user = userEvent.setup();
+	const tools = (
+		<NoteTools hasNote={false} props={null} editable={false} {...callbacks} />
+	);
+	const first = render(tools);
+	await user.click(screen.getByRole("tab", { name: "Changes" }));
+	first.unmount();
+	render(tools);
+	expect(
+		screen.getByRole("tab", { name: "Changes" }).getAttribute("aria-selected"),
+	).toBe("true");
+	cleanup();
+	vi.stubGlobal("localStorage", {
+		getItem: () => {
+			throw new Error("denied");
+		},
+		setItem: () => {
+			throw new Error("denied");
+		},
+	});
+	render(tools);
+	expect(screen.getByText("Open a note to see its properties.")).toBeTruthy();
+	await user.click(screen.getByRole("tab", { name: "Changes" }));
+	expect(screen.getByText("No changes to show yet.")).toBeTruthy();
+});
+
+function Editable() {
+	const [props, setProps] = useState(properties);
+	return (
+		<NoteTools
+			hasNote
+			props={props}
+			editable
+			onChange={setProps}
+			onOpenTag={() => {}}
+		/>
+	);
+}
+
+it("edits properties and tags and creates a typed property from the popover", async () => {
+	const user = userEvent.setup();
+	render(<Editable />);
+	await user.type(screen.getByRole("textbox", { name: "Summary" }), "!");
+	expect(
+		(screen.getByRole("textbox", { name: "Summary" }) as HTMLInputElement)
+			.value,
+	).toBe("hello!");
+	await user.type(
+		screen.getByRole("textbox", { name: "Add to tags" }),
+		"idea{Enter}",
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Remove idea from tags" }),
+	);
+	expect(screen.queryByText("idea")).toBeNull();
+	await user.click(screen.getByRole("button", { name: "Add property" }));
+	await user.type(
+		screen.getByRole("textbox", { name: "New property name" }),
+		"Pages",
+	);
+	await user.click(screen.getByRole("combobox", { name: "New property type" }));
+	await user.click(screen.getByRole("option", { name: "Number" }));
+	await user.click(
+		within(screen.getByRole("dialog")).getByRole("button", {
+			name: "Add property",
+		}),
+	);
+	expect(screen.getByRole("spinbutton", { name: "Pages" })).toBeTruthy();
+});
+
+it("titles the header with the open tool, in the same row as the icon tabs", async () => {
+	const user = userEvent.setup();
+	render(
+		<NoteTools hasNote={false} props={null} editable={false} {...callbacks} />,
+	);
+	const header = document.querySelector(".sidebar-header") as HTMLElement;
+	expect(within(header).getByText("Properties").tagName).toBe("STRONG");
+	await user.click(within(header).getByRole("tab", { name: "Changes" }));
+	expect(within(header).getByText("Changes").tagName).toBe("STRONG");
+	// Icon-only tabs still carry their names for assistive tech and hover.
+	expect(
+		within(header).getByRole("tab", { name: "Planner" }).getAttribute("title"),
+	).toBe("Planner");
+});
+
+it("has no separate Journal tab and shows Today's log inside the Planner tool", async () => {
+	const user = userEvent.setup();
+	render(
+		<TooltipProvider>
+			<NoteTools hasNote={false} props={null} editable={false} {...callbacks} />
+		</TooltipProvider>,
+	);
+	const header = document.querySelector(".sidebar-header") as HTMLElement;
+	expect(within(header).queryByRole("tab", { name: "Journal" })).toBeNull();
+	await user.click(within(header).getByRole("tab", { name: "Planner" }));
+	expect(within(header).getByText("Planner").tagName).toBe("STRONG");
+	expect(screen.getByRole("region", { name: "Today's log" })).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Today's log" })).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Tasks" })).toBeTruthy();
+});
+
+it("lists tags in the Tags tool, picks a tag, and changes its colour from the right-click menu with no hover buttons", async () => {
+	const user = userEvent.setup();
+	const onOpenTag = vi.fn();
+	const host = new MemoryHost();
+	const { container } = render(
+		<AppearanceProvider host={host}>
+			<NoteTools
+				hasNote={false}
+				notes={[
+					{
+						path: "a.vnote",
+						title: "Alpha",
+						preview: "",
+						tags: ["work", "idea"],
+						readOnly: false,
+					},
+					{
+						path: "b.vnote",
+						title: "Beta",
+						preview: "",
+						tags: ["Work"],
+						readOnly: false,
+					},
+				]}
+				activeTag="work"
+				props={null}
+				editable={false}
+				onChange={() => {}}
+				onOpenTag={onOpenTag}
+			/>
+		</AppearanceProvider>,
+	);
+	await user.click(screen.getByRole("tab", { name: "Tags" }));
+	expect(container.querySelector(".tree-actions")).toBeNull();
+	const work = screen.getByRole("button", { name: /#work/i });
+	expect(work.getAttribute("aria-pressed")).toBe("true");
+	expect(work.textContent).toContain("2");
+	await user.click(work);
+	expect(onOpenTag).toHaveBeenCalledWith("work");
+
+	fireEvent.contextMenu(work);
+	await user.click(await screen.findByRole("button", { name: "Colour pink" }));
+	expect(work.querySelector(".tag-pill")?.getAttribute("data-tone")).toBe(
+		"pink",
+	);
+});

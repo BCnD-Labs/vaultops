@@ -1,0 +1,7 @@
+{"format":"vaultops-note","v":1,"noteId":"callout-styles-1"}
+{"id":"c1","type":"callout","parent":null}
+{"id":"c1t","type":"paragraph","parent":"c1","content":[{"text":"Default title","type":"text"}]}
+{"id":"c1b","type":"paragraph","parent":"c1","content":[{"text":"Default body","type":"text"}]}
+{"id":"c2","type":"callout","parent":null,"attrs":{"color":"purple","icon":"flame"}}
+{"id":"c2t","type":"paragraph","parent":"c2","content":[{"text":"Custom callout","type":"text"}]}
+{"id":"c2b","type":"paragraph","parent":"c2","content":[{"text":"With flame icon and purple tint","type":"text"}]}

@@ -1,0 +1,6 @@
+{"format":"vaultops-note","v":1,"noteId":"quotes-1"}
+{"id":"q0","type":"paragraph","parent":null,"content":[{"text":"Before the quotes","type":"text"}]}
+{"id":"q1","type":"blockquote","parent":null}
+{"id":"q1p","type":"paragraph","parent":"q1","content":[{"text":"Default bar","type":"text"}]}
+{"id":"q2","type":"blockquote","parent":null,"attrs":{"color":"blue"}}
+{"id":"q2p","type":"paragraph","parent":"q2","content":[{"text":"Blue bar","type":"text"}]}

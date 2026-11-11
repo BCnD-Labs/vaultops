@@ -1,0 +1,6 @@
+{"format":"vaultops-note","v":1,"noteId":"template-meeting-1","title":"Meeting"}
+{"id":"m1","type":"heading","parent":null,"content":[{"text":"{{title}}","type":"text"}]}
+{"id":"m2","type":"paragraph","parent":null,"content":[{"text":"Date: {{date}} at {{time}}","type":"text"}]}
+{"id":"m3","type":"toggle","parent":null,"attrs":{"open":true}}
+{"id":"m3s","type":"paragraph","parent":"m3","content":[{"text":"Agenda","type":"text"}]}
+{"id":"m3b","type":"paragraph","parent":"m3","content":[{"text":"First item","type":"text"}]}

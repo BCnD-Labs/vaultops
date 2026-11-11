@@ -1,0 +1,579 @@
+/* Seed / primitive, semantic, then component / shape tokens. */
+:root[data-theme="refined"] {
+	--seed-accent: #1a73e8;
+	--neutral-0: #ffffff;
+	--neutral-1: #f6f7f9;
+	--neutral-2: #eceef1;
+	--neutral-3: #e2e5e9;
+	--neutral-4: #d2d6dc;
+	--neutral-6: #5c6168;
+	--neutral-9: #1f2328;
+	--seed-on-accent: #ffffff;
+	--seed-container: #e8f0fe;
+	--seed-on-container: #174ea6;
+	--seed-danger: #c5221f;
+	--seed-danger-container: #fce8e6;
+	--seed-on-danger: #ffffff;
+	--seed-warning: #8a5a00;
+	--seed-warning-container: #fef7e0;
+	--seed-tip: #137333;
+	--seed-tip-container: #e6f4ea;
+	/* Mid-tone colours for tags and sidebar rows; rules mix them with the text colour. */
+	--tone-text-mix: 45%;
+	--tone-red: #e5484d;
+	--tone-orange: #f76b15;
+	--tone-yellow: #d9a400;
+	--tone-green: #30a46c;
+	--tone-teal: #12a594;
+	--tone-blue: #3e63dd;
+	--tone-purple: #8e4ec6;
+	--tone-pink: #d6409f;
+	--tone-gray: #8b8d98;
+	--border-width: 1px;
+	--focus-ring-width: 2px;
+	--radius-1: 8px;
+	--radius-2: 12px;
+	--space-unit: 4px;
+	/* One spacing scale: 4, 8, 12, 16, 24, 32. */
+	--space-1: var(--space-unit);
+	--space-2: calc(var(--space-unit) * 2);
+	--space-3: calc(var(--space-unit) * 3);
+	--space-4: calc(var(--space-unit) * 4);
+	--space-6: calc(var(--space-unit) * 6);
+	--space-8: calc(var(--space-unit) * 8);
+	/* Rhythm in the note: gap under the title, row height, block and list gaps. */
+	--title-gap: calc(var(--space-unit) * 1.5);
+	--row-height: var(--space-8);
+	--block-gap: 0.75rem;
+	/* A shade off the background, translucent: visible but never in the way. */
+	--block-outline: transparent;
+	--list-gap: 0.2rem;
+	--size-ui: 12px;
+	--size-small: 12px;
+	--size-title: 30px;
+	--size-heading: 16px;
+	--shell-frame: #e3e6ea;
+	--shell-panel: var(--neutral-1);
+	--shell-border: var(--raise-edge);
+	--shell-border-width: 1px;
+	--shell-radius: var(--radius-2);
+	--shell-gap: 10px;
+	--chrome-bar-height: 36px;
+	--rail-width: 44px;
+	--rail-icon-size: 18px;
+	--section-size: 12px;
+	--section-tracking: 0;
+	--row-raised: var(--surface-container-high);
+	--editor-bg: var(--shell-panel);
+	--editor-text: var(--foreground);
+	--editor-bold: var(--editor-text);
+	--editor-italic: var(--editor-text);
+	--editor-highlight-bg: var(--seed-warning-container);
+	--editor-highlight-text: var(--editor-text);
+	--editor-quote: var(--editor-text);
+	--editor-code-bg: var(--surface-container);
+	--editor-code-text: var(--editor-text);
+	--callout-note-bg: var(--surface-container-low);
+	--callout-note-accent: var(--muted-foreground);
+	--callout-info-bg: var(--primary-container);
+	--callout-info-accent: var(--primary);
+	--callout-tip-bg: var(--seed-tip-container);
+	--callout-tip-accent: var(--seed-tip);
+	--callout-warning-bg: var(--seed-warning-container);
+	--callout-warning-accent: var(--seed-warning);
+	--callout-danger-bg: var(--destructive-container);
+	--callout-danger-accent: var(--destructive);
+	--editor-divider: color-mix(in srgb, var(--foreground) 30%, transparent);
+	--background: var(--neutral-0);
+	--surface: var(--neutral-0);
+	--surface-container-low: var(--neutral-1);
+	--surface-container: var(--neutral-2);
+	--surface-container-high: var(--neutral-3);
+	--foreground: var(--neutral-9);
+	--muted-foreground: var(--neutral-6);
+	--border: var(--neutral-4);
+	--primary: var(--seed-accent);
+	--primary-foreground: var(--seed-on-accent);
+	--primary-container: var(--seed-container);
+	--on-primary-container: var(--seed-on-container);
+	--accent: var(--primary-container);
+	--accent-foreground: var(--on-primary-container);
+	--selection-bg: var(--primary-container);
+	--selection-fg: var(--on-primary-container);
+	--secondary: var(--surface-container-low);
+	--secondary-foreground: var(--foreground);
+	--muted: var(--surface-container-low);
+	--destructive: var(--seed-danger);
+	--destructive-container: var(--seed-danger-container);
+	--destructive-foreground: var(--seed-on-danger);
+	--ring: var(--primary);
+	--warn: var(--seed-warning);
+	--bg: var(--background);
+	--panel: var(--surface-container-low);
+	--text: var(--foreground);
+	--line: var(--border);
+	--canvas-dot: color-mix(in srgb, var(--foreground) 24%, transparent);
+	--canvas-lock-ring: inset 0 0 0 2px var(--primary-container);
+	--bad: var(--destructive);
+	--hover-layer: 8%;
+	--pressed-layer: 14%;
+	--radius-control: var(--radius-1);
+	--radius-container: var(--radius-2);
+	--radius-round: 999px;
+	--control-height: 28px;
+	--control-height-sm: 24px;
+	--font-size-ui: var(--size-ui);
+	--font-size-small: var(--size-small);
+	--font-size-title: var(--size-title);
+	--font-size-heading: var(--size-heading);
+	--font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+	--font-editor: var(--font-sans);
+	--editor-width: 760px;
+	--editor-font-size: 16px;
+	--editor-line-height: 1.7;
+	--editor-h1-size: 1.8em;
+	--editor-h2-size: 1.4em;
+	--editor-h3-size: 1.15em;
+	--editor-h4-size: 1.1em;
+	--editor-h5-size: 1.05em;
+	--editor-h6-size: 1em;
+	--code-font-size: 0.92em;
+	--elevation-1: 0 1px 2px var(--shadow-color);
+	--elevation-2: 0 2px 6px var(--shadow-color), 0 12px 28px var(--shadow-color);
+	--elevation-3:
+		0 4px 10px var(--shadow-color), 0 20px 48px var(--shadow-color);
+	--shadow-color: #0f172a24;
+	--scrim: #00000073;
+	--motion-fast: 140ms;
+	--motion-normal: 200ms;
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+:root[data-theme="refined"] {
+	color-scheme: light;
+	/* Refined: depth without hard shadows. A raised card has an edge close to
+	   its own colour, a faint highlight on top and a soft shadow under it; a
+	   well (inputs, toolbar trays) is sunken by an inner shadow. */
+	--raise-edge: #0f172a14;
+	--raise-highlight: inset 0 1px 0 #ffffffcc;
+	--raise-shadow:
+		var(--raise-highlight), 0 1px 2px #0f172a0f, 0 6px 16px -10px #0f172a2e;
+	--panel-shadow:
+		var(--raise-highlight), 0 1px 2px #0f172a14, 0 10px 24px -14px #0f172a33;
+	--raised-control: #ffffff;
+	--well-bg: #e9ebef;
+	--well-shadow: inset 0 1px 2px #0f172a14, 0 1px 0 #ffffffb3;
+	--card-bg: #ffffff;
+}
+:root[data-theme="refined"][data-mode="dark"] {
+	color-scheme: dark;
+	--tone-text-mix: 65%;
+	--shell-frame: #0e0f11;
+	--seed-accent: #8ab4f8;
+	--neutral-0: #111214;
+	--neutral-1: #1a1b1e;
+	--neutral-2: #242529;
+	--neutral-3: #2e2f34;
+	--neutral-4: #3a3c42;
+	--neutral-6: #9aa0a6;
+	--neutral-9: #e8eaed;
+	--seed-on-accent: #0b1a33;
+	--seed-container: #22324a;
+	--seed-on-container: #d2e3fc;
+	--seed-danger: #f28b82;
+	--seed-danger-container: #3a2321;
+	--seed-on-danger: #3a0b07;
+	--seed-warning: #fdd663;
+	--seed-warning-container: #2e2914;
+	--seed-tip: #81c995;
+	--seed-tip-container: #1c2a22;
+	--shadow-color: #00000066;
+	--raise-edge: #ffffff12;
+	--raise-highlight: inset 0 1px 0 #ffffff0d;
+	--raise-shadow:
+		var(--raise-highlight), 0 1px 2px #00000073, 0 8px 18px -10px #00000099;
+	--panel-shadow:
+		var(--raise-highlight), 0 1px 1px #00000080, 0 10px 24px -12px #000000b3;
+	--raised-control: #303136;
+	--well-bg: #0f1012;
+	--well-shadow: inset 0 1px 2px #0000008c, 0 1px 0 #ffffff0a;
+	--card-bg: #242529;
+}
+@media (prefers-color-scheme: dark) {
+	:root[data-theme="refined"][data-mode="system"] {
+		color-scheme: dark;
+		--tone-text-mix: 65%;
+		--shell-frame: #0e0f11;
+		--seed-accent: #8ab4f8;
+		--neutral-0: #111214;
+		--neutral-1: #1a1b1e;
+		--neutral-2: #242529;
+		--neutral-3: #2e2f34;
+		--neutral-4: #3a3c42;
+		--neutral-6: #9aa0a6;
+		--neutral-9: #e8eaed;
+		--seed-on-accent: #0b1a33;
+		--seed-container: #22324a;
+		--seed-on-container: #d2e3fc;
+		--seed-danger: #f28b82;
+		--seed-danger-container: #3a2321;
+		--seed-on-danger: #3a0b07;
+		--seed-warning: #fdd663;
+		--seed-warning-container: #2e2914;
+		--seed-tip: #81c995;
+		--seed-tip-container: #1c2a22;
+		--shadow-color: #00000066;
+		--raise-edge: #ffffff12;
+		--raise-highlight: inset 0 1px 0 #ffffff0d;
+		--raise-shadow:
+			var(--raise-highlight), 0 1px 2px #00000073, 0 8px 18px -10px #00000099;
+		--panel-shadow:
+			var(--raise-highlight), 0 1px 1px #00000080, 0 10px 24px -12px #000000b3;
+		--raised-control: #303136;
+		--well-bg: #0f1012;
+		--well-shadow: inset 0 1px 2px #0000008c, 0 1px 0 #ffffff0a;
+		--card-bg: #242529;
+	}
+}
+
+/*
+ * Refined: component touches. Everything below is scoped to this theme, so
+ * no other theme changes. Raised = panels, cards, the selected row and the
+ * chosen segment; sunken = inputs and toolbar trays.
+ */
+:root[data-theme="refined"] {
+	/* Section headers read as plain titles, not spaced-out capitals. */
+	& .section-label,
+	& .planner-section-toggle {
+		text-transform: none;
+		letter-spacing: 0;
+		font-weight: 600;
+		color: var(--foreground);
+	}
+	& .section-label {
+		padding: 8px 10px 4px;
+		color: color-mix(in srgb, var(--foreground) 80%, transparent);
+	}
+	& .planner-section-toggle {
+		font-size: 13px;
+	}
+
+	/* The three main panels. */
+	& .shell-regions > [data-slot="resizable-panel"] {
+		box-shadow: var(--panel-shadow);
+	}
+
+	/* Floating sidebar toggles: a raised button of their own, kept apart from
+	   the tools by a thin divider. */
+	& .shell-toggle {
+		width: var(--control-height);
+		height: var(--control-height);
+		border: var(--border-width) solid var(--raise-edge);
+		border-radius: 9px;
+		background: var(--raised-control);
+		box-shadow: var(--raise-shadow);
+		color: var(--foreground);
+	}
+	& .sidebar-header-first {
+		position: relative;
+		isolation: isolate;
+		width: fit-content;
+		padding-left: calc(
+			var(--toggle-left) -
+			var(--shell-gap) -
+			var(--shell-border-width) +
+			var(--control-height) +
+			17px
+		);
+	}
+	/* Divider after the toggle. */
+	& .sidebar-header-first::after {
+		content: "";
+		position: absolute;
+		top: calc(50% - 10px);
+		left: calc(
+			var(--toggle-left) -
+			var(--shell-gap) -
+			var(--shell-border-width) +
+			var(--control-height) +
+			7px
+		);
+		width: 1px;
+		height: 20px;
+		background: var(--raise-edge);
+	}
+	/* The tool buttons sit in a sunken tray. */
+	& .sidebar-header-first::before {
+		content: "";
+		position: absolute;
+		z-index: -1;
+		top: 3px;
+		bottom: 6px;
+		right: 5px;
+		left: calc(
+			var(--toggle-left) -
+			var(--shell-gap) -
+			var(--shell-border-width) +
+			var(--control-height) +
+			14px
+		);
+		border-radius: 9px;
+		background: var(--well-bg);
+		box-shadow: var(--well-shadow);
+	}
+	& .sidebar-header-last {
+		position: relative;
+		padding-right: calc(
+			var(--toggle-left) -
+			var(--shell-gap) -
+			var(--shell-border-width) +
+			var(--control-height) +
+			14px
+		);
+	}
+	& .sidebar-header-last::after {
+		content: "";
+		position: absolute;
+		top: 8px;
+		right: calc(
+			var(--toggle-left) -
+			var(--shell-gap) -
+			var(--shell-border-width) +
+			var(--control-height) +
+			6px
+		);
+		width: 1px;
+		height: 20px;
+		background: var(--raise-edge);
+	}
+	& .sidebar-title {
+		font-weight: 700;
+	}
+	& .sidebar-tabs {
+		padding: 3px;
+		border-radius: 9px;
+		background: var(--well-bg);
+		box-shadow: var(--well-shadow);
+	}
+	& .sidebar-tabs [data-slot="tabs-trigger"] {
+		width: 26px;
+		height: 26px;
+		border-radius: 7px;
+	}
+	& .sidebar-tabs [data-state="active"][data-slot="tabs-trigger"] {
+		background: var(--raised-control);
+		box-shadow: var(--raise-shadow);
+		color: var(--primary);
+	}
+
+	/* Note tree. */
+	& .sidebar-count {
+		min-width: 1.5em;
+		padding: 0 6px;
+		border-radius: 6px;
+		background: var(--surface-container-high);
+		color: color-mix(in srgb, var(--foreground) 75%, transparent);
+		font-family: var(--font-mono);
+		font-size: 11px;
+		text-align: center;
+	}
+	/* An open folder and its notes form one raised group. */
+	& .note-list > li:has(> ul.note-list) {
+		margin: 2px 0;
+		padding: 3px;
+		border: var(--border-width) solid var(--raise-edge);
+		border-radius: 10px;
+		background: var(--card-bg);
+		box-shadow: var(--raise-highlight);
+	}
+	& .note-list .note-list {
+		margin-left: 14px;
+		padding-left: 6px;
+		border-left: var(--border-width) solid var(--border);
+	}
+	& .note-list button[aria-current="true"] {
+		background: color-mix(in srgb, var(--primary) 14%, transparent);
+		box-shadow: inset 0 0 0 1px
+			color-mix(in srgb, var(--primary) 24%, transparent);
+		color: var(--foreground);
+	}
+	& .note-list button[aria-current="true"] svg {
+		color: var(--primary);
+	}
+	/* Folder icons take a tone in turn, unless the folder has its own icon colour. */
+	& .tree-row:not([data-paint-icon]) .tree-folder svg {
+		color: var(--folder-tone, var(--tone-blue));
+		fill: color-mix(
+			in srgb,
+			var(--folder-tone, var(--tone-blue)) 18%,
+			transparent
+		);
+	}
+	& .note-list > li:nth-child(6n + 2) {
+		--folder-tone: var(--tone-purple);
+	}
+	& .note-list > li:nth-child(6n + 3) {
+		--folder-tone: var(--tone-red);
+	}
+	& .note-list > li:nth-child(6n + 4) {
+		--folder-tone: var(--tone-green);
+	}
+	& .note-list > li:nth-child(6n + 5) {
+		--folder-tone: var(--tone-yellow);
+	}
+	& .note-list > li:nth-child(6n) {
+		--folder-tone: var(--tone-teal);
+	}
+
+	/* Vault menu and settings: two small raised buttons. */
+	& .sidebar-foot {
+		gap: 6px;
+		padding: 8px;
+		border-top: var(--border-width) solid var(--raise-edge);
+	}
+	& .vault-switch,
+	& .sidebar-foot-settings {
+		min-height: 30px;
+		height: 30px;
+		border: var(--border-width) solid var(--raise-edge);
+		border-radius: 9px;
+		background: var(--raised-control);
+		box-shadow: var(--raise-shadow);
+	}
+	& .vault-switch {
+		font-weight: 600;
+	}
+	& .sidebar-foot-settings {
+		width: 30px;
+		color: var(--foreground);
+	}
+
+	/* Filled buttons get a little light on top. */
+	& [data-slot="button"].bg-primary {
+		background-image: linear-gradient(#ffffff2e, #ffffff00);
+		box-shadow:
+			inset 0 1px 0 #ffffff59,
+			0 1px 2px var(--shadow-color);
+	}
+
+	/* Inputs are sunken wells. */
+	& [data-slot="input"],
+	& [data-slot="textarea"],
+	& .props input:not([type="checkbox"]) {
+		border-color: var(--raise-edge);
+		border-radius: 9px;
+		background: var(--well-bg);
+		box-shadow: var(--well-shadow);
+	}
+
+	/* The add-tag field inside the tag box stays plain. */
+	& .props input.chip-input {
+		border-color: transparent;
+		background: transparent;
+		box-shadow: none;
+	}
+
+	/* Properties block: a raised card. */
+	& .props-block {
+		border: var(--border-width) solid var(--raise-edge);
+		border-radius: 10px;
+		background: var(--card-bg);
+		box-shadow: var(--raise-shadow);
+	}
+	& .props-block-header {
+		font-weight: 600;
+	}
+
+	/* Callouts: tinted raised cards, no thick side bar. */
+	& .note-editor .callout {
+		--callout-bar-width: var(--border-width);
+		border-color: color-mix(in srgb, var(--callout-accent) 22%, transparent);
+		border-radius: 10px;
+		box-shadow: var(--raise-shadow);
+	}
+	& .note-editor .callout-icon {
+		padding: 4px;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
+	}
+
+	/* Planner: each section is a raised card with a plain title. */
+	& .planner-section + .planner-section {
+		border-top: 0;
+		margin-top: 6px;
+	}
+	& .planner-side .plan-card {
+		border: var(--border-width) solid var(--raise-edge);
+		border-radius: 10px;
+		background: var(--card-bg);
+		box-shadow: var(--raise-shadow);
+	}
+	& .plan-card-head {
+		border-bottom: 0;
+		background: transparent;
+	}
+	/* Morning / afternoon / evening, and the task views: segmented switches. */
+	& .plan-checkin-slots,
+	& .plan-task-tabs {
+		gap: 2px;
+		padding: 3px;
+		border-radius: 9px;
+		background: var(--well-bg);
+		box-shadow: var(--well-shadow);
+	}
+	& .plan-task-tabs {
+		flex-wrap: nowrap;
+		margin: 0 var(--space-3);
+	}
+	& .plan-checkin-slot,
+	& .plan-task-tabs [data-slot="tabs-trigger"] {
+		height: 28px;
+		border: 0;
+		border-radius: 7px;
+	}
+	& .plan-task-tabs [data-slot="tabs-trigger"] {
+		flex: 1;
+		min-width: 0;
+		margin: 0;
+		padding: 0 6px;
+		font-size: 12px;
+	}
+	& .plan-checkin-slot[data-current],
+	& .plan-task-tabs [data-slot="tabs-trigger"][data-state="active"] {
+		background: var(--raised-control);
+		box-shadow: var(--raise-shadow);
+		color: var(--foreground);
+		font-weight: 600;
+	}
+	& .plan-checkin-slot[data-done] {
+		box-shadow: inset 0 0 0 1px var(--tone-green);
+	}
+	/* Quick log prompts: tinted pills. */
+	& .plan-prompts button {
+		border: var(--border-width) solid
+			color-mix(in srgb, var(--prompt-tone, var(--foreground)) 24%, transparent);
+		border-radius: 999px;
+		background: color-mix(
+			in srgb,
+			var(--prompt-tone, var(--foreground)) 10%,
+			transparent
+		);
+		color: color-mix(
+			in srgb,
+			var(--prompt-tone, var(--foreground)) var(--tone-text-mix),
+			var(--foreground)
+		);
+	}
+	& .plan-prompts button:nth-child(1) {
+		--prompt-tone: var(--tone-green);
+	}
+	& .plan-prompts button:nth-child(2) {
+		--prompt-tone: var(--tone-blue);
+	}
+	& .plan-prompts button:nth-child(3) {
+		--prompt-tone: var(--tone-red);
+	}
+	& .plan-prompts button:nth-child(4) {
+		--prompt-tone: var(--tone-yellow);
+	}
+}

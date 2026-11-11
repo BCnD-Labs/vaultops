@@ -1,0 +1,12 @@
+{"format":"vaultops-note","v":1,"noteId":"toggles-1"}
+{"id":"t0","type":"paragraph","parent":null,"content":[{"text":"Before the toggles","type":"text"}]}
+{"id":"t1","type":"toggle","parent":null}
+{"id":"t1s","type":"paragraph","parent":"t1","content":[{"text":"A closed toggle","type":"text"}]}
+{"id":"t1b","type":"paragraph","parent":"t1","content":[{"text":"Its hidden body","type":"text"}]}
+{"id":"t2","type":"toggle","parent":null,"attrs":{"open":true}}
+{"id":"t2s","type":"paragraph","parent":"t2","content":[{"text":"An open toggle","type":"text"}]}
+{"id":"t2l","type":"bulletList","parent":"t2"}
+{"id":"t2li","type":"listItem","parent":"t2l"}
+{"id":"t2lp","type":"paragraph","parent":"t2li","content":[{"text":"A list in the body","type":"text"}]}
+{"id":"t3","type":"toggle","parent":"t2"}
+{"id":"t3s","type":"paragraph","parent":"t3","content":[{"text":"A toggle inside a toggle","type":"text"}]}

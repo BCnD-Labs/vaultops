@@ -1,0 +1,40 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { expect, it } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppShell } from "./AppShell";
+
+it("renders three regions, independent toggles, breadcrumb and note tools", () => {
+	const html = renderToStaticMarkup(
+		<TooltipProvider>
+			<AppShell
+				sidebar={<aside>Tree</aside>}
+				tools={<div>Note tools</div>}
+				vault="Vault"
+				path="Folder/Note.vnote"
+				title="Note"
+			>
+				<main>Editor</main>
+			</AppShell>
+		</TooltipProvider>,
+	);
+	expect(html.match(/data-panel=/g)).toHaveLength(3);
+	// One left toggle serves both the open and the collapsed sidebar.
+	expect(html.match(/aria-label="Toggle left sidebar"/g)).toHaveLength(1);
+	expect(html.match(/aria-label="Toggle right sidebar"/g)).toHaveLength(1);
+	for (const text of [
+		'id="left"',
+		'id="editor"',
+		'id="right"',
+		"Tree",
+		"Editor",
+		"Note tools",
+		"Folder",
+		"Note",
+		"Toggle left sidebar",
+		"Toggle right sidebar",
+	])
+		expect(html).toContain(text);
+	// The old icon rail is gone: its items live in the sidebar header, the
+	// vault menu and the right sidebar's tools.
+	expect(html).not.toContain('aria-label="Workspace"');
+});

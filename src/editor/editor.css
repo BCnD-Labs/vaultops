@@ -1,0 +1,1314 @@
+.note-editor {
+	position: relative;
+	flex: 1;
+}
+
+.note-editor .ProseMirror {
+	outline: none;
+	min-height: 12rem;
+	padding: 0.5rem 0;
+	max-width: var(--editor-width);
+	margin-inline: auto;
+	font-family: var(--font-editor);
+	font-size: var(--editor-font-size);
+	line-height: var(--editor-line-height);
+	overflow-wrap: anywhere;
+	color: var(--editor-text);
+}
+
+.note-editor strong {
+	color: var(--editor-bold);
+}
+
+.note-editor em {
+	color: var(--editor-italic);
+}
+
+.block-drag-handle [data-slot="button"] {
+	color: var(--muted-foreground);
+	background: var(--surface);
+	box-shadow: var(--elevation-1);
+}
+
+.block-drag-handle [data-slot="button"]:hover {
+	color: var(--foreground);
+	background: var(--accent);
+}
+
+.block-drop-indicator,
+.prosemirror-dropcursor-block {
+	position: absolute;
+	left: 0;
+	right: 0;
+	max-width: var(--editor-width);
+	margin-inline: auto;
+	height: calc(var(--focus-ring-width) * 2);
+	margin-top: calc(var(--focus-ring-width) * -1);
+	background: var(--primary);
+	border-radius: var(--radius-round);
+	pointer-events: none;
+	z-index: 10;
+}
+
+/* A round end so the line reads as "drop here", not as a stray border. */
+.block-drop-indicator::before {
+	content: "";
+	position: absolute;
+	left: calc(var(--space-unit) * -1);
+	top: 50%;
+	width: calc(var(--space-unit) * 3);
+	height: calc(var(--space-unit) * 3);
+	transform: translateY(-50%);
+	border-radius: var(--radius-round);
+	background: var(--primary);
+}
+
+.note-editor .ProseMirror > * + * {
+	margin-top: var(--block-gap);
+}
+
+/* While a block is carried over the note, just the line appears at the slot it
+   would land in. It is a real element, so the blocks above and below shift a
+   little to make room. */
+.note-editor .block-drop-slot {
+	display: flex;
+	align-items: center;
+	height: var(--focus-ring-width);
+	margin-block: var(--space-unit);
+	pointer-events: none;
+	user-select: none;
+}
+
+.block-drop-slot-line {
+	position: relative;
+	flex: 1;
+	height: var(--focus-ring-width);
+	background: var(--primary);
+	border-radius: var(--radius-round);
+}
+
+.block-drop-slot-line::before {
+	content: "";
+	position: absolute;
+	left: calc(var(--space-unit) * -1);
+	top: 50%;
+	width: calc(var(--space-unit) * 2);
+	height: calc(var(--space-unit) * 2);
+	transform: translateY(-50%);
+	border-radius: var(--radius-round);
+	background: var(--primary);
+}
+
+/* The block a dragged block would end up inside: outlined and named. */
+.note-editor .drop-nest-target {
+	position: relative;
+	outline: var(--focus-ring-width) dashed var(--primary);
+	outline-offset: var(--space-unit);
+	border-radius: var(--radius-control);
+}
+
+.note-editor .drop-nest-target::after {
+	content: attr(data-nest-label);
+	position: absolute;
+	top: 0;
+	right: 0;
+	transform: translateY(-100%);
+	padding: 0 var(--space-2);
+	font-size: var(--font-size-small);
+	line-height: 1.5;
+	color: var(--primary-foreground);
+	background: var(--primary);
+	border-radius: var(--radius-control);
+	pointer-events: none;
+	z-index: 10;
+}
+
+.note-editor[data-block-dragging] .prosemirror-dropcursor-block,
+.note-editor[data-block-dragging] .prosemirror-dropcursor-inline {
+	display: none;
+}
+
+/* Style settings (Settings > Themes) can set the heading weight and colour. */
+.note-editor :is(h1, h2, h3, h4, h5) {
+	color: var(--heading-color, inherit);
+	font-weight: var(--heading-weight, 700);
+}
+
+.note-editor h1 {
+	font-size: var(--editor-h1-size);
+	line-height: 1.25;
+	margin: 1rem 0 0.4rem;
+}
+
+.note-editor h2 {
+	font-size: var(--editor-h2-size);
+	line-height: 1.3;
+	margin: 0.9rem 0 0.3rem;
+}
+
+.note-editor h3 {
+	font-size: var(--editor-h3-size);
+	line-height: 1.4;
+	margin: 0.8rem 0 0.3rem;
+}
+
+/* Heading sizes come from the theme and can be changed in Settings > Editor. */
+.note-editor h4 {
+	font-size: var(--editor-h4-size);
+	line-height: 1.4;
+	margin: 0.7rem 0 0.3rem;
+}
+
+.note-editor h5 {
+	font-size: var(--editor-h5-size);
+	line-height: 1.45;
+	margin: 0.6rem 0 0.25rem;
+}
+
+/* H6 is the body size, set apart by a lighter weight and a muted colour. */
+.note-editor h6 {
+	font-size: var(--editor-h6-size);
+	line-height: 1.5;
+	font-weight: var(--heading-weight, 600);
+	color: var(--heading-color, var(--muted-foreground));
+	margin: 0.6rem 0 0.25rem;
+}
+
+.note-editor li > p {
+	margin-block: var(--list-gap);
+}
+
+.note-editor li + li {
+	margin-top: var(--list-gap);
+}
+
+/* Tiptap renders an empty paragraph with a trailing break. Only show the hint
+ * when that paragraph is the entire note, never for blank lines in a document. */
+.note-editor
+	.ProseMirror[contenteditable="true"]
+	> p:only-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
+	content: "Start writing, or type / for blocks";
+	color: var(--muted-foreground);
+	float: left;
+	height: 0;
+	max-width: 100%;
+	pointer-events: none;
+}
+
+[data-tone="red"],
+[data-color="red"] {
+	--tone: var(--tone-red);
+}
+[data-tone="orange"],
+[data-color="orange"] {
+	--tone: var(--tone-orange);
+}
+[data-tone="yellow"],
+[data-color="yellow"] {
+	--tone: var(--tone-yellow);
+}
+[data-tone="green"],
+[data-color="green"] {
+	--tone: var(--tone-green);
+}
+[data-tone="teal"],
+[data-color="teal"] {
+	--tone: var(--tone-teal);
+}
+[data-tone="blue"],
+[data-color="blue"] {
+	--tone: var(--tone-blue);
+}
+[data-tone="purple"],
+[data-color="purple"] {
+	--tone: var(--tone-purple);
+}
+[data-tone="pink"],
+[data-color="pink"] {
+	--tone: var(--tone-pink);
+}
+[data-tone="gray"],
+[data-color="gray"] {
+	--tone: var(--tone-gray);
+}
+
+.note-editor blockquote {
+	--quote-bar: var(--quote-bar-color, var(--primary));
+	position: relative;
+	margin: 0.6rem 0;
+	padding: var(--space-3) var(--space-4);
+	border-left: var(--quote-bar-width, var(--space-1)) solid var(--quote-bar);
+	border-radius: var(--radius-container);
+	border-top-left-radius: calc(var(--radius-control) / 2);
+	border-bottom-left-radius: calc(var(--radius-control) / 2);
+	background: var(--quote-bg, var(--surface-container));
+	color: var(--editor-quote);
+	line-height: 1.6;
+}
+
+.note-editor blockquote[data-color] {
+	--quote-bar: var(--tone);
+	background: color-mix(
+		in srgb,
+		var(--quote-bar) 10%,
+		var(--quote-bg, var(--surface-container))
+	);
+}
+
+.note-editor blockquote > :not(.quote-bar-picker) {
+	margin: 0;
+}
+
+.note-editor blockquote > :not(.quote-bar-picker) + :not(.quote-bar-picker) {
+	margin-top: 0.45rem;
+}
+
+.note-editor .quote-bar-picker {
+	position: absolute;
+	top: var(--space-2);
+	right: var(--space-2);
+	z-index: 5;
+	display: flex;
+	align-items: center;
+}
+
+.note-editor .quote-color-handle {
+	width: 14px;
+	height: 14px;
+	padding: 0;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-round);
+	background: var(--tone, var(--quote-bar));
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.note-editor blockquote:hover > .quote-bar-picker .quote-color-handle,
+.note-editor blockquote:focus-within > .quote-bar-picker .quote-color-handle,
+.note-editor .quote-color-handle:focus-visible,
+.note-editor .quote-bar-picker[data-open="true"] .quote-color-handle {
+	opacity: 1;
+}
+
+.note-editor .quote-color-popover {
+	position: absolute;
+	top: calc(100% + var(--space-1));
+	right: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	width: max-content;
+	max-width: 15rem;
+	padding: var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+}
+
+.note-editor .quote-color-popover[hidden] {
+	display: none;
+}
+
+.style-swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+
+.style-swatch {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-round);
+	background: var(--tone, transparent);
+	cursor: pointer;
+}
+
+.style-swatch-none {
+	background: linear-gradient(
+		135deg,
+		transparent 45%,
+		var(--muted-foreground) 45%,
+		var(--muted-foreground) 55%,
+		transparent 55%
+	);
+}
+
+.style-swatch[aria-pressed="true"] {
+	outline: var(--focus-ring-width) solid var(--foreground);
+	outline-offset: 1px;
+}
+
+.note-editor hr {
+	margin: 1rem 0;
+	border: 0;
+	border-top: var(--border-width) solid var(--editor-divider);
+}
+
+.note-editor hr[data-style="dashed"] {
+	border-top-style: dashed;
+}
+
+.note-editor hr[data-style="dotted"] {
+	border-top-style: dotted;
+	border-top-width: calc(var(--border-width) * 2);
+}
+
+.note-editor hr[data-style="thick"] {
+	border-top-width: calc(var(--border-width) * 3);
+}
+
+.note-editor hr.ProseMirror-selectednode {
+	outline: var(--border-width) solid var(--ring);
+	outline-offset: 0.35rem;
+}
+
+.note-editor .callout,
+.canvas-card .callout {
+	--callout-accent: var(--callout-note-accent);
+	--callout-bg: var(--surface-container);
+}
+
+.note-editor .callout {
+	display: flex;
+	gap: var(--space-3);
+	margin: 0.6rem 0;
+	padding: var(--space-3) var(--space-4);
+	border: var(--border-width) solid
+		color-mix(in srgb, var(--callout-accent) 35%, var(--line));
+	border-left: var(--callout-bar-width, var(--space-1)) solid
+		var(--callout-accent);
+	border-radius: var(--radius-container);
+	background: var(--callout-bg);
+}
+:root[data-outline-callouts] .note-editor .callout {
+	background: transparent;
+}
+
+.note-editor .callout-icon {
+	flex: none;
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2px;
+	margin-top: 0.1rem;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--callout-accent);
+	cursor: pointer;
+}
+
+.note-editor .callout-icon:hover:not(:disabled),
+.note-editor .callout-icon:focus-visible {
+	background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
+}
+
+.note-editor .callout-icon:disabled {
+	cursor: default;
+}
+
+.note-editor .callout-icon svg {
+	width: 1.1rem;
+	height: 1.1rem;
+}
+
+.note-editor .callout-body {
+	flex: 1;
+	min-width: 0;
+}
+
+.note-editor .callout-body p {
+	margin: 0;
+}
+
+.note-editor .callout-body > [data-node-view-content-react] > :first-child,
+.canvas-card .callout > :first-child {
+	font-weight: 600;
+	color: color-mix(
+		in srgb,
+		var(--callout-accent) var(--tone-text-mix),
+		var(--foreground)
+	);
+}
+
+.note-editor .callout-body p + p {
+	margin-top: 0.4rem;
+}
+
+.callout-style-popover {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	width: 18rem;
+}
+
+.callout-presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+}
+
+.callout-preset {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--foreground);
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+
+.callout-preset:hover {
+	background: var(--accent);
+}
+
+.callout-preset[aria-pressed="true"] {
+	border-color: var(--ring);
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+
+.callout-preset svg {
+	width: 14px;
+	height: 14px;
+}
+
+.note-editor .toggle {
+	display: flex;
+	gap: 0.25rem;
+	margin: 0.4rem 0;
+}
+
+.note-editor .toggle-chevron {
+	flex: none;
+	align-self: flex-start;
+	display: inline-flex;
+	padding: 0;
+	margin-top: 0.2rem;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+
+/* A toggle heading: the chevron sits on the middle of the heading's first line. */
+.note-editor .toggle[data-summary="h1"] > .toggle-chevron {
+	margin-top: calc((var(--editor-h1-size) * 1.25 - 1.1rem) / 2);
+}
+.note-editor .toggle[data-summary="h2"] > .toggle-chevron {
+	margin-top: calc((var(--editor-h2-size) * 1.3 - 1.1rem) / 2);
+}
+.note-editor .toggle[data-summary="h3"] > .toggle-chevron {
+	margin-top: calc((var(--editor-h3-size) * 1.4 - 1.1rem) / 2);
+}
+.note-editor .toggle[data-summary="h4"] > .toggle-chevron {
+	margin-top: calc((var(--editor-h4-size) * 1.4 - 1.1rem) / 2);
+}
+.note-editor .toggle[data-summary="h5"] > .toggle-chevron {
+	margin-top: calc((var(--editor-h5-size) * 1.45 - 1.1rem) / 2);
+}
+.note-editor .toggle[data-summary="h6"] > .toggle-chevron {
+	margin-top: calc((var(--editor-h6-size) * 1.5 - 1.1rem) / 2);
+}
+
+.note-editor .toggle-chevron:disabled {
+	cursor: default;
+}
+
+.note-editor .toggle-chevron:focus-visible {
+	outline: var(--border-width) solid var(--ring);
+}
+
+.note-editor .toggle-chevron svg {
+	width: 1.1rem;
+	height: 1.1rem;
+}
+
+.note-editor .toggle[data-open="true"] > .toggle-chevron svg {
+	transform: rotate(90deg);
+}
+
+.note-editor .switch-block,
+.canvas-card .switch-block {
+	position: relative;
+	display: flex;
+	gap: var(--space-2);
+	margin: var(--space-2) 0;
+	padding: var(--space-1);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+}
+
+.note-editor .switch-control {
+	flex: none;
+	padding-top: 2px;
+}
+
+.note-editor .switch-content,
+.canvas-card .switch-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.note-editor .switch-content > [data-node-view-content-react] > * {
+	margin: 0;
+}
+
+.note-editor .switch-content > [data-node-view-content-react] > * + * {
+	margin-top: 0.4rem;
+}
+
+/* Off: dimmed, a thin border and faint diagonal scan lines (running like "/"). */
+.note-editor .switch-block[data-off="true"],
+.canvas-card .switch-block[data-off="true"] {
+	border-color: var(--line);
+}
+
+.note-editor .switch-block[data-off="true"] .switch-content,
+.canvas-card .switch-block[data-off="true"] .switch-content {
+	opacity: 0.55;
+}
+
+.note-editor .switch-block[data-off="true"]::after,
+.canvas-card .switch-block[data-off="true"]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: repeating-linear-gradient(
+		135deg,
+		transparent 0 3px,
+		color-mix(in srgb, var(--foreground) 9%, transparent) 3px 4px
+	);
+	pointer-events: none;
+}
+
+.note-editor .toggle-content {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Tiptap puts the toggle's blocks inside one extra wrapper div. */
+.note-editor .toggle-content > [data-node-view-content-react] > * {
+	margin: 0;
+}
+
+.note-editor .toggle-content > [data-node-view-content-react] > * + * {
+	margin-top: 0.4rem;
+}
+
+.note-editor
+	.toggle[data-open="false"]
+	> .toggle-content
+	> [data-node-view-content-react]
+	> :not(:first-child) {
+	display: none;
+}
+
+.note-editor .callout[data-tone="info"],
+.canvas-card .callout[data-tone="info"] {
+	--callout-accent: var(--callout-info-accent);
+	--callout-bg: var(--callout-info-bg);
+}
+
+.note-editor .callout[data-tone="tip"],
+.canvas-card .callout[data-tone="tip"] {
+	--callout-accent: var(--callout-tip-accent);
+	--callout-bg: var(--callout-tip-bg);
+}
+
+.note-editor .callout[data-tone="warning"],
+.canvas-card .callout[data-tone="warning"] {
+	--callout-accent: var(--callout-warning-accent);
+	--callout-bg: var(--callout-warning-bg);
+}
+
+.note-editor .callout[data-tone="danger"],
+.canvas-card .callout[data-tone="danger"] {
+	--callout-accent: var(--callout-danger-accent);
+	--callout-bg: var(--callout-danger-bg);
+}
+
+.note-editor .callout[data-color],
+.canvas-card .callout[data-color] {
+	--callout-accent: var(--tone);
+	--callout-bg: color-mix(in srgb, var(--tone) 14%, var(--surface-container));
+}
+
+.note-editor pre {
+	position: relative;
+	padding: var(--space-6) var(--space-4) var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--editor-code-bg);
+	color: var(--editor-code-text);
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	line-height: 1.55;
+	overflow-x: auto;
+	white-space: pre;
+	overflow-wrap: normal;
+	word-break: normal;
+}
+
+.note-editor code,
+.canvas-card code {
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	color: var(--editor-code-text);
+}
+
+.note-editor :not(pre) > code,
+.canvas-card :not(pre) > code {
+	padding: 0.1em 0.35em;
+	border-radius: var(--radius-control);
+	background: var(--editor-code-bg);
+}
+
+.note-editor pre code,
+.canvas-card pre code {
+	font-size: inherit;
+	background: none;
+	padding: 0;
+}
+
+.note-editor .task-block {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+}
+
+.note-editor .task-block-box {
+	flex: none;
+	margin: 0;
+	position: relative;
+	top: 0.12em;
+}
+
+.note-editor .task-block-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.note-editor .task-block[data-checked="true"] .task-block-text {
+	text-decoration: line-through;
+	opacity: 0.6;
+}
+
+.slash-menu {
+	position: fixed;
+	z-index: 20;
+	box-sizing: border-box;
+	/* A fixed width and a height cap: a long list scrolls instead of growing. */
+	width: 17rem;
+	--slash-menu-max-height: 16rem;
+	max-height: var(--slash-menu-max-height);
+	padding: 4px;
+	background: var(--surface);
+	color: var(--foreground);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-2);
+	/* Placement lowers the cap further when the window is shorter than it. */
+	overflow-y: auto;
+	font-size: var(--font-size-small);
+}
+
+.slash-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	text-align: left;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: inherit;
+	font: inherit;
+	line-height: 1.3;
+	cursor: pointer;
+}
+
+.slash-menu-section {
+	margin-top: var(--space-1);
+	padding: calc(var(--space-unit) * 1.5) var(--space-2)
+		calc(var(--space-unit) / 2);
+	border-top: var(--border-width) solid var(--line);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.slash-menu-section:first-child {
+	margin-top: 0;
+	border-top: 0;
+}
+
+.slash-menu-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--muted-foreground);
+}
+.slash-menu-icon svg {
+	width: 16px;
+	height: 16px;
+}
+.slash-menu-label {
+	flex: 1;
+	min-width: 0;
+}
+.slash-menu-hint {
+	flex: none;
+	color: var(--muted-foreground);
+	font: inherit;
+}
+
+.slash-menu-item[aria-selected="true"],
+.slash-menu-item:hover {
+	background: var(--accent);
+}
+
+.slash-menu-empty {
+	padding: 4px 8px;
+	color: var(--muted-foreground);
+}
+
+.lift-ghost {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 1000;
+	box-sizing: border-box;
+	overflow: hidden;
+	padding: 0.4rem 0.75rem;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	color: var(--foreground);
+	opacity: 0.96;
+	pointer-events: none;
+	will-change: transform;
+	transition: box-shadow var(--motion-normal);
+}
+
+.lift-ghost--up {
+	box-shadow: var(--elevation-3);
+}
+
+/* The note's own sizing is for the whole page; the picture is one block. */
+.lift-ghost.note-editor {
+	flex: none;
+	font-family: var(--font-editor);
+	font-size: var(--editor-font-size);
+	line-height: var(--editor-line-height);
+	overflow-wrap: anywhere;
+	color: var(--editor-text);
+}
+
+.lift-ghost--card {
+	padding: 10px;
+}
+
+.lift-blank {
+	position: absolute;
+	top: -10000px;
+	left: -10000px;
+	width: 1px;
+	height: 1px;
+	pointer-events: none;
+}
+
+.lift-hole {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 999;
+	border: var(--border-width) dashed var(--line);
+	border-radius: var(--radius-container);
+	background: color-mix(in srgb, var(--background) 82%, transparent);
+	pointer-events: none;
+}
+
+.note-editor mark,
+.canvas-card mark {
+	padding-inline: 0.1em;
+	border-radius: var(--radius-control);
+	background: var(--editor-highlight-bg);
+	color: var(--editor-highlight-text);
+}
+
+.note-editor sub,
+.note-editor sup,
+.canvas-card sub,
+.canvas-card sup {
+	line-height: 0;
+}
+
+.format-bar {
+	display: flex;
+	gap: 2px;
+	padding: 2px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+}
+
+.format-bar [data-slot="button"][aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--foreground);
+}
+
+/* Tables: a bordered grid, header row tinted, cells that grow with their text. */
+.note-editor table {
+	width: 100%;
+	margin: 0.5em 0;
+	border-collapse: collapse;
+	table-layout: fixed;
+	overflow: hidden;
+}
+.note-editor th,
+.note-editor td {
+	position: relative;
+	min-width: 3em;
+	padding: 4px 8px;
+	border: var(--border-width) solid var(--line);
+	vertical-align: top;
+	box-sizing: border-box;
+}
+.note-editor th {
+	background: var(--surface-container);
+	font-weight: 600;
+	text-align: left;
+}
+.note-editor td > p,
+.note-editor th > p {
+	margin: 0;
+}
+/* The wrapper the resizable table gets scrolls sideways if columns are dragged wide. */
+.note-editor .tableWrapper {
+	overflow-x: auto;
+}
+/* Column resizing: the handle only exists while the pointer is near a column's
+ * right edge or dragging it, so it is always shown; the cursor says what it does. */
+.note-editor .column-resize-handle {
+	position: absolute;
+	top: 0;
+	right: calc(var(--border-width) * -1);
+	bottom: 0;
+	z-index: 2;
+	width: var(--space-unit);
+	background: var(--primary);
+	pointer-events: none;
+}
+.note-editor .ProseMirror.resize-cursor {
+	cursor: col-resize;
+}
+/* "+" bars on a hovered table's right and bottom edges: add a column or row at the end. */
+.note-editor .table-edge-bar {
+	position: absolute;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+	color: var(--muted-foreground);
+	cursor: pointer;
+	opacity: 0.6;
+	transition:
+		opacity var(--motion-fast) var(--ease-standard),
+		background var(--motion-fast) var(--ease-standard);
+}
+.note-editor .table-edge-bar-column {
+	width: calc(var(--space-unit) * 4);
+	margin-left: var(--space-unit);
+}
+.note-editor .table-edge-bar-row {
+	height: calc(var(--space-unit) * 4);
+	margin-top: var(--space-unit);
+}
+.note-editor .table-edge-bar:hover,
+.note-editor .table-edge-bar:focus-visible {
+	opacity: 1;
+	background: var(--accent);
+	color: var(--foreground);
+}
+.note-editor .selectedCell::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: var(--accent);
+	opacity: 0.4;
+	pointer-events: none;
+}
+
+/* Folding: a chevron in the margin, hidden blocks, and an ellipsis when folded. */
+.note-editor :is(h1, h2, h3, h4, h5, h6),
+.note-editor li {
+	position: relative;
+}
+.note-editor .fold-toggle {
+	position: absolute;
+	left: -1.5em;
+	top: 0.35em;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.2em;
+	height: 1.2em;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.note-editor .fold-toggle::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg) translate(-0.1em, -0.1em);
+	transition: transform var(--motion-fast) var(--ease-standard);
+}
+.note-editor .fold-toggle[data-folded="true"]::before {
+	transform: rotate(-45deg);
+}
+.note-editor :is(h1, h2, h3, h4, h5, h6):hover > .fold-toggle,
+.note-editor li:hover > .fold-toggle,
+.note-editor .fold-toggle:focus-visible,
+.note-editor .fold-toggle[data-folded="true"] {
+	opacity: 1;
+}
+.note-editor .fold-hidden {
+	display: none;
+}
+.note-editor .is-folded > p:first-of-type::after,
+.note-editor :is(h1, h2, h3, h4, h5, h6).is-folded::after {
+	content: " …";
+	color: var(--muted-foreground);
+}
+
+/* Indent guides: a hairline beside nested lists. */
+.note-editor li > ul,
+.note-editor li > ol {
+	margin-left: 0.4em;
+	padding-left: var(--list-indent, 1.2em);
+	border-left: var(--border-width) solid var(--list-guide, var(--line));
+}
+:root[data-hide-list-guides] .note-editor li > :is(ul, ol) {
+	border-left-color: transparent;
+}
+.note-editor li::marker {
+	color: var(--list-marker, inherit);
+}
+
+/* Nested list markers, so each level reads apart: numbers, then letters,
+   then roman numerals; bullets, then circles, then squares. A bulleted list
+   under a numbered item keeps plain bullets (top levels use the browser's
+   decimal and disc). */
+.note-editor ol ol {
+	list-style-type: lower-alpha;
+}
+.note-editor ol ol ol {
+	list-style-type: lower-roman;
+}
+.note-editor ol ul {
+	list-style-type: disc;
+}
+.note-editor ul ul {
+	list-style-type: circle;
+}
+.note-editor ul ul ul {
+	list-style-type: square;
+}
+
+/* Block outline: off in every theme now (it was there while blocks were new,
+ * so they could be seen). A theme can set --block-outline to show it again;
+ * a selected block still gets the ring. */
+.note-editor .ProseMirror > * {
+	outline: var(--border-width) solid var(--block-outline);
+	outline-offset: calc(var(--space-unit) / 2);
+	border-radius: var(--radius-control);
+}
+.note-editor .ProseMirror > .ProseMirror-selectednode,
+.note-editor .ProseMirror > hr.ProseMirror-selectednode {
+	outline-color: var(--ring);
+}
+
+/* Keyboard key (kbd mark) */
+.note-editor kbd,
+.canvas-card kbd {
+	padding: 0 0.35em;
+	border: var(--border-width) solid var(--border);
+	border-bottom-width: calc(var(--border-width) * 2);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	color: var(--editor-code-text);
+}
+
+/* Code block header: language label/picker and Copy on hover */
+.note-editor pre .code-block-bar {
+	position: absolute;
+	top: var(--space-1);
+	right: var(--space-2);
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-family: var(--font-ui);
+	font-size: var(--font-size-small);
+	line-height: 1.4;
+	white-space: normal;
+}
+
+.note-editor pre .code-language,
+.note-editor pre .code-copy {
+	padding: 1px var(--space-2);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--muted-foreground);
+	font: inherit;
+}
+
+.note-editor pre select.code-language {
+	cursor: pointer;
+}
+
+.note-editor pre:hover select.code-language,
+.note-editor pre select.code-language:focus-visible {
+	border-color: var(--line);
+	background: var(--surface-container-low);
+	color: var(--foreground);
+}
+
+.note-editor pre .code-copy {
+	border-color: var(--line);
+	background: var(--surface-container-low);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.note-editor pre:hover .code-copy,
+.note-editor pre:focus-within .code-copy,
+.note-editor pre .code-copy:focus-visible,
+.note-editor pre .code-copy[data-copied="true"] {
+	opacity: 1;
+}
+
+.note-editor pre .code-copy:hover,
+.note-editor pre .code-copy:focus-visible {
+	background: var(--accent);
+	color: var(--foreground);
+}
+
+/* Syntax colours: theme tone tokens mixed with the code text colour. */
+.note-editor pre .hljs-comment,
+.note-editor pre .hljs-quote {
+	color: var(--muted-foreground);
+	font-style: italic;
+}
+
+.note-editor pre .hljs-keyword,
+.note-editor pre .hljs-selector-tag,
+.note-editor pre .hljs-tag,
+.note-editor pre .hljs-operator {
+	color: color-mix(
+		in srgb,
+		var(--tone-purple) var(--tone-text-mix),
+		var(--editor-code-text)
+	);
+}
+
+.note-editor pre .hljs-string,
+.note-editor pre .hljs-regexp,
+.note-editor pre .hljs-addition,
+.note-editor pre .hljs-template-tag,
+.note-editor pre .hljs-template-variable {
+	color: color-mix(
+		in srgb,
+		var(--tone-green) var(--tone-text-mix),
+		var(--editor-code-text)
+	);
+}
+
+.note-editor pre .hljs-number,
+.note-editor pre .hljs-literal,
+.note-editor pre .hljs-built_in,
+.note-editor pre .hljs-type {
+	color: color-mix(
+		in srgb,
+		var(--tone-orange) var(--tone-text-mix),
+		var(--editor-code-text)
+	);
+}
+
+.note-editor pre .hljs-title,
+.note-editor pre .hljs-function,
+.note-editor pre .hljs-section {
+	color: color-mix(
+		in srgb,
+		var(--tone-blue) var(--tone-text-mix),
+		var(--editor-code-text)
+	);
+}
+
+.note-editor pre .hljs-attr,
+.note-editor pre .hljs-attribute,
+.note-editor pre .hljs-variable,
+.note-editor pre .hljs-params,
+.note-editor pre .hljs-property,
+.note-editor pre .hljs-symbol {
+	color: color-mix(
+		in srgb,
+		var(--tone-teal) var(--tone-text-mix),
+		var(--editor-code-text)
+	);
+}
+
+.note-editor pre .hljs-deletion,
+.note-editor pre .hljs-meta {
+	color: color-mix(
+		in srgb,
+		var(--tone-red) var(--tone-text-mix),
+		var(--editor-code-text)
+	);
+}
+
+/* Date chip */
+.note-editor .date-chip,
+.canvas-card .date-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	color: var(--foreground);
+	font-size: var(--code-font-size);
+}
+.note-editor .date-chip input {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.note-editor .date-chip.ProseMirror-selectednode {
+	border-color: var(--ring);
+}
+
+/* "Move out of the list/quote/…": a small button at the block's right edge,
+   shown only while the pointer is over a block that sits inside another. */
+.note-editor .move-out-button {
+	position: absolute;
+	z-index: 5;
+	width: calc(var(--space-unit) * 6);
+	height: calc(var(--space-unit) * 6);
+	transform: translate(-100%, 0);
+	color: var(--muted-foreground);
+	background: var(--surface);
+	box-shadow: var(--elevation-1);
+}
+
+.note-editor .move-out-button:hover {
+	color: var(--foreground);
+	background: var(--accent);
+}
+
+/* Columns: equal-width cells side by side, a hairline between them. */
+.note-editor [data-type="columns"] {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(0, 1fr);
+	gap: var(--space-4);
+	margin: var(--space-2) 0;
+}
+
+.note-editor [data-type="column"] {
+	min-width: 0;
+}
+
+.note-editor [data-type="column"] + [data-type="column"] {
+	padding-inline-start: var(--space-4);
+	border-inline-start: var(--border-width) solid var(--line);
+}
+
+.note-link {
+	display: inline;
+}
+.note-link-chip {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.25em;
+	padding: 0 0.35em;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	color: var(--foreground);
+	font: inherit;
+	line-height: inherit;
+	cursor: pointer;
+}
+.note-link-chip svg {
+	align-self: center;
+	width: 0.9em;
+	height: 0.9em;
+	color: var(--muted-foreground);
+}
+.note-link-chip:hover {
+	background: var(--accent);
+}
+/* A link whose target was deleted: still readable, plainly marked. */
+.note-link-chip[data-missing="true"] {
+	color: var(--muted-foreground);
+	text-decoration: line-through;
+}
+/* On a canvas the chip only names the link; it is not a button there. */
+span.note-link-chip {
+	cursor: default;
+}
+span.note-link-chip:hover {
+	background: var(--surface);
+}
+
+/* What a link whose target is gone offers, right beside it. */
+.note-link-gone {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5em;
+	margin: 0 0 0 0.4em;
+	min-width: 0;
+	padding: 0 0.5em;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	font-size: var(--font-size-small);
+}
+.note-link-gone button {
+	border: 0;
+	background: none;
+	color: var(--accent-foreground, inherit);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}

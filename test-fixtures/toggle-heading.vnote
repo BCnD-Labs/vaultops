@@ -1,0 +1,8 @@
+{"format":"vaultops-note","v":1,"noteId":"toggle-headings-1"}
+{"id":"h0","type":"paragraph","parent":null,"content":[{"text":"Before the toggle headings","type":"text"}]}
+{"id":"th1","type":"toggle","parent":null,"attrs":{"open":true}}
+{"id":"th1s","type":"heading","parent":"th1","content":[{"text":"An open toggle heading","type":"text"}]}
+{"id":"th1b","type":"paragraph","parent":"th1","content":[{"text":"Its body","type":"text"}]}
+{"id":"th2","type":"toggle","parent":null}
+{"id":"th2s","type":"heading","parent":"th2","attrs":{"level":2},"content":[{"text":"A closed toggle heading","type":"text"}]}
+{"id":"th2b","type":"paragraph","parent":"th2","content":[{"text":"Its hidden body","type":"text"}]}

@@ -1,0 +1,9 @@
+{"format":"vaultops-note","v":1,"noteId":"switches-1"}
+{"id":"s0","type":"paragraph","parent":null,"content":[{"text":"Before the switches","type":"text"}]}
+{"id":"s1","type":"switch","parent":null}
+{"id":"s1p","type":"paragraph","parent":"s1","content":[{"text":"An on block","type":"text"}]}
+{"id":"s2","type":"switch","parent":null,"attrs":{"off":true}}
+{"id":"s2p","type":"paragraph","parent":"s2","content":[{"text":"An off block","type":"text"}]}
+{"id":"s2l","type":"bulletList","parent":"s2"}
+{"id":"s2li","type":"listItem","parent":"s2l"}
+{"id":"s2lp","type":"paragraph","parent":"s2li","content":[{"text":"A list inside","type":"text"}]}

@@ -1,0 +1,6 @@
+{"format":"vaultops-note","v":1,"noteId":"dividers-1"}
+{"id":"a1","type":"paragraph","parent":null,"content":[{"text":"Solid, then dashed, dotted, thick","type":"text"}]}
+{"id":"d1","type":"divider","parent":null}
+{"id":"d2","type":"divider","parent":null,"attrs":{"style":"dashed"}}
+{"id":"d3","type":"divider","parent":null,"attrs":{"style":"dotted"}}
+{"id":"d4","type":"divider","parent":null,"attrs":{"style":"thick"}}

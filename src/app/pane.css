@@ -1,0 +1,1594 @@
+.pane {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 16px 24px;
+	overflow-y: auto;
+}
+
+.editor-split {
+	min-width: 0;
+}
+.editor-split .pane {
+	height: 100%;
+	box-sizing: border-box;
+}
+.canvas-pane {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	height: 100%;
+	background: var(--panel);
+	border-left: var(--border-width) solid var(--line);
+}
+/* The name sits on the canvas, top left, as a small label: the canvas takes the
+   whole pane. The bar itself has no height; only the name field is drawn. */
+.canvas-bar {
+	position: relative;
+	z-index: 6;
+	height: 0;
+}
+.canvas-name {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	box-sizing: border-box;
+	width: min(240px, calc(100% - 20px));
+	min-width: 0;
+	font: inherit;
+	font-weight: 600;
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: inherit;
+	padding: 4px 8px;
+	outline: none;
+}
+.canvas-name:hover:not(:disabled) {
+	border-color: var(--line);
+	background: var(--panel);
+}
+.canvas-name:focus {
+	outline: var(--focus-ring-width) solid var(--ring);
+}
+.canvas-surface {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+.canvas-pane-locked .canvas-surface,
+.canvas-surface-locked {
+	box-shadow: var(--canvas-lock-ring);
+}
+.canvas-cluster {
+	position: absolute;
+	right: 12px;
+	bottom: 56px;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+}
+.canvas-cluster svg {
+	width: 16px;
+	height: 16px;
+}
+.canvas-cluster [aria-pressed="true"] {
+	background: var(--primary-container);
+	color: var(--on-primary-container);
+}
+.canvas-lock {
+	position: absolute;
+	right: 12px;
+	bottom: 12px;
+	z-index: 5;
+	background: var(--surface);
+	border: var(--border-width) solid var(--line);
+}
+.canvas-lock[aria-pressed="true"] {
+	background: var(--primary-container);
+	color: var(--on-primary-container);
+}
+.canvas-lock svg {
+	width: 16px;
+	height: 16px;
+}
+.canvas-empty {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: var(--muted-foreground);
+	pointer-events: none;
+}
+.canvas-pane .react-flow__node.canvas-node {
+	width: 240px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	color: var(--foreground);
+	box-shadow: var(--elevation-2);
+	/* The card fills the whole node, so it can be grabbed anywhere on it. */
+	padding: 0;
+	text-align: left;
+}
+.canvas-drop-placeholder {
+	position: absolute;
+	width: 240px;
+	height: 56px;
+	border: var(--border-width) dashed var(--primary);
+	border-radius: var(--radius-container);
+	background: var(--primary-container);
+	opacity: 0.35;
+	pointer-events: none;
+	z-index: 4;
+}
+.canvas-card {
+	position: relative;
+	box-sizing: border-box;
+	min-height: calc(var(--space-unit) * 14);
+	padding: var(--space-3);
+	font-size: var(--font-size-ui);
+	overflow-wrap: anywhere;
+}
+.canvas-card[data-tone] {
+	border: var(--border-width) solid var(--item-accent);
+	border-radius: var(--radius-control);
+	background: var(--item-fill);
+}
+.canvas-pane-locked .canvas-card {
+	cursor: grab;
+}
+.canvas-card p {
+	margin: 0;
+}
+.canvas-card ul,
+.canvas-card ol {
+	margin: 0;
+	padding-left: 20px;
+}
+.canvas-card blockquote {
+	--quote-bar: var(--primary);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	border-left: var(--space-1) solid var(--quote-bar);
+	border-radius: var(--radius-container);
+	border-top-left-radius: calc(var(--radius-control) / 2);
+	border-bottom-left-radius: calc(var(--radius-control) / 2);
+	background: var(--surface-container);
+	color: var(--editor-quote);
+}
+.canvas-card blockquote[data-color] {
+	--quote-bar: var(--tone);
+	background: color-mix(
+		in srgb,
+		var(--quote-bar) 10%,
+		var(--surface-container)
+	);
+}
+.canvas-card hr {
+	margin: 4px 0;
+	border: 0;
+	border-top: var(--border-width) solid var(--editor-divider);
+}
+.canvas-card .callout {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) solid
+		color-mix(in srgb, var(--callout-accent) 35%, var(--line));
+	border-left: var(--space-1) solid var(--callout-accent);
+	border-radius: var(--radius-container);
+	background: var(--callout-bg);
+}
+.canvas-card .toggle {
+	text-align: start;
+}
+.canvas-card .toggle-summary {
+	display: flex;
+	gap: 4px;
+	align-items: flex-start;
+}
+.canvas-card .toggle-chevron {
+	flex: none;
+	width: 1em;
+	height: 1em;
+	margin-top: 0.15em;
+	color: var(--muted-foreground);
+}
+.canvas-card .toggle[data-open="true"] .toggle-chevron {
+	transform: rotate(90deg);
+}
+.canvas-card .toggle-body {
+	margin-left: 1.25em;
+}
+.canvas-card pre {
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--editor-code-bg);
+	color: var(--editor-code-text);
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	overflow-x: auto;
+	white-space: pre;
+	overflow-wrap: normal;
+}
+.canvas-card table {
+	border-collapse: collapse;
+}
+.canvas-card td,
+.canvas-card th {
+	border: var(--border-width) solid var(--line);
+	padding: 4px;
+}
+.canvas-heading {
+	font-size: var(--font-size-title);
+}
+.canvas-menu {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	color: var(--muted-foreground);
+	cursor: pointer;
+	opacity: 0;
+}
+.canvas-card:hover .canvas-menu,
+.canvas-menu:focus-visible {
+	opacity: 1;
+}
+.canvas-pane .react-flow__controls {
+	box-shadow: var(--elevation-1);
+}
+.canvas-pane .react-flow__controls-button {
+	background: var(--surface);
+	color: var(--foreground);
+	border-color: var(--line);
+}
+
+.title-field {
+	font: inherit;
+	font-size: var(--font-size-title);
+	font-weight: 600;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	padding: var(--space-1) 0;
+	margin-bottom: var(--title-gap);
+	outline: none;
+}
+
+.title-field:focus {
+	outline: var(--focus-ring-width) solid var(--ring);
+}
+
+.status-line {
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+	position: relative;
+	padding-right: 68px;
+	min-height: 20px;
+}
+
+.status-line [role="alert"] {
+	color: var(--bad);
+}
+
+.empty-pane {
+	color: var(--muted-foreground);
+	margin: auto;
+}
+
+@media (max-width: 640px) {
+	.pane {
+		padding: 12px;
+	}
+}
+.note-menu {
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: 28px;
+	height: 28px;
+}
+.note-reading {
+	position: absolute;
+	right: 32px;
+	top: 0;
+	width: 28px;
+	height: 28px;
+}
+.note-reading svg,
+.note-menu svg {
+	width: 16px;
+	height: 16px;
+}
+
+.props {
+	margin: 0 0 12px;
+	padding: 8px 0;
+	font-size: var(--font-size-ui);
+	color: var(--foreground);
+}
+
+.prop-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: var(--row-height);
+}
+
+.prop-name {
+	flex: none;
+	width: 30%;
+	color: var(--muted-foreground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.props input:not([type="checkbox"]),
+.prop-add input {
+	font: inherit;
+	padding: 3px 6px;
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: inherit;
+}
+
+.props input:not([type="checkbox"]):hover {
+	border-color: var(--line);
+}
+.props input:not([type="checkbox"]):focus {
+	border-color: var(--ring);
+}
+.prop-add-trigger {
+	margin-top: 8px;
+	color: var(--muted-foreground);
+}
+
+.prop-add {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+}
+
+.prop-row > input:not([type="checkbox"]),
+.prop-row > .chips {
+	flex: 1;
+	min-width: 0;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 1px 4px 1px 8px;
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+}
+
+.chip-label {
+	background: none;
+	border: 0;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+	padding: 0;
+}
+
+.chip-label:hover {
+	background: var(--accent);
+}
+
+.chip-remove {
+	display: inline-flex;
+	background: none;
+	border: 0;
+	padding: 2px;
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+
+.chip-remove:hover {
+	background: var(--accent);
+	color: inherit;
+}
+
+.props .chip-input {
+	width: 90px;
+	border-radius: var(--radius-control);
+}
+
+.vault-row {
+	padding: 12px 0;
+	border-bottom: var(--border-width) solid var(--line);
+	overflow-wrap: anywhere;
+}
+
+.vault-row p {
+	margin: 4px 0;
+	color: var(--muted-foreground);
+}
+
+/* A small back button, not a bar across the page. */
+.screen-back {
+	align-self: flex-start;
+}
+
+/* The trash: cards in a grid, or a plain list. */
+.trash-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+}
+.trash-head h2 {
+	margin: 0;
+}
+.trash-items[data-view="cards"] {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+	gap: var(--space-3);
+}
+.trash-items[data-view="list"] {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.trash-item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	overflow-wrap: anywhere;
+}
+.trash-items[data-view="list"] .trash-item {
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	border-radius: var(--radius-control);
+}
+.trash-main {
+	flex: 1;
+	min-width: 0;
+}
+.trash-main p {
+	margin: var(--space-1) 0 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.trash-name {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.trash-name svg {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	color: var(--muted-foreground);
+}
+.trash-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+.trash-items[data-view="cards"] .trash-actions,
+.trash-items[data-view="cards"] .tree-confirm {
+	margin-top: auto;
+}
+
+.settings-screen {
+	max-width: var(--editor-width);
+	width: 100%;
+	margin-inline: auto;
+}
+
+.settings-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(var(--shell-gap) * 2);
+	padding: 10px 0;
+	border-bottom: var(--border-width) solid var(--line);
+}
+
+.settings-row input[type="color"] {
+	width: 40px;
+	height: var(--control-height);
+	padding: 0;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: none;
+	cursor: pointer;
+}
+
+.settings-note {
+	margin: 8px 0 0;
+	color: var(--muted-foreground);
+}
+
+/* Match the title and metadata to the editor column without changing markup. */
+.pane > .title-field,
+.pane > .status-line {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+}
+
+.note-chips,
+.note-details {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+}
+.note-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+.note-meta-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	padding: 3px 6px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+	color: var(--foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	overflow-wrap: anywhere;
+}
+button.note-meta-chip {
+	cursor: pointer;
+}
+button.note-meta-chip:hover,
+button.note-meta-chip:focus-visible {
+	background: var(--accent);
+}
+.note-chips svg {
+	width: 12px;
+	height: 12px;
+	flex: none;
+}
+.note-more {
+	background: transparent;
+	color: var(--muted-foreground);
+	border-color: transparent;
+}
+.note-details {
+	margin-top: auto;
+	padding-top: 16px;
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+}
+.note-details-trigger {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 8px 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+.note-details-trigger svg {
+	width: 12px;
+	height: 12px;
+}
+.note-details-trigger[data-state="open"] svg {
+	transform: rotate(90deg);
+}
+.note-details dl {
+	margin: 0;
+}
+.note-details dl > div {
+	display: flex;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+.note-details dt {
+	min-width: 64px;
+}
+.note-details dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.new-tab {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin: auto;
+}
+
+.new-tab .empty-pane {
+	margin: 0;
+}
+
+.new-tab-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 16rem;
+}
+
+.new-tab-actions button {
+	justify-content: flex-start;
+}
+
+.new-tab-actions kbd {
+	margin-left: auto;
+	color: var(--muted-foreground);
+	font: inherit;
+}
+
+.split-empty {
+	display: flex;
+	height: 100%;
+	overflow: auto;
+}
+
+/* Split view: each side is a column with its own tab strip above its content. */
+.pane-column {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.pane-column > .pane,
+.pane-column > .canvas-pane,
+.pane-column > .split-empty {
+	flex: 1;
+	height: auto;
+	min-height: 0;
+}
+
+/* Two sides that read as two windows: a visible gap between them and a
+   rounded edge on each tab strip's outer corner only. */
+.editor-split [data-slot="resizable-handle"] {
+	width: 4px;
+	background: var(--shell-frame);
+}
+
+.pane-column .tab-bar {
+	border-radius: 0;
+}
+.workspace-pane {
+	position: relative;
+	height: 100%;
+}
+/* Above the drop zones, so a tab can still be dropped on its own strip. */
+.workspace-pane .tab-bar {
+	position: relative;
+	z-index: 1;
+}
+/* Where a dragged tab will land: a bar on the edge of the tab it goes before,
+   or after the last tab. */
+.tab-list .tab[data-drop="before"],
+.tab-list[data-drop-end="true"] .tab:last-child {
+	position: relative;
+}
+.tab-list .tab[data-drop="before"]::before,
+.tab-list[data-drop-end="true"] .tab:last-child::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	width: 2px;
+	background: var(--accent);
+	pointer-events: none;
+}
+.tab-list .tab[data-drop="before"]::before {
+	left: 0;
+}
+.tab-list[data-drop-end="true"] .tab:last-child::after {
+	right: 0;
+}
+/* The tab being carried stays put but quiet; the copy under the pointer is the
+   one in play, and the slot does not keep a hover look after the drop. */
+.tab-list .tab[data-carried="true"] {
+	opacity: 0.4;
+	background: none;
+}
+.tab-list .tab[data-carried="true"] .tab-close {
+	visibility: hidden;
+}
+/* Shown only while a tab is being dragged. */
+.pane-drop-zone {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: var(--border-width) dashed var(--accent);
+	background: color-mix(in srgb, var(--accent) 10%, transparent);
+	color: var(--foreground);
+}
+.pane-drop-zone[data-edge="true"] {
+	inset: 0 0 0 70%;
+}
+.pane-drop-zone[data-over="true"] {
+	background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+/* With two panes, the one that has focus says so on its tab strip. */
+.workspace-pane[data-split="true"][data-focused="true"] .tab-bar {
+	border-bottom-color: var(--accent);
+}
+
+/* The editor area under the nav bar: a message line above the panes. */
+.editor-stack {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+.editor-stack > .editor-split {
+	flex: 1;
+	min-height: 0;
+	height: auto;
+}
+
+/* Properties block under the title: stock-Obsidian rows, theme tokens only. */
+.props-block {
+	width: 100%;
+	max-width: var(--editor-width);
+	box-sizing: border-box;
+	margin-inline: auto;
+	/* A quiet panel, so the properties read as their own section above the text. */
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) solid var(--block-outline);
+	border-radius: var(--radius-container);
+	background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+.props-block-header {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: 2px 0;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.props-block-header svg {
+	width: 14px;
+	height: 14px;
+	transition: transform var(--motion-fast) var(--ease-standard);
+}
+.props-block-header[data-state="open"] svg {
+	transform: rotate(90deg);
+}
+.prop-type-icon {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+}
+button.prop-type-icon {
+	cursor: pointer;
+}
+button.prop-type-icon:hover,
+button.prop-type-icon:focus-visible {
+	background: var(--accent);
+	color: var(--foreground);
+}
+.prop-type-icon svg {
+	width: 16px;
+	height: 16px;
+}
+.props-block .prop-name,
+.props-block .prop-name-field {
+	flex: none;
+	width: 30%;
+	box-sizing: border-box;
+	color: var(--muted-foreground);
+}
+.prop-remove {
+	opacity: 0;
+}
+.prop-row:hover .prop-remove,
+.prop-row:focus-within .prop-remove {
+	opacity: 1;
+}
+.prop-add-row {
+	display: inline-flex;
+	align-items: center;
+	gap: calc(var(--space-unit) * 1.5);
+	margin-top: var(--space-1);
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.prop-add-row:hover,
+.prop-add-row:focus-visible {
+	background: var(--accent);
+	color: var(--foreground);
+}
+.prop-add-row svg,
+.prop-type-list svg {
+	width: 16px;
+	height: 16px;
+}
+.prop-add-popover input {
+	width: 100%;
+	box-sizing: border-box;
+}
+.prop-type-list {
+	list-style: none;
+	margin: var(--space-2) 0 0;
+	padding: 0;
+}
+.prop-type-list button {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.prop-type-list button:hover,
+.prop-type-list button:focus-visible {
+	background: var(--accent);
+}
+
+/* Properties: soft rows (like a highlighted row in AFFiNE), small quiet fields. */
+.props-block .prop-row {
+	padding-inline: var(--space-1);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+}
+.props-block .prop-row:hover {
+	background: var(--surface-container-low);
+}
+.props-block .prop-row:focus-within {
+	background: var(--surface-container);
+	border-color: var(--line);
+}
+.props-block .prop-row > input:not([type="checkbox"]):not(.prop-name-field) {
+	flex: 0 1 14rem;
+	padding: calc(var(--space-unit) / 2) var(--space-2);
+	background: var(--surface-container-low);
+	border-color: var(--line);
+}
+.props-block .prop-row > input[type="number"],
+.props-block .prop-row > input[type="date"] {
+	flex: 0 0 10rem;
+}
+.props-block
+	.prop-row
+	> input:not([type="checkbox"]):not(.prop-name-field):focus {
+	background: var(--surface);
+	border-color: var(--ring);
+	outline: none;
+}
+.props-block input::placeholder {
+	color: var(--muted-foreground);
+	opacity: 0.7;
+}
+.props-block .prop-row > .chips {
+	flex: 0 1 14rem;
+	min-height: var(--row-height);
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+}
+.props-block .chips:focus-within {
+	background: var(--surface);
+	border-color: var(--ring);
+}
+.props-block .chip {
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+	line-height: inherit;
+}
+.props-block .chips .chip-input {
+	width: 6rem;
+	padding: 0 var(--space-1);
+	border-color: transparent;
+	background: none;
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+}
+/* More specific than ".prop-row > input { flex: 1 }" so the name stays a set width. */
+.props-block .prop-row > .prop-name-field,
+.props-block .prop-row > .prop-name {
+	flex: none;
+	width: 9rem;
+}
+.props-block .prop-name-field:hover {
+	border-color: var(--line);
+}
+
+/* Canvas items: sticky notes, shapes, labels and group frames. */
+.canvas-pane .react-flow__node.canvas-item-node {
+	padding: 0;
+	border: 0;
+	background: none;
+	box-shadow: none;
+	text-align: left;
+}
+/* A sticky note or shape's color: the fill and the line drawn round it. */
+.canvas-item,
+.canvas-card,
+.tone-swatch {
+	--item-accent: var(--callout-note-accent);
+	--item-fill: var(--callout-note-bg);
+}
+.canvas-item[data-tone="info"],
+.canvas-card[data-tone="info"],
+.tone-swatch[data-tone="info"] {
+	--item-accent: var(--callout-info-accent);
+	--item-fill: var(--callout-info-bg);
+}
+.canvas-item[data-tone="tip"],
+.canvas-card[data-tone="tip"],
+.tone-swatch[data-tone="tip"] {
+	--item-accent: var(--callout-tip-accent);
+	--item-fill: var(--callout-tip-bg);
+}
+.canvas-item[data-tone="warning"],
+.canvas-card[data-tone="warning"],
+.tone-swatch[data-tone="warning"] {
+	--item-accent: var(--callout-warning-accent);
+	--item-fill: var(--callout-warning-bg);
+}
+.canvas-item[data-tone="danger"],
+.canvas-card[data-tone="danger"],
+.tone-swatch[data-tone="danger"] {
+	--item-accent: var(--callout-danger-accent);
+	--item-fill: var(--callout-danger-bg);
+}
+.tone-swatch {
+	display: inline-block;
+	flex: none;
+	width: calc(var(--space-unit) * 3);
+	height: calc(var(--space-unit) * 3);
+	border: var(--border-width) solid var(--item-accent);
+	border-radius: var(--radius-round);
+	background: var(--item-fill);
+}
+.canvas-item {
+	position: relative;
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	color: var(--foreground);
+	font-size: var(--font-size-ui);
+	overflow-wrap: anywhere;
+}
+.canvas-item-text {
+	display: block;
+	white-space: pre-wrap;
+}
+.canvas-item-field {
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	padding: var(--space-2);
+	border: var(--border-width) solid var(--ring);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	color: inherit;
+	font: inherit;
+	resize: none;
+}
+input.canvas-item-field {
+	height: auto;
+}
+.canvas-sticky {
+	padding: var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--item-fill);
+	box-shadow: var(--elevation-1);
+}
+.canvas-shape {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-3);
+	text-align: center;
+}
+.canvas-shape-bg {
+	position: absolute;
+	inset: 0;
+	border: var(--border-width) solid var(--item-accent);
+	border-radius: var(--radius-control);
+	background: var(--item-fill);
+}
+.canvas-shape[data-shape="rounded"] .canvas-shape-bg {
+	border-radius: var(--radius-container);
+}
+/* A clipped shape cannot carry a border, so its line is a clipped layer under a
+   slightly smaller clipped fill. */
+.canvas-shape[data-shape="ellipse"] .canvas-shape-bg,
+.canvas-shape[data-shape="diamond"] .canvas-shape-bg {
+	border: 0;
+	border-radius: 0;
+	background: var(--item-accent);
+}
+.canvas-shape[data-shape="ellipse"] .canvas-shape-bg {
+	clip-path: ellipse(50% 50% at 50% 50%);
+}
+.canvas-shape[data-shape="diamond"] .canvas-shape-bg {
+	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.canvas-shape[data-shape="ellipse"] .canvas-shape-bg::after,
+.canvas-shape[data-shape="diamond"] .canvas-shape-bg::after {
+	content: "";
+	position: absolute;
+	inset: calc(var(--border-width) * 2);
+	background: var(--item-fill);
+}
+.canvas-shape[data-shape="ellipse"] .canvas-shape-bg::after {
+	clip-path: ellipse(50% 50% at 50% 50%);
+}
+.canvas-shape[data-shape="diamond"] .canvas-shape-bg::after {
+	clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.canvas-shape .canvas-item-text,
+.canvas-shape .canvas-item-field {
+	position: relative;
+}
+.canvas-label {
+	width: auto;
+	height: auto;
+	min-width: calc(var(--space-unit) * 10);
+}
+.canvas-label[data-size="s"],
+.canvas-sticky[data-size="s"],
+.canvas-shape[data-size="s"] {
+	font-size: var(--font-size-small);
+}
+.canvas-label[data-size="l"],
+.canvas-sticky[data-size="l"],
+.canvas-shape[data-size="l"] {
+	font-size: var(--editor-h2-size);
+}
+/* The style panel over a selection: one fieldset per section. */
+.canvas-style-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	width: auto;
+	min-width: calc(var(--space-unit) * 44);
+}
+.canvas-style-section {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+.canvas-style-section legend {
+	padding: 0 0 var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.canvas-style-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+}
+.canvas-style-options [aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.canvas-label .canvas-item-text {
+	min-height: 1.2em;
+}
+/* An embedded note: a read-only window onto another note. */
+.canvas-embed {
+	display: flex;
+	flex-direction: column;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	box-shadow: var(--elevation-1);
+	overflow: hidden;
+}
+.canvas-embed-bar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+	border-bottom: var(--border-width) solid var(--line);
+	background: var(--surface-container);
+	font-size: var(--font-size-small);
+}
+.canvas-embed-title {
+	min-width: 0;
+	overflow: hidden;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.canvas-embed-body {
+	flex: 1;
+	min-height: 0;
+	padding: var(--space-3);
+	overflow: auto;
+}
+.canvas-embed-note {
+	margin: 0;
+	color: var(--muted-foreground);
+}
+.canvas-group {
+	border: var(--border-width) dashed var(--border);
+	border-radius: var(--radius-container);
+	background: var(--surface-container-low);
+	opacity: 0.9;
+}
+.canvas-pane .react-flow__node.canvas-node-group {
+	pointer-events: none;
+}
+.canvas-group-title {
+	display: inline-block;
+	margin: var(--space-2);
+	padding: 0 var(--space-2);
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	pointer-events: all;
+	cursor: grab;
+}
+.canvas-group .canvas-item-field {
+	width: auto;
+	margin: var(--space-2);
+	pointer-events: all;
+}
+.canvas-item-pinned {
+	outline: var(--border-width) dashed var(--destructive);
+	outline-offset: var(--space-1);
+}
+.canvas-handle {
+	width: calc(var(--space-unit) * 2);
+	height: calc(var(--space-unit) * 2);
+	border: var(--border-width) solid var(--primary);
+	background: var(--surface);
+	opacity: 0;
+}
+.react-flow__node:hover .canvas-handle,
+.react-flow__node.selected .canvas-handle {
+	opacity: 1;
+}
+.canvas-pane .react-flow__edge-path {
+	stroke: var(--muted-foreground);
+}
+.canvas-pane .react-flow__edge.selected .react-flow__edge-path {
+	stroke: var(--primary);
+}
+.canvas-selection-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	box-shadow: var(--elevation-2);
+	font-size: var(--font-size-small);
+}
+.canvas-selection-bar svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Canvas chrome: lighter bar, floating round controls, cards that sit above the dots. */
+.canvas-lock {
+	border-radius: var(--radius-round);
+	box-shadow: var(--elevation-2);
+}
+.canvas-pane .react-flow__controls {
+	overflow: hidden;
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-2);
+}
+.canvas-pane .react-flow__node.canvas-node {
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-1);
+}
+
+.planner-pane {
+	padding: 0;
+}
+
+/* Settings window, like another window over the app: a section list on the
+   left, the chosen section on the right, each scrolling on its own. */
+.settings-dialog {
+	box-sizing: border-box;
+	width: min(1040px, calc(100vw - 64px));
+	max-width: none;
+	height: min(760px, calc(100vh - 64px));
+	padding: 0;
+	gap: 0;
+	overflow: hidden;
+}
+.settings-window {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+.settings-titlebar {
+	position: relative;
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 40px;
+	background: var(--panel);
+	border-bottom: var(--border-width) solid var(--line);
+}
+.settings-window-title {
+	margin: 0;
+	font-family: var(--font-heading);
+	font-size: var(--font-size-ui);
+	font-weight: 500;
+	color: var(--muted-foreground);
+}
+.settings-close {
+	position: absolute;
+	left: 14px;
+	top: 50%;
+	translate: 0 -50%;
+	display: grid;
+	place-items: center;
+	width: 14px;
+	height: 14px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-pill, 100vmax);
+	background: var(--destructive);
+	color: transparent;
+	cursor: pointer;
+}
+.settings-close svg {
+	width: 10px;
+	height: 10px;
+	stroke-width: 3;
+}
+.settings-close:hover,
+.settings-close:focus-visible {
+	color: var(--background);
+}
+.settings-body {
+	flex: 1;
+	display: flex;
+	min-height: 0;
+}
+.settings-nav {
+	flex: none;
+	width: 200px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 12px;
+	box-sizing: border-box;
+	background: var(--panel);
+	border-right: var(--border-width) solid var(--line);
+}
+.settings-nav-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font: inherit;
+	font-weight: 400;
+	text-align: left;
+	padding: 6px 8px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--foreground);
+	cursor: pointer;
+}
+.settings-nav-icon {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	color: var(--muted-foreground);
+}
+.settings-nav-item:hover {
+	background: var(--accent);
+}
+.settings-nav-item[aria-current="page"] {
+	background: var(--row-raised);
+}
+.settings-content {
+	flex: 1;
+	min-width: 0;
+	overflow-y: auto;
+	padding: 20px 28px 28px;
+}
+.settings-content-title {
+	margin: 0 0 8px;
+	font-family: var(--font-heading);
+	font-size: var(--font-size-title);
+	font-weight: 500;
+}
+.settings-content-title + .section-label {
+	display: none;
+}
+
+/* Controls in the settings window: simple outlined buttons with room around
+   them, in the chosen theme's colors. The chosen choice gets a tinted fill. */
+.settings-window [data-slot="button"] {
+	height: var(--control-height);
+	padding-inline: 14px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--foreground);
+	font-weight: 400;
+	box-shadow: none;
+}
+.settings-window [data-slot="toggle-group"] {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 0;
+	border: 0;
+	background: none;
+}
+.settings-window [data-slot="toggle-group-item"] {
+	height: var(--control-height);
+	padding-inline: 14px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--foreground);
+	font-weight: 400;
+}
+.settings-window [data-slot="toggle-group-item"]:hover {
+	background: var(--accent);
+}
+.settings-window [data-slot="toggle-group-item"][data-state="on"] {
+	border-color: var(--primary);
+	background: color-mix(in srgb, var(--primary) 16%, transparent);
+	color: var(--foreground);
+}
+
+/* Settings window: search, section header, row text, transfer box. */
+.settings-search {
+	position: relative;
+	margin-bottom: 8px;
+}
+.settings-search svg {
+	position: absolute;
+	left: 8px;
+	top: 50%;
+	translate: 0 -50%;
+	width: 14px;
+	height: 14px;
+	color: var(--muted-foreground);
+	pointer-events: none;
+}
+.settings-search input {
+	padding-left: 28px;
+}
+/* Obsidian-style groups: a heading, then the rows on one rounded card with a
+   faint line between them. */
+.settings-group {
+	margin: 0 0 22px;
+}
+.settings-group-title {
+	margin: 0 0 8px 2px;
+	font-family: var(--font-heading);
+	font-size: var(--font-size-ui);
+	font-weight: 600;
+}
+.settings-card {
+	padding: 2px 18px;
+	border: var(--border-width) solid var(--line);
+	border-radius: calc(var(--radius-control) * 2);
+	background: color-mix(in srgb, var(--panel) 70%, transparent);
+}
+.settings-card .settings-row {
+	padding: 14px 0;
+}
+.settings-card > .settings-row:last-child,
+.settings-card > :last-child .settings-row:last-child {
+	border-bottom: 0;
+}
+.settings-card > .section-label {
+	padding: 14px 0 0;
+}
+.settings-card > .settings-note:last-child,
+.settings-card > .settings-actions:last-child {
+	margin-bottom: 14px;
+}
+/* A setting edited in a multi-line box (custom CSS) takes the row's width. */
+.settings-row:has(> .settings-code) {
+	flex-direction: column;
+	align-items: stretch;
+}
+.settings-code {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 160px;
+	padding: 8px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--background);
+	color: var(--foreground);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
+	tab-size: 2;
+}
+.settings-mode-note {
+	margin-bottom: 18px;
+	border-bottom: 0;
+}
+.settings-row > code {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.settings-content-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(var(--shell-gap) * 2);
+	margin-bottom: 8px;
+}
+.settings-content-head .settings-content-title {
+	margin: 0;
+}
+.settings-content-head + .section-label {
+	display: none;
+}
+.settings-row-text {
+	min-width: 0;
+}
+.settings-row-text .settings-note {
+	margin: 2px 0 0;
+}
+.settings-number,
+.settings-text,
+.settings-select {
+	width: 200px;
+}
+/* Text size rows: a stepper per level and a sample line at that size. */
+.text-size-row > .settings-row-text {
+	/* Lets a long sample shrink and trim instead of widening the window. */
+	flex: 1;
+	min-width: 0;
+}
+.text-size-controls {
+	display: flex;
+	align-items: center;
+	gap: var(--shell-gap);
+	color: var(--muted-foreground);
+}
+.text-size-input {
+	width: 64px;
+	text-align: center;
+}
+.text-size-preview {
+	/* The sample's em sizes (a theme's headings) are relative to the body size. */
+	font-size: var(--editor-font-size);
+	font-family: var(--font-editor);
+	color: var(--editor-text);
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	/* Zero intrinsic width, then fill: a long sample can't size the window. */
+	width: 0;
+	min-width: 100%;
+}
+.text-size-sample[data-size="body"] {
+	font-size: inherit;
+}
+.text-size-sample[data-size="h1"] {
+	font-size: var(--editor-h1-size);
+}
+.text-size-sample[data-size="h2"] {
+	font-size: var(--editor-h2-size);
+}
+.text-size-sample[data-size="h3"] {
+	font-size: var(--editor-h3-size);
+}
+.text-size-sample[data-size="h4"] {
+	font-size: var(--editor-h4-size);
+}
+.text-size-sample[data-size="h5"] {
+	font-size: var(--editor-h5-size);
+}
+.text-size-sample[data-size="h6"] {
+	font-size: var(--editor-h6-size);
+	color: var(--muted-foreground);
+}
+.text-size-sample:not([data-size="body"]) {
+	font-weight: 700;
+}
+.text-size-sample[data-size="h6"] {
+	font-weight: 600;
+}
+.settings-window-inline {
+	height: 100%;
+}
+.settings-transfer {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 120px;
+	margin-top: 8px;
+	padding: 8px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--background);
+	color: var(--foreground);
+	font-family: var(--font-mono, monospace);
+	font-size: var(--font-size-ui);
+}
+.settings-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.settings-shortcut {
+	background: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+}
+.settings-shortcut kbd {
+	pointer-events: none;
+}

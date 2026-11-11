@@ -1,0 +1,763 @@
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-sans);
+	font-size: var(--font-size-ui);
+}
+
+@layer base {
+	button,
+	input,
+	select,
+	textarea {
+		font: inherit;
+	}
+
+	:where(button, input, select, textarea, summary):focus-visible {
+		outline: var(--focus-ring-width) solid var(--ring);
+		outline-offset: 2px;
+	}
+
+	:where(button):hover:not(:disabled) {
+		background: var(--accent);
+	}
+
+	:where(button):active:not(:disabled) {
+		background: var(--accent);
+		color: var(--accent-foreground);
+	}
+
+	:where(button, input, select, textarea):disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+}
+
+.app {
+	display: flex;
+	height: 100vh;
+}
+
+.tree-confirm {
+	padding: 6px 8px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	font-size: var(--font-size-ui);
+}
+
+.tree-confirm p {
+	margin: 0 0 6px;
+}
+
+.tree-confirm-buttons {
+	display: flex;
+	gap: 6px;
+}
+
+.read-only-tag {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+
+.notice {
+	color: var(--warn);
+	margin: 4px 0;
+}
+
+.debug-panel {
+	position: fixed;
+	inset: 24px;
+	z-index: 50;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px;
+	background: var(--panel);
+	color: var(--text);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-3);
+	font-size: var(--font-size-ui);
+}
+
+.debug-panel-bar {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
+
+.debug-panel-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+	color: var(--muted-foreground);
+}
+
+.debug-panel-log {
+	flex: 1;
+	margin: 0;
+	overflow: auto;
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.crash-report {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	display: grid;
+	place-items: center;
+	background: var(--scrim);
+}
+
+.crash-report-box {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: min(720px, calc(100vw - 48px));
+	max-height: calc(100vh - 48px);
+	padding: 16px;
+	overflow: auto;
+	background: var(--panel);
+	color: var(--text);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-3);
+	font-size: var(--font-size-ui);
+}
+
+.crash-report-box h2,
+.crash-report-box h3,
+.crash-report-box p {
+	margin: 0;
+}
+
+.crash-report-box label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.crash-report-log {
+	margin: 0;
+	max-height: 220px;
+	padding: 8px;
+	overflow: auto;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.crash-report-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.maintainer-section {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: flex-start;
+}
+
+.maintainer-section h3,
+.maintainer-section p {
+	margin: 0;
+}
+
+.maintainer-text {
+	align-self: stretch;
+	margin: 0;
+	max-height: 200px;
+	padding: 8px;
+	overflow: auto;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	font-family: var(--font-mono);
+	font-size: var(--font-size-small);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+[data-slot="button"] {
+	position: relative;
+	overflow: hidden;
+}
+[data-slot="button"]::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: currentColor;
+	opacity: 0;
+	transition: opacity var(--motion-fast);
+}
+[data-slot="button"]:hover::after {
+	opacity: var(--hover-layer);
+}
+[data-slot="button"]:active::after {
+	opacity: var(--pressed-layer);
+}
+
+.app-shell {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
+	padding: var(--shell-gap);
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	background: var(--shell-frame);
+}
+
+.nav-bar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 2px;
+	height: var(--chrome-bar-height);
+	padding-inline: 8px;
+}
+
+.shell-breadcrumb {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	align-self: stretch;
+	min-width: 0;
+	margin-left: 6px;
+	overflow: hidden;
+}
+
+.shell-breadcrumb ol {
+	justify-content: flex-start;
+	flex-wrap: nowrap;
+	margin: 0;
+	padding: 0;
+}
+
+.shell-breadcrumb li {
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.shell-breadcrumb [aria-current] {
+	color: var(--muted-foreground);
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+.shell-regions {
+	min-height: 0;
+}
+.shell-regions > [data-slot="resizable-handle"] {
+	width: var(--shell-gap);
+	background: var(--shell-frame);
+}
+.shell-regions > [data-slot="resizable-panel"] {
+	border: var(--shell-border-width) solid var(--shell-border);
+	border-radius: var(--shell-radius);
+	background: var(--shell-panel);
+	box-sizing: border-box;
+}
+/* The panel library puts a plain wrapper between each panel and its content;
+   it follows the panel's rounded corners so the left sidebar's own background
+   doesn't square them off. */
+.shell-regions > [data-slot="resizable-panel"] > div {
+	border-radius: inherit;
+}
+.shell-side {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	/* Follow the panel's rounded corners, so nothing inside squares them off. */
+	border-radius: inherit;
+	overflow: hidden;
+}
+.shell-side .sidebar {
+	flex: 1;
+	background: var(--shell-panel);
+}
+.shell-toggle {
+	border: 0;
+	color: var(--muted-foreground);
+}
+.section-label {
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+	color: var(--muted-foreground);
+	padding: 6px 8px;
+}
+.shell-editor {
+	position: relative;
+	display: flex;
+	height: 100%;
+	/* Follow the panel's rounded corners, so the tab strip and panes inside
+	   cannot square them off. */
+	border-radius: inherit;
+	overflow: hidden;
+}
+.editor-column {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	height: 100%;
+}
+.editor-column-body {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+/* Floating tabs, like Safari's: each one is a rounded pill with a gap around
+   it, the active one raised on a surface of its own. The bar's rule stays as a
+   transparent line so a focused split pane can still colour it. */
+.tab-bar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+	background: var(--editor-bg);
+	border-bottom: var(--border-width) solid transparent;
+	border-radius: var(--shell-radius) var(--shell-radius) 0 0;
+}
+.tab-list {
+	display: flex;
+	flex: 0 1 auto;
+	min-width: 0;
+	gap: var(--space-1);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.tab {
+	position: relative;
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	max-width: 220px;
+	height: 28px;
+	box-sizing: border-box;
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+}
+.tab:hover {
+	background: color-mix(in srgb, var(--foreground) 6%, transparent);
+	color: var(--foreground);
+}
+.tab[data-active="true"] {
+	z-index: 1;
+	border-color: var(--line);
+	background: var(--row-raised);
+	color: var(--foreground);
+}
+.tab-label,
+.tab-close {
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.tab-label {
+	min-width: 0;
+	padding: 0 4px 0 10px;
+	height: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tab-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.tab-icon {
+	flex: none;
+	width: 14px;
+	height: 14px;
+	stroke-width: 1.5;
+}
+.tab-close {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	margin-right: 4px;
+	padding: 0;
+	border-radius: var(--radius-control);
+}
+.tab-close:hover {
+	background: var(--accent);
+}
+.tab-close svg {
+	width: 12px;
+	height: 12px;
+}
+.tab:not(:hover):not(:focus-within):not([data-active="true"]) .tab-close {
+	visibility: hidden;
+}
+.tab-new {
+	flex: none;
+	align-self: center;
+	width: 26px;
+	height: 26px;
+}
+.tab-bar [role="menuitem"][data-active="true"] {
+	font-weight: 600;
+}
+.shell-regions > [data-slot="resizable-panel"]:has(> .shell-editor) {
+	background: var(--editor-bg);
+}
+.shell-right {
+	height: 100%;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+.shell-right aside {
+	position: relative;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+.shell-right aside > .shell-right-main {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+.shell-right aside > .dock-group {
+	margin: 0;
+}
+/* Icon tabs in the header row, styled like the left sidebar's icon buttons. */
+.sidebar-tabs {
+	flex-wrap: wrap;
+	min-width: 0;
+	border: 0;
+	gap: 2px;
+}
+.sidebar-header-last > .sidebar-title {
+	/* Enough room for a short title before the icons wrap below it. */
+	flex: 1 0 5rem;
+}
+.sidebar-tabs [data-slot="tabs-trigger"] {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--control-height);
+	height: var(--control-height);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+}
+.sidebar-tabs [data-slot="tabs-trigger"] svg {
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.5;
+}
+.sidebar-tabs [data-slot="tabs-trigger"]:hover {
+	color: var(--foreground);
+}
+.sidebar-tabs [data-state="active"][data-slot="tabs-trigger"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.sidebar-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	padding: 4px 8px;
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.shell-right [data-slot="tabs-content"] {
+	min-width: 0;
+	padding: 8px;
+	overflow-x: hidden;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+
+.status-bar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(var(--shell-gap) * 2);
+	height: calc(var(--shell-gap) * 3);
+	padding-inline: calc(var(--shell-gap) * 1.5);
+	border-top: var(--border-width) solid var(--line);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	white-space: nowrap;
+}
+
+.status-bar-vault {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.status-bar-build {
+	margin-inline-start: calc(var(--shell-gap) * 2);
+	color: var(--muted-foreground);
+}
+
+.status-bar-counts {
+	display: flex;
+	gap: calc(var(--shell-gap) * 2);
+}
+
+.outline-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.outline-item {
+	display: block;
+	width: 100%;
+	padding: calc(var(--shell-gap) * 0.5) var(--shell-gap);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: var(--foreground);
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.outline-item[data-level="2"],
+.outline-item[data-level="3"],
+.outline-item[data-level="4"],
+.outline-item[data-level="5"],
+.outline-item[data-level="6"] {
+	padding-inline-start: calc(var(--shell-gap) * 3);
+	color: var(--muted-foreground);
+}
+.outline-item[data-level="3"] {
+	padding-inline-start: calc(var(--shell-gap) * 5);
+}
+.outline-item[data-level="4"] {
+	padding-inline-start: calc(var(--shell-gap) * 7);
+}
+.outline-item[data-level="5"] {
+	padding-inline-start: calc(var(--shell-gap) * 9);
+}
+.outline-item[data-level="6"] {
+	padding-inline-start: calc(var(--shell-gap) * 11);
+}
+
+.outline-item:hover:not(:disabled) {
+	background: var(--accent);
+}
+
+.outline-item:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+/* Soft hover and focus changes everywhere, so state changes glide instead of snapping. */
+button,
+[role="tab"],
+[role="menuitem"],
+input,
+select {
+	transition:
+		background-color var(--motion-fast) var(--ease-standard),
+		border-color var(--motion-fast) var(--ease-standard),
+		color var(--motion-fast) var(--ease-standard),
+		box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	button,
+	[role="tab"],
+	[role="menuitem"],
+	input,
+	select {
+		transition: none;
+	}
+}
+
+/* Tabs (details panel and others): a quiet underline, no browser button fill. */
+[data-slot="tabs-trigger"] {
+	border: 0;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	background: none;
+	cursor: pointer;
+}
+[data-slot="tabs-trigger"]:hover {
+	color: var(--foreground);
+}
+[data-slot="tabs-trigger"][data-state="active"] {
+	border-bottom-color: var(--primary);
+	background: none;
+	color: var(--foreground);
+}
+
+/* The left sidebar's toggle: one button over the window's top left corner, in
+   the same place whether the sidebar is open or collapsed. Its anchor matches
+   where the nav bar's first button sat while the sidebar was collapsed (the
+   collapsed panel, two gaps and three borders in). */
+.app-shell {
+	position: relative;
+	--toggle-left: calc(
+		var(--shell-gap) *
+		2 +
+		var(--shell-border-width) *
+		3 +
+		8px
+	);
+	--toggle-top: calc(var(--shell-gap) + var(--shell-border-width));
+}
+.shell-toggle-anchor {
+	position: absolute;
+	z-index: 20;
+	top: var(--toggle-top);
+	left: var(--toggle-left);
+	display: flex;
+	align-items: center;
+	height: var(--chrome-bar-height);
+}
+/* Collapsed: the nav bar's own padding sits 8px in, the toggle is already there. */
+.nav-bar[data-clear-toggle] {
+	padding-left: calc(8px + var(--control-height) + 2px);
+}
+/* Open: the first sidebar header starts at the panel edge, so it clears the
+   toggle's whole span from there. */
+.sidebar-header-first {
+	box-sizing: border-box;
+	min-height: var(--chrome-bar-height);
+	padding-left: calc(
+		var(--toggle-left) -
+		var(--shell-gap) -
+		var(--shell-border-width) +
+		var(--control-height) +
+		2px
+	);
+}
+
+/* Nine themes do not fit one row. */
+.settings-theme-group {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	max-width: 28rem;
+}
+
+.shell-toggle-anchor-right {
+	left: auto;
+	right: var(--toggle-left);
+}
+.nav-bar[data-clear-right-toggle] {
+	padding-right: calc(8px + var(--control-height) + 2px);
+}
+/* The right header clears its floating toggle the way the left one does. When
+   the sidebar is too narrow for the title and every tool icon, the icons drop
+   to a row of their own (and wrap) instead of running under the toggle. */
+.sidebar-header-last {
+	flex-wrap: wrap;
+	box-sizing: border-box;
+	min-height: var(--chrome-bar-height);
+	padding-right: calc(
+		var(--toggle-left) -
+		var(--shell-gap) -
+		var(--shell-border-width) +
+		var(--control-height) +
+		2px
+	);
+}
+
+/* Tabs on top, title bar under them. The top row of each pane is what sits
+   beside the window's floating sidebar toggles, so it leaves room for them. */
+.tab-bar {
+	box-sizing: border-box;
+	min-height: var(--chrome-bar-height);
+}
+.pane-column[data-clear-left] > :is(.tab-bar, .nav-bar):first-child {
+	padding-left: calc(8px + var(--control-height) + 4px);
+}
+.pane-column[data-clear-right] > :is(.tab-bar, .nav-bar):first-child {
+	padding-right: calc(8px + var(--control-height) + 4px);
+}
+/* The title bar is the active tab's own header: same surface, no rule above. */
+.pane-column > .nav-bar {
+	background: var(--editor-bg);
+}
+
+/* Titles, tags and headings use the heading font (Settings > Fonts), which is the
+   theme's own font unless one is picked; the editor's body text has its own. */
+:root .title-field,
+:root .note-editor :is(h1, h2, h3, h4, h5, h6),
+:root .chip,
+:root .note-meta-chip,
+:root .section-label,
+:root .sidebar-title,
+:root .tag-button {
+	font-family: var(--font-heading);
+}
+
+/* The dim behind a dialog is a dark veil, not the theme's text color (which is
+   white in dark themes and made the whole window flash light). */
+[data-slot="dialog-overlay"] {
+	background: color-mix(in srgb, black 50%, transparent);
+}
+
+/* After a block moves: a quiet line with Undo, not a warning. */
+.move-notice {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin: 4px 0;
+	color: var(--foreground);
+}
+
+/* A note found by its text: the title, then the words around the match. */
+.command-hit {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.command-snippet {
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Settings > Interface and Appearance: show/hide and motion switches set on the
+   root by applyInterface (ui/appearance.ts). */
+:root[data-hide-status-bar] .status-bar,
+:root[data-hide-status-counts] .status-bar-counts {
+	display: none;
+}
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+	transition-duration: 0ms !important;
+	animation-duration: 0ms !important;
+}

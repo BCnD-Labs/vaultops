@@ -1,0 +1,834 @@
+.sidebar {
+	box-sizing: border-box;
+	height: 100%;
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	font-size: var(--font-size-ui);
+	min-height: 0;
+	background: var(--panel);
+	overflow: hidden;
+}
+
+.note-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.note-section-header,
+.note-filter-tabs button {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+	border-radius: var(--radius-control);
+	padding: 6px 8px;
+}
+
+/* Plain list buttons only (:where keeps the specificity): the shared Button (data-slot) keeps its own look, as in the trash confirm. */
+.note-list button:where(:not([data-slot])) {
+	width: 100%;
+	text-align: left;
+	background: none;
+	border: 0;
+	border-radius: var(--radius-control);
+	padding: 6px 8px;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.note-list .note-list {
+	margin-left: 10px;
+	padding-left: 6px;
+	border-left: var(--border-width) solid var(--line);
+}
+
+.note-list button:where(:not([data-slot])) {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tree-icon {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.5;
+}
+
+.tree-chevron {
+	transition: transform var(--motion-fast);
+}
+
+.tree-chevron.is-open {
+	transform: rotate(90deg);
+}
+
+.tree-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tree-empty {
+	margin: 2px 0 4px 28px;
+}
+
+.tree-toolbar {
+	margin-bottom: 4px;
+}
+
+/* Fills the sidebar, so the empty space below the list is a drop target for the vault root. */
+.tree {
+	flex: 1 0 auto;
+	min-height: 80px;
+}
+
+.tree.is-over {
+	outline: var(--focus-ring-width) dashed var(--ring);
+	outline-offset: 2px;
+}
+
+.tree-row {
+	position: relative;
+	display: flex;
+	align-items: center;
+	border-radius: var(--radius-control);
+}
+
+.tree-row.is-over {
+	outline: var(--focus-ring-width) dashed var(--ring);
+	background: var(--accent);
+}
+
+.note-list .tree-row .tree-folder,
+.note-list .tree-row .tree-note {
+	flex: 1;
+	min-width: 0;
+	width: auto;
+}
+
+/* Hidden by sight only, so keyboard and screen-reader users still reach them. */
+.tree-actions {
+	position: absolute;
+	right: 2px;
+	display: flex;
+	gap: 2px;
+	padding-left: 4px;
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	opacity: 0;
+}
+
+/* In a notes-list row the buttons sit at the row's top-right corner (see .note-list-entry). */
+.note-list-entry .tree-actions {
+	top: 4px;
+}
+
+.tree-row:hover .tree-actions,
+.tree-row:focus-within .tree-actions,
+.note-list-entry:hover .tree-actions,
+.note-list-entry:focus-within .tree-actions {
+	opacity: 1;
+}
+
+.note-list .tree-action {
+	width: auto;
+	padding: 4px;
+}
+
+.tree-toolbar .tree-action {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: none;
+	border: 0;
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--font-size-ui);
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: var(--radius-control);
+}
+
+.tree-toolbar .tree-action:hover:not(:disabled) {
+	background: var(--accent);
+}
+
+.tree-action:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.tree-input {
+	width: 100%;
+	box-sizing: border-box;
+	font: inherit;
+	padding: 4px 6px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	color: inherit;
+}
+
+.tree-input[aria-invalid="true"] {
+	border-color: var(--destructive);
+}
+
+.tree-input-error {
+	margin: 2px 0 0;
+	font-size: var(--font-size-small);
+	color: var(--destructive);
+}
+
+.note-list button:where(:not([data-slot])):hover {
+	background: var(--accent);
+}
+
+.note-list button:where(:not([data-slot]))[aria-current="true"] {
+	background: var(--row-raised);
+	color: var(--text);
+}
+
+.sidebar-pane,
+.sidebar .tree {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+.sidebar .tree {
+	flex: 1;
+}
+.navigation-scroll {
+	flex: 1;
+	min-height: 0;
+}
+/* Radix wraps scroll content in a `display: table` box (inline style) that grows to
+   the content's width, so at a narrow sidebar the rows ran past the edge and their
+   counts and hover buttons were cut off. The tree only scrolls vertically, so a block
+   box that takes the viewport's width lets long names end in "..." instead. */
+.navigation-scroll [data-slot="scroll-area-viewport"] > div {
+	display: block !important;
+}
+/* The top row of each sidebar: one even row of icon buttons with room around it
+   and no rule under it, so it reads as part of the panel, not a bar on top. */
+.sidebar-header {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: 36px;
+	padding: 0 var(--space-2);
+}
+/* The left header holds the search and create buttons in one row, level with
+   the floating sidebar toggle. */
+.sidebar-header-first {
+	padding-bottom: var(--space-1);
+}
+.sidebar-header button {
+	flex-shrink: 0;
+}
+.sidebar-header svg {
+	width: 16px;
+	height: 16px;
+}
+.vault-switch,
+.sidebar-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	padding: 4px 8px;
+	cursor: pointer;
+}
+.vault-switch {
+	flex: 1;
+	min-width: 0;
+	min-height: var(--control-height);
+	overflow: hidden;
+	font-weight: 500;
+	border-radius: var(--radius-control);
+}
+.vault-switch-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: left;
+}
+/* The bottom row of the left sidebar: the vault menu, with settings beside it. */
+.sidebar-foot {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+}
+.sidebar-foot-settings {
+	flex: none;
+	color: var(--muted-foreground);
+}
+.vault-menu {
+	min-width: 15rem;
+}
+.vault-menu-label {
+	color: var(--muted-foreground);
+	font-weight: 500;
+}
+.sidebar-row {
+	border-radius: var(--radius-control);
+	width: 100%;
+	min-height: var(--sidebar-row-height, 28px);
+	text-align: left;
+}
+.sidebar-row:hover,
+.vault-switch:hover {
+	background: var(--accent);
+}
+.sidebar-row[aria-current="true"],
+.tag-button[aria-pressed="true"] {
+	background: var(--row-raised);
+	color: var(--text);
+}
+.sidebar-count {
+	margin-left: auto;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	font-variant-numeric: tabular-nums;
+}
+.sidebar footer {
+	border-top: var(--border-width) solid var(--line);
+}
+.sidebar summary {
+	cursor: pointer;
+	padding: 6px 8px;
+	color: var(--muted-foreground);
+}
+.sidebar .tree-name {
+	font-weight: 400;
+}
+.sidebar .note-list button:where(:not([data-slot])) {
+	min-height: var(--sidebar-row-height, 28px);
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+.note-search {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 6px 8px;
+	padding: 0 6px;
+	min-height: 28px;
+	background: var(--bg);
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+}
+.note-search input {
+	width: 100%;
+	min-width: 0;
+	border: 0;
+	background: none;
+	color: var(--text);
+}
+.note-rows {
+	padding: 0 4px;
+	gap: 0;
+}
+.sidebar .note-list .note-list-row {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+	padding: 8px;
+}
+.note-row-title {
+	flex: 1;
+	min-width: 0;
+	font-weight: 400;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.note-row-preview,
+.note-row-meta {
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+}
+.note-row-preview {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+.note-row-meta {
+	display: flex;
+	gap: 6px;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.note-section {
+	container-type: inline-size;
+	padding-block: 4px;
+}
+.note-section-header {
+	width: 100%;
+	text-align: left;
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+}
+.note-section-header[data-state="open"] .tree-chevron {
+	transform: rotate(90deg);
+}
+.note-section-header:hover {
+	background: var(--accent);
+}
+.note-section-count,
+.note-tag-chip {
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	padding: 0 4px;
+	font-size: var(--font-size-small);
+	letter-spacing: normal;
+	font-variant-numeric: tabular-nums;
+}
+.note-section-count {
+	background: var(--row-raised);
+}
+.note-filter-tabs {
+	border: 0;
+	margin: 0;
+	min-width: 0;
+	display: flex;
+	flex-wrap: wrap;
+	padding: 0 4px 4px;
+	gap: 2px;
+}
+.note-filter-tabs button[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.note-row-heading,
+.note-row-chips {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+.note-row-heading {
+	flex-wrap: wrap;
+}
+.note-row-chips {
+	max-width: 100%;
+	color: var(--muted-foreground);
+}
+.note-tag-chip {
+	max-width: 80px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+@container (max-width: 280px) {
+	.note-row-title {
+		flex-basis: 100%;
+	}
+}
+
+/* The trash button floats over the top-right corner of a notes-list row. */
+.note-list-entry {
+	position: relative;
+}
+
+/* Colours and icons chosen for folders, notes and tags. */
+[data-tone="red"] {
+	--tone: var(--tone-red);
+}
+[data-tone="orange"] {
+	--tone: var(--tone-orange);
+}
+[data-tone="yellow"] {
+	--tone: var(--tone-yellow);
+}
+[data-tone="green"] {
+	--tone: var(--tone-green);
+}
+[data-tone="teal"] {
+	--tone: var(--tone-teal);
+}
+[data-tone="blue"] {
+	--tone: var(--tone-blue);
+}
+[data-tone="purple"] {
+	--tone: var(--tone-purple);
+}
+[data-tone="pink"] {
+	--tone: var(--tone-pink);
+}
+[data-tone="gray"] {
+	--tone: var(--tone-gray);
+}
+
+/* Each part of a row is painted on its own, from the --paint-* variables set on the row. */
+.tree-row[data-paint-icon] .tree-icon-main {
+	color: var(--paint-icon);
+}
+.tree-row[data-paint-text] .tree-name {
+	color: color-mix(
+		in srgb,
+		var(--paint-text) var(--tone-text-mix),
+		var(--foreground)
+	);
+}
+.tree-row[data-paint-border]:not(.is-over) {
+	outline: var(--border-width) solid
+		color-mix(in srgb, var(--paint-border) 70%, transparent);
+	outline-offset: calc(var(--border-width) * -1);
+}
+.tree-row[data-paint-background]:not(.is-over) {
+	background: color-mix(
+		in srgb,
+		var(--paint-background) var(--paint-background-alpha, 16%),
+		transparent
+	);
+}
+
+.tag-row .tag-button {
+	flex: 1;
+	min-width: 0;
+	width: auto;
+}
+.tag-pill,
+.chips .chip[data-tone] {
+	display: inline-flex;
+	align-items: center;
+	padding-inline: var(--space-2);
+	border: var(--border-width) solid
+		color-mix(in srgb, var(--tone) 35%, transparent);
+	border-radius: var(--radius-round);
+	background: color-mix(in srgb, var(--tone) 18%, transparent);
+	color: color-mix(
+		in srgb,
+		var(--tone) var(--tone-text-mix),
+		var(--foreground)
+	);
+}
+.chips .chip[data-tone] {
+	padding-right: var(--space-1);
+}
+
+.style-popover {
+	width: 18rem;
+}
+.style-preview {
+	margin-bottom: var(--space-2);
+	pointer-events: none;
+}
+.style-icon-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+}
+.style-icon-row,
+.style-part-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.style-icon-name,
+.style-part-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.style-parts {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.style-part-editor {
+	margin-top: var(--space-2);
+}
+.style-opacity {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin-top: var(--space-2);
+	font-size: var(--font-size-small);
+}
+.style-opacity input {
+	flex: 1;
+}
+.style-link {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	text-decoration: underline;
+	cursor: pointer;
+}
+.icon-picker {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+.icon-search,
+.color-hex-input {
+	width: 100%;
+	padding: var(--space-1) var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--bg);
+	color: var(--foreground);
+	font: inherit;
+}
+.color-hex-input[aria-invalid="true"] {
+	border-color: var(--tone-red);
+}
+.icon-recent,
+.icon-categories {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+}
+.icon-grid {
+	overflow-y: auto;
+}
+.icon-grid-rows {
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+	position: absolute;
+	inset: 0 0 auto 0;
+}
+.icon-empty {
+	margin: var(--space-2) 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.color-picker {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.color-area {
+	position: relative;
+	height: 9rem;
+	border-radius: var(--radius-control);
+	cursor: crosshair;
+	touch-action: none;
+}
+.color-hue {
+	position: relative;
+	height: 12px;
+	border-radius: var(--radius-round);
+	touch-action: none;
+}
+.color-area-thumb,
+.color-hue-thumb {
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	border: 2px solid var(--bg);
+	border-radius: var(--radius-round);
+	outline: var(--border-width) solid var(--foreground);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+.color-hue-thumb {
+	top: 50%;
+}
+.color-area:focus-visible,
+.color-hue:focus-visible {
+	outline: var(--focus-ring-width) solid var(--ring);
+	outline-offset: 2px;
+}
+.color-hex-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.color-hex-preview {
+	flex: none;
+	width: 20px;
+	height: 20px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-round);
+}
+.color-hex-error {
+	margin: 0;
+	color: var(--tone-red);
+	font-size: var(--font-size-small);
+}
+.color-default {
+	flex: none;
+	padding: var(--space-1) var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--foreground);
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+.color-default[aria-pressed="true"] {
+	border-color: var(--ring);
+}
+.color-swatch-group,
+.icon-categories {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+.color-swatch-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+.color-swatch {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-round);
+	cursor: pointer;
+}
+.color-swatch[aria-pressed="true"] {
+	outline: var(--focus-ring-width) solid var(--foreground);
+	outline-offset: 1px;
+}
+.style-heading {
+	margin: var(--space-2) 0 var(--space-1);
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+	color: var(--muted-foreground);
+}
+.style-heading:first-child {
+	margin-top: 0;
+}
+.style-icons {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+.style-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: var(--control-height);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--foreground);
+	cursor: pointer;
+}
+.style-icon:hover {
+	background: var(--accent);
+}
+.style-icon[aria-pressed="true"] {
+	background: var(--accent);
+	color: var(--accent-foreground);
+}
+.style-swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+.style-swatch {
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-round);
+	background: var(--tone, transparent);
+	cursor: pointer;
+}
+.style-swatch-none {
+	background: linear-gradient(
+		135deg,
+		transparent 45%,
+		var(--muted-foreground) 45%,
+		var(--muted-foreground) 55%,
+		transparent 55%
+	);
+}
+.style-swatch[aria-pressed="true"] {
+	outline: var(--focus-ring-width) solid var(--foreground);
+	outline-offset: 1px;
+}
+.style-modes {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-1);
+}
+.style-mode {
+	padding: var(--space-1) var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--foreground);
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+.style-mode:hover {
+	background: var(--accent);
+}
+.style-mode[aria-pressed="true"] {
+	background: var(--accent);
+	border-color: var(--ring);
+	color: var(--accent-foreground);
+}
+.style-reset {
+	margin-top: var(--space-3);
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+/* The hover buttons sit over the row, so they take the row's tint instead of an opaque patch. */
+.tree-row[data-paint-background]:not(.is-over) .tree-actions {
+	background: color-mix(
+		in srgb,
+		var(--paint-background) var(--paint-background-alpha, 16%),
+		var(--bg)
+	);
+}
+
+/* Lighter type in the sidebars: only the active row and the tool tabs stand out. */
+:root .sidebar :is(button, summary, .sidebar-row):not(.vault-switch) {
+	font-weight: 400;
+}
+
+/* Settings > Themes > Uppercase section labels, switched off. */
+:root[data-plain-labels]
+	:is(.section-label, .note-section-header, .plan-group, .plan-reflect-title) {
+	text-transform: none;
+	letter-spacing: normal;
+}

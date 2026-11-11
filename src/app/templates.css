@@ -1,0 +1,223 @@
+/* The template picker beside the caret, and the template manager. */
+.template-picker {
+	position: fixed;
+	z-index: 30;
+	box-sizing: border-box;
+	width: 22rem;
+	--template-picker-max-height: 24rem;
+	max-height: var(--template-picker-max-height);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background: var(--surface);
+	color: var(--foreground);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-container);
+	box-shadow: var(--elevation-2);
+	font-size: var(--font-size-small);
+}
+.template-picker [cmdk-root] {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	padding: 4px;
+	gap: 4px;
+}
+.template-picker [cmdk-list] {
+	overflow-y: auto;
+	min-height: 0;
+}
+.template-picker-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.template-picker-gear {
+	display: none;
+	flex: none;
+	padding: 2px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+.template-picker [cmdk-item]:hover .template-picker-gear,
+.template-picker [cmdk-item][data-selected="true"] .template-picker-gear {
+	display: inline-flex;
+}
+.template-picker-gear svg {
+	width: 14px;
+	height: 14px;
+}
+.template-picker-note {
+	margin: 0;
+	padding: 8px;
+	color: var(--muted-foreground);
+}
+
+.tpl-manager.tpl-manager {
+	width: 94vw;
+	max-width: 50rem;
+	height: min(40rem, 80vh);
+	grid-template-rows: auto auto auto minmax(0, 1fr);
+	overflow: hidden;
+	gap: 8px;
+	padding: 12px 16px;
+	font-size: var(--font-size-small);
+}
+.tpl-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.tpl-body {
+	display: grid;
+	grid-template-columns: 15rem minmax(0, 1fr);
+	min-height: 0;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-container);
+	overflow: hidden;
+}
+.tpl-side,
+.tpl-main {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-height: 0;
+	min-width: 0;
+	padding: 8px;
+}
+.tpl-side {
+	border-right: var(--border-width) solid var(--border);
+}
+.tpl-main {
+	overflow-y: auto;
+	padding: 12px 16px;
+}
+.tpl-empty {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+}
+.tpl-tree,
+.tpl-tree ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.tpl-nav {
+	overflow-y: auto;
+	min-height: 0;
+}
+.tpl-tree ul {
+	padding-left: 16px;
+}
+.tpl-row {
+	display: flex;
+	align-items: center;
+	border-radius: var(--radius-control);
+}
+.tpl-row:hover,
+.tpl-row[data-selected="true"] {
+	background: var(--accent);
+}
+.tpl-row-main {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.tpl-row-main span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.tpl-row-main svg {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	color: var(--muted-foreground);
+}
+.tpl-more {
+	display: inline-flex;
+	flex: none;
+	padding: 4px;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+.tpl-more svg {
+	width: 16px;
+	height: 16px;
+}
+.tpl-path {
+	padding: 4px 0;
+}
+.tpl-editor,
+.tpl-preview {
+	flex: none;
+	max-height: 14rem;
+	overflow-y: auto;
+	padding: 8px 12px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--background);
+}
+.tpl-preview {
+	max-height: 18rem;
+}
+.tpl-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+.tpl-context {
+	display: grid;
+	gap: 4px;
+}
+.tpl-context-pick {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.tpl-context-pick select {
+	min-width: 0;
+	height: var(--control-height);
+	padding: 0 8px;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--background);
+	color: var(--foreground);
+	font: inherit;
+}
+.tpl-note {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.tpl-error {
+	margin: 0;
+	color: var(--destructive);
+	font-size: var(--font-size-small);
+	white-space: pre-line;
+}
+.tpl-name-dialog form {
+	display: grid;
+	gap: 12px;
+}

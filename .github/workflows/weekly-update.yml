@@ -1,0 +1,35 @@
+name: Weekly update
+
+# Every Friday at 4:00 PM Chicago time, posts an issue labeled "weekly" listing
+# the pull requests merged and issues opened or closed since the previous
+# Friday 4:01 PM. GitHub schedules run in UTC only, so this fires at both
+# 21:00 and 22:00 UTC and the script keeps the one that is 4:00 PM in Chicago
+# (daylight saving or not). For any other date range, use
+# Actions -> Maintenance -> weekly-update.
+
+on:
+  schedule:
+    - cron: "0 21 * * 5"
+    - cron: "0 22 * * 5"
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    name: Post the weekly update
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SCHEDULE: ${{ github.event.schedule }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test the script
+        run: python3 -m unittest discover -s .github/maintenance
+      - name: Post
+        run: python3 .github/maintenance/weekly_update.py --scheduled "$SCHEDULE"

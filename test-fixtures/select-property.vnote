@@ -1,0 +1,2 @@
+{"format":"vaultops-note","v":1,"noteId":"select-property-1","props":{"Stage":{"options":["Open","Done"],"type":"select","value":"Waiting"},"Status":{"options":["Open","Blocked","Done"],"type":"select","value":"Blocked"}},"title":"Select property"}
+{"id":"p1","type":"paragraph","parent":null}

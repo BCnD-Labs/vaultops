@@ -1,0 +1,20 @@
+{"format":"vaultops-note","v":1,"noteId":"columns-1"}
+{"id":"k0","type":"paragraph","parent":null,"content":[{"text":"Above the columns","type":"text"}]}
+{"id":"k1","type":"columns","parent":null}
+{"id":"k1a","type":"column","parent":"k1"}
+{"id":"k1ap","type":"paragraph","parent":"k1a","content":[{"text":"Left column","type":"text"}]}
+{"id":"k1al","type":"bulletList","parent":"k1a"}
+{"id":"k1ai","type":"listItem","parent":"k1al"}
+{"id":"k1aip","type":"paragraph","parent":"k1ai","content":[{"text":"A list in a column","type":"text"}]}
+{"id":"k1b","type":"column","parent":"k1"}
+{"id":"k1bp","type":"paragraph","parent":"k1b","content":[{"text":"Right column","type":"text"}]}
+{"id":"k1bc","type":"callout","parent":"k1b"}
+{"id":"k1bcp","type":"paragraph","parent":"k1bc","content":[{"text":"A callout in a column","type":"text"}]}
+{"id":"k2","type":"columns","parent":null}
+{"id":"k2a","type":"column","parent":"k2"}
+{"id":"k2ap","type":"paragraph","parent":"k2a"}
+{"id":"k2b","type":"column","parent":"k2"}
+{"id":"k2bp","type":"paragraph","parent":"k2b"}
+{"id":"k2c","type":"column","parent":"k2"}
+{"id":"k2cp","type":"paragraph","parent":"k2c","content":[{"text":"Three columns","type":"text"}]}
+{"id":"k3","type":"paragraph","parent":null,"content":[{"text":"Below the columns","type":"text"}]}

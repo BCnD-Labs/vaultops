@@ -1,0 +1,2 @@
+{"format":"vaultops-note","v":1,"noteId":"links-1"}
+{"id":"p1","type":"paragraph","parent":null,"content":[{"text":"Call ","type":"text"},{"attrs":{"kind":"resource","label":"Sam Rivera","target":"resource-sam"},"type":"noteLink"},{"text":" about ","type":"text"},{"attrs":{"kind":"note","label":"Trip plan","target":"note-trip"},"type":"noteLink"},{"text":" and ","type":"text"},{"attrs":{"kind":"canvas","label":"Ideas","target":"canvas-ideas"},"type":"noteLink"}]}

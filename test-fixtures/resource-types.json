@@ -1,0 +1,16 @@
+{
+	"format": "vaultops-resource-types",
+	"v": 1,
+	"types": [
+		{
+			"id": "contact",
+			"name": "Contact",
+			"titleLabel": "Name",
+			"fields": [
+				{ "label": "Phone", "kind": "text", "required": false },
+				{ "label": "Birthday", "kind": "date", "required": false },
+				{ "label": "Email", "kind": "text", "required": true }
+			]
+		}
+	]
+}

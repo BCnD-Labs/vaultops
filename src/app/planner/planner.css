@@ -1,0 +1,1185 @@
+/* Planner: tasks, calendar, daily log. Theme tokens only. */
+.planner {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	overflow-y: auto;
+	padding: var(--space-4) var(--space-6);
+}
+.planner-tabs {
+	gap: var(--space-3);
+}
+.planner-top {
+	display: flex;
+	align-items: center;
+	gap: var(--space-4);
+}
+.planner-top h2 {
+	margin: 0;
+	font-size: var(--font-size-heading);
+}
+.planner-top [data-slot="tabs-list"] {
+	flex: 1;
+	border-bottom: 0;
+}
+.planner-split {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+	gap: var(--space-4);
+	align-items: start;
+	margin-top: var(--space-3);
+}
+.planner-split.is-single {
+	grid-template-columns: minmax(0, 44rem);
+}
+@media (max-width: 900px) {
+	.planner-split {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+.plan-card {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--surface);
+	box-shadow: var(--elevation-1);
+	overflow: hidden;
+}
+.plan-card-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--chrome-bar-height);
+	padding: 0 var(--space-3);
+	border-bottom: var(--border-width) solid var(--line);
+	background: var(--surface-container-low);
+}
+.plan-card-head h2 {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-size: var(--font-size-ui);
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.plan-sub {
+	margin-right: auto;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	font-weight: 400;
+}
+.plan-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.plan-actions [data-slot="tabs-list"] {
+	border-bottom: 0;
+}
+.plan-actions [aria-pressed="true"] {
+	background: var(--selection-bg);
+}
+.plan-star,
+.plan-star-on {
+	width: 0.875rem;
+	height: 0.875rem;
+	flex: none;
+}
+.plan-star,
+.plan-star-on {
+	color: var(--tone-yellow);
+}
+.plan-star-on {
+	fill: currentColor;
+}
+.plan-count {
+	margin-left: var(--space-1);
+	padding-inline: var(--space-1);
+	border-radius: var(--radius-round);
+	background: var(--muted);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-search,
+.plan-quick {
+	margin: var(--space-2) var(--space-3) 0;
+}
+.plan-quick {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	color: var(--muted-foreground);
+}
+.plan-quick svg {
+	width: 1rem;
+	height: 1rem;
+	flex: none;
+}
+.plan-list {
+	max-height: 28rem;
+	overflow-y: auto;
+	padding: var(--space-2) 0;
+}
+.plan-group {
+	margin: var(--space-2) var(--space-3) var(--space-1);
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+	color: var(--muted-foreground);
+}
+.plan-group span {
+	font-weight: 400;
+}
+.plan-group.is-overdue {
+	color: var(--destructive);
+}
+.plan-list ul,
+.plan-agenda ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.plan-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-1) var(--space-3);
+}
+.plan-row:hover {
+	background: var(--hover-layer);
+}
+.plan-row.is-selected {
+	background: var(--selection-bg);
+}
+.plan-row-main {
+	display: flex;
+	flex: 1;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.plan-title {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.plan-row.is-done .plan-title,
+.plan-done-text {
+	color: var(--muted-foreground);
+	text-decoration: line-through;
+}
+.plan-num {
+	color: var(--muted-foreground);
+	font-variant-numeric: tabular-nums;
+}
+.plan-due {
+	margin-left: auto;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	white-space: nowrap;
+}
+.plan-due.is-overdue {
+	color: var(--destructive);
+}
+.plan-empty {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	margin: 0;
+	padding: var(--space-4) var(--space-3);
+	color: var(--muted-foreground);
+}
+.plan-empty svg {
+	width: 1rem;
+	height: 1rem;
+}
+.plan-error {
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-control);
+	background: var(--destructive-container);
+	color: var(--destructive);
+	font-size: var(--font-size-small);
+}
+
+/* Inspector */
+.plan-inspector-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-3);
+}
+.plan-inspector.is-empty {
+	min-height: 8rem;
+}
+.plan-check {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.plan-labels {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+}
+.plan-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-2);
+}
+.plan-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-field select {
+	height: var(--control-height);
+	padding-inline: var(--space-2);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--background);
+	color: var(--foreground);
+}
+.plan-schedule {
+	margin: 0;
+	padding: var(--space-3) 0 0;
+	border: 0;
+	border-top: var(--border-width) solid var(--line);
+}
+.plan-schedule legend {
+	padding: 0 var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+}
+.plan-schedule p {
+	grid-column: 1 / -1;
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-preview,
+.plan-meta {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-dialog-content {
+	max-width: 28rem;
+}
+.plan-dialog-head {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+}
+.plan-dialog-head [data-slot="tabs-list"] {
+	border-bottom: 0;
+}
+.plan-dialog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.plan-priority-group {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+.plan-field-label {
+	padding: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-priority-radios {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: 2px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+}
+.plan-priority-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: var(--control-height-sm);
+	padding-inline: var(--space-2);
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	cursor: pointer;
+	user-select: none;
+}
+.plan-priority-pill:hover {
+	color: var(--foreground);
+}
+.plan-priority-pill.is-selected {
+	background: var(--surface);
+	color: var(--foreground);
+	box-shadow: var(--elevation-1);
+}
+.plan-priority-pill.is-selected[data-priority="high"] {
+	color: var(--destructive);
+}
+.plan-priority-pill.is-selected[data-priority="medium"] {
+	color: var(--tone-orange);
+}
+.plan-priority-pill.is-selected[data-priority="low"] {
+	color: var(--tone-blue);
+}
+.plan-priority-pill:has(:focus-visible) {
+	outline: var(--focus-ring-width) solid var(--ring);
+}
+.plan-date-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.plan-date-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 7.5rem;
+	gap: var(--space-2);
+	align-items: start;
+}
+.plan-date-input-wrap {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--space-2);
+}
+.plan-date-preview {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	white-space: nowrap;
+}
+.plan-date-preview.is-invalid {
+	color: var(--destructive);
+}
+
+/* Calendar */
+.plan-month-labels,
+.plan-month-days {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.plan-month-labels span {
+	padding: var(--space-1) var(--space-2);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-month-days {
+	gap: 1px;
+	background: var(--line);
+	border-top: var(--border-width) solid var(--line);
+}
+.plan-month-day {
+	min-height: 5.5rem;
+	padding: var(--space-1);
+	background: var(--surface);
+}
+.plan-month-day.is-outside {
+	background: var(--surface-container-low);
+	color: var(--muted-foreground);
+}
+.plan-month-day.is-selected {
+	background: var(--selection-bg);
+}
+.plan-month-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.plan-date,
+.plan-week-date {
+	min-width: 1.5rem;
+	height: 1.5rem;
+	padding: 0 var(--space-1);
+	border: 0;
+	border-radius: var(--radius-round);
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+.plan-month-day.is-today .plan-date {
+	box-shadow: inset 0 0 0 var(--border-width) var(--destructive);
+}
+.plan-month-day.is-selected .plan-date {
+	background: var(--destructive);
+	color: var(--destructive-foreground);
+}
+.plan-dots {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+.plan-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: var(--radius-round);
+	background: var(--tone-blue);
+}
+.plan-dot.is-overdue {
+	background: var(--tone-orange);
+}
+.plan-dot.is-done {
+	background: var(--tone-green);
+}
+/* A day with a daily log: a purple dot, apart from the task dots. */
+.plan-dot.is-log {
+	background: var(--tone-purple);
+}
+.plan-dot-more,
+.plan-day-meta {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-day-meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+	padding-inline: var(--space-1);
+	border-radius: var(--radius-round);
+	background: var(--muted);
+}
+.plan-day-meta svg {
+	width: 0.625rem;
+	height: 0.625rem;
+}
+.plan-add-day {
+	display: none;
+	margin-left: auto;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+.plan-month-day:hover .plan-add-day,
+.plan-add-day:focus-visible {
+	display: inline-flex;
+}
+.plan-add-day svg {
+	width: 0.875rem;
+	height: 0.875rem;
+}
+.plan-chips {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-top: var(--space-1);
+}
+.plan-event {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	width: 100%;
+	min-width: 0;
+	padding: 1px var(--space-1);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: color-mix(in srgb, var(--tone-blue) 18%, transparent);
+	color: var(--foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	text-align: left;
+	cursor: pointer;
+}
+.plan-event.is-event {
+	background: color-mix(in srgb, var(--tone-purple) 18%, transparent);
+}
+.plan-event.is-done {
+	background: color-mix(in srgb, var(--tone-green) 14%, transparent);
+	color: var(--muted-foreground);
+	text-decoration: line-through;
+}
+.plan-event.is-active {
+	outline: var(--border-width) solid var(--primary);
+}
+.plan-event svg {
+	width: 0.75rem;
+	height: 0.75rem;
+	flex: none;
+}
+.plan-event-title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.plan-event-time {
+	color: var(--muted-foreground);
+}
+.plan-more {
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	text-align: left;
+	cursor: pointer;
+}
+.plan-agenda {
+	padding: var(--space-3);
+	border-top: var(--border-width) solid var(--line);
+}
+.plan-agenda-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.plan-agenda-head span {
+	flex: 1;
+	color: var(--muted-foreground);
+}
+.plan-agenda li {
+	margin-top: var(--space-1);
+}
+
+/* Day / week */
+.plan-week-head,
+.plan-allday,
+.plan-time-grid {
+	display: grid;
+}
+.plan-week-head {
+	border-bottom: var(--border-width) solid var(--line);
+}
+.plan-week-date {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	height: auto;
+	padding: var(--space-1);
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+}
+.plan-week-date strong {
+	color: var(--foreground);
+}
+.plan-week-date.is-today strong {
+	color: var(--destructive);
+}
+.plan-week-date.is-selected {
+	background: var(--selection-bg);
+}
+.plan-allday {
+	border-bottom: var(--border-width) solid var(--line);
+}
+.plan-time-label {
+	padding: var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-allday-cell {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	padding: var(--space-1);
+	border-left: var(--border-width) solid var(--line);
+}
+.plan-time-scroll {
+	max-height: 30rem;
+	overflow-y: auto;
+}
+.plan-time-grid {
+	position: relative;
+}
+.plan-hours {
+	position: relative;
+}
+.plan-hours span {
+	position: absolute;
+	right: var(--space-1);
+	transform: translateY(-50%);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plan-timed-day {
+	position: relative;
+	border-left: var(--border-width) solid var(--line);
+	background-image: linear-gradient(
+		var(--line) var(--border-width),
+		transparent var(--border-width)
+	);
+	background-size: 100% 44px;
+}
+.plan-timed-day.is-today {
+	background-color: color-mix(in srgb, var(--destructive) 4%, transparent);
+}
+.plan-hour-cell {
+	position: absolute;
+	left: 0;
+	right: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+}
+.plan-hour-cell:hover {
+	background: var(--hover-layer);
+}
+.plan-timed-event {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding: 1px var(--space-1);
+	border: var(--border-width) solid
+		color-mix(in srgb, var(--tone-blue) 50%, transparent);
+	border-radius: var(--radius-control);
+	background: color-mix(in srgb, var(--tone-blue) 22%, var(--surface));
+	color: var(--foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	text-align: left;
+	cursor: pointer;
+}
+.plan-timed-event.is-event {
+	border-color: color-mix(in srgb, var(--tone-purple) 50%, transparent);
+	background: color-mix(in srgb, var(--tone-purple) 22%, var(--surface));
+}
+.plan-timed-event.is-done {
+	opacity: 0.6;
+}
+.plan-timed-event.is-active {
+	outline: var(--border-width) solid var(--primary);
+}
+.plan-timed-meta {
+	color: var(--muted-foreground);
+}
+
+/* Log */
+.plan-log-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: var(--space-3);
+}
+.plan-log-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+}
+.plan-prompts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+}
+.plan-naming {
+	display: flex;
+	gap: var(--space-2);
+}
+.plan-naming input {
+	flex: 1;
+	height: var(--control-height-sm);
+	padding-inline: var(--space-2);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-control);
+	background: var(--background);
+	color: var(--foreground);
+}
+.plan-entries {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.plan-entries li {
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--background);
+	white-space: pre-wrap;
+}
+
+/* Right sidebar and title-bar calendar */
+.planner-side {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	min-width: 0;
+}
+.planner-side-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.planner-side .plan-card {
+	border-radius: var(--radius-control);
+	box-shadow: none;
+}
+/* The stacked planner's section header already says "Tasks", so the card's own
+   title goes and its two buttons sit at the right. */
+.planner-stack .plan-card-head {
+	justify-content: flex-end;
+}
+.planner-stack .plan-card-head h2 {
+	display: none;
+}
+.planner-side .plan-list {
+	max-height: 18rem;
+}
+.planner-side .plan-fields {
+	grid-template-columns: 1fr;
+}
+.calendar-popover {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	width: 19rem;
+	padding: var(--space-3);
+}
+.calendar-popover-foot {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-2);
+}
+.mini-cal-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	margin-bottom: var(--space-2);
+}
+.mini-cal-head strong {
+	flex: 1;
+	font-size: var(--font-size-ui);
+}
+.mini-cal-grid {
+	display: grid;
+	grid-template-columns: repeat(7, minmax(0, 1fr));
+	gap: 2px;
+}
+.mini-cal-label {
+	padding-block: var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	text-align: center;
+}
+.mini-cal-day {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1px;
+	height: 2.25rem;
+	padding: var(--space-1) 0 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--foreground);
+	font: inherit;
+	cursor: pointer;
+}
+.mini-cal-day:hover {
+	background: var(--hover-layer);
+}
+.mini-cal-day.is-outside {
+	color: var(--muted-foreground);
+	opacity: 0.6;
+}
+.mini-cal-day.is-today > span:first-child {
+	box-shadow: 0 0 0 var(--border-width) var(--destructive);
+}
+.mini-cal-day > span:first-child {
+	min-width: 1.5rem;
+	border-radius: var(--radius-round);
+	line-height: 1.5rem;
+	text-align: center;
+}
+.mini-cal-day.is-selected > span:first-child {
+	background: var(--destructive);
+	color: var(--destructive-foreground);
+}
+.mini-cal-marks {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	height: 6px;
+}
+.mini-cal-marks .plan-dot {
+	display: block;
+	width: 4px;
+	height: 4px;
+}
+
+/* Stacked, collapsible planner sections (VS Code style). */
+.planner-stack {
+	gap: 0;
+}
+.planner-stack > .planner-side-bar,
+.planner-stack > .plan-error {
+	margin-bottom: var(--space-2);
+}
+.planner-section + .planner-section {
+	border-top: var(--border-width) solid var(--line);
+}
+.planner-section-head {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.planner-section-head[draggable="true"] {
+	cursor: grab;
+}
+.planner-section-toggle {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: var(--row-height);
+	border: 0;
+	background: none;
+	padding: 0 var(--space-1);
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+	cursor: inherit;
+}
+.planner-section-toggle:hover {
+	color: var(--foreground);
+}
+.planner-section-chevron {
+	width: 14px;
+	height: 14px;
+	transform: rotate(-90deg);
+	transition: transform var(--motion-fast);
+}
+.planner-section-chevron[data-open] {
+	transform: none;
+}
+.planner-side-bare {
+	padding: var(--space-2) 0;
+}
+
+/* The calendar docked below a sidebar's tools: a one-tab group. */
+.dock-group {
+	flex: none;
+	max-height: 60%;
+	overflow: auto;
+	border-top: var(--border-width) solid var(--line);
+	background: var(--shell-panel);
+}
+.dock-tabs {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-1) var(--space-2);
+}
+.dock-tabs .dock-more {
+	margin-left: auto;
+	color: var(--muted-foreground);
+}
+.dock-tab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--control-height);
+	height: var(--control-height);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: var(--accent);
+	color: var(--accent-foreground);
+	cursor: grab;
+}
+.dock-tab svg {
+	width: 16px;
+	height: 16px;
+}
+/* Shown over a sidebar's lower part while the calendar is carried. */
+.dock-zone {
+	position: absolute;
+	z-index: 10;
+	inset: auto 0 0 0;
+	height: 45%;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding: var(--space-3);
+	box-sizing: border-box;
+	border-top: var(--focus-ring-width) solid transparent;
+	background: color-mix(in srgb, var(--primary) 6%, transparent);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.dock-zone[data-over] {
+	border-top-color: var(--primary);
+	background: color-mix(in srgb, var(--primary) 14%, transparent);
+	color: var(--foreground);
+}
+.dock-zone-inline {
+	position: static;
+	height: auto;
+	align-items: center;
+	margin-bottom: var(--space-2);
+	border: var(--border-width) dashed var(--line);
+	border-radius: var(--radius-control);
+}
+.dock-zone-inline[data-over] {
+	border-color: var(--primary);
+}
+
+/* Daily log: week strip, task lists, recent entries, entry links, save status. */
+.log-week {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	padding: var(--space-2) var(--space-3);
+}
+.log-week-days {
+	display: grid;
+	flex: 1;
+	grid-template-columns: repeat(7, 1fr);
+	gap: var(--space-1);
+}
+.log-week-day {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: var(--space-1) 0;
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: inherit;
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+.log-week-day:hover {
+	background: var(--muted);
+}
+.log-week-day.is-today {
+	border-color: var(--line);
+}
+.log-week-day.is-selected {
+	background: var(--primary);
+	color: var(--primary-foreground);
+}
+.log-week-dot {
+	width: 6px;
+	height: 6px;
+}
+.log-week-dot:not(.is-log) {
+	visibility: hidden;
+}
+.log-lists {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: 0 var(--space-3) var(--space-3);
+}
+.log-list h3 {
+	margin: 0 0 var(--space-1);
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+}
+.log-list ul {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.log-list button {
+	display: flex;
+	width: 100%;
+	align-items: baseline;
+	gap: var(--space-2);
+	padding: var(--space-1) var(--space-2);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.log-list button:hover {
+	background: var(--muted);
+}
+.log-recent-day {
+	flex: none;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.log-recent-line {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.log-status {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.log-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	margin-top: var(--space-1);
+}
+.log-link-pick {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+
+/* Reflection */
+.plan-reflected {
+	width: 0.875rem;
+	height: 0.875rem;
+	flex: none;
+	color: var(--muted-foreground);
+}
+.plan-reflect {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--space-2);
+}
+.plan-reflect.is-open {
+	align-items: stretch;
+	padding: var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+}
+.plan-reflect-title {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--section-size);
+	letter-spacing: var(--section-tracking);
+	text-transform: uppercase;
+}
+.plan-reflect-item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	font-size: var(--font-size-small);
+}
+.plan-reflect-item-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	color: var(--muted-foreground);
+}
+.plan-reflect-add,
+.plan-reflect-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+}
+
+/* Daily check-ins */
+.plan-checkins {
+	margin: 0;
+	border: 0;
+	/* Lines up with the log's own box below it. */
+	padding: var(--space-3) var(--space-3) 0;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+/* Three slots on one row: empty until done, then green with a check. */
+.plan-checkin-slots {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+	gap: var(--space-1);
+}
+.plan-checkin-slot {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-width: 0;
+	height: var(--control-height-sm);
+	padding: 0 var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--font-size-ui);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+	transition:
+		background var(--motion-fast),
+		border-color var(--motion-fast);
+}
+.plan-checkin-slot:hover {
+	background: var(--accent);
+	color: var(--foreground);
+}
+.plan-checkin-slot svg {
+	flex: none;
+	width: 12px;
+	height: 12px;
+	stroke-width: 3;
+}
+.plan-checkin-slot[data-current] {
+	border-color: var(--ring);
+	color: var(--foreground);
+}
+.plan-checkin-slot[data-done] {
+	border-color: var(--tone-green);
+	background: color-mix(in srgb, var(--tone-green) 22%, transparent);
+	color: var(--foreground);
+}
+.plan-checkin-slot[aria-expanded="true"] {
+	outline: var(--border-width) solid var(--ring);
+	outline-offset: 1px;
+}
+.plan-checkin-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	padding: var(--space-1) 0 var(--space-2);
+}
+.plan-checkin-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-2);
+	font-size: var(--font-size-small);
+}
+.plan-checkin-label {
+	min-width: 4rem;
+	color: var(--muted-foreground);
+}
+
+/* In a narrow sidebar the four task views wrap onto a second line instead of
+   running past the card's edge. */
+.plan-task-tabs {
+	flex-wrap: wrap;
+	row-gap: 0;
+}

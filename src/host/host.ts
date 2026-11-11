@@ -1,0 +1,156 @@
+/**
+ * The only door between app code and the operating system.
+ * Every native call (files, git, dialogs, watching) goes through this
+ * interface, so the desktop shell can be swapped and tests can use a fake.
+ *
+ * Paths are vault-relative strings (see src/core/vault-path). The host knows
+ * the vault root; app code never sees or sends absolute paths.
+ */
+export interface AppInfo {
+	name: string;
+	version: string;
+}
+
+/** STOPGAP(update-script): where the maintainer's install script stands. */
+export type UpdateScriptState = "idle" | "running" | "finished" | "failed";
+
+export interface UpdateScriptStatus {
+	state: UpdateScriptState;
+	/** The script's latest line of output ("" before it says anything). */
+	lastLine: string;
+}
+
+export type EntryKind = "file" | "folder";
+
+export interface DirEntry {
+	name: string;
+	kind: EntryKind;
+}
+
+/** Every error code; the Rust side uses the same list (test-fixtures/host-error-codes.json). */
+export const HOST_ERROR_CODES = [
+	"not-found",
+	"already-exists",
+	"not-a-folder",
+	"is-a-folder",
+	"invalid-path",
+	"io",
+] as const;
+
+export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];
+
+/** Errors carry a code and a short message, never an absolute path. */
+export class HostError extends Error {
+	readonly code: HostErrorCode;
+	constructor(code: HostErrorCode, message: string) {
+		super(message);
+		this.name = "HostError";
+		this.code = code;
+	}
+}
+
+export interface Host {
+	appInfo(): Promise<AppInfo>;
+
+	/**
+	 * Let the user choose the vault folder with the system picker and make it
+	 * the open vault. Resolves to the folder's name, or null if cancelled
+	 * (then nothing changes). The folder's location never leaves the host.
+	 */
+	chooseVault(): Promise<string | null>;
+
+	/** The open vault's folder name, or null when none is open. */
+	currentVault(): Promise<string | null>;
+
+	/** Read a UTF-8 text file. */
+	readText(path: string): Promise<string>;
+
+	/**
+	 * Replace or create a file atomically: readers see the old content or the
+	 * new content, never a partial file. The parent folder must exist.
+	 */
+	writeTextAtomic(path: string, text: string): Promise<void>;
+
+	/**
+	 * Move or rename a file or folder. Fails with `already-exists` if the
+	 * target exists, except for a rename that only changes capital letters
+	 * or Unicode form of the same entry.
+	 */
+	move(from: string, to: string): Promise<void>;
+
+	/** List a folder ("" is the vault root), sorted by name. */
+	list(folder: string): Promise<DirEntry[]>;
+
+	/** Create a folder and any missing parents. An existing folder is fine. */
+	makeFolder(path: string): Promise<void>;
+
+	/** What is at a path, or null if nothing is. */
+	kindOf(path: string): Promise<EntryKind | null>;
+
+	/**
+	 * Delete one note forever, then any folders it leaves empty (never
+	 * `.vaultops/trash` itself). The only call that erases a note, so it is narrow:
+	 * it works only on a file inside a time folder of `.vaultops/trash/`, spelled
+	 * exactly so, and refuses (`invalid-path`) everything else, including a path
+	 * reached through a symlink. A folder fails with `is-a-folder`, a missing
+	 * note with `not-found`.
+	 */
+	removeTrashed(path: string): Promise<void>;
+
+	/**
+	 * Run `handler` (and wait for it) when the window is asked to close. It
+	 * resolves true to let the window close, false to keep it open. Resolves to
+	 * a function that removes the handler; rejects if the shell could not
+	 * register it, so the app can warn that saving on quit is unavailable.
+	 */
+	onCloseRequested(handler: () => Promise<boolean>): Promise<() => void>;
+
+	/**
+	 * Append lines to the app's own log file (kept in the app's log folder, never
+	 * in a vault). Best effort: callers must not depend on it succeeding.
+	 */
+	appendLog(lines: string): Promise<void>;
+
+	/**
+	 * The app's own small files, kept outside any vault (settings folder). Only
+	 * the names in `APP_FILE_NAMES` work. Reads resolve to null when the file
+	 * doesn't exist yet; writes are atomic.
+	 */
+	readAppFile(name: AppFileName): Promise<string | null>;
+	writeAppFile(name: AppFileName, text: string): Promise<void>;
+
+	/** The last lines of the app's log file ("" when there is none yet). */
+	readLogTail(maxLines: number): Promise<string>;
+
+	/**
+	 * The maintainer's reports folder: a folder chosen with the system picker
+	 * where report files are dropped so they can be read outside the app. The
+	 * folder's location never leaves the host. `chooseReportsFolder` resolves to
+	 * the folder's name, or null if cancelled; `reportsFolder` to the current
+	 * folder's name, or null when none is chosen (or it has gone). `writeReport`
+	 * writes a plain `.txt` file (letters, digits, - _ . only) and fails when no
+	 * folder is chosen.
+	 */
+	chooseReportsFolder(): Promise<string | null>;
+	reportsFolder(): Promise<string | null>;
+	writeReport(name: string, text: string): Promise<void>;
+
+	/**
+	 * STOPGAP(update-script): run the maintainer's install script (pull the newest
+	 * `main`, build, install, reopen) from the code folder this app was built from.
+	 * The window sends nothing: which script runs is decided by the host. Fails
+	 * with `io` while a run is going and `not-found` when the script is missing.
+	 * `updateScriptStatus` is read-only and safe to poll.
+	 */
+	startUpdateScript(): Promise<void>;
+	updateScriptStatus(): Promise<UpdateScriptStatus>;
+}
+
+/** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */
+export const APP_FILE_NAMES = [
+	"session.json",
+	"crash-report.txt",
+	"maintainer.json",
+	"unsaved-recovery.txt",
+] as const;
+export type AppFileName = (typeof APP_FILE_NAMES)[number];

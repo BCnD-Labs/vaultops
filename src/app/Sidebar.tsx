@@ -1,0 +1,426 @@
+import {
+	ArrowDownUp,
+	Columns2,
+	FilePlus,
+	Files,
+	FolderPlus,
+	LayoutDashboard,
+	ListTree,
+	PanelsTopLeft,
+	Rows2,
+	Search,
+} from "lucide-react";
+import { type ReactNode, useContext, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { matchesNote, sortNotes } from "../core/notes/list";
+import { filterTree, type TreeNode } from "../core/notes/tree";
+import { ShellNavigation } from "./AppShell";
+import { NoteList } from "./NoteList";
+import { NoteTree, type TreeActions } from "./NoteTree";
+import { noteSort } from "./note-sort";
+import { SearchButton } from "./SearchButton";
+import type { VaultView } from "./session";
+import {
+	type Selection,
+	selectedNotes,
+	sidebarMode,
+	sidebarPreferences,
+} from "./sidebar-selection";
+import { VaultMenu } from "./VaultMenu";
+import "./sidebar.css";
+
+interface SidebarProps {
+	view: VaultView | null;
+	busy: boolean;
+	maintainer: boolean;
+	selection: Selection;
+	livePath: string | null;
+	tree: TreeNode[];
+	treeActions: TreeActions;
+	treeNotice: string | null;
+	onStartNote: (folder: string) => void;
+	onStartCanvas?: (folder: string) => void;
+	onChooseVault: () => void;
+	onShowMaintainer: () => void;
+	onNavigate: (screen: "trash") => void;
+	/** Opens the settings window (the gear beside the vault menu). */
+	onOpenSettings?: () => void;
+	/** Opens the template manager. */
+	onOpenTemplates?: () => void;
+	onOpenResources?: () => void;
+	onSelection: (selection: Selection) => void;
+	onOpen: (path: string) => void;
+}
+
+function IconAction({
+	label,
+	children,
+	onClick,
+	disabled,
+}: {
+	label: string;
+	children: ReactNode;
+	onClick: () => void;
+	disabled?: boolean;
+}) {
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					variant="ghost"
+					size="icon"
+					aria-label={label}
+					onClick={onClick}
+					disabled={disabled}
+				>
+					{children}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
+	);
+}
+
+export function Sidebar({
+	view,
+	busy,
+	maintainer,
+	selection,
+	livePath,
+	tree,
+	treeActions,
+	treeNotice,
+	onStartNote,
+	onStartCanvas,
+	onChooseVault,
+	onShowMaintainer,
+	onNavigate,
+	onOpenSettings = () => {},
+	onOpenTemplates,
+	onOpenResources,
+	onSelection,
+	onOpen,
+}: SidebarProps) {
+	const { newFolder } = useContext(ShellNavigation);
+	const [preferences, setPreferences] = useState(() => sidebarPreferences());
+	const [mode, setMode] = useState(() => sidebarMode());
+	const sizesRef = useRef(preferences.sizes);
+	const locked = busy || !view?.writable;
+	const [query, setQuery] = useState("");
+	const [sort, setSort] = useState(() => noteSort());
+	const notes = sortNotes(
+		selectedNotes(view?.notes ?? [], selection).filter((note) =>
+			matchesNote(note, query),
+		),
+		sort,
+	);
+	const label =
+		selection.kind === "all"
+			? "All notes"
+			: selection.kind === "tag"
+				? `#${selection.value}`
+				: selection.value.split("/").pop() || view?.name || "Vault";
+
+	const foot = (
+		<VaultMenu
+			vault={view && view.status !== "none" ? view.name : null}
+			busy={busy}
+			hasVault={!!view && view.status !== "none"}
+			maintainer={maintainer}
+			onChooseVault={onChooseVault}
+			onOpenResources={onOpenResources}
+			onOpenTemplates={onOpenTemplates}
+			onOpenTrash={() => onNavigate("trash")}
+			onShowMaintainer={onShowMaintainer}
+			onOpenSettings={onOpenSettings}
+		/>
+	);
+	const notices = (
+		<>
+			{view?.messages.map((message) => (
+				<p key={message} className="notice">
+					{message}
+				</p>
+			))}
+			{treeNotice && (
+				<p role="status" className="notice">
+					{treeNotice}
+				</p>
+			)}
+		</>
+	);
+	const modeToggle = (
+		<IconAction
+			label={mode === "tree" ? "Notebook navigator view" : "Folder tree view"}
+			onClick={() =>
+				setMode(sidebarMode(mode === "tree" ? "navigator" : "tree"))
+			}
+		>
+			{mode === "tree" ? <PanelsTopLeft /> : <ListTree />}
+		</IconAction>
+	);
+	if (mode === "tree") {
+		const picked =
+			selection.kind === "tag"
+				? new Set(
+						selectedNotes(view?.notes ?? [], selection).map((n) => n.path),
+					)
+				: null;
+		const folder = selection.kind === "folder" ? selection.value : "";
+		return (
+			<aside className="sidebar" aria-label="Vault navigation">
+				<section className="sidebar-pane" aria-label="Folders and notes">
+					<NoteTree
+						newFolderRequest={newFolder}
+						nodes={picked ? filterTree(tree, (path) => picked.has(path)) : tree}
+						livePath={livePath}
+						onOpen={onOpen}
+						actions={treeActions}
+						busy={locked}
+						selectedFolder={
+							selection.kind === "folder" ? selection.value : undefined
+						}
+						onSelectFolder={(value) => onSelection({ kind: "folder", value })}
+						toggleOnSelect
+						expandAll={picked !== null}
+						header={(create) => (
+							<>
+								<header className="sidebar-header sidebar-header-first">
+									<SearchButton />
+									<IconAction
+										label="New folder"
+										disabled={locked}
+										onClick={create}
+									>
+										<FolderPlus />
+									</IconAction>
+									<IconAction
+										label="New canvas"
+										disabled={locked}
+										onClick={() => onStartCanvas?.(folder)}
+									>
+										<LayoutDashboard />
+									</IconAction>
+									<IconAction
+										label="New note"
+										disabled={locked}
+										onClick={() => onStartNote(folder)}
+									>
+										<FilePlus />
+									</IconAction>
+									{modeToggle}
+								</header>
+								<div className="section-label">Notes</div>
+								{selection.kind === "tag" && (
+									<Button
+										variant="secondary"
+										size="sm"
+										aria-label={`Clear tag filter #${selection.value}`}
+										onClick={() => onSelection({ kind: "all" })}
+									>
+										[#{selection.value} ×]
+									</Button>
+								)}
+							</>
+						)}
+					/>
+				</section>
+				{notices}
+				{foot}
+			</aside>
+		);
+	}
+
+	return (
+		<aside className="sidebar" aria-label="Vault navigation">
+			<ResizablePanelGroup
+				key={preferences.orientation}
+				orientation={preferences.orientation}
+				defaultLayout={preferences.sizes}
+				onLayoutChanged={(sizes) => {
+					sizesRef.current = sizes;
+					sidebarPreferences({ orientation: preferences.orientation, sizes });
+				}}
+			>
+				<ResizablePanel id="navigation" minSize="10%">
+					<section className="sidebar-pane" aria-label="Navigation">
+						<NoteTree
+							newFolderRequest={newFolder}
+							nodes={tree}
+							livePath={livePath}
+							onOpen={onOpen}
+							actions={treeActions}
+							busy={locked}
+							foldersOnly
+							selectedFolder={
+								selection.kind === "folder" ? selection.value : undefined
+							}
+							onSelectFolder={(value) => onSelection({ kind: "folder", value })}
+							header={(create) => (
+								<>
+									<header className="sidebar-header sidebar-header-first">
+										<SearchButton />
+										<IconAction
+											label="New folder"
+											disabled={locked}
+											onClick={create}
+										>
+											<FolderPlus />
+										</IconAction>
+										<IconAction
+											label={
+												preferences.orientation === "vertical"
+													? "Side by side"
+													: "Stacked"
+											}
+											onClick={() =>
+												setPreferences(
+													sidebarPreferences({
+														orientation:
+															preferences.orientation === "vertical"
+																? "horizontal"
+																: "vertical",
+														sizes: sizesRef.current,
+													}),
+												)
+											}
+										>
+											{preferences.orientation === "vertical" ? (
+												<Columns2 />
+											) : (
+												<Rows2 />
+											)}
+										</IconAction>
+										{modeToggle}
+									</header>
+									<div className="section-label">Notes</div>
+									<button
+										type="button"
+										className="sidebar-row"
+										aria-current={selection.kind === "all"}
+										onClick={() => onSelection({ kind: "all" })}
+									>
+										<Files className="tree-icon" />
+										All notes
+										<span className="sidebar-count">
+											{view?.notes.length || ""}
+										</span>
+									</button>
+								</>
+							)}
+						/>
+					</section>
+				</ResizablePanel>
+				<ResizableHandle />
+				<ResizablePanel id="notes" minSize="10%">
+					<section className="sidebar-pane" aria-label="Notes list">
+						<header className="sidebar-header">
+							<strong className="tree-name">{label}</strong>
+							<DropdownMenu>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												aria-label="Sort notes"
+											>
+												<ArrowDownUp />
+											</Button>
+										</DropdownMenuTrigger>
+									</TooltipTrigger>
+									<TooltipContent>Sort notes</TooltipContent>
+								</Tooltip>
+								<DropdownMenuContent>
+									<DropdownMenuRadioGroup
+										value={sort}
+										onValueChange={(value) =>
+											setSort(
+												noteSort(
+													value === "name-desc" ? "name-desc" : "name-asc",
+												),
+											)
+										}
+									>
+										<DropdownMenuRadioItem value="name-asc">
+											Name (A to Z)
+										</DropdownMenuRadioItem>
+										<DropdownMenuRadioItem value="name-desc">
+											Name (Z to A)
+										</DropdownMenuRadioItem>
+									</DropdownMenuRadioGroup>
+								</DropdownMenuContent>
+							</DropdownMenu>
+							<IconAction
+								label="New canvas"
+								disabled={locked}
+								onClick={() =>
+									onStartCanvas?.(
+										selection.kind === "folder" ? selection.value : "",
+									)
+								}
+							>
+								<LayoutDashboard />
+							</IconAction>
+							<IconAction
+								label="New note"
+								disabled={locked}
+								onClick={() =>
+									onStartNote(
+										selection.kind === "folder" ? selection.value : "",
+									)
+								}
+							>
+								<FilePlus />
+							</IconAction>
+						</header>
+						<label className="note-search">
+							<Search className="tree-icon" aria-hidden="true" />
+							<input
+								aria-label="Search notes"
+								placeholder="Search notes"
+								value={query}
+								onChange={(event) => setQuery(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Escape") {
+										event.preventDefault();
+										setQuery("");
+									}
+								}}
+							/>
+						</label>
+						<NoteList
+							key={view?.name ?? ""}
+							vault={view?.name ?? ""}
+							notes={notes}
+							livePath={livePath}
+							locked={locked}
+							searching={query.length > 0}
+							onOpen={onOpen}
+							onTrash={treeActions.deleteNote}
+						/>
+					</section>
+				</ResizablePanel>
+			</ResizablePanelGroup>
+			{notices}
+			{foot}
+		</aside>
+	);
+}

@@ -78,6 +78,7 @@
 		"cmdk": "^1.1.1",
 		"lowlight": "^3.3.0",
 		"lucide-react": "^1.70.0",
+		"mathlive": "^0.111.4",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
 		"react-resizable-panels": "^4.19.1",

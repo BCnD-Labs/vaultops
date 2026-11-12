@@ -35,6 +35,7 @@ import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
 import { openNote } from "../editor/note-io";
+import type { RowNoteActions } from "../editor/note-link";
 import { createQuitGuard } from "../editor/quit";
 import { saveAsCopy } from "../editor/save-draft";
 import type { SavedInfo } from "../editor/useAutosave";
@@ -66,6 +67,7 @@ import {
 } from "./nav-history";
 import { PlannerProvider } from "./planner/PlannerContext";
 import { ResourceManager } from "./ResourceManager";
+import { createRowNote } from "./row-note";
 import { ScreenPane } from "./ScreenPane";
 import { SettingsDialog } from "./SettingsScreen";
 import { Sidebar } from "./Sidebar";
@@ -1022,11 +1024,32 @@ export function App({ host }: { host: Host }) {
 		const row = viewRef.current?.notes.find((n) => n.id === link.target);
 		if (row) void open(row.path);
 	};
+	// A database row turned into a note: made beside the note that holds the
+	// database, then the list is read again so the new note shows at once.
+	const makeRowNote = useRef<RowNoteActions["create"]>(async () => ({
+		ok: false,
+		message: "The note was not made.",
+	}));
+	makeRowNote.current = async ({ from, title, content }) => {
+		const source = from
+			? viewRef.current?.notes.find((n) => n.id === from)
+			: undefined;
+		const cut = source ? source.path.lastIndexOf("/") : -1;
+		const made = await createRowNote(
+			vaultHost,
+			source && cut !== -1 ? source.path.slice(0, cut) : "",
+			title,
+			content,
+		);
+		if (made.ok) changeView(await loadVault(host));
+		return made;
+	};
 	const links = useMemo(
 		() =>
 			buildLinkSource(
 				linkTargets(view?.notes ?? [], resources.cards, resources.types),
 				(link) => openLink.current(link),
+				{ create: (request) => makeRowNote.current(request) },
 			),
 		[view?.notes, resources],
 	);

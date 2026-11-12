@@ -14,6 +14,7 @@ import {
 	newShortId,
 	normalizeCells,
 	normalizeColumns,
+	normalizeNoteId,
 	normalizeSort,
 	PICKABLE_TYPES,
 	starterColumns,
@@ -35,7 +36,14 @@ export interface DatabaseState {
 	columns: DbColumn[];
 	sort: DbSort | null;
 	title: string;
-	rows: { id: string; cells: Cells; node: PMNode; pos: number }[];
+	rows: {
+		id: string;
+		cells: Cells;
+		/** The note this row was turned into, or null. */
+		noteId: string | null;
+		node: PMNode;
+		pos: number;
+	}[];
 }
 
 /** The database at `pos`, read through the normalizers, or null if it moved. */
@@ -54,6 +62,7 @@ export function databaseFromNode(node: PMNode, pos: number): DatabaseState {
 		rows.push({
 			id: typeof child.attrs.id === "string" ? child.attrs.id : "",
 			cells: normalizeCells(child.attrs.cells),
+			noteId: normalizeNoteId(child.attrs.noteId),
 			node: child,
 			pos: pos + 1 + offset,
 		});
@@ -171,27 +180,86 @@ export function setCell(
 	});
 }
 
+/** A page of one empty paragraph is no page: the blocks that count. */
+export function pageBlocks(content: JSONContent[]): JSONContent[] {
+	const blank =
+		content.length === 1 &&
+		content[0]?.type === "paragraph" &&
+		!content[0].content?.length;
+	return blank ? [] : content;
+}
+
+/** The note a row was turned into, or null (also null if the row is gone). */
+export function rowNoteId(editor: Editor, rowId: string): string | null {
+	const row = findRow(editor.state.doc, rowId);
+	return row ? normalizeNoteId(row.node.attrs.noteId) : null;
+}
+
 /**
  * Replaces a row's page (its child blocks) with the given blocks, as the row
  * page panel's own editor holds them. One empty paragraph counts as no page.
+ * A row that is a note has no page of its own, so this never writes to it.
  */
 export function setRowContent(
 	editor: Editor,
 	rowId: string,
 	content: JSONContent[],
 ): boolean {
-	const blank =
-		content.length === 1 &&
-		content[0]?.type === "paragraph" &&
-		!content[0].content?.length;
-	const blocks = blank ? [] : content;
+	const blocks = pageBlocks(content);
 	return apply(editor, (tr) => {
 		const row = findRow(tr.doc, rowId);
-		if (!row) return false;
+		if (!row || normalizeNoteId(row.node.attrs.noteId)) return false;
 		const nodes = blocks.map((json) => editor.schema.nodeFromJSON(json));
 		const fragment = Fragment.fromArray(nodes);
 		if (fragment.eq(row.node.content)) return false;
 		tr.replaceWith(row.pos + 1, row.pos + row.node.nodeSize - 1, fragment);
+		return true;
+	});
+}
+
+export type LinkRowResult =
+	| "linked"
+	| "not-editable"
+	| "row-gone"
+	| "already-a-note"
+	| "page-changed";
+
+/**
+ * Makes a row the note `noteId`: the row keeps its place and cells, remembers
+ * the note, and gives up its page blocks (the note now holds them). `copied`
+ * is the page as it was copied into the note; if the row's page is anything
+ * else by now (typed in while the note was being made) nothing changes, so no
+ * typing is ever dropped. One undo step: undoing it gives the row its page
+ * back and forgets the link; the note stays, as a note of its own. Either way
+ * the page is somewhere, and the row never points at a note that wasn't made.
+ */
+export function linkRowToNote(
+	editor: Editor,
+	rowId: string,
+	noteId: string,
+	copied: JSONContent[],
+): LinkRowResult {
+	if (!editor.isEditable) return "not-editable";
+	const tr = editor.state.tr;
+	const row = findRow(tr.doc, rowId);
+	if (!row) return "row-gone";
+	if (normalizeNoteId(row.node.attrs.noteId)) return "already-a-note";
+	const page = Fragment.fromArray(
+		pageBlocks(copied).map((json) => editor.schema.nodeFromJSON(json)),
+	);
+	if (!page.eq(row.node.content)) return "page-changed";
+	tr.replaceWith(row.pos + 1, row.pos + row.node.nodeSize - 1, Fragment.empty);
+	tr.setNodeMarkup(row.pos, undefined, { ...row.node.attrs, noteId });
+	editor.view.dispatch(tr);
+	return "linked";
+}
+
+/** Forgets the note a row was turned into. The note itself is left alone. */
+export function unlinkRow(editor: Editor, rowId: string): boolean {
+	return apply(editor, (tr) => {
+		const row = findRow(tr.doc, rowId);
+		if (!row || !normalizeNoteId(row.node.attrs.noteId)) return false;
+		tr.setNodeMarkup(row.pos, undefined, { ...row.node.attrs, noteId: null });
 		return true;
 	});
 }

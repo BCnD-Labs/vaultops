@@ -156,6 +156,34 @@ Fixture: `test-fixtures/switch.vnote` (round-trips byte for byte in
 Fixture for all three: `test-fixtures/inline-and-code.vnote` (round-trips byte
 for byte in `src/editor/doc-blocks.test.ts`).
 
+## `databaseRow` `noteId` (attribute, added later)
+
+A database row (`databaseRow`, a child line of a `database`; its own page is
+the lines that follow with the row as `parent`) can be turned into a note. The
+row stays in the database with all its cells and remembers the note.
+
+- **Where it lives:** on a `databaseRow` line, as `attrs.noteId`: the `noteId`
+  (from the header) of the note the row was turned into.
+- **Left out when there is none**, so a row that was never turned into a note
+  is unchanged on disk. Anything that is not a non-empty string is read as no
+  link and rewritten on the next edit.
+- **The row has no page of its own** while it has a `noteId`: the page lines
+  moved into the note (with new block ids, so no block id is in two files). The
+  app never writes page lines under a linked row.
+- **If the note is not in the vault** (deleted or in the trash) the row shows
+  "Note not found" and can be unlinked; restoring the note from the trash makes
+  the link work again, because the link is the `noteId`, not a file name.
+- **Example lines:**
+  ```
+  {"id":"r1","type":"databaseRow","parent":"db1","attrs":{"cells":{"title":"Dune"},"noteId":"note-dune"}}
+  {"id":"r2","type":"databaseRow","parent":"db1","attrs":{"cells":{"title":"Emma"}}}
+  ```
+- **Older build:** an older build that does not know the `noteId` attribute on
+  `databaseRow` opens the note read-only (`checkBlocks`), so nothing is lost.
+
+Fixture: `test-fixtures/database-row-note.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`).
+
 ## Canvas-only blocks: `sticky`, `shape`, `label`, `group`, `connector`, `embed`
 
 Block types that exist only in a file whose header says `"kind":"canvas"`. They

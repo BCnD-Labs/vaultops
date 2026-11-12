@@ -624,3 +624,86 @@
 	min-height: 160px;
 	outline: none;
 }
+
+/* A row that is a note: a mark in its Name cell, and the panel's note line. */
+.db-row-note {
+	position: absolute;
+	top: 50%;
+	right: var(--space-1);
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: var(--muted-foreground);
+	cursor: pointer;
+}
+.db-row-note:hover:not(:disabled) {
+	background: var(--hover-layer, var(--accent));
+	color: var(--foreground);
+}
+.db-row-note[data-missing="true"] {
+	opacity: 0.5;
+	cursor: default;
+}
+.db-row-note svg {
+	width: 14px;
+	height: 14px;
+}
+.db-td[data-note="true"] .db-open {
+	right: calc(var(--space-1) + 24px);
+}
+.db-peek-bar {
+	align-items: center;
+	gap: var(--space-2);
+}
+.db-peek-bar .db-peek-action {
+	margin-right: auto;
+}
+.db-peek-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface);
+	color: var(--foreground);
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+.db-peek-action:hover:not(:disabled) {
+	background: var(--hover-layer, var(--accent));
+}
+.db-peek-action:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+.db-peek-action svg {
+	width: 14px;
+	height: 14px;
+}
+.db-peek-note {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	color: var(--muted-foreground);
+}
+.db-peek-note strong {
+	color: var(--foreground);
+}
+.db-peek-note svg:first-child {
+	width: 14px;
+	height: 14px;
+}
+.db-peek-problem {
+	margin: 0 0 var(--space-3);
+	color: var(--destructive, var(--foreground));
+	font-size: var(--font-size-small);
+}

@@ -112,6 +112,15 @@ export function starterColumns(): DbColumn[] {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
+/**
+ * The `noteId` of the note a row was turned into (see `linkRowToNote`), or
+ * null. Anything else read from a file is no link, so a bad value can't crash
+ * the view.
+ */
+export function normalizeNoteId(value: unknown): string | null {
+	return typeof value === "string" && value !== "" ? value : null;
+}
+
 const isColumnType = (value: unknown): value is ColumnType =>
 	COLUMN_TYPES.includes(value as ColumnType);
 

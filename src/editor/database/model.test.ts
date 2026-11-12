@@ -7,6 +7,7 @@ import {
 	ensureOption,
 	normalizeCells,
 	normalizeColumns,
+	normalizeNoteId,
 	normalizeSort,
 	readCell,
 	snapProgress,
@@ -226,5 +227,13 @@ describe("status and progress", () => {
 			"doing",
 			"done",
 		]);
+	});
+});
+
+describe("normalizeNoteId", () => {
+	it("keeps a note id and reads anything else as no note", () => {
+		expect(normalizeNoteId("note-dune")).toBe("note-dune");
+		for (const bad of [undefined, null, "", 7, true, ["n1"], { id: "n1" }])
+			expect(normalizeNoteId(bad)).toBeNull();
 	});
 });

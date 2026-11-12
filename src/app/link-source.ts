@@ -9,7 +9,7 @@ import {
 	type ResourceCard,
 	type ResourceType,
 } from "../core/resources/resources";
-import type { LinkSource } from "../editor/note-link";
+import type { LinkSource, RowNoteActions } from "../editor/note-link";
 import type { NoteRow } from "./session";
 
 const folderOf = (path: string) => {
@@ -56,6 +56,7 @@ export function linkTargets(
 export function buildLinkSource(
 	targets: LinkTarget[],
 	open: (link: LinkRef) => void,
+	rowNotes?: RowNoteActions,
 ): LinkSource {
 	const byKey = new Map<string, LinkTarget>();
 	for (const target of targets)
@@ -65,5 +66,6 @@ export function buildLinkSource(
 		describe: (kind: LinkKind, target) =>
 			byKey.get(`${kind}:${target}`)?.label ?? null,
 		open,
+		...(rowNotes ? { rowNotes } : {}),
 	};
 }

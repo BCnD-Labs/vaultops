@@ -7,13 +7,15 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import type { JSONContent } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../doc-blocks";
 import { createExtensions } from "../extensions";
+import { type LinkSource, setLinkSource } from "../note-link";
 import { SLASH_ITEMS } from "../slash-items";
 import {
 	addColumn,
@@ -21,11 +23,14 @@ import {
 	changeColumnType,
 	deleteColumn,
 	deleteRow,
+	linkRowToNote,
 	moveColumn,
 	readDatabase,
+	rowNoteId,
 	setCell,
 	setRowContent,
 	setSort,
+	unlinkRow,
 } from "./commands";
 import { TITLE_ID } from "./model";
 
@@ -383,3 +388,305 @@ function ReadOnly({ content }: { content: object }) {
 	});
 	return <EditorContent editor={editor} />;
 }
+
+/** What the app supplies: the names of the notes that exist, and what making and opening one does. */
+function withNotes(
+	editor: Editor,
+	notes: Record<string, string>,
+	create: NonNullable<LinkSource["rowNotes"]>["create"] = async () => ({
+		ok: true,
+		target: "n1",
+	}),
+	rowNotes = true,
+) {
+	const open = vi.fn();
+	const source: LinkSource = {
+		search: () => [],
+		describe: (_kind, target) => notes[target] ?? null,
+		open,
+		...(rowNotes ? { rowNotes: { create } } : {}),
+	};
+	act(() => setLinkSource(editor, source, "db-note"));
+	return open;
+}
+
+const pageOf = (editor: Editor, index = 0) =>
+	state(editor).rows[index]?.node.content.toJSON() ?? [];
+
+describe("a row that is a note", () => {
+	it("is stored on the row's own line, and a row without a note is unchanged", () => {
+		const blocks = docToBlocks(
+			doc(db([row("r1", { title: "Dune" }), row("r2", { title: "Emma" })])),
+		);
+		expect(blocks[1]?.attrs).toEqual({ cells: { title: "Dune" } });
+		const linked = docToBlocks(
+			doc(
+				db([
+					{
+						type: "databaseRow",
+						attrs: { id: "r1", cells: { title: "Dune" }, noteId: "n1" },
+					},
+				]),
+			),
+		);
+		expect(linked[1]?.attrs).toEqual({
+			cells: { title: "Dune" },
+			noteId: "n1",
+		});
+		expect(checkBlocks(linked)).toEqual({ ok: true });
+		expect(docToBlocks(blocksToDoc(linked))).toEqual(linked);
+	});
+
+	it("gives up its page to the note and keeps its place and cells", () => {
+		const editor = open(
+			doc(db([row("r1", { title: "Dune" }, para("p1", "Spice")), row("r2")])),
+		);
+		const copied = pageOf(editor);
+		let result = "";
+		act(() => {
+			result = linkRowToNote(editor, "r1", "n1", copied);
+		});
+		expect(result).toBe("linked");
+		expect(state(editor).rows.map((r) => r.id)).toEqual(["r1", "r2"]);
+		expect(state(editor).rows[0]?.cells.title).toBe("Dune");
+		expect(state(editor).rows[0]?.noteId).toBe("n1");
+		expect(pageOf(editor)).toEqual([]);
+		expect(rowNoteId(editor, "r1")).toBe("n1");
+		expect(rowNoteId(editor, "r2")).toBeNull();
+	});
+
+	it("is one undo step: undo gives the page back and unlinks, redo links again", () => {
+		const editor = open(
+			doc(db([row("r1", { title: "Dune" }, para("p1", "Spice"))])),
+		);
+		act(() => {
+			linkRowToNote(editor, "r1", "n1", pageOf(editor));
+		});
+		expect(state(editor).rows[0]?.noteId).toBe("n1");
+		act(() => {
+			editor.commands.undo();
+		});
+		// Never a linked row with no page, nor a page with a stale link.
+		expect(state(editor).rows[0]?.noteId).toBeNull();
+		expect(state(editor).rows[0]?.node.textContent).toBe("Spice");
+		act(() => {
+			editor.commands.redo();
+		});
+		expect(state(editor).rows[0]?.noteId).toBe("n1");
+		expect(pageOf(editor)).toEqual([]);
+	});
+
+	it("undo takes back only the conversion, not the edit before it", () => {
+		const editor = open(doc(db([row("r1", { title: "Dune" })])));
+		act(() => {
+			setCell(editor, "r1", "title", "Dune 2");
+		});
+		act(() => {
+			// A new undo step, apart from the cell edit.
+			editor.view.dispatch(closeHistory(editor.state.tr));
+			linkRowToNote(editor, "r1", "n1", []);
+		});
+		act(() => {
+			editor.commands.undo();
+		});
+		expect(state(editor).rows[0]?.noteId).toBeNull();
+		expect(state(editor).rows[0]?.cells.title).toBe("Dune 2");
+	});
+
+	it("changes nothing if the page was typed in after it was copied", () => {
+		const editor = open(
+			doc(db([row("r1", { title: "Dune" }, para("p1", "Spice"))])),
+		);
+		const copied = pageOf(editor);
+		act(() => {
+			setRowContent(editor, "r1", [para("p1", "Spice and sand")]);
+		});
+		let result = "";
+		act(() => {
+			result = linkRowToNote(editor, "r1", "n1", copied);
+		});
+		expect(result).toBe("page-changed");
+		expect(state(editor).rows[0]?.noteId).toBeNull();
+		expect(state(editor).rows[0]?.node.textContent).toBe("Spice and sand");
+	});
+
+	it("is refused for a row that already is a note, a missing row and a read-only note", () => {
+		const editor = open(doc(db([row("r1", { title: "Dune" })])));
+		act(() => {
+			linkRowToNote(editor, "r1", "n1", []);
+		});
+		expect(linkRowToNote(editor, "r1", "n2", [])).toBe("already-a-note");
+		expect(rowNoteId(editor, "r1")).toBe("n1");
+		expect(linkRowToNote(editor, "nope", "n2", [])).toBe("row-gone");
+		act(() => editor.setEditable(false));
+		expect(linkRowToNote(editor, "r1", "n2", [])).toBe("not-editable");
+	});
+
+	it("never takes page text typed into it, and unlinking leaves the note alone", () => {
+		const editor = open(doc(db([row("r1", { title: "Dune" })])));
+		act(() => {
+			linkRowToNote(editor, "r1", "n1", []);
+		});
+		let wrote = true;
+		act(() => {
+			wrote = setRowContent(editor, "r1", [para("p9", "stray")]);
+		});
+		expect(wrote).toBe(false);
+		expect(pageOf(editor)).toEqual([]);
+		act(() => {
+			unlinkRow(editor, "r1");
+		});
+		expect(state(editor).rows[0]?.noteId).toBeNull();
+		expect(state(editor).rows[0]?.cells.title).toBe("Dune");
+		act(() => {
+			setRowContent(editor, "r1", [para("p9", "fresh")]);
+		});
+		expect(pageOf(editor)).toHaveLength(1);
+	});
+});
+
+describe("turning a row into a note in the panel", () => {
+	const openPanel = async () => {
+		await waitFor(() =>
+			expect(screen.getByTitle("Open row page")).toBeTruthy(),
+		);
+		fireEvent.click(screen.getByTitle("Open row page"));
+		return screen.findByRole("complementary", { name: "Row page" });
+	};
+
+	it("makes the note first, then the row shows it and can open it", async () => {
+		const editor = open(
+			doc(db([row("r1", { title: "Dune" }, para("p1", "Spice"))])),
+		);
+		const create = vi.fn(async () => ({ ok: true as const, target: "n1" }));
+		const opened = withNotes(editor, { n1: "Dune" }, create);
+		const panel = await openPanel();
+		fireEvent.click(screen.getByRole("button", { name: /Turn into note/ }));
+		await waitFor(() => expect(state(editor).rows[0]?.noteId).toBe("n1"));
+		expect(create).toHaveBeenCalledTimes(1);
+		expect(create).toHaveBeenCalledWith({
+			from: "db-note",
+			title: "Dune",
+			content: [expect.objectContaining({ type: "paragraph" })],
+		});
+		expect(pageOf(editor)).toEqual([]);
+		expect(state(editor).rows[0]?.cells.title).toBe("Dune");
+		expect(panel.textContent).toContain("This row is the note");
+		expect(panel.textContent).toContain("Dune");
+		// The action goes away; the page editor is replaced by the note line.
+		expect(screen.queryByRole("button", { name: /Turn into note/ })).toBeNull();
+		expect(panel.querySelector(".db-peek-page")).toBeNull();
+		fireEvent.click(within(panel).getByRole("button", { name: "Open note" }));
+		expect(opened).toHaveBeenCalledWith({
+			kind: "note",
+			target: "n1",
+			label: "Dune",
+		});
+		// The table marks the row, too.
+		expect(
+			document.querySelector(".db-row-note[aria-label='Open note']"),
+		).toBeTruthy();
+	});
+
+	it("leaves the row and its page as they were when the note can't be made", async () => {
+		const editor = open(
+			doc(db([row("r1", { title: "Dune" }, para("p1", "Spice"))])),
+		);
+		const create = vi.fn(async () => ({
+			ok: false as const,
+			message: "The note was not made: disk full",
+		}));
+		withNotes(editor, {}, create);
+		await openPanel();
+		fireEvent.click(screen.getByRole("button", { name: /Turn into note/ }));
+		const alert = await screen.findByRole("alert");
+		expect(alert.textContent).toContain("disk full");
+		expect(state(editor).rows[0]?.noteId).toBeNull();
+		expect(state(editor).rows[0]?.node.textContent).toBe("Spice");
+		// It can be tried again.
+		expect(
+			(
+				screen.getByRole("button", {
+					name: /Turn into note/,
+				}) as HTMLButtonElement
+			).disabled,
+		).toBe(false);
+	});
+
+	it("makes one note however many times it is clicked", async () => {
+		const editor = open(doc(db([row("r1", { title: "Dune" })])));
+		let finish: (value: { ok: true; target: string }) => void = () => {};
+		const create = vi.fn(
+			() =>
+				new Promise<{ ok: true; target: string }>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		withNotes(editor, { n1: "Dune" }, create);
+		await openPanel();
+		const button = screen.getByRole("button", { name: /Turn into note/ });
+		fireEvent.click(button);
+		fireEvent.click(button);
+		fireEvent.click(button);
+		expect(create).toHaveBeenCalledTimes(1);
+		await act(async () => finish({ ok: true, target: "n1" }));
+		await waitFor(() => expect(state(editor).rows[0]?.noteId).toBe("n1"));
+		expect(create).toHaveBeenCalledTimes(1);
+	});
+
+	it("says the note is gone when it is missing, and Unlink gives the row an empty page back", async () => {
+		const editor = open(
+			doc(
+				db([
+					{
+						type: "databaseRow",
+						attrs: { id: "r1", cells: { title: "Dune" }, noteId: "gone" },
+					},
+				]),
+			),
+		);
+		withNotes(editor, {});
+		const panel = await openPanel();
+		expect(panel.textContent).toContain("Note not found");
+		expect(
+			within(panel).queryByRole("button", { name: "Open note" }),
+		).toBeNull();
+		const mark = document.querySelector(".db-row-note") as HTMLButtonElement;
+		expect(mark.disabled).toBe(true);
+		fireEvent.click(screen.getByRole("button", { name: /Unlink/ }));
+		await waitFor(() => expect(state(editor).rows[0]?.noteId).toBeNull());
+		expect(panel.querySelector(".db-peek-page")).toBeTruthy();
+		const page = panel.querySelector(".ProseMirror") as HTMLElement & {
+			editor?: Editor;
+		};
+		act(() => {
+			page.editor?.commands.insertContentAt(1, "Typed");
+		});
+		expect(state(editor).rows[0]?.node.textContent).toContain("Typed");
+	});
+
+	it("is not offered in a read-only note, or when the app can't make notes", async () => {
+		const editor = open(doc(db([row("r1", { title: "Dune" })])));
+		withNotes(editor, {}, undefined, false);
+		await openPanel();
+		expect(screen.queryByRole("button", { name: /Turn into note/ })).toBeNull();
+		fireEvent.keyDown(window, { key: "Escape" });
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("complementary", { name: "Row page" }),
+			).toBeNull(),
+		);
+		withNotes(editor, {});
+		await openPanel();
+		expect(screen.getByRole("button", { name: /Turn into note/ })).toBeTruthy();
+		fireEvent.keyDown(window, { key: "Escape" });
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("complementary", { name: "Row page" }),
+			).toBeNull(),
+		);
+		act(() => editor.setEditable(false));
+		await openPanel();
+		expect(screen.queryByRole("button", { name: /Turn into note/ })).toBeNull();
+	});
+});

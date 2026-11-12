@@ -15,6 +15,7 @@ import {
 	CircleChevronDown,
 	CircleDot,
 	Ellipsis,
+	FileText,
 	Gauge,
 	Hash,
 	Link,
@@ -45,6 +46,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { useLinkSource } from "../note-link";
 import { Cell } from "./cells";
 import {
 	addColumn,
@@ -113,7 +115,17 @@ export const DatabaseRow = Node.create({
 	draggable: false,
 
 	addAttributes() {
-		return { cells: jsonAttr("cells", {}) };
+		return {
+			cells: jsonAttr("cells", {}),
+			// The note this row was turned into; left out when there is none.
+			noteId: {
+				default: null,
+				parseHTML: (element: HTMLElement) =>
+					element.getAttribute("data-note-id"),
+				renderHTML: (attributes: Record<string, unknown>) =>
+					attributes.noteId ? { "data-note-id": attributes.noteId } : {},
+			},
+		};
 	},
 
 	parseHTML() {
@@ -344,6 +356,33 @@ interface Actions {
 	sort: (sort: { column: string; dir: "asc" | "desc" } | null) => void;
 }
 
+/** The mark on a row that is a note: opens the note, or says it can't be found. */
+function NoteMark({
+	name,
+	known,
+	onOpen,
+}: {
+	/** The note's name now; null when it is gone, undefined before it is known. */
+	name: string | null | undefined;
+	known: boolean;
+	onOpen: () => void;
+}) {
+	const gone = known && name === null;
+	return (
+		<button
+			type="button"
+			className="db-row-note"
+			data-missing={gone ? "true" : undefined}
+			disabled={gone}
+			title={gone ? "Note not found" : `Open note ${name ?? ""}`.trim()}
+			aria-label={gone ? "Note not found" : "Open note"}
+			onClick={onOpen}
+		>
+			<FileText aria-hidden="true" />
+		</button>
+	);
+}
+
 function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 	const pos = useCallback((): number | undefined => {
 		const at = getPos();
@@ -351,6 +390,7 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 	}, [getPos]);
 	const db = useMemo(() => databaseFromNode(node, 0), [node]);
 	const editable = editor.isEditable;
+	const source = useLinkSource(editor);
 	const pageExtensions = useMemo(
 		() => extension.options.pageExtensions(),
 		[extension],
@@ -536,6 +576,11 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 												key={column.id}
 												className="db-td"
 												data-column-type={column.type}
+												data-note={
+													column.id === TITLE_ID && row.noteId
+														? "true"
+														: undefined
+												}
 											>
 												<Cell
 													column={column}
@@ -549,6 +594,19 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 													}
 													{...cellHandlers(row.id, column)}
 												/>
+												{column.id === TITLE_ID && row.noteId && (
+													<NoteMark
+														name={source?.describe("note", row.noteId)}
+														known={source !== null}
+														onOpen={() =>
+															source?.open({
+																kind: "note",
+																target: row.noteId ?? "",
+																label: "",
+															})
+														}
+													/>
+												)}
 												{column.id === TITLE_ID && (
 													<span className="db-row-gutter">
 														{editable && (
@@ -621,6 +679,7 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 						id: peekRow.id,
 						cells: peekRow.cells,
 						content: peekRow.node.content.toJSON() ?? [],
+						noteId: peekRow.noteId,
 					}}
 					columns={db.columns}
 					dbPos={pos}

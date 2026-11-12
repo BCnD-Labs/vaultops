@@ -525,3 +525,25 @@ describe("a column with nothing in it", () => {
 		]);
 	});
 });
+
+describe("database row note fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/database-row-note.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("keeps which note a row was turned into and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		const rows = doc.content?.[0]?.content ?? [];
+		expect(rows.map((row) => row.attrs?.noteId ?? null)).toEqual([
+			"note-dune",
+			null,
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+});

@@ -1,4 +1,10 @@
-import { type Editor, Extension, mergeAttributes, Node } from "@tiptap/core";
+import {
+	type Editor,
+	Extension,
+	type JSONContent,
+	mergeAttributes,
+	Node,
+} from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import {
 	type NodeViewProps,
@@ -30,6 +36,23 @@ export interface LinkSource {
 	describe: (kind: LinkKind, target: string) => string | null;
 	/** Open the target: a note or canvas in a tab, a resource in the manager. */
 	open: (link: LinkRef) => void;
+	/** What a database row needs to become a note, when the app supports it. */
+	rowNotes?: RowNoteActions;
+}
+
+/** Turning a database row into a note. */
+export interface RowNoteActions {
+	/**
+	 * Make a note from a row: in the folder of `from` (the note holding the
+	 * database), titled `title`, with the row's page `content`. Resolves to the
+	 * new note's id, or a plain-words reason it was not made (nothing is
+	 * written then).
+	 */
+	create: (request: {
+		from: string | null;
+		title: string;
+		content: JSONContent[];
+	}) => Promise<{ ok: true; target: string } | { ok: false; message: string }>;
 }
 
 /** What the editor keeps for links: the app's source, and who is listening for it to change. */
@@ -61,6 +84,22 @@ export function setLinkSource(
 	for (const listener of storage.listeners) listener();
 }
 
+/**
+ * The app's link source, read again whenever it changes (a note renamed,
+ * moved to the trash or restored), so what shows stays right on screen.
+ */
+export function useLinkSource(editor: Editor): LinkSource | null {
+	const storage = editor.storage.noteLink;
+	useSyncExternalStore(
+		(listener) => {
+			storage.listeners.add(listener);
+			return () => storage.listeners.delete(listener);
+		},
+		() => storage.version,
+	);
+	return storage.source;
+}
+
 const ICONS = {
 	note: FileText,
 	canvas: LayoutDashboard,
@@ -86,21 +125,13 @@ function toItem(link: LinkTarget): LinkItem {
 }
 
 function LinkView({ node, editor, getPos }: NodeViewProps) {
-	const storage = editor.storage.noteLink;
 	// Look again whenever the app's list of notes and cards changes, so a renamed
 	// or trashed target shows at once, not after the note is reopened.
-	useSyncExternalStore(
-		(listener) => {
-			storage.listeners.add(listener);
-			return () => storage.listeners.delete(listener);
-		},
-		() => storage.version,
-	);
+	const source = useLinkSource(editor);
 	const [asking, setAsking] = useState(false);
 	const kind = isLinkKind(node.attrs.kind) ? node.attrs.kind : "note";
 	const target = String(node.attrs.target ?? "");
 	const saved = String(node.attrs.label ?? "");
-	const source = storage.source;
 	// The name it has now, so a renamed note reads right; the saved name when
 	// there is no source to ask.
 	const current = source ? source.describe(kind, target) : saved;

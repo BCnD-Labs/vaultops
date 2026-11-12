@@ -45,10 +45,40 @@ const highlighter = {
 	registered: (language: string) => lowlight.registered(language),
 };
 
-export const CodeBlock = CodeBlockLowlight.configure({
+/**
+ * A code block's `wrap` attribute: long lines wrap instead of scrolling. Left
+ * out of the file when false, so untouched blocks are unchanged on disk.
+ */
+export function wrapOf(value: unknown): boolean {
+	return value === true;
+}
+
+export const CodeBlock = CodeBlockLowlight.extend({
+	addAttributes() {
+		return {
+			...this.parent?.(),
+			wrap: {
+				default: false,
+				parseHTML: (element) => element.getAttribute("data-wrap") === "true",
+				renderHTML: (attributes) =>
+					wrapOf(attributes.wrap) ? { "data-wrap": "true" } : {},
+			},
+		};
+	},
+}).configure({
 	lowlight: highlighter,
 	defaultLanguage: null,
 });
+
+/** The text of each line of a code block, in order (an empty block has one). */
+export function codeLines(text: string): string[] {
+	return text.split("\n");
+}
+
+/** How many digits the largest line number has: the gutter's width in `ch`. */
+export function lineDigits(lineCount: number): number {
+	return String(Math.max(1, lineCount)).length;
+}
 
 export const codeLanguageKey = new PluginKey("codeLanguage");
 
@@ -69,6 +99,13 @@ export const CodeLanguage = Extension.create({
 						const decorations: Decoration[] = [];
 						state.doc.descendants((node, pos) => {
 							if (node.type.name !== "codeBlock") return true;
+							const lines = codeLines(node.textContent);
+							decorations.push(
+								Decoration.node(pos, pos + node.nodeSize, {
+									style: `--code-digits: ${lineDigits(lines.length)}`,
+								}),
+							);
+							const wrapped = wrapOf(node.attrs.wrap);
 							const current =
 								typeof node.attrs.language === "string"
 									? node.attrs.language
@@ -105,6 +142,28 @@ export const CodeLanguage = Extension.create({
 											}, 1500);
 										});
 										bar.append(copy);
+
+										if (editable) {
+											const wrap = document.createElement("button");
+											wrap.type = "button";
+											wrap.className = "code-wrap";
+											wrap.setAttribute("aria-label", "Wrap long lines");
+											wrap.setAttribute("aria-pressed", String(wrapped));
+											wrap.textContent = "Wrap";
+											wrap.addEventListener("click", () => {
+												const at = getPos();
+												if (at === undefined) return;
+												const target = view.state.doc.nodeAt(at - 1);
+												if (!target || target.type.name !== "codeBlock") return;
+												view.dispatch(
+													view.state.tr.setNodeMarkup(at - 1, undefined, {
+														...target.attrs,
+														wrap: !wrapOf(target.attrs.wrap),
+													}),
+												);
+											});
+											bar.append(wrap);
+										}
 
 										if (editable) {
 											const select = document.createElement("select");
@@ -148,12 +207,37 @@ export const CodeLanguage = Extension.create({
 									},
 									{
 										side: -1,
-										key: `code-language-${pos}-${current}-${editable}`,
+										key: `code-language-${pos}-${current}-${editable}-${wrapped}`,
 										stopEvent: () => true,
 										ignoreSelection: true,
 									},
 								),
 							);
+							// One number at the start of each real line. It is a separate
+							// element, so it is never part of the code that is copied.
+							let at = pos + 1;
+							lines.forEach((line, index) => {
+								decorations.push(
+									Decoration.widget(
+										at,
+										() => {
+											const number = document.createElement("span");
+											number.className = "code-ln";
+											number.contentEditable = "false";
+											number.setAttribute("aria-hidden", "true");
+											number.dataset.line = String(index + 1);
+											return number;
+										},
+										{
+											side: -1,
+											key: `code-ln-${index}`,
+											stopEvent: () => true,
+											ignoreSelection: true,
+										},
+									),
+								);
+								at += line.length + 1;
+							});
 							return false;
 						});
 						return DecorationSet.create(state.doc, decorations);

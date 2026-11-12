@@ -108,3 +108,29 @@ it.each(["bulletList", "orderedList", "table"])(
 		).toContain("Inside");
 	},
 );
+
+it("numbers a code block's real lines on the canvas and keeps its wrap choice", () => {
+	const code = (attrs?: Block["attrs"]): Block => ({
+		id: "root",
+		type: "codeBlock",
+		parent: null,
+		...(attrs ? { attrs } : {}),
+		content: [{ type: "text", text: "one\n\nthree" }],
+	});
+	const draw = (block: Block) => {
+		const { container } = render(<CanvasCard root={block} blocks={[block]} />);
+		const pre = container.querySelector("pre");
+		const numbers = container.querySelectorAll(".code-ln").length;
+		const text = pre?.textContent;
+		cleanup();
+		return { pre, numbers, text };
+	};
+	const plain = draw(code());
+	expect(plain.numbers).toBe(3);
+	// The numbers are empty elements, so the text is only the code.
+	expect(plain.text).toBe("one\n\nthree");
+	expect(plain.pre?.getAttribute("data-wrap")).toBeNull();
+	expect(draw(code({ wrap: true })).pre?.getAttribute("data-wrap")).toBe(
+		"true",
+	);
+});

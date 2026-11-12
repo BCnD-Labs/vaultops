@@ -460,6 +460,27 @@ describe("inline and code fixture", () => {
 	});
 });
 
+describe("code block display fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/code-block-display.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("keeps a wrapped block's wrap, and leaves an untouched block as it was, byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.attrs?.wrap)).toEqual([
+			true,
+			undefined,
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+});
+
 describe("note links fixture", () => {
 	const text = readFileSync(
 		new URL("../../test-fixtures/note-links.vnote", import.meta.url),

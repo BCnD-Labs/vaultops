@@ -1,5 +1,11 @@
 import { ChevronRight, Ellipsis } from "lucide-react";
-import { type DragEvent, Fragment, type ReactNode, useEffect } from "react";
+import {
+	type CSSProperties,
+	type DragEvent,
+	Fragment,
+	type ReactNode,
+	useEffect,
+} from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -11,6 +17,7 @@ import type { ItemTone } from "../core/notes/canvas-ops";
 import { BLOCK_DRAG_TYPE, setDragEffect } from "../editor/block-drag";
 import { quoteColorOf } from "../editor/blockquote";
 import { calloutColorOf, calloutIconOf, toneOf } from "../editor/callout";
+import { codeLines, lineDigits, wrapOf } from "../editor/code-language";
 import { abandonLift, liftBlock } from "../editor/lift";
 
 function inline(value: JsonValue | undefined): ReactNode {
@@ -61,6 +68,21 @@ function inline(value: JsonValue | undefined): ReactNode {
 		}
 		return <span key={JSON.stringify(part)}>{content}</span>;
 	});
+}
+
+/** The plain text of a block's inline items (a code block holds only text). */
+function codeText(value: JsonValue | undefined): string {
+	if (!Array.isArray(value)) return "";
+	return value
+		.map((part) =>
+			part &&
+			typeof part === "object" &&
+			!Array.isArray(part) &&
+			typeof part.text === "string"
+				? part.text
+				: "",
+		)
+		.join("");
 }
 
 function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
@@ -162,12 +184,31 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 				</div>
 			);
 		}
-		case "codeBlock":
+		case "codeBlock": {
+			const lines = codeLines(codeText(block.content));
+			const wrap =
+				!!block.attrs &&
+				typeof block.attrs === "object" &&
+				!Array.isArray(block.attrs) &&
+				wrapOf(block.attrs.wrap);
 			return (
-				<pre>
-					<code>{content}</code>
+				<pre
+					data-wrap={wrap ? "true" : undefined}
+					style={{ "--code-digits": lineDigits(lines.length) } as CSSProperties}
+				>
+					<code>
+						{lines.map((line, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: lines have no identity
+							<Fragment key={index}>
+								<span className="code-ln" aria-hidden="true" />
+								{line}
+								{index < lines.length - 1 ? "\n" : ""}
+							</Fragment>
+						))}
+					</code>
 				</pre>
 			);
+		}
 		case "table":
 			return (
 				<table>

@@ -126,7 +126,7 @@ const ITEMS: SlashItem[] = [
 		section: "Blocks",
 		icon: Code,
 		hint: "```",
-		label: "Code",
+		label: "Codeblock",
 		keywords: ["snippet", "pre"],
 		run: (e, r) => start(e, r).setCodeBlock().run(),
 	},

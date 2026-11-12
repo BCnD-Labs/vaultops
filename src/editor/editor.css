@@ -676,9 +676,60 @@
 
 .note-editor pre code,
 .canvas-card pre code {
+	display: block;
 	font-size: inherit;
 	background: none;
-	padding: 0;
+	padding: 0 0 0 var(--code-gutter);
+}
+
+/*
+ * Code block line numbers and wrap. The gutter is one small number element at
+ * the start of every real line (a widget in the editor, a span on the canvas),
+ * pulled into the code's left padding, so a wrapped line has one number and the
+ * rows after it line up with the text. The number comes from a CSS counter, so
+ * it is never part of the text that is selected or copied.
+ */
+.note-editor pre,
+.canvas-card pre {
+	--code-gutter: calc(var(--code-digits, 1) * 1ch + var(--space-4));
+	counter-reset: code-line;
+}
+
+.note-editor pre .code-ln,
+.canvas-card pre .code-ln {
+	display: inline-block;
+	box-sizing: border-box;
+	width: var(--code-gutter);
+	margin-left: calc(-1 * var(--code-gutter));
+	padding-right: var(--space-3);
+	counter-increment: code-line;
+	color: var(--muted-foreground);
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.note-editor pre .code-ln::before,
+.canvas-card pre .code-ln::before {
+	content: counter(code-line);
+}
+
+:root[data-hide-code-numbers] .note-editor pre .code-ln,
+:root[data-hide-code-numbers] .canvas-card pre .code-ln {
+	display: none;
+}
+
+:root[data-hide-code-numbers] .note-editor pre code,
+:root[data-hide-code-numbers] .canvas-card pre code {
+	padding-left: 0;
+}
+
+:root:not([data-hide-code-wrap]) .note-editor pre[data-wrap="true"],
+:root:not([data-hide-code-wrap]) .canvas-card pre[data-wrap="true"] {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	overflow-x: hidden;
 }
 
 .note-editor .task-block {
@@ -1096,6 +1147,39 @@
 	border-color: var(--line);
 	background: var(--surface-container-low);
 	color: var(--foreground);
+}
+
+.note-editor pre .code-wrap {
+	padding: 1px var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	color: var(--muted-foreground);
+	font: inherit;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.note-editor pre:hover .code-wrap,
+.note-editor pre:focus-within .code-wrap,
+.note-editor pre .code-wrap:focus-visible,
+.note-editor pre .code-wrap[aria-pressed="true"] {
+	opacity: 1;
+}
+
+.note-editor pre .code-wrap[aria-pressed="true"] {
+	color: var(--foreground);
+	background: var(--accent);
+}
+
+.note-editor pre .code-wrap:hover,
+.note-editor pre .code-wrap:focus-visible {
+	color: var(--foreground);
+}
+
+:root[data-hide-code-wrap] .note-editor pre .code-wrap {
+	display: none;
 }
 
 .note-editor pre .code-copy {

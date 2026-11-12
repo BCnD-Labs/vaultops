@@ -33,6 +33,7 @@ import {
 	unlinkRow,
 } from "./commands";
 import { TITLE_ID } from "./model";
+import { NAME_SYNC_DELAY_MS } from "./row-note";
 
 let current: Editor | null = null;
 
@@ -398,13 +399,14 @@ function withNotes(
 		target: "n1",
 	}),
 	rowNotes = true,
+	rename = vi.fn(),
 ) {
 	const open = vi.fn();
 	const source: LinkSource = {
 		search: () => [],
 		describe: (_kind, target) => notes[target] ?? null,
 		open,
-		...(rowNotes ? { rowNotes: { create } } : {}),
+		...(rowNotes ? { rowNotes: { create, rename } } : {}),
 	};
 	act(() => setLinkSource(editor, source, "db-note"));
 	return open;
@@ -688,5 +690,91 @@ describe("turning a row into a note in the panel", () => {
 		act(() => editor.setEditable(false));
 		await openPanel();
 		expect(screen.queryByRole("button", { name: /Turn into note/ })).toBeNull();
+	});
+});
+
+describe("a row's name and its note's title", () => {
+	const linked = (id: string, title: string, noteId?: string): JSONContent => ({
+		type: "databaseRow",
+		attrs: { id, cells: { title }, ...(noteId ? { noteId } : {}) },
+	});
+
+	it("renames the note once typing in the row's Name pauses, and only for a row that is a note", () => {
+		vi.useFakeTimers();
+		try {
+			const editor = open(
+				doc(db([linked("r1", "Dune", "n1"), linked("r2", "Emma")])),
+			);
+			const rename = vi.fn();
+			withNotes(editor, { n1: "Dune" }, undefined, true, rename);
+			const name = screen.getByDisplayValue("Dune") as HTMLInputElement;
+			fireEvent.change(name, { target: { value: "Dune 2" } });
+			fireEvent.change(name, { target: { value: "Dune 25" } });
+			act(() => {
+				vi.advanceTimersByTime(NAME_SYNC_DELAY_MS - 1);
+			});
+			expect(rename).not.toHaveBeenCalled();
+			act(() => {
+				vi.advanceTimersByTime(1);
+			});
+			expect(rename).toHaveBeenCalledTimes(1);
+			expect(rename).toHaveBeenCalledWith("n1", "Dune 25");
+			// A row that isn't a note renames nothing.
+			fireEvent.change(screen.getByDisplayValue("Emma"), {
+				target: { value: "Emma 2" },
+			});
+			act(() => {
+				vi.advanceTimersByTime(NAME_SYNC_DELAY_MS * 2);
+			});
+			expect(rename).toHaveBeenCalledTimes(1);
+			// Other columns never rename it.
+			let tagsId = "";
+			act(() => {
+				tagsId = addColumn(editor, 0, "text") ?? "";
+			});
+			act(() => {
+				setCell(editor, "r1", tagsId, "x");
+				vi.advanceTimersByTime(NAME_SYNC_DELAY_MS * 2);
+			});
+			expect(rename).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("does the same from the row's panel, and an emptied Name asks for Untitled", () => {
+		vi.useFakeTimers();
+		try {
+			const editor = open(doc(db([linked("r1", "Dune", "n1")])));
+			const rename = vi.fn();
+			withNotes(editor, { n1: "Dune" }, undefined, true, rename);
+			fireEvent.click(screen.getByTitle("Open row page"));
+			const panel = screen.getByRole("complementary", { name: "Row page" });
+			const name = within(panel).getByDisplayValue("Dune");
+			fireEvent.change(name, { target: { value: "" } });
+			act(() => {
+				vi.advanceTimersByTime(NAME_SYNC_DELAY_MS);
+			});
+			expect(rename).toHaveBeenCalledWith("n1", "");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("does nothing when the app can't rename notes", () => {
+		vi.useFakeTimers();
+		try {
+			const editor = open(doc(db([linked("r1", "Dune", "n1")])));
+			withNotes(editor, { n1: "Dune" }, undefined, false);
+			fireEvent.change(screen.getByDisplayValue("Dune"), {
+				target: { value: "Dune 2" },
+			});
+			act(() => {
+				vi.advanceTimersByTime(NAME_SYNC_DELAY_MS * 2);
+			});
+			expect(state(editor).rows[0]?.cells.title).toBe("Dune 2");
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

@@ -170,6 +170,10 @@ row stays in the database with all its cells and remembers the note.
 - **The row has no page of its own** while it has a `noteId`: the page lines
   moved into the note (with new block ids, so no block id is in two files). The
   app never writes page lines under a linked row.
+- **Same name both ways:** the row's Name cell (`cells.title`) and the note's
+  header `title` are kept the same by the app, whichever is edited. A blank
+  Name and the title "Untitled" count as the same. Only the name is shared; no
+  other cell or property is.
 - **If the note is not in the vault** (deleted or in the trash) the row shows
   "Note not found" and can be unlinked; restoring the note from the trash makes
   the link work again, because the link is the `noteId`, not a file name.

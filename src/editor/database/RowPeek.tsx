@@ -22,6 +22,7 @@ import {
 	type DbColumn,
 	TITLE_ID,
 } from "./model";
+import { syncRowName } from "./row-note";
 
 export interface PeekRow {
 	id: string;
@@ -130,8 +131,11 @@ export function RowPeek({
 	}, []);
 
 	const change = (column: DbColumn) => ({
-		onChange: (value: Parameters<typeof setCell>[3]) =>
-			setCell(editor, rowId, column.id, value),
+		onChange: (value: Parameters<typeof setCell>[3]) => {
+			setCell(editor, rowId, column.id, value);
+			if (column.id === TITLE_ID && typeof value === "string")
+				syncRowName(editor, rowId, value);
+		},
 		onOptionChange: (next: DbColumn, value: Parameters<typeof setCell>[3]) => {
 			const pos = dbPos();
 			if (pos !== undefined) setOptionCell(editor, pos, rowId, next, value);

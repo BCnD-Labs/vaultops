@@ -13,6 +13,7 @@ import {
 } from "../core/notes/folders";
 import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
 import { loadNote } from "../core/notes/repository";
+import { noteTitleFor, syncRowTitles } from "../core/notes/row-notes";
 import {
 	deleteForever,
 	listTrash,
@@ -1044,12 +1045,114 @@ export function App({ host }: { host: Host }) {
 		if (made.ok) changeView(await loadVault(host));
 		return made;
 	};
+	// A row's Name was edited (typing has paused): the note it is gets that name,
+	// the way any rename goes, so an open note keeps its unsaved edits.
+	const renameRowNote = useRef<RowNoteActions["rename"]>(() => {});
+	renameRowNote.current = (target, title) => {
+		const row = viewRef.current?.notes.find((n) => n.id === target);
+		// A note that isn't in the vault has nothing to rename; the row says so.
+		if (!row || noteTitleFor(row.title) === noteTitleFor(title)) return;
+		if (row.readOnly) {
+			setError(
+				`The note "${row.title}" is read-only, so it was not renamed. Its name in the database and the note's title now differ.`,
+			);
+			return;
+		}
+		treeActions.renameNote?.(row.path, noteTitleFor(title));
+	};
+
+	// A note's title changed (from the tree, its own title, anywhere): rows that
+	// are that note take the new name, in databases open or not. Files are read
+	// fresh and written whole after open notes are saved; an open one is then
+	// shown again from disk. A database that can't be written is named, never
+	// guessed at, and nothing is lost: the next rename tries again.
+	const syncRowNames = useRef<(id: string) => Promise<void>>(async () => {});
+	syncRowNames.current = async (id) => {
+		const now = viewRef.current;
+		const note = now?.notes.find((n) => n.id === id);
+		if (!now || !note) return;
+		const holders = now.notes.filter((n) => n.rowNotes?.includes(id));
+		const written: string[] = [];
+		const skipped: string[] = [];
+		let ran = false;
+		await changeTree(null, async () => {
+			ran = true;
+			for (const holder of holders) {
+				if (holder.readOnly) {
+					skipped.push(holder.title);
+					continue;
+				}
+				try {
+					const done = await syncRowTitles(
+						vaultHost,
+						holder.path,
+						id,
+						note.title,
+					);
+					if (done.status === "updated") written.push(holder.path);
+					if (done.status === "skipped") skipped.push(holder.title);
+				} catch {
+					skipped.push(holder.title);
+				}
+			}
+			return {};
+		});
+		if (!ran) {
+			setError(
+				`The name of "${note.title}" was not updated in the databases that list it, because open notes could not be saved first.`,
+			);
+			return;
+		}
+		for (const pane of [left, right]) {
+			if (pane?.kind !== "note") continue;
+			const at = pane.session.livePathRef.current ?? pane.active;
+			if (at && written.includes(at)) await reloadPane(pane);
+		}
+		if (skipped.length > 0)
+			setError(
+				`The name of "${note.title}" was not updated in ${skipped.map((t) => `"${t}"`).join(", ")} (it could not be written), so the names there differ.`,
+			);
+	};
+	const knownTitles = useRef<Map<string, string> | null>(null);
+	const titleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const titleQueue = useRef(new Set<string>());
+	useEffect(() => {
+		if (!view) {
+			knownTitles.current = null;
+			return;
+		}
+		const next = new Map<string, string>();
+		for (const n of view.notes)
+			if (n.id && n.kind !== "canvas") next.set(n.id, n.title);
+		const before = knownTitles.current;
+		knownTitles.current = next;
+		if (!before) return;
+		for (const [id, title] of next) {
+			const was = before.get(id);
+			if (was === undefined || was === title) continue;
+			if (!view.notes.some((n) => n.rowNotes?.includes(id))) continue;
+			titleQueue.current.add(id);
+		}
+		if (titleQueue.current.size === 0) return;
+		// Wait for typing in a title to pause; one pass per note.
+		clearTimeout(titleTimer.current);
+		titleTimer.current = setTimeout(() => {
+			const ids = [...titleQueue.current];
+			titleQueue.current.clear();
+			void (async () => {
+				for (const id of ids) await syncRowNames.current(id);
+			})();
+		}, 800);
+	}, [view]);
 	const links = useMemo(
 		() =>
 			buildLinkSource(
 				linkTargets(view?.notes ?? [], resources.cards, resources.types),
 				(link) => openLink.current(link),
-				{ create: (request) => makeRowNote.current(request) },
+				{
+					create: (request) => makeRowNote.current(request),
+					rename: (target, title) => renameRowNote.current(target, title),
+				},
 			),
 		[view?.notes, resources],
 	);

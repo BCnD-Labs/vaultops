@@ -40,7 +40,7 @@ export interface LinkSource {
 	rowNotes?: RowNoteActions;
 }
 
-/** Turning a database row into a note. */
+/** Turning a database row into a note, and keeping the two names the same. */
 export interface RowNoteActions {
 	/**
 	 * Make a note from a row: in the folder of `from` (the note holding the
@@ -53,6 +53,8 @@ export interface RowNoteActions {
 		title: string;
 		content: JSONContent[];
 	}) => Promise<{ ok: true; target: string } | { ok: false; message: string }>;
+	/** Give the note `target` the row's new name (the app waits for typing to pause). */
+	rename: (target: string, title: string) => void;
 }
 
 /** What the editor keeps for links: the app's source, and who is listening for it to change. */

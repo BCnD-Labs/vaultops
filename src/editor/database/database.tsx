@@ -78,6 +78,7 @@ import {
 	TITLE_ID,
 } from "./model";
 import { RowPeek } from "./RowPeek";
+import { syncRowName } from "./row-note";
 import "./database.css";
 
 /** A JSON attribute stored on the element as `data-<name>`. */
@@ -457,7 +458,12 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 			: (column.width ?? DEFAULT_WIDTH);
 
 	const cellHandlers = (rowId: string, column: DbColumn) => ({
-		onChange: (value: CellValue) => setCell(editor, rowId, column.id, value),
+		onChange: (value: CellValue) => {
+			setCell(editor, rowId, column.id, value);
+			// A row that is a note keeps the note's name the same as its own.
+			if (column.id === TITLE_ID && typeof value === "string")
+				syncRowName(editor, rowId, value);
+		},
 		onOptionChange: (next: DbColumn, value: CellValue) =>
 			withPos((at) => setOptionCell(editor, at, rowId, next, value)),
 	});

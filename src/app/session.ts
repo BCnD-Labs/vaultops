@@ -1,6 +1,7 @@
 import { linksIn } from "../core/links/links";
 import { headerProps } from "../core/notes/properties";
 import { createCanvas, createNote } from "../core/notes/repository";
+import { rowNoteIds } from "../core/notes/row-notes";
 import { type HealthEntry, scanVault, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import type { PlannerTask } from "../core/planner/rules";
@@ -18,6 +19,8 @@ export interface NoteRow {
 	text?: string;
 	/** The `noteId`s this note links to, once each. */
 	links?: string[];
+	/** The `noteId`s of the notes its database rows were turned into, once each. */
+	rowNotes?: string[];
 	readOnly: boolean;
 	kind?: "note" | "canvas";
 	/** Tags from the note's `tags` list property. */
@@ -106,6 +109,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			preview: n.preview,
 			text: searchTextOf(n.note.blocks),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
+			rowNotes: rowNoteIds(n.note.blocks),
 			tags: tagsOf(headerProps(n.note.header)),
 			...(n.readOnly || n.kind === "canvas"
 				? {}

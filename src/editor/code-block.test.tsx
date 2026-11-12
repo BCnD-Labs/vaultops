@@ -196,3 +196,163 @@ it("keeps a block's saved wrap and its numbers in the note while the settings ar
 	applyInterface(document.documentElement, prefs());
 	expect(docToBlocks(editor.getJSON())[0]?.attrs).toEqual({ wrap: true });
 });
+
+// ---- Line highlight ----
+
+const lineNumber = (n: number) =>
+	document.querySelector<HTMLElement>(
+		`.code-ln[data-line="${n}"]`,
+	) as HTMLElement;
+const lit = () =>
+	Array.from(document.querySelectorAll<HTMLElement>(".code-ln[data-hl]")).map(
+		(n) => n.dataset.line,
+	);
+const stored = (editor: Editor) =>
+	(
+		docToBlocks(editor.getJSON())[0]?.attrs as
+			| { highlight?: string }
+			| undefined
+	)?.highlight;
+const five = "one\ntwo\nthree\nfour\nfive";
+
+it("highlights a line when its number is clicked, and clears it when clicked again", () => {
+	const editor = open(five);
+	expect(lit()).toEqual([]);
+	act(() => {
+		fireEvent.click(lineNumber(2));
+	});
+	expect(lit()).toEqual(["2"]);
+	expect(stored(editor)).toBe("2");
+	// The text of the line is marked too, and the code itself is unchanged.
+	expect(document.querySelector(".code-hl")?.textContent).toBe("two");
+	expect(editor.state.doc.textContent).toBe(five);
+	act(() => {
+		fireEvent.click(lineNumber(2));
+	});
+	expect(lit()).toEqual([]);
+	// Nothing is written for a block with no highlighted line.
+	expect(docToBlocks(editor.getJSON())[0]?.attrs).toBeUndefined();
+});
+
+it("extends over a range on shift-click, from the last line clicked", () => {
+	const editor = open(five);
+	act(() => {
+		fireEvent.click(lineNumber(2));
+	});
+	act(() => {
+		fireEvent.click(lineNumber(4), { shiftKey: true });
+	});
+	expect(lit()).toEqual(["2", "3", "4"]);
+	expect(stored(editor)).toBe("2-4");
+	act(() => {
+		fireEvent.click(lineNumber(5));
+	});
+	expect(stored(editor)).toBe("2-5");
+	act(() => {
+		fireEvent.click(lineNumber(3));
+	});
+	expect(stored(editor)).toBe("2,4-5");
+});
+
+it("treats a shift-click with no line clicked before as an ordinary click", () => {
+	const editor = open(five);
+	act(() => {
+		fireEvent.click(lineNumber(3), { shiftKey: true });
+	});
+	expect(stored(editor)).toBe("3");
+});
+
+it("undoes and redoes a highlight like any other change", () => {
+	const editor = open(five);
+	act(() => {
+		fireEvent.click(lineNumber(1));
+	});
+	expect(stored(editor)).toBe("1");
+	act(() => {
+		editor.commands.undo();
+	});
+	expect(stored(editor)).toBeUndefined();
+	act(() => {
+		editor.commands.redo();
+	});
+	expect(stored(editor)).toBe("1");
+});
+
+it("shows saved highlights on reopening, and in a note that is read-only", () => {
+	const editor = open(five, { highlight: "2,4-5" });
+	expect(lit()).toEqual(["2", "4", "5"]);
+	act(() => {
+		editor.setEditable(false);
+	});
+	expect(lit()).toEqual(["2", "4", "5"]);
+	// The numbers are not buttons any more, so nothing can be changed.
+	expect(document.querySelector(".code-ln[data-edit]")).toBeNull();
+	act(() => {
+		fireEvent.click(lineNumber(1));
+	});
+	expect(stored(editor)).toBe("2,4-5");
+});
+
+it("drops highlighted lines the code no longer has, as part of the edit", () => {
+	// A highlight past the end does not show or break anything.
+	open("only", { highlight: "3" });
+	expect(lit()).toEqual([]);
+	cleanup();
+
+	const again = open(five, { highlight: "2,4-5" });
+	act(() => {
+		again.commands.setTextSelection({ from: 8, to: 24 });
+		again.commands.deleteSelection();
+	});
+	expect(again.state.doc.textContent).toBe("one\ntwo");
+	expect(stored(again)).toBe("2");
+	act(() => {
+		again.commands.undo();
+	});
+	expect(again.state.doc.textContent).toBe(five);
+	expect(stored(again)).toBe("2,4-5");
+});
+
+it("shows a stored value that does not parse as no highlight, and rewrites it on the next edit", () => {
+	const editor = open(five, { highlight: "x-y" });
+	expect(lit()).toEqual([]);
+	// Opening the note changes nothing in it.
+	expect(stored(editor)).toBe("x-y");
+	act(() => {
+		editor.commands.insertContentAt(1, "!");
+	});
+	expect(stored(editor)).toBeUndefined();
+});
+
+it("hides highlights and ignores the number click while the setting is off, keeping them", () => {
+	const editor = open(five, { highlight: "2" });
+	const root = document.documentElement;
+	applyInterface(root, prefs({ codeLineHighlight: false }));
+	expect(root.hasAttribute("data-hide-code-highlight")).toBe(true);
+	act(() => {
+		fireEvent.click(lineNumber(4));
+	});
+	expect(stored(editor)).toBe("2");
+	applyInterface(root, prefs());
+	expect(root.hasAttribute("data-hide-code-highlight")).toBe(false);
+	act(() => {
+		fireEvent.click(lineNumber(4));
+	});
+	expect(stored(editor)).toBe("2,4");
+	expect(
+		loadInterface({
+			getItem: () => JSON.stringify({ "editor.codeLineHighlight": false }),
+		}).codeLineHighlight,
+	).toBe(false);
+	expect(loadInterface({ getItem: () => null }).codeLineHighlight).toBe(true);
+	root.removeAttribute("data-hide-code-highlight");
+});
+
+it("still lets a line be highlighted with the line numbers turned off", () => {
+	const editor = open(five);
+	applyInterface(document.documentElement, prefs({ codeLineNumbers: false }));
+	act(() => {
+		fireEvent.click(lineNumber(3));
+	});
+	expect(stored(editor)).toBe("3");
+});

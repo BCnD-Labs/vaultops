@@ -715,14 +715,76 @@
 	content: counter(code-line);
 }
 
-:root[data-hide-code-numbers] .note-editor pre .code-ln,
-:root[data-hide-code-numbers] .canvas-card pre .code-ln {
+/*
+ * With line numbers off, the gutter stays as a narrow strip while line
+ * highlight is on (a line is highlighted by clicking its strip), and goes
+ * away when both are off.
+ */
+:root[data-hide-code-numbers] .note-editor pre,
+:root[data-hide-code-numbers] .canvas-card pre {
+	--code-gutter: var(--space-4);
+}
+
+:root[data-hide-code-numbers] .note-editor pre .code-ln::before,
+:root[data-hide-code-numbers] .canvas-card pre .code-ln::before {
+	content: none;
+}
+
+:root[data-hide-code-numbers][data-hide-code-highlight]
+	.note-editor
+	pre
+	.code-ln,
+:root[data-hide-code-numbers][data-hide-code-highlight]
+	.canvas-card
+	pre
+	.code-ln {
 	display: none;
 }
 
-:root[data-hide-code-numbers] .note-editor pre code,
-:root[data-hide-code-numbers] .canvas-card pre code {
+:root[data-hide-code-numbers][data-hide-code-highlight] .note-editor pre code,
+:root[data-hide-code-numbers][data-hide-code-highlight] .canvas-card pre code {
 	padding-left: 0;
+}
+
+/* Highlighted lines: a tint of the theme's accent tone behind the line. */
+.note-editor pre,
+.canvas-card pre {
+	--code-hl: color-mix(in srgb, var(--tone-yellow) 24%, transparent);
+}
+
+.note-editor pre .code-hl,
+.canvas-card pre .code-hl,
+.note-editor pre .code-ln[data-hl],
+.canvas-card pre .code-ln[data-hl] {
+	background: var(--code-hl);
+}
+
+.note-editor pre .code-ln[data-hl],
+.canvas-card pre .code-ln[data-hl] {
+	box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--tone-yellow);
+}
+
+.note-editor pre .code-ln[data-edit] {
+	cursor: pointer;
+}
+
+:root:not([data-hide-code-highlight])
+	.note-editor
+	pre
+	.code-ln[data-edit]:hover {
+	background: var(--code-hl);
+}
+
+:root[data-hide-code-highlight] .note-editor pre .code-hl,
+:root[data-hide-code-highlight] .canvas-card pre .code-hl,
+:root[data-hide-code-highlight] .note-editor pre .code-ln[data-hl],
+:root[data-hide-code-highlight] .canvas-card pre .code-ln[data-hl] {
+	background: none;
+	box-shadow: none;
+}
+
+:root[data-hide-code-highlight] .note-editor pre .code-ln[data-edit] {
+	cursor: default;
 }
 
 :root:not([data-hide-code-wrap]) .note-editor pre[data-wrap="true"],

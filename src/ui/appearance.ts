@@ -308,6 +308,7 @@ export interface InterfacePrefs {
 	spellcheck: boolean;
 	codeLineNumbers: boolean;
 	codeWrapOption: boolean;
+	codeLineHighlight: boolean;
 }
 
 const UI_SIZES = ["11", "12", "13", "14"];
@@ -341,6 +342,7 @@ export function loadInterface(
 		spellcheck: blob["editor.spellcheck"] !== false,
 		codeLineNumbers: blob["editor.codeLineNumbers"] !== false,
 		codeWrapOption: blob["editor.codeWrapOption"] !== false,
+		codeLineHighlight: blob["editor.codeLineHighlight"] !== false,
 	};
 }
 
@@ -366,6 +368,7 @@ export function applyInterface(root: HTMLElement, prefs: InterfacePrefs) {
 	root.toggleAttribute("data-hide-status-counts", !prefs.statusCounts);
 	root.toggleAttribute("data-hide-code-numbers", !prefs.codeLineNumbers);
 	root.toggleAttribute("data-hide-code-wrap", !prefs.codeWrapOption);
+	root.toggleAttribute("data-hide-code-highlight", !prefs.codeLineHighlight);
 	root.setAttribute("spellcheck", String(prefs.spellcheck));
 }
 

@@ -1,3 +1,5 @@
 {"format":"vaultops-note","v":1,"noteId":"code-display-1"}
 {"id":"c1","type":"codeBlock","parent":null,"attrs":{"language":"python","wrap":true},"content":[{"text":"def greet(name):\n    return \"hello, \" + name\n\nprint(greet(\"world\"))","type":"text"}]}
 {"id":"c2","type":"codeBlock","parent":null,"content":[{"text":"no wrap here","type":"text"}]}
+{"id":"c3","type":"codeBlock","parent":null,"attrs":{"highlight":"2,4-5"},"content":[{"text":"one\ntwo\nthree\nfour\nfive","type":"text"}]}
+{"id":"c4","type":"codeBlock","parent":null,"attrs":{"highlight":"not lines","wrap":true},"content":[{"text":"kept as it was","type":"text"}]}

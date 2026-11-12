@@ -17,6 +17,7 @@ import type { ItemTone } from "../core/notes/canvas-ops";
 import { BLOCK_DRAG_TYPE, setDragEffect } from "../editor/block-drag";
 import { quoteColorOf } from "../editor/blockquote";
 import { calloutColorOf, calloutIconOf, toneOf } from "../editor/callout";
+import { clipLines, isHighlighted, parseLines } from "../editor/code-highlight";
 import { codeLines, lineDigits, wrapOf } from "../editor/code-language";
 import { abandonLift, liftBlock } from "../editor/lift";
 
@@ -186,6 +187,16 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 		}
 		case "codeBlock": {
 			const lines = codeLines(codeText(block.content));
+			const lit = clipLines(
+				parseLines(
+					block.attrs &&
+						typeof block.attrs === "object" &&
+						!Array.isArray(block.attrs)
+						? block.attrs.highlight
+						: undefined,
+				),
+				lines.length,
+			);
 			const wrap =
 				!!block.attrs &&
 				typeof block.attrs === "object" &&
@@ -200,8 +211,16 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 						{lines.map((line, index) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: lines have no identity
 							<Fragment key={index}>
-								<span className="code-ln" aria-hidden="true" />
-								{line}
+								<span
+									className="code-ln"
+									aria-hidden="true"
+									data-hl={isHighlighted(lit, index + 1) ? "true" : undefined}
+								/>
+								{isHighlighted(lit, index + 1) && line ? (
+									<span className="code-hl">{line}</span>
+								) : (
+									line
+								)}
 								{index < lines.length - 1 ? "\n" : ""}
 							</Fragment>
 						))}

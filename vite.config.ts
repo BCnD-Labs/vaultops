@@ -25,6 +25,12 @@ export default defineConfig({
 	plugins: [react(), tailwindcss()],
 	define: { __BUILD_COMMIT__: JSON.stringify(buildCommit()) },
 	resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+	// The app's content security policy allows fonts only from 'self', so a font
+	// must never be inlined into the CSS as a data: URI, however small (MathLive's
+	// smallest font is under Vite's default 4 kB limit).
+	build: {
+		assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+	},
 	clearScreen: false,
 	server: {
 		port: 1420,

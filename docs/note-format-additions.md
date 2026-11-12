@@ -189,6 +189,25 @@ for byte in `src/editor/doc-blocks.test.ts`).
 Fixture for both: `test-fixtures/code-block-display.vnote` (round-trips byte for
 byte in `src/editor/doc-blocks.test.ts`, including a value that is not lines).
 
+## `mathBlock` (block type, added later)
+
+A block for an equation, edited visually in the app and written as plain LaTeX.
+
+- **Where it lives:** its own line, `type` `mathBlock`, with no inline `content`.
+- **Attribute:** `latex`, a string: the LaTeX source, for example
+  `\frac{a}{b}`. In the file the backslashes and quotes are written the usual
+  JSON way. It is left out when the block is empty. A missing value, or one that
+  is not a string, is shown as empty and rewritten on the next edit. A very long
+  value is accepted: the app shows only the start of it, in plain text, and
+  never changes what is saved.
+- **Example line:** `{"id":"m1","type":"mathBlock","parent":null,"attrs":{"latex":"\\frac{a}{b}=\\sqrt{x^2+1}"}}`
+- **In previews and search:** the LaTeX source counts as the block's text.
+- **Older build:** opens the note read-only (it does not know the block type),
+  so nothing is lost.
+
+Fixture: `test-fixtures/math-block.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`).
+
 ## `databaseRow` `noteId` (attribute, added later)
 
 A database row (`databaseRow`, a child line of a `database`; its own page is

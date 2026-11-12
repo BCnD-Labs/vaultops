@@ -22,6 +22,7 @@ import { DropSlot } from "./drop-slot";
 import { Folding } from "./folding";
 import { Kbd } from "./kbd";
 import { ListMarkers, ListTabGuard } from "./list-nesting";
+import { MathBlock } from "./math-block";
 import { MoveOut } from "./move-out";
 import { LinkMenu, NoteLink } from "./note-link";
 import { SlashMenu } from "./slash-menu";
@@ -63,6 +64,7 @@ export function createExtensions(): Extensions {
 		QuoteColor,
 		TaskBlock,
 		Divider,
+		MathBlock,
 		Callout,
 		Toggle,
 		Document,

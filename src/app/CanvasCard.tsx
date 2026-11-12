@@ -20,6 +20,8 @@ import { calloutColorOf, calloutIconOf, toneOf } from "../editor/callout";
 import { clipLines, isHighlighted, parseLines } from "../editor/code-highlight";
 import { codeLines, lineDigits, wrapOf } from "../editor/code-language";
 import { abandonLift, liftBlock } from "../editor/lift";
+import { MathField } from "../editor/MathField";
+import { latexOf } from "../editor/math-block";
 
 function inline(value: JsonValue | undefined): ReactNode {
 	if (!Array.isArray(value)) return null;
@@ -134,6 +136,24 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 		}
 		case "divider":
 			return <hr />;
+		case "mathBlock":
+			return (
+				<div className="math-block">
+					<MathField
+						value={latexOf(
+							block.attrs &&
+								typeof block.attrs === "object" &&
+								!Array.isArray(block.attrs)
+								? block.attrs.latex
+								: undefined,
+						)}
+						readOnly
+						onChange={() => {}}
+						onLeave={() => {}}
+						onEmptyDelete={() => {}}
+					/>
+				</div>
+			);
 		case "callout": {
 			const attrs =
 				block.attrs &&

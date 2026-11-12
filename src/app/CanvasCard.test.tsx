@@ -150,3 +150,18 @@ it("shows a code block's highlighted lines on the canvas, ignoring lines it does
 	expect(container.querySelector(".code-hl")?.textContent).toBe("two");
 	expect(container.querySelector("pre")?.textContent).toBe("one\ntwo\nthree");
 });
+
+it("draws a math block on the canvas as its LaTeX until the equation editor is ready, never editable", () => {
+	const block: Block = {
+		id: "root",
+		type: "mathBlock",
+		parent: null,
+		attrs: { latex: "\\frac{a}{b}" },
+	};
+	const html = renderToStaticMarkup(
+		<CanvasCard root={block} blocks={[block]} />,
+	);
+	expect(html).toContain("math-block");
+	expect(html).toContain("\\frac{a}{b}");
+	expect(html).not.toContain("<input");
+});

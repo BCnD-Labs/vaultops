@@ -129,6 +129,10 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 		attrs: { id: "code" },
 		content: [{ type: "text", text: "Code" }],
 	},
+	mathBlock: {
+		type: "mathBlock",
+		attrs: { id: "math", latex: "x^2" },
+	},
 	blockquote: {
 		type: "blockquote",
 		attrs: { id: "quote" },

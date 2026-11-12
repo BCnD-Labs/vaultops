@@ -21,6 +21,7 @@ import {
 	type LucideIcon,
 	Pilcrow,
 	Quote,
+	Sigma,
 	Table2,
 	ToggleRight,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { insertColumns } from "./columns";
 import { insertDatabase } from "./database/commands";
 import { todayIso } from "./date-chip";
 import { DIVIDER_ICONS } from "./divider-icons";
+import { insertMathBlock } from "./math-block";
 
 /** The groups the menu is divided into, in the order they appear. */
 export const SLASH_SECTIONS = [
@@ -129,6 +131,14 @@ const ITEMS: SlashItem[] = [
 		label: "Codeblock",
 		keywords: ["snippet", "pre"],
 		run: (e, r) => start(e, r).setCodeBlock().run(),
+	},
+	{
+		id: "math",
+		section: "Blocks",
+		icon: Sigma,
+		label: "Math block",
+		keywords: ["math", "equation", "formula", "latex", "fraction"],
+		run: (e, r) => insertMathBlock(e, r),
 	},
 	{
 		id: "quote",

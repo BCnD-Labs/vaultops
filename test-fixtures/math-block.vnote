@@ -1,0 +1,5 @@
+{"format":"vaultops-note","v":1,"noteId":"math-block-1"}
+{"id":"m1","type":"mathBlock","parent":null,"attrs":{"latex":"\\frac{a}{b}=\\sqrt{x^2+1}"}}
+{"id":"m2","type":"mathBlock","parent":null,"attrs":{"latex":"\\text{say \"hi\"}\\quad\\alpha+\\beta"}}
+{"id":"m3","type":"mathBlock","parent":null}
+{"id":"p1","type":"paragraph","parent":null,"content":[{"text":"After","type":"text"}]}

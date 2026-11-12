@@ -16,6 +16,7 @@ export const BLOCK_TYPES = [
 	"blockquote",
 	"callout",
 	"divider",
+	"mathBlock",
 	"toggle",
 	"columns",
 	"column",

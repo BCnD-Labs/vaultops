@@ -490,6 +490,29 @@ describe("code block display fixture", () => {
 	});
 });
 
+describe("math block fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/math-block.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("keeps the LaTeX, with its backslashes and quotes, byte for byte, and an empty block as it was", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.attrs?.latex)).toEqual([
+			"\\frac{a}{b}=\\sqrt{x^2+1}",
+			'\\text{say "hi"}\\quad\\alpha+\\beta',
+			undefined,
+			undefined,
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+});
+
 describe("note links fixture", () => {
 	const text = readFileSync(
 		new URL("../../test-fixtures/note-links.vnote", import.meta.url),

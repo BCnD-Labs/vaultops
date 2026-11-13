@@ -156,6 +156,22 @@ Fixture: `test-fixtures/switch.vnote` (round-trips byte for byte in
 Fixture for all three: `test-fixtures/inline-and-code.vnote` (round-trips byte
 for byte in `src/editor/doc-blocks.test.ts`).
 
+## `codeBlock` `wrap` (attribute, added later)
+
+- **Where it lives:** on a `codeBlock` line, as `attrs.wrap`: `true` when the
+  block wraps long lines instead of scrolling sideways.
+- **Left out when false.** A block that was never wrapped is written exactly as
+  before, so notes nobody touched are unchanged on disk. Anything other than
+  `true` is read as not wrapped and dropped on the next save.
+- **Display only.** It never changes the code text. Line numbers are a setting
+  of the app and are not stored in the note.
+- **Example line:** `{"id":"c1","type":"codeBlock","parent":null,"attrs":{"language":"python","wrap":true},"content":[{"text":"print(1)","type":"text"}]}`
+- **Older build:** opens the note read-only (it does not know `wrap`), so
+  nothing is lost.
+
+Fixture: `test-fixtures/code-block-display.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`).
+
 ## `databaseRow` `noteId` (attribute, added later)
 
 A database row (`databaseRow`, a child line of a `database`; its own page is

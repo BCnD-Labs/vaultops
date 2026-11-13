@@ -1,0 +1,198 @@
+// @vitest-environment happy-dom
+
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { type Editor, EditorContent, useEditor } from "@tiptap/react";
+import { afterEach, expect, it } from "vitest";
+import {
+	applyInterface,
+	type InterfacePrefs,
+	loadInterface,
+} from "../ui/appearance";
+import { codeLines, lineDigits, wrapOf } from "./code-language";
+import { blocksToDoc, docToBlocks } from "./doc-blocks";
+import { createExtensions } from "./extensions";
+
+let current: Editor | null = null;
+
+function Harness({ content }: { content: object }) {
+	const editor = useEditor({ extensions: createExtensions(), content });
+	current = editor;
+	return <EditorContent editor={editor} />;
+}
+
+function open(code: string, attrs: object = {}): Editor {
+	render(
+		<Harness
+			content={{
+				type: "doc",
+				content: [
+					{
+						type: "codeBlock",
+						attrs: { id: "c", ...attrs },
+						content: code ? [{ type: "text", text: code }] : undefined,
+					},
+				],
+			}}
+		/>,
+	);
+	if (!current) throw new Error("editor did not start");
+	return current;
+}
+
+afterEach(() => {
+	cleanup();
+	current = null;
+	document.documentElement.removeAttribute("data-hide-code-numbers");
+	document.documentElement.removeAttribute("data-hide-code-wrap");
+});
+
+const numbers = () =>
+	Array.from(document.querySelectorAll<HTMLElement>(".code-ln")).map(
+		(n) => n.dataset.line,
+	);
+
+it("numbers each real line, including empty ones, and an empty block has one", () => {
+	open("one\n\nthree");
+	expect(numbers()).toEqual(["1", "2", "3"]);
+	cleanup();
+	open("");
+	expect(numbers()).toEqual(["1"]);
+});
+
+it("gives a line one number however long it is, and renumbers as lines are added", () => {
+	const editor = open("a very long line ".repeat(40), { wrap: true });
+	expect(numbers()).toEqual(["1"]);
+	act(() => {
+		editor.commands.insertContentAt(2, "\nsecond");
+	});
+	expect(numbers()).toEqual(["1", "2"]);
+});
+
+it("makes the gutter wide enough for the biggest line number", () => {
+	open(Array.from({ length: 120 }, (_, i) => `line ${i}`).join("\n"));
+	const pre = document.querySelector("pre");
+	expect(pre?.getAttribute("style")).toContain("--code-digits: 3");
+	expect(lineDigits(9)).toBe(1);
+	expect(lineDigits(10)).toBe(2);
+	expect(lineDigits(0)).toBe(1);
+	expect(codeLines("a\nb")).toEqual(["a", "b"]);
+});
+
+it("keeps the numbers out of the code: the text and the copy are only the code", () => {
+	const editor = open("one\ntwo");
+	expect(editor.getText()).toBe("one\ntwo");
+	expect(editor.state.doc.textContent).toBe("one\ntwo");
+	let copied = "";
+	Object.defineProperty(navigator, "clipboard", {
+		configurable: true,
+		value: {
+			writeText: async (text: string) => {
+				copied = text;
+			},
+		},
+	});
+	act(() => {
+		fireEvent.click(document.querySelector(".code-copy") as HTMLElement);
+	});
+	expect(copied).toBe("one\ntwo");
+	// The numbers are not editable text and are hidden from screen readers.
+	const first = document.querySelector<HTMLElement>(".code-ln");
+	expect(first?.textContent).toBe("");
+	expect(first?.getAttribute("aria-hidden")).toBe("true");
+	expect(first?.contentEditable).toBe("false");
+});
+
+it("wraps from the block's Wrap button, and the choice is stored with the block", () => {
+	const editor = open("long line");
+	const pre = () => document.querySelector("pre");
+	const button = () =>
+		document.querySelector<HTMLButtonElement>(".code-wrap") as HTMLElement;
+	expect(pre()?.getAttribute("data-wrap")).toBeNull();
+	expect(button().getAttribute("aria-pressed")).toBe("false");
+	// A new block does not wrap, and writes nothing for it.
+	expect(docToBlocks(editor.getJSON())[0]?.attrs).toBeUndefined();
+
+	act(() => {
+		fireEvent.click(button());
+	});
+	expect(pre()?.getAttribute("data-wrap")).toBe("true");
+	expect(button().getAttribute("aria-pressed")).toBe("true");
+	const saved = docToBlocks(editor.getJSON());
+	expect(saved[0]?.attrs).toEqual({ wrap: true });
+
+	// Reopening the note shows it wrapped.
+	cleanup();
+	render(<Harness content={blocksToDoc(saved)} />);
+	expect(document.querySelector("pre")?.getAttribute("data-wrap")).toBe("true");
+
+	act(() => {
+		fireEvent.click(button());
+	});
+	expect(docToBlocks(current?.getJSON() ?? { type: "doc" })[0]?.attrs).toBe(
+		undefined,
+	);
+});
+
+it("lets the text be wrapped by a read-only note but not changed there", () => {
+	const editor = open("long line", { wrap: true });
+	act(() => {
+		editor.setEditable(false);
+	});
+	expect(document.querySelector("pre")?.getAttribute("data-wrap")).toBe("true");
+	expect(document.querySelector(".code-wrap")).toBeNull();
+	expect(numbers()).toEqual(["1"]);
+});
+
+it("reads only true as wrap", () => {
+	expect(wrapOf(true)).toBe(true);
+	for (const value of [false, "true", 1, null, undefined]) {
+		expect(wrapOf(value)).toBe(false);
+	}
+});
+
+const prefs = (over: Partial<InterfacePrefs> = {}): InterfacePrefs => ({
+	...loadInterface({ getItem: () => null }),
+	...over,
+});
+
+it("turns the line numbers and the wrap option off and on from Settings", () => {
+	const root = document.documentElement;
+	const read = (blob: object) =>
+		loadInterface({ getItem: () => JSON.stringify(blob) });
+	// Both are on until switched off.
+	expect(loadInterface({ getItem: () => null })).toMatchObject({
+		codeLineNumbers: true,
+		codeWrapOption: true,
+	});
+	expect(read({ "editor.codeLineNumbers": false })).toMatchObject({
+		codeLineNumbers: false,
+		codeWrapOption: true,
+	});
+	expect(read({ "editor.codeWrapOption": false })).toMatchObject({
+		codeLineNumbers: true,
+		codeWrapOption: false,
+	});
+
+	applyInterface(
+		root,
+		prefs({ codeLineNumbers: false, codeWrapOption: false }),
+	);
+	expect(root.hasAttribute("data-hide-code-numbers")).toBe(true);
+	expect(root.hasAttribute("data-hide-code-wrap")).toBe(true);
+	applyInterface(root, prefs());
+	expect(root.hasAttribute("data-hide-code-numbers")).toBe(false);
+	expect(root.hasAttribute("data-hide-code-wrap")).toBe(false);
+});
+
+it("keeps a block's saved wrap and its numbers in the note while the settings are off", () => {
+	const editor = open("one\ntwo", { wrap: true });
+	applyInterface(
+		document.documentElement,
+		prefs({ codeLineNumbers: false, codeWrapOption: false }),
+	);
+	// The setting only hides things on screen: the stored choice is untouched.
+	expect(docToBlocks(editor.getJSON())[0]?.attrs).toEqual({ wrap: true });
+	expect(document.querySelector("pre")?.getAttribute("data-wrap")).toBe("true");
+	applyInterface(document.documentElement, prefs());
+	expect(docToBlocks(editor.getJSON())[0]?.attrs).toEqual({ wrap: true });
+});

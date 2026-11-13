@@ -11,7 +11,7 @@ describe("slash menu items", () => {
 			"Heading 4",
 			"Heading 5",
 			"Heading 6",
-			"Code",
+			"Codeblock",
 			"Quote",
 			"Divider",
 			"Divider: dashed",
@@ -88,6 +88,13 @@ describe("slash menu items", () => {
 		expect(filterSlashItems("warn").map((i) => i.id)).toEqual([
 			"callout-warning",
 		]);
+	});
+
+	it("calls the code block Codeblock and still finds it by code, snippet and pre", () => {
+		for (const query of ["code", "codeblock", "snippet", "pre"]) {
+			expect(filterSlashItems(query)[0]?.id).toBe("code");
+		}
+		expect(SLASH_ITEMS.find((i) => i.id === "code")?.label).toBe("Codeblock");
 	});
 
 	it("finds the toggle by name or by what it does", () => {

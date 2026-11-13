@@ -1458,3 +1458,49 @@ span.note-link-chip:hover {
 	text-decoration: underline;
 	cursor: pointer;
 }
+
+/* Math block: an equation edited visually (MathLive, see MathField.tsx). */
+.note-editor .math-block,
+.canvas-card .math-block {
+	margin: var(--space-2) 0;
+	padding: var(--space-1) var(--space-2);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-control);
+	color: var(--foreground);
+}
+
+.note-editor .math-block[data-selected="true"],
+.note-editor .math-block:focus-within {
+	border-color: var(--line);
+	background: var(--surface-container-low);
+}
+
+/* The text size follows the note's body size setting. */
+.note-editor math-field,
+.canvas-card math-field {
+	display: block;
+	font-size: var(--editor-font-size);
+	color: var(--foreground);
+	background: transparent;
+	border: none;
+	outline: none;
+	padding: 0;
+	--caret-color: var(--foreground);
+	--selection-background-color: var(--accent);
+	--selection-color: var(--foreground);
+}
+
+.note-editor .math-source code,
+.canvas-card .math-source code {
+	display: block;
+	font-family: var(--font-mono);
+	font-size: var(--code-font-size);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.note-editor .math-note,
+.canvas-card .math-note {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}

@@ -143,7 +143,18 @@ export function searchTextOf(blocks: Block[]): string {
 	return plainText(blocks).slice(0, SEARCH_TEXT_LIMIT);
 }
 
-/** Plain body text only; never include attributes, marks or block IDs. */
+/** A math block's LaTeX source: it is the block's text, so it is searchable. */
+function latex(block: Block): string {
+	const attrs = block.attrs;
+	return attrs &&
+		typeof attrs === "object" &&
+		!Array.isArray(attrs) &&
+		typeof attrs.latex === "string"
+		? attrs.latex
+		: "";
+}
+
+/** Plain body text only; never include marks or block IDs (a math block's LaTeX counts as its text). */
 function plainText(blocks: Block[]): string {
 	function text(value: JsonValue | undefined): string {
 		if (Array.isArray(value)) return value.map(text).join("");
@@ -170,7 +181,9 @@ function plainText(blocks: Block[]): string {
 		return text(value.content);
 	}
 	return blocks
-		.map((block) => text(block.content))
+		.map((block) =>
+			block.type === "mathBlock" ? latex(block) : text(block.content),
+		)
 		.join(" ")
 		.replace(/\s+/g, " ")
 		.trim();

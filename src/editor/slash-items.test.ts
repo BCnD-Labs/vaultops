@@ -12,6 +12,7 @@ describe("slash menu items", () => {
 			"Heading 5",
 			"Heading 6",
 			"Codeblock",
+			"Math block",
 			"Quote",
 			"Divider",
 			"Divider: dashed",

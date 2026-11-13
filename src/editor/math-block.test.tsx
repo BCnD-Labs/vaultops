@@ -109,7 +109,8 @@ it("inserts an empty block from the slash menu and starts in edit mode", async (
 		expect(document.querySelector("math-field")).toBeTruthy(),
 	);
 	expect(types(editor)).toEqual(["mathBlock", "paragraph"]);
-	expect(field().dataset.focused).toBe("true");
+	// Focus lands once the equation editor has loaded, so wait for it.
+	await waitFor(() => expect(field().dataset.focused).toBe("true"));
 	// Nothing is written for an empty block's attributes.
 	expect(docToBlocks(editor.getJSON())[0]?.attrs).toBeUndefined();
 });

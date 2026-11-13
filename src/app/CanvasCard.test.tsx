@@ -134,3 +134,19 @@ it("numbers a code block's real lines on the canvas and keeps its wrap choice", 
 		"true",
 	);
 });
+
+it("shows a code block's highlighted lines on the canvas, ignoring lines it doesn't have", () => {
+	const block: Block = {
+		id: "root",
+		type: "codeBlock",
+		parent: null,
+		attrs: { highlight: "2,9" },
+		content: [{ type: "text", text: "one\ntwo\nthree" }],
+	};
+	const { container } = render(<CanvasCard root={block} blocks={[block]} />);
+	expect(
+		Array.from(container.querySelectorAll(".code-ln[data-hl]")).length,
+	).toBe(1);
+	expect(container.querySelector(".code-hl")?.textContent).toBe("two");
+	expect(container.querySelector("pre")?.textContent).toBe("one\ntwo\nthree");
+});

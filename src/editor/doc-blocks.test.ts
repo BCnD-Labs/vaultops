@@ -466,7 +466,7 @@ describe("code block display fixture", () => {
 		"utf8",
 	);
 
-	it("keeps a wrapped block's wrap, and leaves an untouched block as it was, byte for byte", () => {
+	it("keeps wrap and highlighted lines, and leaves untouched blocks as they were, byte for byte", () => {
 		const parsed = parseNote(text);
 		expect(parsed.problems).toEqual([]);
 		const note = parsed.note;
@@ -476,6 +476,15 @@ describe("code block display fixture", () => {
 		expect(doc.content?.map((node) => node.attrs?.wrap)).toEqual([
 			true,
 			undefined,
+			undefined,
+			true,
+		]);
+		// Highlighted lines are kept as written, and so is a value that is not lines.
+		expect(doc.content?.map((node) => node.attrs?.highlight)).toEqual([
+			undefined,
+			undefined,
+			"2,4-5",
+			"not lines",
 		]);
 		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
 	});

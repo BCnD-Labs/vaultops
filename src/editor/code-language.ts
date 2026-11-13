@@ -1,8 +1,17 @@
 import { Extension } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { common, createLowlight } from "lowlight";
+import {
+	addRange,
+	clipLines,
+	formatLines,
+	isHighlighted,
+	normalizeHighlight,
+	parseLines,
+	toggleLine,
+} from "./code-highlight";
 
 /** The languages the picker offers: [stored name, label]. "" means plain text. */
 export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
@@ -63,12 +72,47 @@ export const CodeBlock = CodeBlockLowlight.extend({
 				renderHTML: (attributes) =>
 					wrapOf(attributes.wrap) ? { "data-wrap": "true" } : {},
 			},
+			// The highlighted lines, such as "2,5-7" (see code-highlight.ts).
+			highlight: {
+				default: null,
+				parseHTML: (element) => element.getAttribute("data-highlight"),
+				renderHTML: (attributes) =>
+					typeof attributes.highlight === "string" && attributes.highlight
+						? { "data-highlight": attributes.highlight }
+						: {},
+			},
 		};
 	},
 }).configure({
 	lowlight: highlighter,
 	defaultLanguage: null,
 });
+
+/**
+ * Click on a line number: highlight that line, or clear it; with shift, highlight
+ * every line from the last one clicked in this block to this one.
+ */
+function markLine(view: EditorView, at: number, line: number, extend: boolean) {
+	const $at = view.state.doc.resolve(at);
+	const node = $at.parent;
+	if (node.type.name !== "codeBlock") return;
+	const blockPos = $at.before($at.depth);
+	const key = String(node.attrs.id ?? blockPos);
+	const count = codeLines(node.textContent).length;
+	const now = clipLines(parseLines(node.attrs.highlight), count);
+	const anchor = lastClicked.get(key);
+	const next =
+		extend && anchor !== undefined
+			? addRange(now, anchor, line)
+			: toggleLine(now, line);
+	lastClicked.set(key, line);
+	view.dispatch(
+		view.state.tr.setNodeMarkup(blockPos, undefined, {
+			...node.attrs,
+			highlight: formatLines(next),
+		}),
+	);
+}
 
 /** The text of each line of a code block, in order (an empty block has one). */
 export function codeLines(text: string): string[] {
@@ -82,6 +126,16 @@ export function lineDigits(lineCount: number): number {
 
 export const codeLanguageKey = new PluginKey("codeLanguage");
 
+/** The Settings switch for line highlight, which the app puts on the root. */
+function highlightOn(view: EditorView): boolean {
+	return !view.dom.ownerDocument.documentElement.hasAttribute(
+		"data-hide-code-highlight",
+	);
+}
+
+/** The last line number clicked in each block, for shift-click. */
+const lastClicked = new Map<string, number>();
+
 /**
  * Language label/picker and Copy button at the top right of every code block.
  */
@@ -91,6 +145,33 @@ export const CodeLanguage = Extension.create({
 	addProseMirrorPlugins() {
 		const editor = this.editor;
 		return [
+			// Highlighted lines the code no longer has are dropped when it is edited
+			// (and a stored value that does not parse is rewritten), in the same
+			// undo step as the edit.
+			new Plugin({
+				key: new PluginKey("codeHighlightClean"),
+				appendTransaction(transactions, _old, state) {
+					if (!transactions.some((tr) => tr.docChanged)) return null;
+					let next: Transaction | null = null;
+					state.doc.descendants((node, pos) => {
+						if (node.type.name !== "codeBlock") return true;
+						const stored = node.attrs.highlight;
+						if (stored === null || stored === undefined) return false;
+						const want = normalizeHighlight(
+							stored,
+							codeLines(node.textContent).length,
+						);
+						if (want !== stored) {
+							next = (next ?? state.tr).setNodeMarkup(pos, undefined, {
+								...node.attrs,
+								highlight: want,
+							});
+						}
+						return false;
+					});
+					return next;
+				},
+			}),
 			new Plugin({
 				key: codeLanguageKey,
 				props: {
@@ -106,6 +187,10 @@ export const CodeLanguage = Extension.create({
 								}),
 							);
 							const wrapped = wrapOf(node.attrs.wrap);
+							const lit = clipLines(
+								parseLines(node.attrs.highlight),
+								lines.length,
+							);
 							const current =
 								typeof node.attrs.language === "string"
 									? node.attrs.language
@@ -217,20 +302,41 @@ export const CodeLanguage = Extension.create({
 							// element, so it is never part of the code that is copied.
 							let at = pos + 1;
 							lines.forEach((line, index) => {
+								const on = isHighlighted(lit, index + 1);
+								if (on && line.length > 0) {
+									decorations.push(
+										Decoration.inline(at, at + line.length, {
+											class: "code-hl",
+										}),
+									);
+								}
 								decorations.push(
 									Decoration.widget(
 										at,
-										() => {
+										(view, getPos) => {
 											const number = document.createElement("span");
 											number.className = "code-ln";
 											number.contentEditable = "false";
 											number.setAttribute("aria-hidden", "true");
 											number.dataset.line = String(index + 1);
+											if (on) number.dataset.hl = "true";
+											if (editable) {
+												number.dataset.edit = "true";
+												// Keep the cursor where it is: this is a button, not text.
+												number.addEventListener("mousedown", (event) =>
+													event.preventDefault(),
+												);
+												number.addEventListener("click", (event) => {
+													const here = getPos();
+													if (here === undefined || !highlightOn(view)) return;
+													markLine(view, here, index + 1, event.shiftKey);
+												});
+											}
 											return number;
 										},
 										{
 											side: -1,
-											key: `code-ln-${index}`,
+											key: `code-ln-${index}-${on}-${editable}`,
 											stopEvent: () => true,
 											ignoreSelection: true,
 										},

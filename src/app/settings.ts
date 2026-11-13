@@ -261,6 +261,18 @@ const NEW_DEFS = [
 		sparse: true,
 	},
 	{
+		key: "editor.codeLineHighlight",
+		section: "editor",
+		group: "Code blocks",
+		label: "Line highlight in code blocks",
+		description:
+			"Click a line's number to highlight that line. Turn it off to hide highlights; they are kept in the note.",
+		type: "toggle",
+		default: true,
+		keywords: ["code", "codeblock", "highlight", "lines", "emphasis"],
+		sparse: true,
+	},
+	{
 		key: "files.newNoteLocation",
 		section: "files",
 		group: "New notes",

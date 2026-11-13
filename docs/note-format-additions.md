@@ -169,8 +169,25 @@ for byte in `src/editor/doc-blocks.test.ts`).
 - **Older build:** opens the note read-only (it does not know `wrap`), so
   nothing is lost.
 
-Fixture: `test-fixtures/code-block-display.vnote` (round-trips byte for byte in
-`src/editor/doc-blocks.test.ts`).
+## `codeBlock` `highlight` (attribute, added later)
+
+- **Where it lives:** on a `codeBlock` line, as `attrs.highlight`: the
+  highlighted lines of the code, as a string of 1-based line numbers and ranges,
+  ascending and merged: `"2,5-7"` is lines 2, 5, 6 and 7. Lines are the real
+  lines of the text, not wrapped rows.
+- **Left out when there are none.** A block with no highlighted lines is written
+  exactly as before.
+- **Bad values.** A value that does not parse (not a string, a bad number, a
+  backwards range such as `"3-1"`) is read as no highlight, shown as none, and
+  rewritten the next time the block is edited. Lines past the end of the code
+  are not shown and are dropped when the code is edited.
+- **Display only.** It never changes the code text.
+- **Example line:** `{"id":"c3","type":"codeBlock","parent":null,"attrs":{"highlight":"2,4-5"},"content":[{"text":"one\ntwo\nthree\nfour\nfive","type":"text"}]}`
+- **Older build:** opens the note read-only (it does not know `highlight`), so
+  nothing is lost.
+
+Fixture for both: `test-fixtures/code-block-display.vnote` (round-trips byte for
+byte in `src/editor/doc-blocks.test.ts`, including a value that is not lines).
 
 ## `databaseRow` `noteId` (attribute, added later)
 

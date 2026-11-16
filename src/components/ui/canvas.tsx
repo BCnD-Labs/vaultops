@@ -54,6 +54,20 @@ export interface CanvasEdge {
 	arrow?: boolean;
 }
 
+/** Keep selected items across a redraw without searching the old array per item. */
+export function preserveSelection<T extends { id: string; selected?: boolean }>(
+	incoming: T[],
+	current: T[],
+): T[] {
+	const selectedById = new Map(
+		current.map(({ id, selected }) => [id, selected ?? false]),
+	);
+	return incoming.map((item) => ({
+		...item,
+		selected: selectedById.get(item.id) ?? false,
+	}));
+}
+
 export function canvasFlowProps(locked = false) {
 	return {
 		nodesDraggable: !locked,
@@ -229,13 +243,7 @@ function Surface({
 	const dragStart = useRef<Map<string, { x: number; y: number }>>(new Map());
 	// Keep what is selected when the items are redrawn after a save.
 	useEffect(
-		() =>
-			setNodes((current) =>
-				initial.map((node) => ({
-					...node,
-					selected: current.find((c) => c.id === node.id)?.selected ?? false,
-				})),
-			),
+		() => setNodes((current) => preserveSelection(initial, current)),
 		[initial],
 	);
 	const edges = useMemo<Edge[]>(
@@ -251,13 +259,7 @@ function Surface({
 	);
 	const [edgeState, setEdgeState] = useState<Edge[]>(edges);
 	useEffect(
-		() =>
-			setEdgeState((current) =>
-				edges.map((edge) => ({
-					...edge,
-					selected: current.find((c) => c.id === edge.id)?.selected ?? false,
-				})),
-			),
+		() => setEdgeState((current) => preserveSelection(edges, current)),
 		[edges],
 	);
 	useEffect(() => {

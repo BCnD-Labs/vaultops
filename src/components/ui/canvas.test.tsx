@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
 import { cleanup, render } from "@testing-library/react";
+import type { Edge } from "@xyflow/react";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import {
 	boxOf,
 	Canvas,
 	type CanvasApi,
 	type CanvasNode,
+	preserveSelection,
 	snapDragChanges,
 } from "./canvas";
 
@@ -190,4 +192,57 @@ it("draws items in the order given, so a later item sits on top of an earlier on
 		</div>,
 	);
 	expect(text(view.container)).toEqual(["Beta", "Alpha"]);
+});
+
+it("preserves node selection by ID across reorder, add and remove without linear searches", () => {
+	const current: CanvasNode[] = [
+		{ ...(nodes[0] as CanvasNode), selected: true },
+		{ ...(nodes[1] as CanvasNode), selected: false },
+	];
+	Object.defineProperty(current, "find", {
+		value: () => {
+			throw new Error("selection reconciliation must not search once per node");
+		},
+	});
+	const added = box("c", 400, 0, 100, 50);
+	const reordered = preserveSelection(
+		[nodes[1] as CanvasNode, added, nodes[0] as CanvasNode],
+		current,
+	);
+	expect(reordered.map(({ id, selected }) => [id, selected])).toEqual([
+		["b", false],
+		["c", false],
+		["a", true],
+	]);
+	const removed = preserveSelection([added, nodes[1] as CanvasNode], reordered);
+	expect(removed.map(({ id, selected }) => [id, selected])).toEqual([
+		["c", false],
+		["b", false],
+	]);
+});
+
+it("preserves edge selection by ID across reorder, add and remove without linear searches", () => {
+	const a: Edge = { id: "a-b", source: "a", target: "b" };
+	const b: Edge = { id: "b-a", source: "b", target: "a" };
+	const c: Edge = { id: "a-c", source: "a", target: "c" };
+	const current: Edge[] = [
+		{ ...a, selected: true },
+		{ ...b, selected: false },
+	];
+	Object.defineProperty(current, "find", {
+		value: () => {
+			throw new Error("selection reconciliation must not search once per edge");
+		},
+	});
+	const reordered = preserveSelection([b, c, a], current);
+	expect(reordered.map(({ id, selected }) => [id, selected])).toEqual([
+		["b-a", false],
+		["a-c", false],
+		["a-b", true],
+	]);
+	const removed = preserveSelection([c, b], reordered);
+	expect(removed.map(({ id, selected }) => [id, selected])).toEqual([
+		["a-c", false],
+		["b-a", false],
+	]);
 });

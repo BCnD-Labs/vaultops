@@ -1,5 +1,5 @@
 import { ChevronDown, LayoutDashboard, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	ContextMenu,
@@ -86,12 +86,42 @@ export function TabBar({
 	const list = useRef<HTMLDivElement | null>(null);
 	const bar = useRef<HTMLDivElement | null>(null);
 	const activePath = tabs.find((tab) => tab.active)?.path;
+	const [focusPath, setFocusPath] = useState<string | null>(
+		activePath ?? tabs[0]?.path ?? null,
+	);
+	const previousPaths = useRef(tabs.map((tab) => tab.path));
+	const focusedControlPath = useRef<string | null>(null);
+	const rovingPath = tabs.some((tab) => tab.path === focusPath)
+		? focusPath
+		: (activePath ?? tabs[0]?.path ?? null);
 	// Where a dragged tab would land, while one is over the strip.
 	const [dropAt, setDropAt] = useState<number | null>(null);
 	// The tab being carried, dimmed in its slot so it and the copy that follows
 	// the pointer do not read as two tabs.
 	const [carried, setCarried] = useState<string | null>(null);
 	const draggable = !!onDropTab && !!paneId;
+	useLayoutEffect(() => {
+		const lostControl =
+			focusedControlPath.current !== null &&
+			!tabs.some((tab) => tab.path === focusedControlPath.current);
+		const lostRoving =
+			focusPath !== null && !tabs.some((tab) => tab.path === focusPath);
+		if (lostControl || lostRoving) {
+			const removedPath = lostControl ? focusedControlPath.current : focusPath;
+			const oldIndex = previousPaths.current.indexOf(removedPath ?? "");
+			const next = tabs[Math.min(Math.max(oldIndex, 0), tabs.length - 1)];
+			setFocusPath(next?.path ?? null);
+			if (lostControl && document.activeElement === document.body) {
+				for (const label of list.current?.querySelectorAll<HTMLButtonElement>(
+					".tab-label",
+				) ?? []) {
+					if (label.dataset.path === next?.path) label.focus();
+				}
+			}
+			focusedControlPath.current = next?.path ?? null;
+		}
+		previousPaths.current = tabs.map((tab) => tab.path);
+	}, [tabs, focusPath]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the active tab changes
 	useEffect(() => {
 		active.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
@@ -100,7 +130,10 @@ export function TabBar({
 		if (focusRequest === null) return;
 		const labels = list.current?.querySelectorAll<HTMLElement>("[data-path]");
 		for (const node of labels ?? [])
-			if (node.dataset.path === focusRequest) node.focus();
+			if (node.dataset.path === focusRequest) {
+				node.focus();
+				setFocusPath(focusRequest);
+			}
 	}, [focusRequest]);
 	const indexAt = (x: number) => {
 		const nodes = list.current?.querySelectorAll<HTMLElement>(".tab") ?? [];
@@ -111,6 +144,14 @@ export function TabBar({
 			}),
 			x,
 		);
+	};
+	const focusNeighbor = (path: string, direction: -1 | 1) => {
+		const labels = Array.from(
+			list.current?.querySelectorAll<HTMLButtonElement>(".tab-label") ?? [],
+		);
+		const index = labels.findIndex((label) => label.dataset.path === path);
+		if (index < 0 || labels.length < 2) return;
+		labels[(index + direction + labels.length) % labels.length]?.focus();
 	};
 	return (
 		// The whole bar takes the drop, not just the tabs: the blank space after the
@@ -186,14 +227,40 @@ export function TabBar({
 								className="tab-label"
 								data-path={tab.path}
 								aria-selected={tab.active}
+								tabIndex={tab.path === rovingPath ? 0 : -1}
 								title={tab.path === NEW_TAB ? undefined : tab.path}
 								onClick={() => onSelect(tab.path)}
+								onFocus={() => {
+									focusedControlPath.current = tab.path;
+									setFocusPath(tab.path);
+								}}
+								onBlur={(event) => {
+									if (
+										event.relatedTarget &&
+										!list.current?.contains(event.relatedTarget as Node)
+									) {
+										focusedControlPath.current = null;
+									}
+								}}
 								onKeyDown={(event) => {
-									if (!onNudge || !event.altKey || !event.shiftKey) return;
 									if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
 										return;
+									const direction = event.key === "ArrowLeft" ? -1 : 1;
+									if (event.altKey && event.shiftKey) {
+										if (!onNudge) return;
+										event.preventDefault();
+										onNudge(tab.path, direction);
+										return;
+									}
+									if (
+										event.altKey ||
+										event.shiftKey ||
+										event.ctrlKey ||
+										event.metaKey
+									)
+										return;
 									event.preventDefault();
-									onNudge(tab.path, event.key === "ArrowLeft" ? -1 : 1);
+									focusNeighbor(tab.path, direction);
 								}}
 							>
 								{tab.canvas && (
@@ -205,6 +272,17 @@ export function TabBar({
 								type="button"
 								className="tab-close"
 								aria-label={`Close ${tab.title}`}
+								onFocus={() => {
+									focusedControlPath.current = tab.path;
+								}}
+								onBlur={(event) => {
+									if (
+										event.relatedTarget &&
+										!list.current?.contains(event.relatedTarget as Node)
+									) {
+										focusedControlPath.current = null;
+									}
+								}}
 								onClick={() => onClose(tab.path)}
 							>
 								<X aria-hidden="true" />

@@ -335,3 +335,106 @@ it("lists every open tab from the chevron and jumps to the one picked", async ()
 	await user.click(items[0] as HTMLElement);
 	expect(onSelect).toHaveBeenCalledWith("a.vnote");
 });
+
+it("keeps one tab label in the Tab order while close buttons remain reachable", async () => {
+	const user = userEvent.setup();
+	strip();
+	const labels = screen.getAllByRole("tab") as HTMLButtonElement[];
+	expect(labels.map((tab) => tab.tabIndex)).toEqual([-1, 0, -1]);
+	expect(screen.getByRole("button", { name: "Close Alpha" }).tabIndex).toBe(0);
+	expect(screen.getByRole("button", { name: "Close Beta" }).tabIndex).toBe(0);
+	expect(screen.getByRole("button", { name: "Close Gamma" }).tabIndex).toBe(0);
+	screen.getByRole("button", { name: "Close Alpha" }).focus();
+	await user.tab();
+	expect(document.activeElement).toBe(labels[1]);
+	await user.tab();
+	expect(document.activeElement).toBe(
+		screen.getByRole("button", { name: "Close Beta" }),
+	);
+});
+
+it("wraps arrow focus without selecting, while Enter and Space activate", async () => {
+	const onSelect = vi.fn();
+	strip({ onSelect });
+	const user = userEvent.setup();
+	const alpha = screen.getByRole("tab", { name: "Alpha" }) as HTMLButtonElement;
+	const beta = screen.getByRole("tab", { name: "Beta" }) as HTMLButtonElement;
+	const gamma = screen.getByRole("tab", { name: "Gamma" }) as HTMLButtonElement;
+	beta.focus();
+	fireEvent.keyDown(beta, { key: "ArrowRight" });
+	expect(document.activeElement).toBe(gamma);
+	fireEvent.keyDown(gamma, { key: "ArrowRight" });
+	expect(document.activeElement).toBe(alpha);
+	fireEvent.keyDown(alpha, { key: "ArrowLeft" });
+	expect(document.activeElement).toBe(gamma);
+	expect(onSelect).not.toHaveBeenCalled();
+	expect([alpha.tabIndex, beta.tabIndex, gamma.tabIndex]).toEqual([-1, -1, 0]);
+	await user.keyboard("{Enter}");
+	expect(onSelect).toHaveBeenLastCalledWith("c.vnote");
+	expect(onSelect).toHaveBeenCalledTimes(1);
+	await user.keyboard(" ");
+	expect(onSelect).toHaveBeenLastCalledWith("c.vnote");
+	expect(onSelect).toHaveBeenCalledTimes(2);
+});
+
+it("moves focus to a surviving tab when the focused tab closes", () => {
+	const props = { onSelect: vi.fn(), onClose: vi.fn(), onNew: vi.fn() };
+	const view = render(<TabBar tabs={three} {...props} />);
+	const beta = screen.getByRole("tab", { name: "Beta" });
+	beta.focus();
+	view.rerender(
+		<TabBar
+			tabs={[
+				three[0] as (typeof three)[number],
+				three[2] as (typeof three)[number],
+			]}
+			{...props}
+		/>,
+	);
+	expect(document.activeElement).toBe(
+		screen.getByRole("tab", { name: "Gamma" }),
+	);
+	expect(
+		(screen.getByRole("tab", { name: "Gamma" }) as HTMLButtonElement).tabIndex,
+	).toBe(0);
+});
+
+it("restores tab focus when the focused Close button's tab closes", () => {
+	const props = { onSelect: vi.fn(), onClose: vi.fn(), onNew: vi.fn() };
+	const view = render(<TabBar tabs={three} {...props} />);
+	screen.getByRole("button", { name: "Close Alpha" }).focus();
+	view.rerender(
+		<TabBar
+			tabs={[
+				three[1] as (typeof three)[number],
+				three[2] as (typeof three)[number],
+			]}
+			{...props}
+		/>,
+	);
+	expect(document.activeElement).toBe(
+		screen.getByRole("tab", { name: "Beta" }),
+	);
+});
+
+it("keeps focus and the roving stop on a tab moved in the order", () => {
+	const props = { onSelect: vi.fn(), onClose: vi.fn(), onNew: vi.fn() };
+	const view = render(<TabBar tabs={three} {...props} />);
+	const gamma = screen.getByRole("tab", { name: "Gamma" }) as HTMLButtonElement;
+	gamma.focus();
+	view.rerender(
+		<TabBar
+			tabs={[
+				three[2] as (typeof three)[number],
+				three[0] as (typeof three)[number],
+				three[1] as (typeof three)[number],
+			]}
+			{...props}
+		/>,
+	);
+	expect(document.activeElement).toBe(gamma);
+	expect(gamma.tabIndex).toBe(0);
+	expect(
+		(screen.getByRole("tab", { name: "Beta" }) as HTMLButtonElement).tabIndex,
+	).toBe(-1);
+});

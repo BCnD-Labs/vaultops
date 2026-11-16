@@ -795,6 +795,11 @@ button.note-meta-chip:focus-visible {
 .props-block-header[data-state="open"] svg {
 	transform: rotate(90deg);
 }
+@media (prefers-reduced-motion: reduce) {
+	.props-block-header svg {
+		transition: none;
+	}
+}
 .prop-type-icon {
 	flex: none;
 	display: inline-flex;

@@ -1259,6 +1259,17 @@
 	opacity: 1;
 }
 
+@media (prefers-reduced-motion: reduce) {
+	.note-editor .quote-color-handle,
+	.lift-ghost,
+	.note-editor .table-edge-bar,
+	.note-editor .fold-toggle::before,
+	.note-editor pre .code-wrap,
+	.note-editor pre .code-copy {
+		transition: none;
+	}
+}
+
 .note-editor pre .code-copy:hover,
 .note-editor pre .code-copy:focus-visible {
 	background: var(--accent);

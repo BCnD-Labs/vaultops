@@ -4,9 +4,10 @@
 //! folder's location, only its name, and can only create plain `.txt` files
 //! with a safe name in it (no overwriting of other kinds of files, no paths).
 
-use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::Path;
+
+use crate::app_files::replace_atomic;
 
 /// One report file never holds more than this.
 pub const MAX_REPORT_BYTES: usize = 512 * 1024;
@@ -54,17 +55,13 @@ pub fn write(dir: &Path, name: &str, text: &str) -> io::Result<()> {
             "reports folder is missing",
         ));
     }
-    let temp = dir.join(format!(".{name}.tmp"));
-    let mut file = fs::File::create(&temp)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    fs::rename(&temp, dir.join(name))
+    replace_atomic(dir, name, &format!(".{name}"), text)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -151,5 +148,66 @@ mod tests {
         let err = write(&gone, "r.txt", "x").unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
         assert!(!gone.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preexisting_temp_symlink_does_not_change_target() {
+        use std::os::unix::fs::symlink;
+        let tmp = Tmp::new();
+        let target = tmp.0.join("outside.txt");
+        fs::write(&target, "keep").unwrap();
+        symlink(&target, tmp.0.join(".r.txt.tmp")).unwrap();
+        write(&tmp.0, "r.txt", "new report").unwrap();
+        assert_eq!(fs::read_to_string(target).unwrap(), "keep");
+        assert_eq!(
+            fs::read_to_string(tmp.0.join("r.txt")).unwrap(),
+            "new report"
+        );
+    }
+
+    #[test]
+    fn stale_temp_does_not_block_or_change_report_write() {
+        let tmp = Tmp::new();
+        let stale = tmp.0.join(".r.txt.tmp");
+        fs::write(&stale, "stale").unwrap();
+        write(&tmp.0, "r.txt", "new report").unwrap();
+        assert_eq!(fs::read_to_string(&stale).unwrap(), "stale");
+        assert_eq!(
+            fs::read_to_string(tmp.0.join("r.txt")).unwrap(),
+            "new report"
+        );
+    }
+
+    #[test]
+    fn concurrent_writes_succeed_with_exact_final_content() {
+        use std::sync::{Arc, Barrier};
+        let tmp = Tmp::new();
+        let start = Arc::new(Barrier::new(3));
+        let first = "a".repeat(MAX_REPORT_BYTES);
+        let second = "b".repeat(MAX_REPORT_BYTES);
+        let mut handles = Vec::new();
+        for content in [first.clone(), second.clone()] {
+            let dir = tmp.0.clone();
+            let start = Arc::clone(&start);
+            handles.push(std::thread::spawn(move || {
+                start.wait();
+                write(&dir, "r.txt", &content)
+            }));
+        }
+        start.wait();
+        for handle in handles {
+            handle.join().unwrap().unwrap();
+        }
+        let final_text = fs::read_to_string(tmp.0.join("r.txt")).unwrap();
+        assert!(final_text == first || final_text == second);
+    }
+
+    #[test]
+    fn failed_rename_removes_the_temp_file() {
+        let tmp = Tmp::new();
+        fs::create_dir(tmp.0.join("r.txt")).unwrap();
+        assert!(write(&tmp.0, "r.txt", "data").is_err());
+        assert_eq!(fs::read_dir(&tmp.0).unwrap().count(), 1);
     }
 }

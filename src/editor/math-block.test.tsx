@@ -146,10 +146,17 @@ it("takes a missing, empty or non-text value as empty, and rewrites it on the ne
 		const editor = await open(math(bad));
 		expect(field().value).toBe(latexOf(bad));
 		expect(field().value).toBe("");
-		// Opening changes nothing.
+		// Opening may normalize the field's display, but not the saved block.
+		expect(docToBlocks(editor.getJSON())).toEqual([
+			{
+				id: "m",
+				type: "mathBlock",
+				parent: null,
+				...(bad === undefined || bad === "" ? {} : { attrs: { latex: bad } }),
+			},
+		]);
 		cleanup();
 		current = null;
-		expect(editor).toBeTruthy();
 	}
 	const editor = await open(math(42));
 	type(field(), "x");

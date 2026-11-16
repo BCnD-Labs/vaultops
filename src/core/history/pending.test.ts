@@ -226,14 +226,10 @@ describe("pending changes", () => {
 		},
 	);
 
-	it("measures one edit in a 1,000-block note without a timing gate", () => {
+	it("tracks one edit in a 1,000-block note", () => {
 		const old = Array.from({ length: 1000 }, (_, i) => block(String(i)));
 		const next = old.map((b, i) => (i === 500 ? { ...b, content: [] } : b));
-		const start = performance.now();
 		const pending = updatePending([], old, next);
-		console.info(
-			`1,000-block pending update: ${(performance.now() - start).toFixed(2)} ms`,
-		);
 		expect(pending).toHaveLength(1);
 	});
 });

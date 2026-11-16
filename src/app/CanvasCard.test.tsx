@@ -151,6 +151,72 @@ it("shows a code block's highlighted lines on the canvas, ignoring lines it does
 	expect(container.querySelector("pre")?.textContent).toBe("one\ntwo\nthree");
 });
 
+it("shows every code line through line 100 without a truncation marker", () => {
+	const source = Array.from(
+		{ length: 100 },
+		(_, index) => `line ${index + 1}`,
+	).join("\n");
+	const block: Block = {
+		id: "root",
+		type: "codeBlock",
+		parent: null,
+		content: [{ type: "text", text: source }],
+	};
+	const { container } = render(<CanvasCard root={block} blocks={[block]} />);
+	expect(container.querySelectorAll(".code-ln")).toHaveLength(100);
+	expect(container.querySelector("pre code")?.textContent).toBe(source);
+	expect(container.querySelector(".code-more-lines")).toBeNull();
+});
+
+it("shows a one-line remainder immediately above the card limit", () => {
+	const source = Array.from(
+		{ length: 101 },
+		(_, index) => `line ${index + 1}`,
+	).join("\n");
+	const block: Block = {
+		id: "root",
+		type: "codeBlock",
+		parent: null,
+		content: [{ type: "text", text: source }],
+	};
+	const { container } = render(<CanvasCard root={block} blocks={[block]} />);
+	expect(container.querySelectorAll(".code-ln")).toHaveLength(100);
+	expect(container.querySelector(".code-more-lines")?.textContent).toBe(
+		"1 more line",
+	);
+});
+
+it("shows only the first 100 code lines on a larger card while preserving the source", () => {
+	const source = Array.from(
+		{ length: 103 },
+		(_, index) => `line ${index + 1}`,
+	).join("\n");
+	const block: Block = {
+		id: "root",
+		type: "codeBlock",
+		parent: null,
+		attrs: { highlight: "2,100,101" },
+		content: [{ type: "text", text: source }],
+	};
+	const before = JSON.stringify(block);
+	const { container } = render(<CanvasCard root={block} blocks={[block]} />);
+	expect(container.querySelectorAll(".code-ln")).toHaveLength(100);
+	expect(container.querySelector("pre code")?.textContent).toBe(
+		source.split("\n").slice(0, 100).join("\n"),
+	);
+	expect(container.querySelector(".code-more-lines")?.textContent).toBe(
+		"3 more lines",
+	);
+	expect(
+		Array.from(container.querySelectorAll(".code-ln[data-hl]")).map(
+			(element) => element.nextSibling?.textContent,
+		),
+	).toEqual(["line 2", "line 100"]);
+	expect(container.querySelector("pre")?.textContent).not.toContain("line 101");
+	expect(JSON.stringify(block)).toBe(before);
+	expect(block.content).toEqual([{ type: "text", text: source }]);
+});
+
 it("draws a math block on the canvas as its LaTeX until the equation editor is ready, never editable", () => {
 	const block: Block = {
 		id: "root",

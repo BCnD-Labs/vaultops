@@ -316,13 +316,38 @@ fn reports_folder(app: tauri::AppHandle) -> Result<Option<String>, HostError> {
     Ok(reports_folder_path(&app).map(|p| folder_name(&p)))
 }
 
+fn write_report_to_dir(
+    state: &VaultState,
+    dir: &Path,
+    name: &str,
+    text: &str,
+) -> Result<(), HostError> {
+    // Hold the state lock through the write so a vault switch cannot follow
+    // the check before the report reaches disk.
+    let guard = state
+        .0
+        .lock()
+        .map_err(|_| HostError::new(ErrorCode::Io, "vault state is unavailable"))?;
+    if let Some(vault) = guard.as_ref()
+        && reports::is_inside(dir, vault.root())
+    {
+        return Err(HostError::invalid("choose a folder outside the vault"));
+    }
+    reports::write(dir, name, text).map_err(|e| HostError::from_io(&e))
+}
+
 /// Write one report file (see `reports::valid_name`) into the reports folder.
 #[tauri::command(async)]
-fn write_report(app: tauri::AppHandle, name: String, text: String) -> Result<(), HostError> {
+fn write_report(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VaultState>,
+    name: String,
+    text: String,
+) -> Result<(), HostError> {
     let Some(dir) = reports_folder_path(&app) else {
         return Err(HostError::invalid("no reports folder is chosen"));
     };
-    reports::write(&dir, &name, &text).map_err(|e| HostError::from_io(&e))
+    write_report_to_dir(&state, &dir, &name, &text)
 }
 
 /// Named `move_entry` because `move` is a Rust keyword.
@@ -473,5 +498,60 @@ mod tests {
         let info = app_info_value();
         assert_eq!(info.name, "vaultops");
         assert_eq!(info.version, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn report_write_rechecks_after_its_folder_becomes_the_vault() {
+        let tmp = test_util::TempDir::new();
+        let old_vault = tmp.path().join("Notes");
+        let reports_dir = tmp.path().join("Reports");
+        std::fs::create_dir(&old_vault).unwrap();
+        std::fs::create_dir(&reports_dir).unwrap();
+        let state = VaultState::default();
+        open_vault_at(&state, &old_vault).unwrap();
+        assert!(!reports::is_inside(&reports_dir, &old_vault));
+        open_vault_at(&state, &reports_dir).unwrap();
+
+        let error = write_report_to_dir(&state, &reports_dir, "health.txt", "report").unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidPath);
+        assert!(!reports_dir.join("health.txt").exists());
+        assert!(with_vault(&state, |vault| Ok(vault.root() == reports_dir)).unwrap());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn report_write_rejects_a_symlink_into_the_open_vault() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = test_util::TempDir::new();
+        let root = tmp.path().join("Notes");
+        let reports_dir = root.join("Reports");
+        let alias = tmp.path().join("Reports alias");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&reports_dir).unwrap();
+        symlink(&reports_dir, &alias).unwrap();
+        let state = VaultState::default();
+        open_vault_at(&state, &root).unwrap();
+
+        let error = write_report_to_dir(&state, &alias, "health.txt", "report").unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidPath);
+        assert!(!reports_dir.join("health.txt").exists());
+    }
+
+    #[test]
+    fn report_write_still_works_outside_the_open_vault() {
+        let tmp = test_util::TempDir::new();
+        let root = tmp.path().join("Notes");
+        let reports_dir = tmp.path().join("Reports");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&reports_dir).unwrap();
+        let state = VaultState::default();
+        open_vault_at(&state, &root).unwrap();
+
+        write_report_to_dir(&state, &reports_dir, "health.txt", "report").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(reports_dir.join("health.txt")).unwrap(),
+            "report"
+        );
     }
 }

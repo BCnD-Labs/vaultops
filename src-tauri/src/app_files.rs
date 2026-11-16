@@ -44,6 +44,55 @@ fn check_name(name: &str) -> io::Result<()> {
     }
 }
 
+fn open_temp(path: &Path) -> io::Result<fs::File> {
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+}
+
+/// Atomically replace a validated file without following a pre-existing temp
+/// symlink. Both app files and reports use the same collision and cleanup path.
+pub(crate) fn replace_atomic(
+    dir: &Path,
+    name: &str,
+    temp_prefix: &str,
+    text: &str,
+) -> io::Result<()> {
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    replace_atomic_with_counter(dir, name, temp_prefix, text, &COUNTER)
+}
+
+fn replace_atomic_with_counter(
+    dir: &Path,
+    name: &str,
+    temp_prefix: &str,
+    text: &str,
+    counter: &AtomicUsize,
+) -> io::Result<()> {
+    let (temp, mut file) = loop {
+        let temp = dir.join(format!(
+            "{temp_prefix}.{}.{}.tmp",
+            std::process::id(),
+            counter.fetch_add(1, Ordering::Relaxed)
+        ));
+        match open_temp(&temp) {
+            Ok(file) => break (temp, file),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    };
+    let result = file
+        .write_all(text.as_bytes())
+        .and_then(|()| file.sync_all());
+    drop(file);
+    let result = result.and_then(|()| fs::rename(&temp, dir.join(name)));
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result
+}
+
 /// The file's text, or `None` if it doesn't exist yet.
 pub fn read(dir: &Path, name: &str) -> io::Result<Option<String>> {
     check_name(name)?;
@@ -64,18 +113,7 @@ pub fn write(dir: &Path, name: &str, text: &str) -> io::Result<()> {
         ));
     }
     fs::create_dir_all(dir)?;
-    // Commands run in parallel: every write gets its own temporary file.
-    static COUNTER: AtomicUsize = AtomicUsize::new(0);
-    let temp = dir.join(format!(
-        "{name}.{}.{}.tmp",
-        std::process::id(),
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    ));
-    let mut file = fs::File::create(&temp)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
-    drop(file);
-    fs::rename(&temp, dir.join(name))
+    replace_atomic(dir, name, name, text)
 }
 
 /// The last `max_lines` lines of the current log file ("" if there is none).
@@ -205,6 +243,55 @@ mod tests {
                 .unwrap()
                 .starts_with("writer")
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_at_a_temp_path_does_not_change_its_target() {
+        use std::os::unix::fs::symlink;
+        let tmp = Tmp::new();
+        let target = tmp.0.join("outside.txt");
+        fs::write(&target, "keep").unwrap();
+        let temp = tmp.0.join("session.json.123.0.tmp");
+        symlink(&target, &temp).unwrap();
+        let attempt = open_temp(&temp).and_then(|mut file| file.write_all(b"changed"));
+        assert!(attempt.is_err());
+        assert_eq!(fs::read_to_string(target).unwrap(), "keep");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_and_stale_temp_are_skipped_during_an_actual_write() {
+        use std::os::unix::fs::symlink;
+        let tmp = Tmp::new();
+        let target = tmp.0.join("outside.txt");
+        fs::write(&target, "keep").unwrap();
+        let first = tmp
+            .0
+            .join(format!("session.json.{}.0.tmp", std::process::id()));
+        let stale = tmp
+            .0
+            .join(format!("session.json.{}.1.tmp", std::process::id()));
+        symlink(&target, &first).unwrap();
+        fs::write(&stale, "stale").unwrap();
+        let counter = AtomicUsize::new(0);
+        replace_atomic_with_counter(&tmp.0, "session.json", "session.json", "new", &counter)
+            .unwrap();
+        assert_eq!(fs::read_to_string(&target).unwrap(), "keep");
+        assert!(first.is_symlink());
+        assert_eq!(fs::read_to_string(stale).unwrap(), "stale");
+        assert_eq!(
+            fs::read_to_string(tmp.0.join("session.json")).unwrap(),
+            "new"
+        );
+    }
+
+    #[test]
+    fn failed_rename_removes_the_temp_file() {
+        let tmp = Tmp::new();
+        fs::create_dir(tmp.0.join("session.json")).unwrap();
+        assert!(write(&tmp.0, "session.json", "data").is_err());
+        assert_eq!(fs::read_dir(&tmp.0).unwrap().count(), 1);
     }
 
     #[test]

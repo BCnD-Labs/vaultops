@@ -597,7 +597,8 @@ select {
 	[role="tab"],
 	[role="menuitem"],
 	input,
-	select {
+	select,
+	[data-slot="button"]::after {
 		transition: none;
 	}
 }

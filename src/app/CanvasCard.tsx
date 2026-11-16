@@ -207,6 +207,8 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 		}
 		case "codeBlock": {
 			const lines = codeLines(codeText(block.content));
+			const visibleLines = lines.slice(0, 100);
+			const remainingLines = lines.length - visibleLines.length;
 			const lit = clipLines(
 				parseLines(
 					block.attrs &&
@@ -215,7 +217,7 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 						? block.attrs.highlight
 						: undefined,
 				),
-				lines.length,
+				visibleLines.length,
 			);
 			const wrap =
 				!!block.attrs &&
@@ -225,10 +227,14 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 			return (
 				<pre
 					data-wrap={wrap ? "true" : undefined}
-					style={{ "--code-digits": lineDigits(lines.length) } as CSSProperties}
+					style={
+						{
+							"--code-digits": lineDigits(visibleLines.length),
+						} as CSSProperties
+					}
 				>
 					<code>
-						{lines.map((line, index) => (
+						{visibleLines.map((line, index) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: lines have no identity
 							<Fragment key={index}>
 								<span
@@ -241,10 +247,18 @@ function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
 								) : (
 									line
 								)}
-								{index < lines.length - 1 ? "\n" : ""}
+								{index < visibleLines.length - 1 ? "\n" : ""}
 							</Fragment>
 						))}
 					</code>
+					{remainingLines > 0 && (
+						<span
+							className="code-more-lines"
+							style={{ display: "block", paddingLeft: "var(--code-gutter)" }}
+						>
+							{remainingLines} more {remainingLines === 1 ? "line" : "lines"}
+						</span>
+					)}
 				</pre>
 			);
 		}

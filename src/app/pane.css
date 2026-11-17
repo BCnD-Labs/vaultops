@@ -1493,6 +1493,26 @@ input.canvas-item-field {
 .settings-row-text .settings-note {
 	margin: 2px 0 0;
 }
+/* The Theme menu and the mode choice share one row, stacked when narrow. */
+.settings-theme-row {
+	flex-wrap: wrap;
+}
+.settings-theme-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--shell-gap);
+}
+.theme-option {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--shell-gap);
+}
+.theme-swatch {
+	display: inline-flex;
+	gap: 2px;
+}
 .settings-number,
 .settings-text,
 .settings-select {

@@ -106,5 +106,7 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		),
 		// Not wrapped: it is polled every couple of seconds while an update builds.
 		updateScriptStatus: () => host.updateScriptStatus(),
+		buildInfo: () => host.buildInfo(),
+		updateChannels: timed("updateChannels", () => host.updateChannels()),
 	};
 }

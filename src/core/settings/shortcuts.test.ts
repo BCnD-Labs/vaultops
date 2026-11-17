@@ -137,9 +137,26 @@ it("finds the other command that uses a binding", () => {
 	expect(findConflict("save", "", defaults)).toBeUndefined();
 });
 
-it("has unique ids and unique default bindings", () => {
+it("has unique ids and unique default bindings (unbound ones aside)", () => {
 	const ids = SHORTCUT_COMMANDS.map((c) => c.id);
 	expect(new Set(ids).size).toBe(ids.length);
-	const keys = SHORTCUT_COMMANDS.map((c) => canonicalBinding(c.keys));
+	const keys = SHORTCUT_COMMANDS.map((c) => canonicalBinding(c.keys)).filter(
+		Boolean,
+	);
 	expect(new Set(keys).size).toBe(keys.length);
+});
+
+it("lists the Template and Resource managers, unbound by default", () => {
+	for (const [id, label] of [
+		["open-templates", "Open Template manager"],
+		["open-resources", "Open Resource manager"],
+	] as const) {
+		const command = SHORTCUT_COMMANDS.find((c) => c.id === id);
+		expect(command?.label).toBe(label);
+		expect(command?.keys).toBe("");
+		// An empty binding never matches a key press.
+		expect(matchesBinding(press({ metaKey: true }), "", true)).toBe(false);
+	}
+	// Two unbound commands are not in conflict with each other.
+	expect(findConflict("open-templates", "", () => "")).toBeUndefined();
 });

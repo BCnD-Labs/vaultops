@@ -45,6 +45,20 @@ export const SHORTCUT_COMMANDS: readonly ShortcutCommand[] = [
 		where: "Anywhere, even in the editor",
 	},
 	{
+		id: "open-templates",
+		label: "Open Template manager",
+		section: "Navigation",
+		keys: "",
+		where: "Anywhere, once a vault is open. Not set until you choose keys",
+	},
+	{
+		id: "open-resources",
+		label: "Open Resource manager",
+		section: "Navigation",
+		keys: "",
+		where: "Anywhere, once a vault is open. Not set until you choose keys",
+	},
+	{
 		id: "save",
 		label: "Save open notes now",
 		section: "Notes",

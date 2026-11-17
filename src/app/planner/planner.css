@@ -337,9 +337,8 @@
 	color: var(--foreground);
 }
 .plan-priority-pill.is-selected {
-	background: var(--surface);
+	background: var(--row-raised);
 	color: var(--foreground);
-	box-shadow: var(--elevation-1);
 }
 .plan-priority-pill.is-selected[data-priority="high"] {
 	color: var(--destructive);
@@ -1122,7 +1121,7 @@
 	min-width: 0;
 	height: var(--control-height-sm);
 	padding: 0 var(--space-2);
-	border: var(--border-width) solid var(--line);
+	border: var(--border-width) solid transparent;
 	border-radius: var(--radius-control);
 	background: none;
 	color: var(--muted-foreground);

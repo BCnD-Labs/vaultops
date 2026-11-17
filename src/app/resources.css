@@ -157,12 +157,6 @@
 	border-radius: var(--radius-control);
 	background: color-mix(in srgb, var(--warn) 22%, transparent);
 }
-.res-status {
-	margin: 0;
-	padding: var(--space-2);
-	border-radius: var(--radius-control);
-	background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
 .res-error {
 	margin: 0;
 	color: var(--destructive);

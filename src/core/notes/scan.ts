@@ -180,6 +180,65 @@ function plainText(blocks: Block[]): string {
 			return value.text;
 		return text(value.content);
 	}
+	try {
+		return blocks
+			.map((block) =>
+				block.type === "mathBlock" ? latex(block) : text(block.content),
+			)
+			.join(" ")
+			.replace(/\s+/g, " ")
+			.trim();
+	} catch (error) {
+		if (!(error instanceof RangeError)) throw error;
+		// Rare deeply nested notes exceed the JavaScript call stack. Keep the
+		// usual fast path, then retry just this note with an iterative walk.
+		return iterativePlainText(blocks);
+	}
+}
+
+function iterativePlainText(blocks: Block[]): string {
+	function text(root: JsonValue | undefined): string {
+		const parts: string[] = [];
+		const stack: { values: JsonValue[]; next: number }[] = [];
+		let value: JsonValue | undefined = root;
+		for (;;) {
+			if (Array.isArray(value)) {
+				stack.push({ values: value, next: 0 });
+			} else if (value && typeof value === "object") {
+				if (value.type === "hardBreak") parts.push(" ");
+				else if (
+					value.type === "date" &&
+					value.attrs &&
+					typeof value.attrs === "object" &&
+					!Array.isArray(value.attrs) &&
+					typeof value.attrs.date === "string"
+				)
+					parts.push(value.attrs.date);
+				else if (
+					value.type === "noteLink" &&
+					value.attrs &&
+					typeof value.attrs === "object" &&
+					!Array.isArray(value.attrs) &&
+					typeof value.attrs.label === "string"
+				)
+					parts.push(value.attrs.label);
+				else if (value.type === "text" && typeof value.text === "string")
+					parts.push(value.text);
+				else {
+					value = value.content;
+					continue;
+				}
+			}
+			while (
+				stack.length &&
+				stack[stack.length - 1]?.next === stack[stack.length - 1]?.values.length
+			)
+				stack.pop();
+			const frame = stack[stack.length - 1];
+			if (!frame) return parts.join("");
+			value = frame.values[frame.next++];
+		}
+	}
 	return blocks
 		.map((block) =>
 			block.type === "mathBlock" ? latex(block) : text(block.content),

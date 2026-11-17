@@ -1,13 +1,16 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { HostError } from "../../host/host";
 import { MemoryHost } from "../../host/memory-host";
 import {
 	type Block,
+	type JsonValue,
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
+	parseNote,
 	serializeNote,
 } from "../note-format";
-import { previewOf, scanVault } from "./scan";
+import { previewOf, scanVault, searchTextOf } from "./scan";
 
 function text(id: string, version = NOTE_FORMAT_VERSION): string {
 	return serializeNote({
@@ -225,4 +228,143 @@ it("extracts bounded plain previews from headings, lists and tasks", () => {
 			},
 		]),
 	).toBe("bold text");
+});
+
+// Keep the old extraction as a reference while replacing its recursive form.
+function previousPlainText(blocks: Block[]): string {
+	function text(value: JsonValue | undefined): string {
+		if (Array.isArray(value)) return value.map(text).join("");
+		if (!value || typeof value !== "object") return "";
+		if (value.type === "hardBreak") return " ";
+		if (
+			value.type === "date" &&
+			value.attrs &&
+			typeof value.attrs === "object" &&
+			!Array.isArray(value.attrs) &&
+			typeof value.attrs.date === "string"
+		)
+			return value.attrs.date;
+		if (
+			value.type === "noteLink" &&
+			value.attrs &&
+			typeof value.attrs === "object" &&
+			!Array.isArray(value.attrs) &&
+			typeof value.attrs.label === "string"
+		)
+			return value.attrs.label;
+		if (value.type === "text" && typeof value.text === "string")
+			return value.text;
+		return text(value.content);
+	}
+	return blocks
+		.map((block) =>
+			block.type === "mathBlock" &&
+			block.attrs &&
+			typeof block.attrs === "object" &&
+			!Array.isArray(block.attrs) &&
+			typeof block.attrs.latex === "string"
+				? block.attrs.latex
+				: block.type === "mathBlock"
+					? ""
+					: text(block.content),
+		)
+		.join(" ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+it("matches prior extraction on real note fixtures and whitespace edges", () => {
+	for (const name of [
+		"inline-and-code.vnote",
+		"math-block.vnote",
+		"toggle.vnote",
+		"table.vnote",
+		"code-block-display.vnote",
+		"note-links.vnote",
+		"database-row-note.vnote",
+		"columns.vnote",
+	]) {
+		const file = new URL(`../../../test-fixtures/${name}`, import.meta.url);
+		const parsed = parseNote(readFileSync(file, "utf8"));
+		if (!parsed.note) throw new Error(`Fixture did not parse: ${name}`);
+		const old = previousPlainText(parsed.note.blocks);
+		expect(previewOf(parsed.note.blocks), name).toBe(old.slice(0, 160));
+		expect(searchTextOf(parsed.note.blocks), name).toBe(old.slice(0, 20000));
+	}
+	const whitespaceCases: Block[][] = [
+		[
+			{
+				type: "paragraph",
+				parent: null,
+				content: [{ type: "text", text: "\t\n\u00a0word \u2003 end\uFEFF " }],
+			},
+		],
+		[
+			{
+				type: "paragraph",
+				parent: null,
+				content: [
+					{ type: "hardBreak" },
+					{ type: "text", text: "x" },
+					{ type: "hardBreak" },
+				],
+			},
+		],
+		[
+			{ type: "paragraph", parent: null, content: [] },
+			{
+				type: "paragraph",
+				parent: null,
+				content: [{ type: "text", text: " a " }],
+			},
+		],
+		[
+			{ type: "mathBlock", parent: null, attrs: { latex: " x\n y " } },
+			{
+				type: "paragraph",
+				parent: null,
+				content: [{ type: "text", text: "z" }],
+			},
+		],
+		[
+			{
+				type: "paragraph",
+				parent: null,
+				content: [{ type: "text", text: `${"a".repeat(159)} \n b` }],
+			},
+		],
+	];
+	for (const blocks of whitespaceCases) {
+		const old = previousPlainText(blocks);
+		expect(previewOf(blocks)).toBe(old.slice(0, 160));
+		expect(searchTextOf(blocks)).toBe(old.slice(0, 20000));
+	}
+});
+
+it("extracts deeply nested text without recursive stack overflow", () => {
+	let content: JsonValue = [
+		{ type: "date", attrs: { date: "2030-01-02" } },
+		{ type: "hardBreak" },
+		{ type: "text", text: "deep" },
+		{ type: "noteLink", attrs: { label: "note" } },
+	];
+	for (let i = 0; i < 10_000; i++) content = [content];
+	const blocks: Block[] = [{ type: "paragraph", parent: null, content }];
+	expect(previewOf(blocks)).toBe("2030-01-02 deepnote");
+	expect(searchTextOf(blocks)).toBe("2030-01-02 deepnote");
+});
+
+it("applies output caps after whitespace normalization", () => {
+	const blocks: Block[] = [
+		{
+			type: "paragraph",
+			parent: null,
+			content: [
+				{ type: "text", text: `${"x".repeat(19_999)} \n y${"z".repeat(1000)}` },
+			],
+		},
+	];
+	const old = previousPlainText(blocks);
+	expect(previewOf(blocks)).toBe(old.slice(0, 160));
+	expect(searchTextOf(blocks)).toBe(old.slice(0, 20_000));
 });

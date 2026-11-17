@@ -2,6 +2,13 @@ import { ExternalLink, Pencil, Star } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ReflectionDraft } from "../../core/planner/reflection";
@@ -10,6 +17,7 @@ import type { TaskPatch } from "../../core/planner/task-note";
 import { Field } from "./Field";
 import { fmtLong } from "./fmt";
 import { NewItemDialog } from "./NewItemDialog";
+import { usePlanner } from "./PlannerContext";
 import { ReflectionSection } from "./ReflectionSection";
 import { Labels } from "./TaskList";
 
@@ -238,5 +246,47 @@ export function TaskInspector({
 				/>
 			)}
 		</aside>
+	);
+}
+
+/**
+ * A task's or event's details in a window: everything the inspector offers
+ * (status, star, dates, schedule, reflection, Open note, Edit). Changes save as
+ * they are made, like the inspector; Escape or the close button closes it.
+ */
+export function TaskDetailsDialog({
+	path,
+	onClose,
+}: {
+	path: string;
+	onClose: () => void;
+}) {
+	const p = usePlanner();
+	const task = p.tasks.find((t) => t.path === path);
+	if (!task) return null;
+	return (
+		<Dialog open onOpenChange={(open) => !open && onClose()}>
+			<DialogContent className="plan-dialog-content">
+				<DialogHeader>
+					<DialogTitle>{task.kind === "event" ? "Event" : "Task"}</DialogTitle>
+					<DialogDescription className="sr-only">
+						Its status, dates and schedule. Changes are saved as you make them.
+					</DialogDescription>
+				</DialogHeader>
+				<TaskInspector
+					task={task}
+					writable={p.writable}
+					onPatch={p.patch}
+					onLoadReflection={p.loadReflection}
+					onSaveReflection={p.saveReflection}
+					openReflection={p.reflectPath === task.path}
+					onReflectionOpened={p.reflectStarted}
+					onOpen={(note) => {
+						onClose();
+						p.openNote(note);
+					}}
+				/>
+			</DialogContent>
+		</Dialog>
 	);
 }

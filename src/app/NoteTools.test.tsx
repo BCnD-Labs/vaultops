@@ -136,7 +136,7 @@ it("titles the header with the open tool, in the same row as the icon tabs", asy
 	).toBe("Planner");
 });
 
-it("has no separate Journal tab and shows Today's log inside the Planner tool", async () => {
+it("has no separate Journal tab and shows the log inside the Planner tool", async () => {
 	const user = userEvent.setup();
 	render(
 		<TooltipProvider>
@@ -147,9 +147,10 @@ it("has no separate Journal tab and shows Today's log inside the Planner tool", 
 	expect(within(header).queryByRole("tab", { name: "Journal" })).toBeNull();
 	await user.click(within(header).getByRole("tab", { name: "Planner" }));
 	expect(within(header).getByText("Planner").tagName).toBe("STRONG");
-	expect(screen.getByRole("region", { name: "Today's log" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Today's log" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Tasks" })).toBeTruthy();
+	// One page: the Tasks | Log switch, with the tasks showing first.
+	expect(screen.getByRole("region", { name: "Tasks" })).toBeTruthy();
+	await user.click(screen.getByRole("radio", { name: "Log" }));
+	expect(await screen.findByRole("region", { name: "Daily log" })).toBeTruthy();
 });
 
 it("lists tags in the Tags tool, picks a tag, and changes its colour from the right-click menu with no hover buttons", async () => {

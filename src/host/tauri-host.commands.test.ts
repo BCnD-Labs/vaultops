@@ -68,8 +68,10 @@ describe("tauriHost app files, log and window", () => {
 			tauriHost.chooseReportsFolder(),
 			tauriHost.reportsFolder(),
 			tauriHost.writeReport("r.txt", "x"),
-			tauriHost.startUpdateScript(),
+			tauriHost.startUpdateScript("main"),
 			tauriHost.updateScriptStatus(),
+			tauriHost.buildInfo(),
+			tauriHost.updateChannels(),
 		];
 		for (const call of calls) {
 			await expect(call).rejects.toBeInstanceOf(HostError);

@@ -34,8 +34,10 @@ export function readOnlyHost(host: Host): Host {
 		writeAppFile: (name, text) => host.writeAppFile(name, text),
 		writeReport: (name, text) => host.writeReport(name, text),
 		// Updates the installed app, never the vault.
-		startUpdateScript: () => host.startUpdateScript(),
+		startUpdateScript: (channel) => host.startUpdateScript(channel),
 		updateScriptStatus: () => host.updateScriptStatus(),
+		buildInfo: () => host.buildInfo(),
+		updateChannels: () => host.updateChannels(),
 		// Everything that changes the vault's folder.
 		writeTextAtomic: refuse,
 		move: refuse,

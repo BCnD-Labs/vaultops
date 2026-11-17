@@ -27,8 +27,10 @@ describe("tauriHost", () => {
 		await tauriHost.chooseReportsFolder();
 		await tauriHost.reportsFolder();
 		await tauriHost.writeReport("r.txt", "text");
-		await tauriHost.startUpdateScript();
+		await tauriHost.startUpdateScript("develop");
 		await tauriHost.updateScriptStatus();
+		await tauriHost.buildInfo();
+		await tauriHost.updateChannels();
 		expect(invoke.mock.calls).toEqual([
 			["read_text", { path: "a.vnote" }],
 			["write_text_atomic", { path: "a.vnote", text: "text" }],
@@ -43,8 +45,10 @@ describe("tauriHost", () => {
 			["choose_reports_folder", undefined],
 			["reports_folder", undefined],
 			["write_report", { name: "r.txt", text: "text" }],
-			["start_update_script", undefined],
+			["start_update_script", { channel: "develop" }],
 			["update_script_status", undefined],
+			["build_info", undefined],
+			["update_channels", undefined],
 		]);
 	});
 

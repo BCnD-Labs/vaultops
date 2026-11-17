@@ -224,19 +224,21 @@ fn read_log_tail(app: tauri::AppHandle, max_lines: usize) -> Result<String, Host
 }
 
 /// STOPGAP(update-script): start the maintainer's install script (see
-/// `update_script`). The window sends nothing: which script runs, and where, is
-/// decided here.
+/// `update_script`). The window sends only the channel, which must be exactly
+/// `main` or `develop` (anything else is refused and starts nothing); which
+/// script runs, and where, is decided here.
 #[tauri::command(async)]
 fn start_update_script(
     app: tauri::AppHandle,
     state: tauri::State<'_, update_script::UpdateState>,
+    channel: String,
 ) -> Result<(), HostError> {
     use tauri::Manager;
+    let command = update_script::script_command(&update_script::checkout_root(), &channel)?;
     let dir = app
         .path()
         .app_log_dir()
         .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
-    let command = update_script::script_command(&update_script::checkout_root())?;
     update_script::start(&state, command, &dir)
 }
 
@@ -252,6 +254,20 @@ fn update_script_status(
         .app_log_dir()
         .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
     update_script::status(&state, &dir)
+}
+
+/// STOPGAP(update-script): which branch and commit this app was built from.
+#[tauri::command]
+fn build_info() -> update_script::BuildInfo {
+    update_script::build_info()
+}
+
+/// STOPGAP(update-script): fetch `main` and `develop` in the code folder and
+/// report their latest commits. Takes nothing from the window; the working tree
+/// and the checked-out branch are never changed.
+#[tauri::command(async)]
+fn update_channels() -> update_script::Channels {
+    update_script::channels_in(&update_script::checkout_root())
 }
 
 /// The file in the settings folder that remembers the reports folder.
@@ -417,7 +433,9 @@ pub fn run() {
             reports_folder,
             write_report,
             start_update_script,
-            update_script_status
+            update_script_status,
+            build_info,
+            update_channels
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

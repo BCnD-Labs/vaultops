@@ -21,6 +21,8 @@ const COMMANDS: &[&str] = &[
     "write_report",
     "start_update_script",
     "update_script_status",
+    "build_info",
+    "update_channels",
 ];
 
 fn main() {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the current checkout and install VaultOps as a local Mac app.
-# Usage: bash scripts/install-vaultops.sh
+# Usage: bash scripts/install-vaultops.sh [--no-pull | --branch main|develop]
 set -uo pipefail
 
 fail() {
@@ -8,21 +8,44 @@ fail() {
   exit 1
 }
 
+usage="Usage: bash scripts/install-vaultops.sh [--no-pull | --branch main|develop]"
+
 [ "$(uname)" = "Darwin" ] || fail "This installer runs only on macOS."
 cd "$(dirname "$0")/.." || fail "Could not open the project folder."
 
 mode="${1:-}"
-[ "$#" -le 1 ] || fail "Usage: bash scripts/install-vaultops.sh [--no-pull]"
-case "$mode" in
-  ""|--no-pull) ;;
-  *) fail "Usage: bash scripts/install-vaultops.sh [--no-pull]" ;;
+target_branch=""
+case "$#:$mode" in
+  0:|1:--no-pull) ;;
+  2:--branch)
+    target_branch="$2"
+    case "$target_branch" in
+      main|develop) ;;
+      *) fail "$usage" ;;
+    esac
+    ;;
+  *) fail "$usage" ;;
 esac
 
-branch="$(git rev-parse --abbrev-ref HEAD)" || fail "Could not read the Git branch."
+# Read before any checkout, so the dependency check below sees what changed.
 before="$(git rev-parse HEAD)" || fail "Could not read the current commit."
 status="$(git status --porcelain)" || fail "Could not check for local changes."
+if [ -n "$target_branch" ]; then
+  if [ -n "$status" ]; then
+    fail "This folder has unsaved changes, so nothing was built."
+  fi
+  git fetch origin "$target_branch" ||
+    fail "Could not fetch $target_branch (perhaps offline); nothing was built."
+  git checkout -q -B "$target_branch" "origin/$target_branch" ||
+    fail "Could not switch to $target_branch; nothing was built."
+  echo "Building the newest $target_branch."
+fi
+
+branch="$(git rev-parse --abbrev-ref HEAD)" || fail "Could not read the Git branch."
 if [ "$mode" = --no-pull ]; then
   echo "Skipping the pull; building the checkout as it is."
+elif [ -n "$target_branch" ]; then
+  :
 elif [ "$branch" = "main" ] && [ -z "$status" ]; then
   if ! git pull --ff-only; then
     echo "Could not update (perhaps offline); building the version already here."
@@ -34,6 +57,12 @@ fi
 
 commit="$(git rev-parse HEAD)" || fail "Could not read the build commit."
 short_commit="$(git rev-parse --short HEAD)" || fail "Could not read the short commit."
+# Baked into the app (src-tauri/src/update_script.rs reads them with option_env!)
+# so Settings can say which branch and commit is running.
+export VAULTOPS_BUILD_BRANCH="$branch"
+export VAULTOPS_BUILD_COMMIT="$commit"
+VAULTOPS_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" || fail "Could not read the time."
+export VAULTOPS_BUILD_TIME
 if [ ! -d node_modules ] || ! git diff --quiet "$before" HEAD -- package-lock.json ||
    ! git diff --quiet HEAD -- package-lock.json; then
   echo "Installing dependencies..."

@@ -83,6 +83,8 @@ describe("readOnlyHost pass-through", () => {
 				state: "idle",
 				lastLine: "",
 			}),
+			buildInfo: record("buildInfo", { branch: "main" }),
+			updateChannels: record("updateChannels", { error: null }),
 			writeTextAtomic: record("writeTextAtomic", undefined),
 			move: record("move", undefined),
 			makeFolder: record("makeFolder", undefined),
@@ -105,11 +107,13 @@ describe("readOnlyHost pass-through", () => {
 		await host.appendLog("l");
 		await host.writeAppFile("session.json", "{}");
 		await host.writeReport("r.txt", "t");
-		await host.startUpdateScript();
+		await host.startUpdateScript("develop");
 		expect(await host.updateScriptStatus()).toEqual({
 			state: "idle",
 			lastLine: "",
 		});
+		expect(await host.buildInfo()).toEqual({ branch: "main" });
+		expect(await host.updateChannels()).toEqual({ error: null });
 
 		expect(calls).toEqual([
 			["appInfo", []],
@@ -126,8 +130,10 @@ describe("readOnlyHost pass-through", () => {
 			["appendLog", ["l"]],
 			["writeAppFile", ["session.json", "{}"]],
 			["writeReport", ["r.txt", "t"]],
-			["startUpdateScript", []],
+			["startUpdateScript", ["develop"]],
 			["updateScriptStatus", []],
+			["buildInfo", []],
+			["updateChannels", []],
 		]);
 	});
 

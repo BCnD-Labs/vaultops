@@ -20,6 +20,36 @@ export interface UpdateScriptStatus {
 	lastLine: string;
 }
 
+/** STOPGAP(update-script): which branch and commit this app was built from ("unknown" for a build not made by the install script). */
+export interface BuildInfo {
+	branch: string;
+	/** Full commit id. */
+	commit: string;
+	/** ISO time of the build. */
+	builtAt: string;
+}
+
+/** STOPGAP(update-script): the latest commit of one branch on GitHub. */
+export interface UpdateChannel {
+	/** False when the branch is not on GitHub (yet); the rest is then empty. */
+	exists: boolean;
+	commit: string;
+	shortCommit: string;
+	/** ISO time of the commit. */
+	committedAt: string;
+	subject: string;
+}
+
+/** The only two branches the updater can install, matching the Rust allowlist. */
+export type UpdateChannelName = "main" | "develop";
+
+export interface UpdateChannels {
+	main: UpdateChannel;
+	develop: UpdateChannel;
+	/** Set when the check could not reach GitHub; the commits are then the ones fetched last time. */
+	error: string | null;
+}
+
 export type EntryKind = "file" | "folder";
 
 export interface DirEntry {
@@ -136,14 +166,24 @@ export interface Host {
 	writeReport(name: string, text: string): Promise<void>;
 
 	/**
-	 * STOPGAP(update-script): run the maintainer's install script (pull the newest
-	 * `main`, build, install, reopen) from the code folder this app was built from.
-	 * The window sends nothing: which script runs is decided by the host. Fails
-	 * with `io` while a run is going and `not-found` when the script is missing.
-	 * `updateScriptStatus` is read-only and safe to poll.
+	 * STOPGAP(update-script): run the maintainer's install script (check out and
+	 * pull the newest `channel`, build, install, reopen) from the code folder this
+	 * app was built from. The window sends only the channel, which the host checks
+	 * against the same two fixed names; which script runs is decided by the host.
+	 * Fails with `io` while a run is going, `not-found` when the script is missing
+	 * and `invalid-path` for any other channel. `updateScriptStatus` is read-only
+	 * and safe to poll.
 	 */
-	startUpdateScript(): Promise<void>;
+	startUpdateScript(channel: UpdateChannelName): Promise<void>;
 	updateScriptStatus(): Promise<UpdateScriptStatus>;
+	/** STOPGAP(update-script): the branch and commit this app was built from. */
+	buildInfo(): Promise<BuildInfo>;
+	/**
+	 * STOPGAP(update-script): fetch `main` and `develop` from the code folder's
+	 * `origin` and read their latest commits. Never changes the working tree or
+	 * the checked-out branch, and never rejects for being offline (see `error`).
+	 */
+	updateChannels(): Promise<UpdateChannels>;
 }
 
 /** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */

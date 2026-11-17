@@ -241,8 +241,7 @@
  */
 :root[data-theme="refined"] {
 	/* Section headers read as plain titles, not spaced-out capitals. */
-	& .section-label,
-	& .planner-section-toggle {
+	& .section-label {
 		text-transform: none;
 		letter-spacing: 0;
 		font-weight: 600;
@@ -251,9 +250,6 @@
 	& .section-label {
 		padding: 8px 10px 4px;
 		color: color-mix(in srgb, var(--foreground) 80%, transparent);
-	}
-	& .planner-section-toggle {
-		font-size: 13px;
 	}
 
 	/* The three main panels. */
@@ -478,11 +474,7 @@
 		background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
 	}
 
-	/* Planner: each section is a raised card with a plain title. */
-	& .planner-section + .planner-section {
-		border-top: 0;
-		margin-top: 6px;
-	}
+	/* Planner cards. */
 	& .planner-side .plan-card {
 		border: var(--border-width) solid var(--raise-edge);
 		border-radius: 10px;

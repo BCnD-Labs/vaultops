@@ -63,9 +63,10 @@ export function CheckIns({
 					const preview = checkInPreview(stored(slot));
 					const isCurrent = slot === current;
 					return (
-						<button
+						<Button
 							key={slot}
-							type="button"
+							variant="ghost"
+							size="sm"
 							className="plan-checkin-slot"
 							aria-label={`${SLOT_LABEL[slot]} check-in`}
 							aria-expanded={shown === slot}
@@ -77,11 +78,12 @@ export function CheckIns({
 							title={preview || (isCurrent ? "Now" : "Not done")}
 							data-done={preview ? true : undefined}
 							data-current={isCurrent || undefined}
+							data-state={shown === slot ? "on" : "off"}
 							onClick={() => setOpen(shown === slot ? null : slot)}
 						>
 							{preview && <Check aria-hidden="true" />}
 							{SLOT_LABEL[slot]}
-						</button>
+						</Button>
 					);
 				})}
 			</div>

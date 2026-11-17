@@ -211,14 +211,15 @@ export function CalendarView({
 											</span>
 										)}
 										{writable && (
-											<button
-												type="button"
+											<Button
+												variant="ghost"
+												size="icon-sm"
 												className="plan-add-day"
 												aria-label={`Add on ${fmtShort(key)}`}
 												onClick={() => onAdd(key)}
 											>
 												<Plus />
-											</button>
+											</Button>
 										)}
 									</div>
 									<div className="plan-chips">
@@ -232,8 +233,9 @@ export function CalendarView({
 											/>
 										))}
 										{more > 0 && (
-											<button
-												type="button"
+											<Button
+												variant="link"
+												size="sm"
 												className="plan-more"
 												onClick={() => {
 													onDate(key);
@@ -241,7 +243,7 @@ export function CalendarView({
 												}}
 											>
 												+{more} more
-											</button>
+											</Button>
 										)}
 									</div>
 								</div>

@@ -321,36 +321,9 @@
 	border-radius: var(--radius-control);
 	background: var(--surface-container-low);
 }
-.plan-priority-pill {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	height: var(--control-height-sm);
-	padding-inline: var(--space-2);
-	border-radius: var(--radius-control);
-	color: var(--muted-foreground);
-	font-size: var(--font-size-small);
-	cursor: pointer;
-	user-select: none;
-}
-.plan-priority-pill:hover {
-	color: var(--foreground);
-}
-.plan-priority-pill.is-selected {
-	background: var(--row-raised);
-	color: var(--foreground);
-}
-.plan-priority-pill.is-selected[data-priority="high"] {
-	color: var(--destructive);
-}
-.plan-priority-pill.is-selected[data-priority="medium"] {
-	color: var(--tone-orange);
-}
-.plan-priority-pill.is-selected[data-priority="low"] {
-	color: var(--tone-blue);
-}
 .plan-priority-pill:has(:focus-visible) {
 	outline: var(--focus-ring-width) solid var(--ring);
+	outline-offset: 2px;
 }
 .plan-date-section {
 	display: flex;
@@ -473,22 +446,13 @@
 	width: 0.625rem;
 	height: 0.625rem;
 }
-.plan-add-day {
+.plan-month-day .plan-add-day {
 	display: none;
 	margin-left: auto;
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--muted-foreground);
-	cursor: pointer;
 }
 .plan-month-day:hover .plan-add-day,
-.plan-add-day:focus-visible {
+.plan-month-day .plan-add-day:focus-visible {
 	display: inline-flex;
-}
-.plan-add-day svg {
-	width: 0.875rem;
-	height: 0.875rem;
 }
 .plan-chips {
 	display: flex;
@@ -536,14 +500,6 @@
 }
 .plan-event-time {
 	color: var(--muted-foreground);
-}
-.plan-more {
-	border: 0;
-	background: none;
-	color: var(--muted-foreground);
-	font-size: var(--font-size-small);
-	text-align: left;
-	cursor: pointer;
 }
 .plan-agenda {
 	padding: var(--space-3);
@@ -890,9 +846,14 @@
 	text-align: left;
 	cursor: pointer;
 }
-.plan-event-row:hover,
-.plan-event-row.is-selected {
+.plan-event-row:hover {
 	background: var(--hover-layer);
+}
+/* Selected: the same soft tint and primary edge as a pressed button. */
+.plan-event-row.is-selected {
+	background: color-mix(in srgb, var(--primary) 12%, transparent);
+	--selected-edge: color-mix(in srgb, var(--primary) 40%, transparent);
+	box-shadow: inset 0 0 0 var(--border-width) var(--selected-edge);
 }
 .plan-event-row.is-done {
 	color: var(--muted-foreground);
@@ -1139,49 +1100,19 @@
 	gap: var(--space-1);
 }
 .plan-checkin-slot {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 4px;
 	min-width: 0;
-	height: var(--control-height-sm);
-	padding: 0 var(--space-2);
-	border: var(--border-width) solid transparent;
-	border-radius: var(--radius-control);
-	background: none;
-	color: var(--muted-foreground);
-	font: inherit;
-	font-size: var(--font-size-ui);
-	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	cursor: pointer;
-	transition:
-		background var(--motion-fast),
-		border-color var(--motion-fast);
-}
-.plan-checkin-slot:hover {
-	background: var(--accent);
-	color: var(--foreground);
 }
 .plan-checkin-slot svg {
-	flex: none;
 	width: 12px;
 	height: 12px;
 	stroke-width: 3;
 }
-.plan-checkin-slot[data-current] {
-	border-color: var(--ring);
-	color: var(--foreground);
-}
+/* A slot with an entry: green edge and tint. */
 .plan-checkin-slot[data-done] {
 	border-color: var(--tone-green);
 	background: color-mix(in srgb, var(--tone-green) 22%, transparent);
-	color: var(--foreground);
-}
-.plan-checkin-slot[aria-expanded="true"] {
-	outline: var(--border-width) solid var(--ring);
-	outline-offset: 1px;
 }
 .plan-checkin-body {
 	display: flex;

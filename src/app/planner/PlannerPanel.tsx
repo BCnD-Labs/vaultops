@@ -1,6 +1,13 @@
-import { ChevronDown, Maximize2, Plus } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { GripVertical, Maximize2, Plus } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { SegmentedInput } from "@/components/ui/segmented";
 import { logPath } from "../../core/planner/log";
 import {
 	CalendarOptions,
@@ -11,94 +18,76 @@ import { CalendarPanel } from "./CalendarPanel";
 import { DailyLog } from "./DailyLog";
 import { NewItemDialog } from "./NewItemDialog";
 import { usePlanner } from "./PlannerContext";
-import { TaskInspector } from "./TaskInspector";
+import { TaskDetailsDialog } from "./TaskInspector";
 import { TaskList } from "./TaskList";
 import "./planner.css";
 
-const OPEN_KEY = "vaultops:planner-open";
-function loadOpen(id: string) {
+type View = "tasks" | "log";
+const VIEW_KEY = "vaultops:planner-view";
+const VIEWS = [
+	{ value: "tasks", label: "Tasks" },
+	{ value: "log", label: "Log" },
+] as const;
+
+function loadView(): View {
 	try {
-		return localStorage.getItem(`${OPEN_KEY}:${id}`) !== "0";
+		return localStorage.getItem(VIEW_KEY) === "log" ? "log" : "tasks";
 	} catch {
-		return true;
+		return "tasks";
 	}
 }
 
-/** One stacked, collapsible part of the planner (Calendar, Tasks). */
-function PlannerSection({
-	id,
-	title,
-	actions,
-	dragProps,
-	children,
-}: {
-	id: string;
-	title: string;
-	actions?: ReactNode;
-	dragProps?: ReturnType<typeof useCalendarDragSource>;
-	children: ReactNode;
-}) {
-	const [open, setOpen] = useState(() => loadOpen(id));
-	const bodyId = `planner-section-${id}`;
-	return (
-		<section className="planner-section" aria-label={title}>
-			<div className="planner-section-head" role="presentation" {...dragProps}>
-				<button
-					type="button"
-					className="planner-section-toggle"
-					aria-expanded={open}
-					aria-controls={bodyId}
-					onClick={() => {
-						setOpen(!open);
-						try {
-							localStorage.setItem(`${OPEN_KEY}:${id}`, open ? "0" : "1");
-						} catch {
-							/* Not remembering is fine. */
-						}
-					}}
-				>
-					<ChevronDown
-						className="planner-section-chevron"
-						data-open={open || undefined}
-						aria-hidden="true"
-					/>
-					{title}
-				</button>
-				{actions}
-			</div>
-			<div id={bodyId} hidden={!open}>
-				{children}
-			</div>
-		</section>
-	);
-}
-
 /**
- * The planner in the right sidebar, as stacked collapsible sections (VS Code
- * style): Calendar and Tasks. The calendar section can be dragged out of the
- * planner to its own place below the sidebar's tools (see CalendarDock); then the planner
- * is just Tasks and Log. In the title-bar setting there is no calendar section.
+ * The planner in the right sidebar as one page: the calendar on top, then a
+ * Tasks | Log switch with a "+" menu (new task or event), then what the switch
+ * picked. The calendar can be dragged out by its grip (see CalendarDock); then
+ * the page starts with the switch. Clicking a task opens its edit window.
  */
 export function PlannerPanel() {
 	const p = usePlanner();
 	const source = useCalendarDragSource();
-	const [dialog, setDialog] = useState<{ date: string; time?: string } | null>(
-		null,
-	);
+	const [view, setView] = useState<View>(loadView);
+	const [dialog, setDialog] = useState<{
+		date: string;
+		time?: string;
+		kind?: "task" | "event";
+	} | null>(null);
+	const [editPath, setEditPath] = useState<string | null>(null);
+	// The "Reflect" toast after closing a task opens the task's details here.
+	const reflecting =
+		p.reflectPath !== null && p.selected?.path === p.reflectPath;
+	const detailsPath = editPath ?? (reflecting ? p.reflectPath : null);
 	const calendarHere = !p.calendarInTitleBar && p.calendarDock === "planner";
+	const pick = (value: string | null) => {
+		const next: View = value === "log" ? "log" : "tasks";
+		setView(next);
+		try {
+			localStorage.setItem(VIEW_KEY, next);
+		} catch {
+			/* Not remembering is fine. */
+		}
+	};
 	return (
 		<section className="planner-side planner-stack" aria-label="Planner">
 			<div className="planner-side-bar">
-				<Button
-					size="sm"
-					disabled={!p.writable}
-					onClick={() => setDialog({ date: "" })}
-				>
-					<Plus /> New
-				</Button>
+				{calendarHere && (
+					<div className="planner-cal-tools">
+						<span
+							className="planner-grip"
+							role="img"
+							aria-label="Drag the calendar"
+							title="Drag to move the calendar"
+							{...source}
+						>
+							<GripVertical aria-hidden="true" />
+						</span>
+						<CalendarOptions />
+					</div>
+				)}
 				<Button
 					variant="ghost"
 					size="icon"
+					className="planner-wide"
 					aria-label="Open the wide planner"
 					title="Open the wide planner"
 					onClick={p.openScreen}
@@ -112,17 +101,41 @@ export function PlannerPanel() {
 					{p.notice}
 				</p>
 			)}
-			{calendarHere && (
-				<PlannerSection
-					id="calendar"
-					title="Calendar"
-					dragProps={source}
-					actions={<CalendarOptions />}
-				>
-					<CalendarPanel bare />
-				</PlannerSection>
-			)}
-			<PlannerSection id="log" title="Today's log">
+			{calendarHere && <CalendarPanel bare />}
+			<div className="planner-switch-row">
+				<SegmentedInput
+					label="Planner view"
+					options={VIEWS}
+					value={view}
+					clearable={false}
+					onChange={pick}
+				/>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Add a task or event"
+							disabled={!p.writable}
+						>
+							<Plus />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem
+							onSelect={() => setDialog({ date: "", kind: "task" })}
+						>
+							New task
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							onSelect={() => setDialog({ date: p.today, kind: "event" })}
+						>
+							New event
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+			{view === "log" ? (
 				<DailyLog
 					date={p.date}
 					today={p.today}
@@ -137,37 +150,37 @@ export function PlannerPanel() {
 					linkTargets={p.linkTargets}
 					onOpenLink={p.openLink}
 				/>
-			</PlannerSection>
-			<PlannerSection id="tasks" title="Tasks">
+			) : (
 				<TaskList
 					tasks={p.tasks}
 					today={p.today}
 					selected={p.selectedPath}
 					writable={p.writable}
-					onSelect={p.select}
+					onSelect={(t) => {
+						p.select(t);
+						setEditPath(t.path);
+					}}
 					onToggle={p.toggleFromList}
 					onQuickAdd={(title, due) => p.create({ title, kind: "task", due })}
 				/>
-				{p.selected && (
-					<TaskInspector
-						task={p.selected}
-						writable={p.writable}
-						onPatch={p.patch}
-						onLoadReflection={p.loadReflection}
-						onSaveReflection={p.saveReflection}
-						openReflection={p.reflectPath === p.selected?.path}
-						onReflectionOpened={p.reflectStarted}
-						onOpen={p.openNote}
-					/>
-				)}
-			</PlannerSection>
+			)}
 			{dialog && (
 				<NewItemDialog
-					key={`${dialog.date}${dialog.time ?? ""}`}
+					key={`${dialog.kind}${dialog.date}${dialog.time ?? ""}`}
 					open
+					kind={dialog.kind}
 					defaults={{ ...dialog, today: p.today }}
 					onClose={() => setDialog(null)}
 					onCreate={p.create}
+				/>
+			)}
+			{detailsPath && (
+				<TaskDetailsDialog
+					path={detailsPath}
+					onClose={() => {
+						setEditPath(null);
+						if (reflecting) p.reflectStarted();
+					}}
 				/>
 			)}
 		</section>

@@ -829,52 +829,40 @@
 	height: 4px;
 }
 
-/* Stacked, collapsible planner sections (VS Code style). */
+/* The sidebar planner is one page: calendar, a Tasks | Log switch, then the list. */
 .planner-stack {
-	gap: 0;
+	gap: var(--space-2);
 }
-.planner-stack > .planner-side-bar,
 .planner-stack > .plan-error {
-	margin-bottom: var(--space-2);
+	margin: 0;
 }
-.planner-section + .planner-section {
-	border-top: var(--border-width) solid var(--line);
+.planner-side-bar {
+	min-height: var(--control-height-sm);
 }
-.planner-section-head {
+.planner-cal-tools {
 	display: flex;
 	align-items: center;
 	gap: var(--space-1);
+	color: var(--muted-foreground);
 }
-.planner-section-head[draggable="true"] {
+.planner-wide {
+	margin-left: auto;
+	color: var(--muted-foreground);
+}
+.planner-grip {
+	display: inline-flex;
+	align-items: center;
 	cursor: grab;
 }
-.planner-section-toggle {
+.planner-grip svg {
+	width: 1rem;
+	height: 1rem;
+}
+.planner-switch-row {
 	display: flex;
-	flex: 1;
 	align-items: center;
-	gap: var(--space-1);
-	min-height: var(--row-height);
-	border: 0;
-	background: none;
-	padding: 0 var(--space-1);
-	color: var(--muted-foreground);
-	font: inherit;
-	font-size: var(--section-size);
-	letter-spacing: var(--section-tracking);
-	text-transform: uppercase;
-	cursor: inherit;
-}
-.planner-section-toggle:hover {
-	color: var(--foreground);
-}
-.planner-section-chevron {
-	width: 14px;
-	height: 14px;
-	transform: rotate(-90deg);
-	transition: transform var(--motion-fast);
-}
-.planner-section-chevron[data-open] {
-	transform: none;
+	justify-content: space-between;
+	gap: var(--space-2);
 }
 .planner-side-bare {
 	padding: var(--space-2) 0;

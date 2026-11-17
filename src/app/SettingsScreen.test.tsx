@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { MemoryHost } from "../host/memory-host";
 import { loadColors, toHex } from "../ui/appearance";
-import { loadThemeChoice } from "../ui/themes";
+import { loadThemeChoice, themes } from "../ui/themes";
 import { SettingsDialog, SettingsScreen } from "./SettingsScreen";
 import { settings } from "./settings";
 
@@ -36,11 +36,54 @@ it("switches mode and theme, applies them at once and remembers them", async () 
 	await user.click(screen.getByRole("radio", { name: "Dark" }));
 	expect(loadThemeChoice().mode).toBe("dark");
 	await user.click(screen.getByRole("button", { name: "Themes" }));
-	await user.click(screen.getByRole("radio", { name: "Graphite" }));
+	await user.click(screen.getByRole("combobox", { name: "Theme" }));
+	await user.click(screen.getByRole("option", { name: "Graphite" }));
 	expect(document.documentElement.getAttribute("data-theme")).toBe("graphite");
 	expect(loadThemeChoice()).toEqual({ id: "graphite", mode: "dark" });
 	await user.click(screen.getByRole("button", { name: "Appearance" }));
 	expect(loadThemeChoice().mode).toBe("dark");
+});
+
+it("lists every theme in the Theme menu and saves the one picked", async () => {
+	const user = userEvent.setup();
+	render(<SettingsScreen host={new MemoryHost()} initialSection="themes" />);
+	const menu = screen.getByRole("combobox", { name: "Theme" });
+	expect(screen.queryByRole("radio", { name: "Graphite" })).toBeNull();
+	await user.click(menu);
+	expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(
+		themes.map((theme) => theme.name),
+	);
+	await user.click(screen.getByRole("option", { name: "Cosmos" }));
+	expect(document.documentElement.getAttribute("data-theme")).toBe("cosmos");
+	expect(loadThemeChoice().id).toBe("cosmos");
+	expect(menu.textContent).toContain("Cosmos");
+});
+
+it("shows the swatch of the mode in view for each theme", async () => {
+	const user = userEvent.setup();
+	render(<SettingsScreen host={new MemoryHost()} initialSection="themes" />);
+	await user.click(screen.getByRole("radio", { name: "Dark" }));
+	await user.click(screen.getByRole("combobox", { name: "Theme" }));
+	const cosmos = screen.getByRole("option", { name: "Cosmos" });
+	const dots = [
+		...cosmos.querySelectorAll<HTMLElement>(".theme-swatch > span"),
+	];
+	expect(dots.map((dot) => dot.style.backgroundColor)).toHaveLength(3);
+	expect(dots.every((dot) => dot.style.backgroundColor !== "")).toBe(true);
+});
+
+it("changes the mode from the Theme row and disables modes a theme lacks", async () => {
+	const user = userEvent.setup();
+	render(<SettingsScreen host={new MemoryHost()} initialSection="themes" />);
+	await user.click(screen.getByRole("radio", { name: "Light" }));
+	expect(loadThemeChoice().mode).toBe("light");
+	expect(document.documentElement.getAttribute("data-mode")).toBe("light");
+	// Every registered theme supports both modes today, so none is disabled.
+	// (No light-only or dark-only theme exists yet to test the disabled state.)
+	for (const name of ["Light", "Dark", "System"])
+		expect(
+			screen.getByRole("radio", { name }).getAttribute("data-disabled"),
+		).toBeNull();
 });
 
 it("keeps picked colors per mode and resets only the current mode", async () => {

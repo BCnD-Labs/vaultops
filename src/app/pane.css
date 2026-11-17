@@ -339,7 +339,8 @@
 	white-space: nowrap;
 }
 
-.props input:not([type="checkbox"]),
+/* The add-tag field keeps the app's Input look (it is a ui/Input). */
+.props input:not([type="checkbox"], .chip-input),
 .prop-add input {
 	font: inherit;
 	padding: 3px 6px;
@@ -349,10 +350,10 @@
 	color: inherit;
 }
 
-.props input:not([type="checkbox"]):hover {
+.props input:not([type="checkbox"], .chip-input):hover {
 	border-color: var(--line);
 }
-.props input:not([type="checkbox"]):focus {
+.props input:not([type="checkbox"], .chip-input):focus {
 	border-color: var(--ring);
 }
 .prop-add-trigger {
@@ -381,15 +382,6 @@
 	min-width: 0;
 }
 
-.chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	padding: 1px 4px 1px 8px;
-	border-radius: var(--radius-control);
-	background: var(--surface-container);
-}
-
 .chip-label {
 	background: none;
 	border: 0;
@@ -401,26 +393,6 @@
 
 .chip-label:hover {
 	background: var(--accent);
-}
-
-.chip-remove {
-	display: inline-flex;
-	background: none;
-	border: 0;
-	padding: 2px;
-	border-radius: var(--radius-control);
-	color: var(--muted-foreground);
-	cursor: pointer;
-}
-
-.chip-remove:hover {
-	background: var(--accent);
-	color: inherit;
-}
-
-.props .chip-input {
-	width: 90px;
-	border-radius: var(--radius-control);
 }
 
 .vault-row {
@@ -946,11 +918,6 @@ button.prop-type-icon:focus-visible {
 .props-block .chips:focus-within {
 	background: var(--surface);
 	border-color: var(--ring);
-}
-.props-block .chip {
-	color: var(--foreground);
-	font-size: var(--font-size-ui);
-	line-height: inherit;
 }
 .props-block .chips .chip-input {
 	width: 6rem;

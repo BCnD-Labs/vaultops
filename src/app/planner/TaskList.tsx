@@ -8,6 +8,7 @@ import {
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -29,9 +30,9 @@ export function Labels({ labels }: { labels: string[] }) {
 	return (
 		<>
 			{labels.map((l) => (
-				<span key={l} className="tag-pill" data-tone={tagTone(l, appearance)}>
+				<Chip key={l} tone={tagTone(l, appearance)}>
 					{l}
-				</span>
+				</Chip>
 			))}
 		</>
 	);

@@ -7,6 +7,7 @@ import {
 	type EntryKind,
 	type Host,
 	HostError,
+	type UpdateChannelName,
 	type UpdateChannels,
 	type UpdateScriptStatus,
 } from "./host";
@@ -214,15 +215,24 @@ export class MemoryHost implements Host {
 	 * `finished` or `failed` to end a run).
 	 */
 	updateScriptStarts = 0;
+	/** The channel each start asked for, oldest first. */
+	updateScriptChannels: UpdateChannelName[] = [];
 	nextUpdateScriptError: HostError | null = null;
 	updateScript: UpdateScriptStatus = { state: "idle", lastLine: "" };
 
-	async startUpdateScript(): Promise<void> {
+	async startUpdateScript(channel: UpdateChannelName): Promise<void> {
+		if (channel !== "main" && channel !== "develop") {
+			throw new HostError(
+				"invalid-path",
+				"the update channel must be main or develop",
+			);
+		}
 		if (this.nextUpdateScriptError) throw this.nextUpdateScriptError;
 		if (this.updateScript.state === "running") {
 			throw new HostError("io", "an update is already running");
 		}
 		this.updateScriptStarts += 1;
+		this.updateScriptChannels.push(channel);
 		this.updateScript = { state: "running", lastLine: "" };
 	}
 

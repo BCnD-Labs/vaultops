@@ -5,6 +5,7 @@ import {
 	type Host,
 	HostError,
 	type UpdateChannel,
+	type UpdateChannelName,
 	type UpdateChannels,
 	type UpdateScriptStatus,
 } from "../host/host";
@@ -65,6 +66,46 @@ function runningNow(build: BuildInfo): string {
 	return bits.length > 0 ? bits.join(" · ") : "a development build";
 }
 
+/**
+ * Which row counts as the running one for the buttons. A build with no recorded
+ * branch (made before the installer wrote one) counts as Main: its first update
+ * fills the version info in.
+ */
+function runningChannel(build: BuildInfo): ChannelKey | null {
+	if (build.branch === "unknown") return "main";
+	return CHANNEL_ROWS.find((row) => row.key === build.branch)?.key ?? null;
+}
+
+type Action = { channel: ChannelKey; kind: "update" | "switch" };
+
+/** What the row's button does: update the running channel, or switch to the other. */
+function rowAction(
+	build: BuildInfo,
+	channels: UpdateChannels,
+	key: ChannelKey,
+): Action | null {
+	if (!channels[key].exists) return null;
+	if (key !== runningChannel(build)) return { channel: key, kind: "switch" };
+	return channelStatus(build, channels[key], key) === "Update available" ||
+		build.branch === "unknown"
+		? { channel: key, kind: "update" }
+		: null;
+}
+
+const buttonLabel = ({ channel, kind }: Action) =>
+	kind === "update" ? "Update" : `Switch to ${branchLabel(channel)}`;
+
+const WHEN_READY =
+	"When it is ready, VaultOps saves your note, closes and opens again.";
+
+function question({ channel, kind }: Action): string {
+	const label = branchLabel(channel);
+	if (kind === "update") {
+		return `Update to the newest ${label}? VaultOps builds it, which takes several minutes. You can keep working. ${WHEN_READY}`;
+	}
+	return `Switch to ${label}? The app rebuilds from the ${channel} branch and reopens. The current app is kept as VaultOps (previous). It takes several minutes and you can keep working. ${WHEN_READY}`;
+}
+
 /** How a channel compares with what is running. */
 export function channelStatus(
 	build: BuildInfo,
@@ -72,16 +113,17 @@ export function channelStatus(
 	key: ChannelKey,
 ): string {
 	if (!channel.exists) return "Not set up yet";
-	if (build.branch !== key) return "Not installed";
+	if (runningChannel(build) !== key) return "Not installed";
 	return build.commit === channel.commit ? "Up to date" : "Update available";
 }
 
 /**
- * STOPGAP(update-script): the Settings "Update VaultOps" button. It runs the
- * maintainer's install script (pull, build, install, reopen) through the host
- * until the real in-app updater (issues 274 and 275) can ship; delete this
- * file and its test then. Pressing the button asks first, and nothing starts
- * before "Update now". The status is read once when Settings opens (a run may
+ * STOPGAP(update-script): the Settings update buttons. Each branch row has one:
+ * "Update" for the running branch when it is behind, "Switch to ..." for the
+ * other. They run the maintainer's install script for that branch (check out,
+ * build, install, reopen) through the host until the real in-app updater
+ * (issues 274 and 275) can ship; delete this file and its test then. Pressing
+ * a button asks first, and nothing starts before "Update now". The status is read once when Settings opens (a run may
  * already be going) and then only while one runs. It also checks GitHub (a git
  * fetch of `main` and `develop` in the code folder) when it opens and when
  * "Check for updates" is pressed, and says for each branch whether it is the
@@ -94,7 +136,7 @@ export function UpdateSection({
 	host: UpdateHost;
 	pollMs?: number;
 }) {
-	const [asking, setAsking] = useState(false);
+	const [asking, setAsking] = useState<Action | null>(null);
 	const [status, setStatus] = useState<UpdateScriptStatus>(IDLE);
 	const [startError, setStartError] = useState<string | null>(null);
 	const running = status.state === "running";
@@ -152,11 +194,11 @@ export function UpdateSection({
 		};
 	}, [host, running, pollMs]);
 
-	const start = async () => {
-		setAsking(false);
+	const start = async (action: Action) => {
+		setAsking(null);
 		setStartError(null);
 		try {
-			await host.startUpdateScript();
+			await host.startUpdateScript(action.channel);
 			setStatus({ state: "running", lastLine: "" });
 		} catch (error) {
 			setStartError(
@@ -173,11 +215,17 @@ export function UpdateSection({
 			{build && (
 				<p className="settings-note">Running now: {runningNow(build)}</p>
 			)}
+			{build?.branch === "unknown" && (
+				<p className="settings-note">
+					This build has no version info yet. The first update fills it in.
+				</p>
+			)}
 			{build &&
 				channels &&
 				CHANNEL_ROWS.map(({ key, label }) => {
 					const channel = channels[key];
 					const when = relativeTime(channel.committedAt, Date.now());
+					const action = rowAction(build, channels, key);
 					return (
 						<div className="settings-row" key={key}>
 							<span>
@@ -185,7 +233,18 @@ export function UpdateSection({
 								{channel.exists &&
 									` · ${channel.shortCommit} · ${channel.subject}${when ? ` · ${when}` : ""}`}
 							</span>
-							<span>{channelStatus(build, channel, key)}</span>
+							<span>
+								{channelStatus(build, channel, key)}{" "}
+								{action && (
+									<Button
+										variant="secondary"
+										disabled={running}
+										onClick={() => setAsking(action)}
+									>
+										{buttonLabel(action)}
+									</Button>
+								)}
+							</span>
 						</div>
 					);
 				})}
@@ -210,26 +269,12 @@ export function UpdateSection({
 					Could not check GitHub: {checkError}
 				</p>
 			)}
-			<div className="settings-row">
-				<span id="settings-update">Get the newest version of VaultOps</span>
-				<Button
-					variant="secondary"
-					disabled={running || asking}
-					onClick={() => setAsking(true)}
-				>
-					Update VaultOps
-				</Button>
-			</div>
-			{asking && (
+			{asking && !running && (
 				<>
-					<p className="settings-note">
-						VaultOps will pull the newest version and build it, which takes
-						several minutes. You can keep working. When it is ready, VaultOps
-						saves your note, closes and opens again.
-					</p>
+					<p className="settings-note">{question(asking)}</p>
 					<div className="settings-row">
-						<Button onClick={() => void start()}>Update now</Button>
-						<Button variant="ghost" onClick={() => setAsking(false)}>
+						<Button onClick={() => void start(asking)}>Update now</Button>
+						<Button variant="ghost" onClick={() => setAsking(null)}>
 							Cancel
 						</Button>
 					</div>

@@ -44,7 +44,7 @@ it("sizes both managers from the shared .manager-dialog rule only", () => {
 it("uses the tree's hover and selected colours in both managers", () => {
 	const resources = read("src/app/resources.css");
 	expect(resources).toMatch(
-		/\.res-mention:hover:not\(:disabled\)\s*\{[^}]*var\(--accent\)/,
+		/\.res-row:hover:not\(:disabled\)\s*\{[^}]*var\(--accent\)/,
 	);
 	expect(resources).toMatch(
 		/\.res-row\[aria-current="true"\]\s*\{[^}]*var\(--row-raised\)/,

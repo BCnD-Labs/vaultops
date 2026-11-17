@@ -2,6 +2,10 @@ import { Button } from "@/components/ui/button";
 import type { ResourceType } from "../../core/resources/resources";
 import { plural } from "./resource-utils";
 
+// A tile is a tall button: the fixed button height gives way to its text.
+const TILE =
+	"h-auto flex-col items-start gap-0.5 whitespace-normal px-3 py-2 text-left";
+
 /** "What are you adding?": one tile per type, plus a way to add a type. */
 export function TypePicker({
 	types,
@@ -24,10 +28,11 @@ export function TypePicker({
 			</div>
 			<div className="res-pick-grid">
 				{types.map((t) => (
-					<button
+					<Button
 						key={t.id}
 						type="button"
-						className="res-pick-tile"
+						variant="secondary"
+						className={TILE}
 						onClick={() => onPick(t)}
 					>
 						<strong>{t.name}</strong>
@@ -37,15 +42,16 @@ export function TypePicker({
 						<span className="res-hint">
 							{plural(t.fields.length, "optional field")}
 						</span>
-					</button>
+					</Button>
 				))}
-				<button
+				<Button
 					type="button"
-					className="res-pick-tile res-pick-add"
+					variant="ghost"
+					className={`${TILE} items-center font-semibold`}
 					onClick={onAddType}
 				>
 					+ Add type
-				</button>
+				</Button>
 			</div>
 			<div>
 				<Button size="sm" variant="outline" onClick={onCancel}>

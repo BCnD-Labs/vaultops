@@ -52,13 +52,11 @@
 .template-picker [cmdk-item][data-selected="true"] .template-picker-gear {
 	display: inline-flex;
 }
-.template-picker-gear:hover,
-.tpl-more:hover {
+.template-picker-gear:hover {
 	background: color-mix(in srgb, var(--foreground) 10%, transparent);
 	color: var(--foreground);
 }
-.template-picker-gear:focus-visible,
-.tpl-more:focus-visible {
+.template-picker-gear:focus-visible {
 	outline: var(--focus-ring-width) solid var(--ring);
 	outline-offset: 1px;
 }
@@ -163,20 +161,6 @@
 	width: 16px;
 	height: 16px;
 	color: var(--muted-foreground);
-}
-.tpl-more {
-	display: inline-flex;
-	flex: none;
-	padding: var(--space-1);
-	border: 0;
-	border-radius: var(--radius-control);
-	background: none;
-	color: var(--muted-foreground);
-	cursor: pointer;
-}
-.tpl-more svg {
-	width: 16px;
-	height: 16px;
 }
 .tpl-path {
 	padding: var(--space-1) 0;

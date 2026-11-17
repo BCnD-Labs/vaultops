@@ -115,7 +115,9 @@ export function FieldRemovalDialog({
 							<Button variant="outline" onClick={onCancel}>
 								Keep the field
 							</Button>
-							<Button onClick={() => onConfirm(removal)}>Remove field</Button>
+							<Button variant="destructive" onClick={() => onConfirm(removal)}>
+								Remove field
+							</Button>
 						</DialogFooter>
 					</>
 				)}
@@ -211,6 +213,7 @@ export function TypeRemovalDialog({
 								Keep the type
 							</Button>
 							<Button
+								variant="destructive"
 								disabled={
 									removal.cards > 0 &&
 									removal.choice === "move" &&

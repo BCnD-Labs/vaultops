@@ -668,3 +668,13 @@ it("puts focus on a renamed template", async () => {
 	await screen.findByRole("treeitem", { name: "Daily" });
 	await waitFor(() => expect(focusedName()).toBe("Daily"));
 });
+
+it("makes the row menu trigger a ghost icon Button that stays out of the Tab order", async () => {
+	await setup(seedMeeting);
+	const more = await screen.findByRole("button", {
+		name: "Actions for Standup",
+	});
+	expect(more.getAttribute("data-slot")).toBe("button");
+	expect(more.getAttribute("data-variant")).toBe("ghost");
+	expect(more.tabIndex).toBe(-1);
+});

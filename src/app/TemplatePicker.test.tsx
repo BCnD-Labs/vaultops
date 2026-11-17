@@ -101,13 +101,32 @@ it("opens the manager from the gear without choosing the template", async () => 
 	expect(onPick).not.toHaveBeenCalled();
 });
 
-it("closes with Escape, and when you click away", async () => {
-	const { onClose } = await setup();
+it("closes with Escape and picks nothing", async () => {
+	const { onClose, onPick } = await setup();
 	await screen.findByText("/Standup");
 	await userEvent.keyboard("{Escape}");
 	expect(onClose).toHaveBeenCalledTimes(1);
+	expect(onPick).not.toHaveBeenCalled();
+});
+
+it("closes when you click outside it", async () => {
+	const { onClose, onPick } = await setup();
+	await screen.findByText("/Standup");
 	await userEvent.click(document.body);
-	expect(onClose).toHaveBeenCalledTimes(2);
+	expect(onClose).toHaveBeenCalledTimes(1);
+	expect(onPick).not.toHaveBeenCalled();
+});
+
+it("stays open when you click inside it", async () => {
+	const { onClose } = await setup();
+	await screen.findByText("/Standup");
+	await userEvent.click(
+		screen.getByRole("combobox", { name: "Search templates" }),
+	);
+	expect(onClose).not.toHaveBeenCalled();
+	expect(
+		screen.getByRole("dialog", { name: "Insert a template" }),
+	).toBeTruthy();
 });
 
 it("says so when there are no templates", async () => {
@@ -143,6 +162,9 @@ it("shows a template that can't be read, but won't let it be chosen", async () =
 		/>,
 	);
 	const row = await screen.findByText("/Broken");
+	expect(row.closest("[cmdk-item]")?.getAttribute("aria-disabled")).toBe(
+		"true",
+	);
 	await userEvent.click(row);
 	expect(onPick).not.toHaveBeenCalled();
 });

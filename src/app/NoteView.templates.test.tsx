@@ -162,6 +162,25 @@ it("closes the picker with Escape and inserts nothing", async () => {
 		screen.queryByRole("dialog", { name: "Insert a template" }),
 	).toBeNull();
 	expect(editor().state.doc.textContent).toBe(before);
+	await waitFor(() =>
+		expect(dom().contains(document.activeElement)).toBe(true),
+	);
+});
+
+it("closes the picker when you click away and puts the caret back in the editor", async () => {
+	const u = userEvent.setup();
+	const { dom } = await setup();
+	act(() =>
+		dom().dispatchEvent(new CustomEvent(TEMPLATE_EVENT, { bubbles: true })),
+	);
+	await screen.findByText("/Work/Meeting");
+	await u.click(document.body);
+	expect(
+		screen.queryByRole("dialog", { name: "Insert a template" }),
+	).toBeNull();
+	await waitFor(() =>
+		expect(dom().contains(document.activeElement)).toBe(true),
+	);
 });
 
 it("opens the template manager from the picker's gear", async () => {

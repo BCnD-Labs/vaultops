@@ -24,6 +24,7 @@ import {
 	updateCard,
 } from "../core/resources/resources";
 import type { Host } from "../host/host";
+import { notify } from "../ui/notify";
 import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import { ConfirmDialog } from "./TemplateDialogs";
 import "./resources.css";
@@ -77,7 +78,7 @@ export function ResourceManager({
 	const [cards, setCards] = useState<ResourceCard[]>([]);
 	const [loaded, setLoaded] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const [message, setMessage] = useState<string | null>(null);
+	const [problem, setProblem] = useState<string | null>(null);
 	const [filter, setFilter] = useState("all");
 	const [query, setQuery] = useState("");
 	const [selected, setSelected] = useState<string | null>(null);
@@ -110,7 +111,7 @@ export function ResourceManager({
 
 	useEffect(() => {
 		if (!open) return;
-		setMessage(null);
+		setProblem(null);
 		setMode("view");
 		setForm(null);
 		void refresh();
@@ -196,7 +197,7 @@ export function ResourceManager({
 			original: JSON.stringify({ t: title, v: values }),
 		});
 		setFormError(null);
-		setMessage(null);
+		setProblem(null);
 		setMode("form");
 	};
 
@@ -213,14 +214,14 @@ export function ResourceManager({
 		setSelected(result.path);
 		setForm(null);
 		setMode("view");
-		setMessage(text(saved?.title ?? ""));
+		notify(text(saved?.title ?? ""));
 	};
 
 	const run = async (work: () => Promise<void>) => {
 		try {
 			await work();
 		} catch (error) {
-			setMessage(messageOf(error));
+			setProblem(messageOf(error));
 		}
 	};
 
@@ -250,14 +251,14 @@ export function ResourceManager({
 			setSelected(path);
 			setMode("view");
 			setForm(null);
-			setMessage(null);
+			setProblem(null);
 		});
 	const pickFilter = (next: string) =>
 		guard(() => {
 			setFilter(next);
 			setMode("view");
 			setForm(null);
-			setMessage(null);
+			setProblem(null);
 		});
 
 	const idBase = useId();
@@ -305,7 +306,7 @@ export function ResourceManager({
 						void run(async () => {
 							await setFieldRequired(host, type.id, f.label, !f.required);
 							await refresh();
-							setMessage(
+							notify(
 								f.required
 									? `"${f.label}" is optional again.`
 									: `"${f.label}" is now required for new and edited ${type.name} cards. Cards already saved without it are left as they are and flagged.`,
@@ -352,7 +353,7 @@ export function ResourceManager({
 					void run(async () => {
 						await setCardType(host, target.path, t.id);
 						await refresh();
-						setMessage(`"${target.title}" is now a ${t.name}.`);
+						notify(`"${target.title}" is now a ${t.name}.`);
 					})
 				}
 			/>
@@ -395,9 +396,9 @@ export function ResourceManager({
 						{loadError}
 					</p>
 				)}
-				{message && (
-					<p role="status" className="res-status">
-						{message}
+				{problem && (
+					<p role="alert" className="res-error">
+						{problem}
 					</p>
 				)}
 				<div className="res-body">
@@ -465,7 +466,7 @@ export function ResourceManager({
 					void run(async () => {
 						const result = await addType(host, { name, titleLabel, fields });
 						if (!result.ok) {
-							setMessage(result.message);
+							setProblem(result.message);
 							return;
 						}
 						setTypeDialog(false);
@@ -474,7 +475,7 @@ export function ResourceManager({
 						if (made) {
 							setFilter(made.id);
 							startForm(made, null);
-							setMessage(
+							notify(
 								`Added the ${made.name} type. A card needs only a ${made.titleLabel.toLowerCase()}.`,
 							);
 						}
@@ -501,14 +502,14 @@ export function ResourceManager({
 						if (!fieldDialog) return;
 						const result = await addField(host, fieldDialog, field);
 						if (!result.ok) {
-							setMessage(result.message);
+							setProblem(result.message);
 							return;
 						}
 						const used = cards.filter((c) => c.typeId === fieldDialog).length;
 						const name = types.find((t) => t.id === fieldDialog)?.name ?? "";
 						setFieldDialog(null);
 						await refresh();
-						setMessage(
+						notify(
 							`Added "${field.label}" to ${name}. ${plural(used, "card")} now show it empty; nothing else changed.`,
 						);
 					})
@@ -527,7 +528,7 @@ export function ResourceManager({
 						});
 						setFieldRemoval(null);
 						await refresh();
-						setMessage(
+						notify(
 							r.alsoValues && done.removedValues > 0
 								? `Removed "${r.label}". ${plural(done.removedValues, "value")} removed; copies are in the recovery folder.`
 								: r.withValue > 0
@@ -553,7 +554,7 @@ export function ResourceManager({
 						setFilter("all");
 						await refresh();
 						const target = types.find((t) => t.id === moveTo)?.name;
-						setMessage(
+						notify(
 							`Deleted the ${name} type.${
 								done.cards === 0
 									? ""
@@ -588,9 +589,7 @@ export function ResourceManager({
 						await removeCard(host, target.path);
 						setSelected(null);
 						await refresh();
-						setMessage(
-							`Removed "${target.title}". It is in the recovery folder.`,
-						);
+						notify(`Removed "${target.title}". It is in the recovery folder.`);
 					})
 				}
 				onCancel={() => setRemovingCard(null)}

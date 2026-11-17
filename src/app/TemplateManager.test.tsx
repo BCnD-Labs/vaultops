@@ -23,7 +23,13 @@ import { MemoryHost } from "../host/memory-host";
 import type { NoteRow } from "./session";
 import { TemplateManager } from "./TemplateManager";
 
-afterEach(cleanup);
+const notify = vi.hoisted(() => vi.fn());
+vi.mock("../ui/notify", () => ({ notify }));
+
+afterEach(() => {
+	cleanup();
+	notify.mockReset();
+});
 
 const note = (text: string): Note => ({
 	header: { format: "vaultops-note", v: 1, noteId: "n", title: "T" },
@@ -223,6 +229,8 @@ it("saves edits to the template file", async () => {
 	expect(await screen.findByText("Unsaved changes")).toBeTruthy();
 	await u.click(screen.getByRole("button", { name: "Save" }));
 	await waitFor(() => expect(screen.queryByText("Unsaved changes")).toBeNull());
+	expect(notify).toHaveBeenCalledWith('Saved "Standup".');
+	expect(screen.queryByRole("status")).toBeNull();
 	const standup = (await listTemplates(host)).templates.find(
 		(t) => t.name === "Standup",
 	);
@@ -277,6 +285,7 @@ it("renames a template, keeping it chosen", async () => {
 	await u.click(screen.getByRole("button", { name: "Rename" }));
 	await screen.findByRole("button", { name: "Daily" });
 	expect(screen.getByText("Daily", { selector: "strong" })).toBeTruthy();
+	expect(notify).toHaveBeenCalledWith('Renamed "Standup" to "Daily".');
 	expect((await listTemplates(host)).templates.map((t) => t.label)).toEqual(
 		["Work/Meeting", "Daily"].sort(),
 	);
@@ -287,6 +296,7 @@ it("duplicates a template next to itself", async () => {
 	const { host } = await setup(seedMeeting);
 	await menu(u, "Standup", "Duplicate");
 	await screen.findByRole("button", { name: "Standup copy" });
+	expect(notify).toHaveBeenCalledWith('Duplicated "Standup".');
 	expect((await listTemplates(host)).templates.map((t) => t.label)).toContain(
 		"Standup copy",
 	);
@@ -312,6 +322,9 @@ it("deletes only after asking, and keeps the file in recovery", async () => {
 	expect((await listTemplates(host)).templates.map((t) => t.name)).toEqual([
 		"Meeting",
 	]);
+	expect(notify).toHaveBeenCalledWith(
+		'Moved "Standup" to the recovery folder.',
+	);
 	const recovered = (await host.list(".vaultops/recovery")).map((e) => e.name);
 	expect(recovered).toHaveLength(1);
 	expect(
@@ -340,6 +353,52 @@ it("deletes a folder with what is in it, also into recovery", async () => {
 		),
 	).toBe("file");
 	expect(await host.kindOf(`${TEMPLATES}/Work`)).toBeNull();
+	expect(notify).toHaveBeenCalledWith(
+		'Moved the folder "Work" and its templates to the recovery folder.',
+	);
+});
+
+it("shows Loading templates… until the list arrives", async () => {
+	const host = new MemoryHost();
+	await openVault(host);
+	let release: () => void = () => {};
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const list = host.list.bind(host);
+	vi.spyOn(host, "list").mockImplementation(async (path) => {
+		await gate;
+		return list(path);
+	});
+	render(
+		<TooltipProvider>
+			<TemplateManager
+				host={host}
+				notes={rows}
+				writable
+				open
+				onClose={() => {}}
+			/>
+		</TooltipProvider>,
+	);
+	expect(screen.getByText("Loading templates…")).toBeTruthy();
+	release();
+	await waitFor(() =>
+		expect(screen.queryByText("Loading templates…")).toBeNull(),
+	);
+});
+
+it("keeps a failed save inline as an alert and does not toast it", async () => {
+	const u = user();
+	const { host } = await setup(seedMeeting);
+	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await screen.findByText("Standup", { selector: "strong" });
+	type(" more");
+	vi.spyOn(host, "writeTextAtomic").mockRejectedValue(new Error("disk full"));
+	await u.click(screen.getByRole("button", { name: "Save" }));
+	const alert = await screen.findByRole("alert");
+	expect(alert.textContent).toContain("disk full");
+	expect(notify).not.toHaveBeenCalled();
 });
 
 it("previews the template filled in with the document you pick, without changing anything", async () => {

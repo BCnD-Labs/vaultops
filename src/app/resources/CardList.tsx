@@ -70,6 +70,7 @@ export function CardList({
 					);
 				})}
 			</ul>
+			{!loaded && <p className="manager-empty">Loading resources…</p>}
 			{loaded && rows.length === 0 && (
 				<p className="manager-empty">
 					{query.trim()

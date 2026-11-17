@@ -18,7 +18,13 @@ import { openVault } from "../core/vault/vault";
 import { MemoryHost } from "../host/memory-host";
 import { ResourceManager } from "./ResourceManager";
 
-afterEach(cleanup);
+const notify = vi.hoisted(() => vi.fn());
+vi.mock("../ui/notify", () => ({ notify }));
+
+afterEach(() => {
+	cleanup();
+	notify.mockReset();
+});
 
 async function setup(
 	seed: (host: MemoryHost) => Promise<void> = async () => {},
@@ -77,9 +83,10 @@ it("adds a card with only a name and saves it as a file under Resources", async 
 	expect(
 		await screen.findByRole("article", { name: "Resource card" }),
 	).toBeTruthy();
-	expect(screen.getByRole("status").textContent).toContain(
-		"not in the Notes tree",
+	expect(notify).toHaveBeenCalledWith(
+		'Saved "Priya Raman". It lives in Resources, not in the Notes tree.',
 	);
+	expect(screen.queryByRole("status")).toBeNull();
 	expect((await listCards(host)).map((c) => c.title)).toEqual(["Priya Raman"]);
 });
 
@@ -139,8 +146,8 @@ it("removing a field keeps the values and shows them as extra properties", async
 	expect(await screen.findByText(/1 card has a value/)).toBeTruthy();
 	await u.click(screen.getByRole("button", { name: "Remove field" }));
 	await waitFor(() =>
-		expect(screen.getByRole("status").textContent).toContain(
-			"kept the value as an extra property",
+		expect(notify).toHaveBeenCalledWith(
+			'Removed "Phone". 1 card kept the value as an extra property.',
 		),
 	);
 	await u.click(screen.getByRole("button", { name: "Done" }));
@@ -232,6 +239,9 @@ it("removing a card asks first and keeps the file in recovery", async () => {
 		await screen.findByRole("button", { name: "Remove card", hidden: false }),
 	);
 	await waitFor(async () => expect((await listCards(host)).length).toBe(0));
+	expect(notify).toHaveBeenCalledWith(
+		'Removed "Mara". It is in the recovery folder.',
+	);
 });
 
 it("is view-only in a read-only vault and when the types file is unreadable", async () => {
@@ -335,8 +345,8 @@ it("adds a field from a type's settings and lists it", async () => {
 	await u.type(await screen.findByLabelText("Field name"), "Pronouns");
 	await u.click(screen.getByRole("button", { name: "Add field" }));
 	await waitFor(() =>
-		expect(screen.getByRole("status").textContent).toContain(
-			'Added "Pronouns" to Contact',
+		expect(notify).toHaveBeenCalledWith(
+			expect.stringContaining('Added "Pronouns" to Contact'),
 		),
 	);
 	expect(screen.getByRole("button", { name: "Remove Pronouns" })).toBeTruthy();
@@ -371,9 +381,7 @@ it("edits an existing card, saves it and shows the new value", async () => {
 	await u.type(phone, "555 0199");
 	await u.click(screen.getByRole("button", { name: "Save changes" }));
 	await waitFor(() =>
-		expect(screen.getByRole("status").textContent).toBe(
-			'Saved changes to "Mara".',
-		),
+		expect(notify).toHaveBeenCalledWith('Saved changes to "Mara".'),
 	);
 	const article = await screen.findByRole("article", { name: "Resource card" });
 	expect(within(article).getByText("555 0199")).toBeTruthy();
@@ -423,8 +431,8 @@ it("deleting a type can move its cards to another type", async () => {
 	await u.selectOptions(within(dialog).getByLabelText("Move cards to"), "Book");
 	await u.click(within(dialog).getByRole("button", { name: "Delete type" }));
 	await waitFor(() =>
-		expect(screen.getByRole("status").textContent).toContain(
-			"1 card moved to Book.",
+		expect(notify).toHaveBeenCalledWith(
+			expect.stringContaining("1 card moved to Book."),
 		),
 	);
 	const cards = await listCards(host);
@@ -449,8 +457,10 @@ it("removing a field with its values drops the value and keeps a recovery copy",
 	);
 	await u.click(within(dialog).getByRole("button", { name: "Remove field" }));
 	await waitFor(() =>
-		expect(screen.getByRole("status").textContent).toContain(
-			"1 value removed; copies are in the recovery folder.",
+		expect(notify).toHaveBeenCalledWith(
+			expect.stringContaining(
+				"1 value removed; copies are in the recovery folder.",
+			),
 		),
 	);
 	await u.click(screen.getByRole("button", { name: "Done" }));
@@ -471,4 +481,39 @@ it("removing a field with its values drops the value and keeps a recovery copy",
 			`.vaultops/recovery/${stamps[0]?.name}/resources/cards/${copies[0]?.name}`,
 		),
 	).toContain("555 0100");
+});
+
+it("shows Loading resources… until the first list arrives", async () => {
+	const host = new MemoryHost();
+	await openVault(host);
+	let release: () => void = () => {};
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const list = host.list.bind(host);
+	vi.spyOn(host, "list").mockImplementation(async (path) => {
+		await gate;
+		return list(path);
+	});
+	render(<ResourceManager host={host} writable open onClose={() => {}} />);
+	expect(screen.getByText("Loading resources…")).toBeTruthy();
+	release();
+	await screen.findByRole("navigation", { name: "Resource types" });
+	await waitFor(() =>
+		expect(screen.queryByText("Loading resources…")).toBeNull(),
+	);
+	expect(screen.getByText("No cards here yet.")).toBeTruthy();
+});
+
+it("keeps a failed save inline as an alert and does not toast it", async () => {
+	const u = user();
+	const { host } = await setup(async (h) => addContact(h, "Mara"));
+	await u.click(await screen.findByRole("button", { name: /Mara/ }));
+	await u.click(screen.getByRole("button", { name: "Edit" }));
+	await u.type(screen.getByLabelText(/^Phone/), "555");
+	vi.spyOn(host, "writeTextAtomic").mockRejectedValue(new Error("disk full"));
+	await u.click(screen.getByRole("button", { name: "Save changes" }));
+	const alert = await screen.findByRole("alert");
+	expect(alert.textContent).toContain("disk full");
+	expect(notify).not.toHaveBeenCalled();
 });

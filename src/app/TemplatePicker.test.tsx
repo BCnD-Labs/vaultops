@@ -168,3 +168,31 @@ it("shows a template that can't be read, but won't let it be chosen", async () =
 	await userEvent.click(row);
 	expect(onPick).not.toHaveBeenCalled();
 });
+
+it("shows Loading templates… until the list arrives", async () => {
+	const host = new MemoryHost();
+	await openVault(host);
+	let release: () => void = () => {};
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const list = host.list.bind(host);
+	vi.spyOn(host, "list").mockImplementation(async (path) => {
+		await gate;
+		return list(path);
+	});
+	render(
+		<TemplatePicker
+			host={host}
+			anchor={{ left: 10, top: 10, bottom: 30 }}
+			onPick={vi.fn()}
+			onManage={vi.fn()}
+			onClose={vi.fn()}
+		/>,
+	);
+	expect(screen.getByText("Loading templates…")).toBeTruthy();
+	release();
+	await waitFor(() =>
+		expect(screen.queryByText("Loading templates…")).toBeNull(),
+	);
+});

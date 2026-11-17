@@ -250,8 +250,12 @@ export function WorkspacePanes({
 						focusRequest={focusTab}
 					/>
 				)}
-				{renderTitleBar?.(pane, docOf(pane))}
-				{content(pane)}
+				{/* The panel's frame starts here, at the title bar: the tab strip above
+				    floats on the window's background. */}
+				<div className="pane-frame">
+					{renderTitleBar?.(pane, docOf(pane))}
+					{content(pane)}
+				</div>
 				{zone(pane)}
 			</div>
 		);

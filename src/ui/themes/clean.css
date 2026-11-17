@@ -108,6 +108,9 @@
 	--destructive-foreground: var(--seed-on-danger);
 	--ring: var(--primary);
 	--warn: var(--seed-warning);
+	--success: var(--seed-tip);
+	--success-foreground: var(--seed-on-accent);
+	--warning-foreground: var(--seed-on-accent);
 	--bg: var(--background);
 	--panel: var(--surface-container-low);
 	--text: var(--foreground);

@@ -1,7 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
+import { CloseButton } from "./close-button";
 
 function Dialog(props: ComponentProps<typeof DialogPrimitive.Root>) {
 	return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -58,11 +58,8 @@ function DialogContent({
 			>
 				{children}
 				{showClose && (
-					<DialogPrimitive.Close
-						aria-label="Close"
-						className="absolute top-3 right-3 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/40"
-					>
-						<X className="size-4" />
+					<DialogPrimitive.Close asChild>
+						<CloseButton className="absolute top-3 right-3" />
 					</DialogPrimitive.Close>
 				)}
 			</DialogPrimitive.Content>

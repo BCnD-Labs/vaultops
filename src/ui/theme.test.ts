@@ -85,6 +85,10 @@ it.each(themes)("checks tokens and contrast for $id", ({ id }) => {
 			["muted-foreground", "background"],
 			["primary-foreground", "primary"],
 			["on-primary-container", "primary-container"],
+			["destructive-foreground", "destructive"],
+			["success-foreground", "success"],
+			["warning-foreground", "warn"],
+			["secondary-foreground", "secondary"],
 		];
 		if (id === "high-contrast") {
 			for (const bg of [

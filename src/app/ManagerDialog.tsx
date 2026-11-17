@@ -1,5 +1,5 @@
-import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { CloseButton } from "@/components/ui/close-button";
 import {
 	Dialog,
 	DialogClose,
@@ -53,8 +53,8 @@ export function ManagerDialog({
 				aria-describedby={descriptionId}
 			>
 				<header className="settings-titlebar">
-					<DialogClose className="settings-close" aria-label="Close">
-						<X aria-hidden="true" />
+					<DialogClose asChild>
+						<CloseButton className="settings-close" />
 					</DialogClose>
 					<DialogTitle className="settings-window-title">{title}</DialogTitle>
 					<DialogDescription id={descriptionId} className="sr-only">

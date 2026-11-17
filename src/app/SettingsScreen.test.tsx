@@ -136,7 +136,10 @@ it("opens as a dialog titled Settings and closes with its button", async () => {
 		<SettingsDialog open onOpenChange={onOpenChange} host={new MemoryHost()} />,
 	);
 	expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
-	await user.click(screen.getByRole("button", { name: "Close" }));
+	const close = screen.getByRole("button", { name: "Close" });
+	expect(close.getAttribute("data-slot")).toBe("button");
+	expect(close.getAttribute("data-variant")).toBe("ghost");
+	await user.click(close);
 	expect(onOpenChange).toHaveBeenCalledWith(false);
 });
 

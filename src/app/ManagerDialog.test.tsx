@@ -118,3 +118,24 @@ it("reads the text out of an error, a string or anything else", () => {
 	expect(messageOf(42)).toBe("42");
 	expect(messageOf(null)).toBe("null");
 });
+
+it("closes the manager window with the shared close button", async () => {
+	const onRequestClose = vi.fn();
+	render(
+		<ManagerDialog
+			open
+			className="x"
+			title="Manager"
+			description="Manage things."
+			descriptionId="manager-desc"
+			onRequestClose={onRequestClose}
+		>
+			body
+		</ManagerDialog>,
+	);
+	const close = screen.getByRole("button", { name: "Close" });
+	expect(close.getAttribute("data-slot")).toBe("button");
+	expect(close.getAttribute("data-variant")).toBe("ghost");
+	await userEvent.click(close);
+	expect(onRequestClose).toHaveBeenCalledTimes(1);
+});

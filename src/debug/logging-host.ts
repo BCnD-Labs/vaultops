@@ -1,4 +1,4 @@
-import type { Host } from "../host/host";
+import type { Host, UpdateChannelName } from "../host/host";
 import type { Logger } from "./logger";
 
 type Detail = Record<string, string | number | boolean | null>;
@@ -101,8 +101,9 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		chooseReportsFolder: () => host.chooseReportsFolder(),
 		reportsFolder: () => host.reportsFolder(),
 		writeReport: (name, text) => host.writeReport(name, text),
-		startUpdateScript: timed("startUpdateScript", () =>
-			host.startUpdateScript(),
+		startUpdateScript: timed(
+			"startUpdateScript",
+			(channel: UpdateChannelName) => host.startUpdateScript(channel),
 		),
 		// Not wrapped: it is polled every couple of seconds while an update builds.
 		updateScriptStatus: () => host.updateScriptStatus(),

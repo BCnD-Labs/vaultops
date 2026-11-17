@@ -8,102 +8,6 @@ import { relativeTime, UpdateSection } from "./UpdateSection";
 
 afterEach(cleanup);
 
-const updateButton = () =>
-	screen.getByRole("button", { name: "Update VaultOps" }) as HTMLButtonElement;
-
-async function pressUpdate(user: ReturnType<typeof userEvent.setup>) {
-	await user.click(updateButton());
-	await user.click(screen.getByRole("button", { name: "Update now" }));
-}
-
-it("starts nothing when it opens, and nothing until Update now is pressed", async () => {
-	const user = userEvent.setup();
-	const host = new MemoryHost();
-	render(<UpdateSection host={host} pollMs={10} />);
-	expect(host.updateScriptStarts).toBe(0);
-
-	await user.click(updateButton());
-	// It asks first, saying what will happen.
-	expect(
-		screen.getByText(/saves your note, closes and opens again/),
-	).toBeTruthy();
-	expect(host.updateScriptStarts).toBe(0);
-
-	await user.click(screen.getByRole("button", { name: "Cancel" }));
-	expect(screen.queryByText(/saves your note/)).toBeNull();
-	expect(host.updateScriptStarts).toBe(0);
-});
-
-it("starts the script after Update now and follows what it says", async () => {
-	const user = userEvent.setup();
-	const host = new MemoryHost();
-	render(<UpdateSection host={host} pollMs={10} />);
-	await pressUpdate(user);
-	expect(host.updateScriptStarts).toBe(1);
-	expect(await screen.findByText(/Updating/)).toBeTruthy();
-	expect(updateButton().disabled).toBe(true);
-
-	host.updateScript = { state: "running", lastLine: "Building VaultOps.app" };
-	expect(await screen.findByText(/Building VaultOps\.app/)).toBeTruthy();
-});
-
-it("shows a failed run with its last line and lets it be tried again", async () => {
-	const user = userEvent.setup();
-	const host = new MemoryHost();
-	render(<UpdateSection host={host} pollMs={10} />);
-	await pressUpdate(user);
-	host.updateScript = {
-		state: "failed",
-		lastLine: "The app build failed; the installed app was not changed.",
-	};
-	expect(await screen.findByText(/The update did not finish/)).toBeTruthy();
-	expect(screen.getByText(/The app build failed/)).toBeTruthy();
-	expect(updateButton().disabled).toBe(false);
-
-	await pressUpdate(user);
-	expect(host.updateScriptStarts).toBe(2);
-	expect(await screen.findByText(/Updating/)).toBeTruthy();
-});
-
-it("says when the update finished", async () => {
-	const user = userEvent.setup();
-	const host = new MemoryHost();
-	render(<UpdateSection host={host} pollMs={10} />);
-	await pressUpdate(user);
-	host.updateScript = { state: "finished", lastLine: "Installed VaultOps" };
-	expect(await screen.findByText(/The update finished/)).toBeTruthy();
-});
-
-it("shows a run that is already going when Settings opens", async () => {
-	const host = new MemoryHost();
-	host.updateScript = {
-		state: "running",
-		lastLine: "Installing dependencies...",
-	};
-	render(<UpdateSection host={host} pollMs={10} />);
-	expect(await screen.findByText(/Installing dependencies/)).toBeTruthy();
-	expect(updateButton().disabled).toBe(true);
-	expect(host.updateScriptStarts).toBe(0);
-});
-
-it("says plainly why an update could not start, and stays usable", async () => {
-	const user = userEvent.setup();
-	const host = new MemoryHost();
-	host.nextUpdateScriptError = new HostError(
-		"not-found",
-		"the update script was not found in the code folder this app was built from",
-	);
-	render(<UpdateSection host={host} pollMs={10} />);
-	await pressUpdate(user);
-	expect(
-		await screen.findByText(
-			/Could not start the update: the update script was not found/,
-		),
-	).toBeTruthy();
-	expect(updateButton().disabled).toBe(false);
-	expect(screen.queryByText(/Updating/)).toBeNull();
-});
-
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
 
@@ -116,6 +20,206 @@ function channel(sha: string, subject: string, minutesAgo: number) {
 		subject,
 	} satisfies UpdateChannel;
 }
+
+/** Running Main (build A) with a newer commit on Main and a Development branch. */
+function hostBehind() {
+	const host = new MemoryHost();
+	host.build = { branch: "main", commit: SHA_A, builtAt: "" };
+	host.channels.main = channel(SHA_B, "newer on main", 5);
+	host.channels.develop = channel(SHA_B, "dev work", 30);
+	return host;
+}
+
+const button = (name: string) =>
+	screen.findByRole("button", { name }) as Promise<HTMLButtonElement>;
+const updateButton = () => button("Update");
+
+async function pressUpdate(user: ReturnType<typeof userEvent.setup>) {
+	await user.click(await updateButton());
+	await user.click(screen.getByRole("button", { name: "Update now" }));
+}
+
+it("starts nothing when it opens, and nothing until Update now is pressed", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	render(<UpdateSection host={host} pollMs={10} />);
+	expect(host.updateScriptStarts).toBe(0);
+
+	await user.click(await updateButton());
+	// It asks first, saying what will happen.
+	expect(screen.getByText(/Update to the newest Main\?/)).toBeTruthy();
+	expect(
+		screen.getByText(/saves your note, closes and opens again/),
+	).toBeTruthy();
+	expect(host.updateScriptStarts).toBe(0);
+
+	await user.click(screen.getByRole("button", { name: "Cancel" }));
+	expect(screen.queryByText(/saves your note/)).toBeNull();
+	expect(host.updateScriptStarts).toBe(0);
+});
+
+it("starts the script for Main after Update now and follows what it says", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	render(<UpdateSection host={host} pollMs={10} />);
+	await pressUpdate(user);
+	expect(host.updateScriptStarts).toBe(1);
+	expect(host.updateScriptChannels).toEqual(["main"]);
+	expect(await screen.findByText(/Updating/)).toBeTruthy();
+	expect(((await updateButton()) as HTMLButtonElement).disabled).toBe(true);
+	// Every channel button is off while a build runs.
+	expect(
+		(
+			screen.getByRole("button", {
+				name: "Switch to Development",
+			}) as HTMLButtonElement
+		).disabled,
+	).toBe(true);
+
+	host.updateScript = { state: "running", lastLine: "Building VaultOps.app" };
+	expect(await screen.findByText(/Building VaultOps\.app/)).toBeTruthy();
+});
+
+it("shows a failed run with its last line and lets it be tried again", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	render(<UpdateSection host={host} pollMs={10} />);
+	await pressUpdate(user);
+	host.updateScript = {
+		state: "failed",
+		lastLine: "The app build failed; the installed app was not changed.",
+	};
+	expect(await screen.findByText(/The update did not finish/)).toBeTruthy();
+	expect(screen.getByText(/The app build failed/)).toBeTruthy();
+	expect(((await updateButton()) as HTMLButtonElement).disabled).toBe(false);
+
+	await pressUpdate(user);
+	expect(host.updateScriptStarts).toBe(2);
+	expect(await screen.findByText(/Updating/)).toBeTruthy();
+});
+
+it("says when the update finished", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	render(<UpdateSection host={host} pollMs={10} />);
+	await pressUpdate(user);
+	host.updateScript = { state: "finished", lastLine: "Installed VaultOps" };
+	expect(await screen.findByText(/The update finished/)).toBeTruthy();
+});
+
+it("shows a run that is already going when Settings opens, with the buttons off", async () => {
+	const host = hostBehind();
+	host.updateScript = {
+		state: "running",
+		lastLine: "Installing dependencies...",
+	};
+	render(<UpdateSection host={host} pollMs={10} />);
+	expect(await screen.findByText(/Installing dependencies/)).toBeTruthy();
+	expect(((await updateButton()) as HTMLButtonElement).disabled).toBe(true);
+	expect(host.updateScriptStarts).toBe(0);
+});
+
+it("says plainly why an update could not start, and stays usable", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	host.nextUpdateScriptError = new HostError(
+		"not-found",
+		"the update script was not found in the code folder this app was built from",
+	);
+	render(<UpdateSection host={host} pollMs={10} />);
+	await pressUpdate(user);
+	expect(
+		await screen.findByText(
+			/Could not start the update: the update script was not found/,
+		),
+	).toBeTruthy();
+	expect(((await updateButton()) as HTMLButtonElement).disabled).toBe(false);
+	expect(screen.queryByText(/Updating/)).toBeNull();
+});
+
+it("gives each row the right button for its status", async () => {
+	const host = hostBehind();
+	render(<UpdateSection host={host} pollMs={10} />);
+	// Running Main, behind: Update on Main, Switch on Development.
+	await updateButton();
+	expect(
+		screen.getByRole("button", { name: "Switch to Development" }),
+	).toBeTruthy();
+	expect(screen.queryByRole("button", { name: "Switch to Main" })).toBeNull();
+	cleanup();
+
+	// Running Main, up to date: no Update.
+	const same = hostBehind();
+	same.channels.main = channel(SHA_A, "same", 5);
+	render(<UpdateSection host={same} pollMs={10} />);
+	await screen.findByText(/Running now/);
+	expect(screen.queryByRole("button", { name: "Update" })).toBeNull();
+	expect(
+		screen.getByRole("button", { name: "Switch to Development" }),
+	).toBeTruthy();
+	cleanup();
+
+	// Running Development: Update on it when behind, Switch to Main on the other.
+	const dev = hostBehind();
+	dev.build = { branch: "develop", commit: SHA_A, builtAt: "" };
+	render(<UpdateSection host={dev} pollMs={10} />);
+	await updateButton();
+	expect(screen.getByRole("button", { name: "Switch to Main" })).toBeTruthy();
+	expect(
+		screen.queryByRole("button", { name: "Switch to Development" }),
+	).toBeNull();
+	cleanup();
+
+	// A branch that is not on GitHub yet gets no button.
+	const noDev = hostBehind();
+	noDev.channels.develop = { ...noDev.channels.develop, exists: false };
+	render(<UpdateSection host={noDev} pollMs={10} />);
+	await updateButton();
+	expect(screen.queryByRole("button", { name: /Switch to/ })).toBeNull();
+});
+
+it("asks before switching, then starts the script for that channel", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	render(<UpdateSection host={host} pollMs={10} />);
+	await user.click(await button("Switch to Development"));
+	expect(
+		screen.getByText(
+			/Switch to Development\? The app rebuilds from the develop branch and reopens\. The current app is kept as VaultOps \(previous\)\./,
+		),
+	).toBeTruthy();
+	expect(host.updateScriptStarts).toBe(0);
+	await user.click(screen.getByRole("button", { name: "Update now" }));
+	expect(host.updateScriptChannels).toEqual(["develop"]);
+	expect(await screen.findByText(/Updating/)).toBeTruthy();
+	cleanup();
+
+	const dev = hostBehind();
+	dev.build = { branch: "develop", commit: SHA_A, builtAt: "" };
+	render(<UpdateSection host={dev} pollMs={10} />);
+	await user.click(await button("Switch to Main"));
+	expect(
+		screen.getByText(/Switch to Main\? The app rebuilds from the main branch/),
+	).toBeTruthy();
+	await user.click(screen.getByRole("button", { name: "Update now" }));
+	expect(dev.updateScriptChannels).toEqual(["main"]);
+});
+
+it("treats a build with no recorded branch as running Main for the buttons, and says so", async () => {
+	const user = userEvent.setup();
+	const host = hostBehind();
+	host.build = { branch: "unknown", commit: "unknown", builtAt: "unknown" };
+	render(<UpdateSection host={host} pollMs={10} />);
+	expect(await screen.findByText(/first update fills it in/)).toBeTruthy();
+	expect(
+		screen.getByRole("button", { name: "Switch to Development" }),
+	).toBeTruthy();
+	expect(screen.queryByRole("button", { name: "Switch to Main" })).toBeNull();
+	await user.click(await updateButton());
+	expect(screen.getByText(/Update to the newest Main\?/)).toBeTruthy();
+	await user.click(screen.getByRole("button", { name: "Update now" }));
+	expect(host.updateScriptChannels).toEqual(["main"]);
+});
 
 const rowText = (name: string) =>
 	screen.getByText(new RegExp(`^${name}`)).parentElement?.textContent ?? "";
@@ -172,7 +276,7 @@ it("marks the other branch not installed, and a missing branch not set up yet", 
 	expect(rowText("Development")).toContain("Not set up yet");
 });
 
-it("treats a build with no recorded branch as not installed on either row", async () => {
+it("treats a build with no recorded branch as an out-of-date Main", async () => {
 	const host = new MemoryHost();
 	host.build = { branch: "unknown", commit: "unknown", builtAt: "unknown" };
 	host.channels.develop = channel(SHA_B, "dev work", 30);
@@ -180,7 +284,7 @@ it("treats a build with no recorded branch as not installed on either row", asyn
 	expect(
 		await screen.findByText(/Running now: a development build/),
 	).toBeTruthy();
-	expect(rowText("Main")).toContain("Not installed");
+	expect(rowText("Main")).toContain("Update available");
 	expect(rowText("Development")).toContain("Not installed");
 });
 

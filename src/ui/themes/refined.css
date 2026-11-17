@@ -278,6 +278,7 @@
 		position: relative;
 		isolation: isolate;
 		width: fit-content;
+		max-width: 100%;
 		padding-left: calc(
 			var(--toggle-left) -
 			var(--shell-gap) -

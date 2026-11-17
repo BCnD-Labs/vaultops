@@ -21,6 +21,33 @@ it("gives both sidebar header rows even spacing and no rule underneath", () => {
 	expect(header).not.toMatch(/border-bottom/);
 });
 
+// The left top row held five icons at full size and kept its content width, so
+// at the 220px minimum (and in Refined, which pads it further) it ran past the
+// panel's clipped edge. It may now shrink, never exceed the panel, and steps
+// the icons down to the small control size in a narrow sidebar.
+it("keeps the left sidebar's icon row inside the panel at any width", () => {
+	const css = read("src/app/sidebar.css");
+	const first = rule(css, ".sidebar-header-first");
+	expect(first).toMatch(/min-width:\s*0/);
+	expect(first).toMatch(/max-width:\s*100%/);
+	expect(rule(css, ".sidebar-header button")).toMatch(/flex-shrink:\s*0/);
+	expect(rule(css, ".sidebar")).toMatch(
+		/container:\s*sidebar\s*\/\s*inline-size/,
+	);
+	const narrow =
+		/@container sidebar \(max-width:\s*(\d+)px\)\s*\{([\s\S]*?)\n\}/.exec(css);
+	expect(narrow?.[2]).toMatch(/width:\s*var\(--control-height-sm\)/);
+	expect(narrow?.[2]).toMatch(/height:\s*var\(--control-height-sm\)/);
+	// The panel's minimum width (AppShell) is inside the shrink range.
+	const shell = read("src/app/AppShell.tsx");
+	const min = Number(/id="left"[\s\S]*?minSize=\{(\d+)\}/.exec(shell)?.[1]);
+	expect(min).toBeLessThanOrEqual(Number(narrow?.[1]));
+	// The Refined theme's wider row also stays within the panel.
+	expect(read("src/ui/themes/refined.css")).toMatch(
+		/\.sidebar-header-first\s*\{[^}]*max-width:\s*100%/,
+	);
+});
+
 // The stacked planner's section header already says "Tasks".
 it("hides the task card's own title inside the stacked planner", () => {
 	const css = read("src/app/planner/planner.css");

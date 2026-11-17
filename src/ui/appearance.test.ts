@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { contrastRatio, hexToHsl } from "../components/ui/color-utils";
 import {
+	accentForBackground,
+	accentNote,
+	applyAccent,
 	applyColors,
 	applyTextSizes,
 	colorKeys,
@@ -148,5 +152,97 @@ describe("text sizes", () => {
 		expect(root.style.getPropertyValue("--editor-font-size")).toBe("15px");
 		applyTextSizes(root, loadTextSizes());
 		expect(root.style.getPropertyValue("--editor-h4-size")).toBe("");
+	});
+});
+
+describe("accent contrast", () => {
+	const darkBg = "#111214";
+	const lightBg = "#ffffff";
+	const cases: [string, string][] = [
+		["#232323", darkBg],
+		["#2563eb", darkBg],
+		["#2563eb", lightBg],
+		["#f5f5f5", lightBg],
+		["#ffff00", lightBg],
+		["#000000", darkBg],
+		["#808080", lightBg],
+	];
+
+	it("lightens a too-dark accent on a dark background and keeps its hue", () => {
+		const result = accentForBackground("#2a3a5a", darkBg);
+		expect(result.adjusted).toBe(true);
+		expect(contrastRatio(result.primary, darkBg)).toBeGreaterThanOrEqual(3);
+		expect(
+			Math.abs(hexToHsl(result.primary).h - hexToHsl("#2a3a5a").h),
+		).toBeLessThan(3);
+		const grey = accentForBackground("#232323", darkBg);
+		expect(grey.adjusted).toBe(true);
+		expect(contrastRatio(grey.primary, darkBg)).toBeGreaterThanOrEqual(3);
+		expect(hexToHsl(grey.primary).l).toBeGreaterThan(hexToHsl("#232323").l);
+	});
+
+	it("leaves a mid blue alone in both modes", () => {
+		for (const bg of [darkBg, lightBg])
+			expect(accentForBackground("#2563eb", bg)).toMatchObject({
+				primary: "#2563eb",
+				adjusted: false,
+			});
+	});
+
+	it("darkens a very light accent on a light background", () => {
+		const result = accentForBackground("#f5f5f5", lightBg);
+		expect(result.adjusted).toBe(true);
+		expect(contrastRatio(result.primary, lightBg)).toBeGreaterThanOrEqual(3);
+		expect(hexToHsl(result.primary).l).toBeLessThan(hexToHsl("#f5f5f5").l);
+	});
+
+	it.each(cases)("keeps text on %s readable over %s", (accent, bg) => {
+		const { primary, primaryForeground } = accentForBackground(accent, bg);
+		expect(contrastRatio(primary, bg)).toBeGreaterThanOrEqual(3);
+		expect(contrastRatio(primary, primaryForeground)).toBeGreaterThanOrEqual(
+			4.5,
+		);
+	});
+
+	it("sets nothing without an accent and clears earlier values", () => {
+		const root = document.documentElement;
+		applyAccent(root, null, darkBg);
+		for (const name of ["--primary", "--primary-foreground", "--ring"])
+			expect(root.style.getPropertyValue(name)).toBe("");
+		applyAccent(root, "#2563eb", darkBg);
+		applyAccent(root, null, darkBg);
+		expect(root.style.getPropertyValue("--primary")).toBe("");
+	});
+
+	it("applies the adjusted shade in dark mode and the pick where it passes", () => {
+		const root = document.documentElement;
+		applyAccent(root, "#232323", darkBg);
+		const dark = root.style.getPropertyValue("--primary");
+		expect(dark).not.toBe("#232323");
+		expect(root.style.getPropertyValue("--ring")).toBe(dark);
+		expect(root.style.getPropertyValue("--primary-foreground")).not.toBe("");
+		applyAccent(root, "#232323", lightBg);
+		expect(root.style.getPropertyValue("--primary")).toBe("#232323");
+	});
+
+	it("re-runs when the mode changes", () => {
+		const root = document.documentElement;
+		localStorage.setItem(
+			"vaultops.settings",
+			JSON.stringify({ "appearance.accent": "#232323" }),
+		);
+		root.style.setProperty("--background", lightBg);
+		refreshAppearance(root);
+		expect(root.style.getPropertyValue("--primary")).toBe("#232323");
+		root.style.setProperty("--background", darkBg);
+		refreshAppearance(root);
+		expect(root.style.getPropertyValue("--primary")).not.toBe("#232323");
+	});
+
+	it("words a note only when the accent was adjusted", () => {
+		expect(accentNote("#232323", "dark", darkBg)).toMatch(/dark mode/);
+		expect(accentNote("#f5f5f5", "light", lightBg)).toMatch(/light mode/);
+		expect(accentNote("#2563eb", "dark", darkBg)).toBeNull();
+		expect(accentNote(null, "dark", darkBg)).toBeNull();
 	});
 });

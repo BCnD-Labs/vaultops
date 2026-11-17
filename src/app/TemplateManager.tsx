@@ -46,6 +46,7 @@ import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import type { NoteRow } from "./session";
 import { templateFormats } from "./settings";
 import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
+import { useRovingList } from "./useRovingList";
 import "./templates.css";
 
 /** Radix Select items cannot have an empty value, so "no context note" gets a stand-in. */
@@ -55,6 +56,15 @@ type Prompt =
 	| { kind: "new-template"; folder: string }
 	| { kind: "new-folder"; folder: string }
 	| { kind: "rename"; path: string; initial: string; isFolder: boolean };
+
+/** One row of the visible tree, in screen order (see `flat`). */
+type TreeRow = {
+	key: string;
+	folder: boolean;
+	open: boolean;
+	parentKey: string | null;
+	level: number;
+};
 
 const parentOf = (label: string) =>
 	label.includes("/") ? label.slice(0, label.lastIndexOf("/")) : "";
@@ -104,6 +114,8 @@ export function TemplateManager({
 	const [previewKey, setPreviewKey] = useState(0);
 	const [contextQuery, setContextQuery] = useState("");
 	const [contextPath, setContextPath] = useState("");
+	// Which row's "…" menu is open (opened by mouse, or by the keyboard on a row).
+	const [menuFor, setMenuFor] = useState<string | null>(null);
 
 	const refresh = useCallback(async (): Promise<TemplateList | null> => {
 		try {
@@ -226,6 +238,7 @@ export function TemplateManager({
 				}
 				setPrompt(null);
 				await reload(result.path);
+				tree.requestFocus(result.path);
 			} else {
 				const result = await renameTemplateEntry(host, prompt.path, name);
 				setPrompt(null);
@@ -237,6 +250,7 @@ export function TemplateManager({
 							? result.path + selected.slice(prompt.path.length)
 							: selected;
 				await reload(moved);
+				tree.requestFocus(result.path);
 			}
 		} catch (error) {
 			setPromptError(messageOf(error));
@@ -248,6 +262,7 @@ export function TemplateManager({
 			const label = list?.templates.find((t) => t.path === path)?.label;
 			const result = await duplicateTemplate(host, path);
 			await reload(result.path);
+			tree.requestFocus(result.path);
 			notify(label ? `Duplicated "${label}".` : "Duplicated the template.");
 		} catch (error) {
 			setProblem(messageOf(error));
@@ -259,9 +274,17 @@ export function TemplateManager({
 		const { path, name, isFolder } = removing;
 		setRemoving(null);
 		try {
+			// The row to land on: the nearest one that is not going away.
+			const at = flat.findIndex((r) => r.key === path);
+			const stays = (r: TreeRow) =>
+				r.key !== path && !r.key.startsWith(`${path}/`);
+			const near =
+				flat.slice(at + 1).find(stays) ??
+				flat.slice(0, Math.max(at, 0)).reverse().find(stays);
 			await removeTemplateEntry(host, path);
 			const gone = selected === path || selected?.startsWith(`${path}/`);
 			await reload(gone ? null : selected);
+			tree.requestFocus(near?.key ?? null);
 			notify(
 				isFolder
 					? `Moved the folder "${name}" and its templates to the recovery folder.`
@@ -283,10 +306,14 @@ export function TemplateManager({
 		);
 
 	const rowMenu = (
+		key: string,
 		label: string,
 		items: { text: string; run: () => void }[],
 	) => (
-		<DropdownMenu>
+		<DropdownMenu
+			open={menuFor === key}
+			onOpenChange={(next) => setMenuFor(next ? key : null)}
+		>
 			<DropdownMenuTrigger asChild>
 				<Button
 					type="button"
@@ -294,11 +321,20 @@ export function TemplateManager({
 					size="icon-sm"
 					className="text-muted-foreground"
 					aria-label={`Actions for ${label}`}
+					tabIndex={-1}
 				>
 					<Ellipsis aria-hidden="true" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end">
+			<DropdownMenuContent
+				align="end"
+				onCloseAutoFocus={(event) => {
+					// Back to the row, which is the Tab stop, not to the "…" button.
+					event.preventDefault();
+					if (!document.activeElement?.matches("[data-roving]"))
+						tree.focusKey(key);
+				}}
+			>
 				{items.map((item) => (
 					<DropdownMenuItem key={item.text} onSelect={item.run}>
 						{item.text}
@@ -308,35 +344,99 @@ export function TemplateManager({
 		</DropdownMenu>
 	);
 
-	const renderLevel = (parent: string): React.ReactNode => {
-		const folders = (list?.folders ?? []).filter(
+	// The folders and templates shown at one level, after the search.
+	const levelOf = (parent: string) => ({
+		folders: (list?.folders ?? []).filter(
 			(f) => parentOf(f.label) === parent && visibleFolder(f.label),
-		);
-		const templates = (list?.templates ?? []).filter(
+		),
+		templates: (list?.templates ?? []).filter(
 			(t) => t.folder === parent && visibleTemplate(t),
-		);
+		),
+	});
+	const isOpenFolder = (label: string) => q !== "" || !collapsed.has(label);
+
+	// Every row on screen in order, for the arrow keys.
+	const flat: TreeRow[] = [];
+	const walk = (parent: string, parentKey: string | null, level: number) => {
+		const { folders, templates } = levelOf(parent);
+		for (const f of folders) {
+			const open = isOpenFolder(f.label);
+			flat.push({ key: f.path, folder: true, open, parentKey, level });
+			if (open) walk(f.label, f.path, level + 1);
+		}
+		for (const t of templates)
+			flat.push({ key: t.path, folder: false, open: false, parentKey, level });
+	};
+	walk("", null, 1);
+
+	const toggleFolder = (label: string) =>
+		setCollapsed((c) => {
+			const next = new Set(c);
+			if (next.has(label)) next.delete(label);
+			else next.add(label);
+			return next;
+		});
+	const tree = useRovingList(
+		flat.map((r) => r.key),
+		selected ??
+			(folder === ""
+				? null
+				: (list?.folders.find((f) => f.label === folder)?.path ?? null)),
+		(event, key) => {
+			const row = flat.find((r) => r.key === key);
+			if (!row) return false;
+			if (
+				event.key === "ContextMenu" ||
+				(event.key === "F10" && event.shiftKey)
+			) {
+				if (!writable) return false;
+				setMenuFor(key);
+				return true;
+			}
+			if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+				return false;
+			const label = list?.folders.find((f) => f.path === key)?.label ?? "";
+			if (event.key === "ArrowRight" && row.folder) {
+				if (!row.open) toggleFolder(label);
+				else {
+					const child = flat.find((r) => r.parentKey === key);
+					if (child) tree.focusKey(child.key);
+				}
+				return true;
+			}
+			if (event.key === "ArrowLeft") {
+				if (row.folder && row.open && q === "") toggleFolder(label);
+				else if (row.parentKey !== null) tree.focusKey(row.parentKey);
+				else return false;
+				return true;
+			}
+			return false;
+		},
+	);
+
+	const renderLevel = (parent: string, level: number): React.ReactNode => {
+		const { folders, templates } = levelOf(parent);
 		return (
 			<>
 				{folders.map((f) => {
-					const isOpen = q !== "" || !collapsed.has(f.label);
+					const isOpen = isOpenFolder(f.label);
 					return (
-						<li key={f.path}>
+						<li key={f.path} role="none">
 							<div
 								className="tpl-row"
 								data-selected={folder === f.label && selected === null}
 							>
 								<button
 									type="button"
+									role="treeitem"
 									className="tpl-row-main"
 									aria-expanded={isOpen}
+									aria-level={level}
+									aria-selected={folder === f.label && selected === null}
+									{...tree.itemProps(f.path)}
 									onClick={() => {
 										setFolder(f.label);
-										setCollapsed((c) => {
-											const next = new Set(c);
-											if (next.has(f.label)) next.delete(f.label);
-											else next.add(f.label);
-											return next;
-										});
+										toggleFolder(f.label);
 									}}
 								>
 									{isOpen ? (
@@ -348,7 +448,7 @@ export function TemplateManager({
 									<span>{f.name}</span>
 								</button>
 								{writable &&
-									rowMenu(f.name, [
+									rowMenu(f.path, f.name, [
 										{
 											text: "New template here",
 											run: () =>
@@ -388,24 +488,30 @@ export function TemplateManager({
 										},
 									])}
 							</div>
-							{isOpen && <ul>{renderLevel(f.label)}</ul>}
+							{isOpen && (
+								// biome-ignore lint/a11y/useSemanticElements: a tree's nested list is role=group; a fieldset is a form control
+								<ul role="group">{renderLevel(f.label, level + 1)}</ul>
+							)}
 						</li>
 					);
 				})}
 				{templates.map((t) => (
-					<li key={t.path}>
+					<li key={t.path} role="none">
 						<div className="tpl-row" data-selected={selected === t.path}>
 							<button
 								type="button"
+								role="treeitem"
 								className="tpl-row-main tpl-template"
-								aria-current={selected === t.path}
+								aria-level={level}
+								aria-selected={selected === t.path}
+								{...tree.itemProps(t.path)}
 								onClick={() => guard(() => choose(t.path, t.folder))}
 							>
 								<FileText aria-hidden="true" />
 								<span>{t.name}</span>
 							</button>
 							{writable &&
-								rowMenu(t.name, [
+								rowMenu(t.path, t.name, [
 									{
 										text: "Rename",
 										run: () =>
@@ -513,8 +619,16 @@ export function TemplateManager({
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 						/>
-						<nav aria-label="Templates" className="tpl-nav">
-							<ul className="tpl-tree">{renderLevel("")}</ul>
+						<nav
+							aria-label="Templates"
+							className="tpl-nav"
+							ref={tree.rootRef}
+							onKeyDown={tree.onKeyDown}
+						>
+							{/* biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: an ARIA tree */}
+							<ul className="tpl-tree" role="tree" aria-label="Templates">
+								{renderLevel("", 1)}
+							</ul>
 						</nav>
 						{list === null && !loadError && (
 							<p className="manager-empty">Loading templates…</p>

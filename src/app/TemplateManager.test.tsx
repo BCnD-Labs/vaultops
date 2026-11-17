@@ -137,32 +137,32 @@ it("uses the light backdrop and keeps the empty state in its own column", async 
 it("lists folders and templates as a tree, and folds a folder", async () => {
 	const u = user();
 	await setup(seedMeeting);
-	expect(await screen.findByRole("button", { name: "Work" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Meeting" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Standup" })).toBeTruthy();
-	await u.click(screen.getByRole("button", { name: "Work" }));
-	expect(screen.queryByRole("button", { name: "Meeting" })).toBeNull();
-	await u.click(screen.getByRole("button", { name: "Work" }));
-	expect(screen.getByRole("button", { name: "Meeting" })).toBeTruthy();
+	expect(await screen.findByRole("treeitem", { name: "Work" })).toBeTruthy();
+	expect(screen.getByRole("treeitem", { name: "Meeting" })).toBeTruthy();
+	expect(screen.getByRole("treeitem", { name: "Standup" })).toBeTruthy();
+	await u.click(screen.getByRole("treeitem", { name: "Work" }));
+	expect(screen.queryByRole("treeitem", { name: "Meeting" })).toBeNull();
+	await u.click(screen.getByRole("treeitem", { name: "Work" }));
+	expect(screen.getByRole("treeitem", { name: "Meeting" })).toBeTruthy();
 });
 
 it("searches by name or path, keeping the folder of a match", async () => {
 	const u = user();
 	await setup(seedMeeting);
-	await screen.findByRole("button", { name: "Standup" });
+	await screen.findByRole("treeitem", { name: "Standup" });
 	await u.type(
 		screen.getByRole("textbox", { name: "Search templates by name or path" }),
 		"work/meet",
 	);
-	expect(screen.getByRole("button", { name: "Meeting" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Work" })).toBeTruthy();
-	expect(screen.queryByRole("button", { name: "Standup" })).toBeNull();
+	expect(screen.getByRole("treeitem", { name: "Meeting" })).toBeTruthy();
+	expect(screen.getByRole("treeitem", { name: "Work" })).toBeTruthy();
+	expect(screen.queryByRole("treeitem", { name: "Standup" })).toBeNull();
 });
 
 it("shows the chosen template in an editor, with Save off until something changes", async () => {
 	const u = user();
 	await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Meeting" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Meeting" }));
 	expect(await screen.findByText("Work/Meeting")).toBeTruthy();
 	expect(editorOf().state.doc.textContent).toBe("Agenda for {{title}}");
 	expect(
@@ -214,7 +214,7 @@ it("makes a folder, and a template inside a folder from its menu", async () => {
 		"School",
 	);
 	await u.click(screen.getByRole("button", { name: "Create" }));
-	await screen.findByRole("button", { name: "School" });
+	await screen.findByRole("treeitem", { name: "School" });
 	await menu(u, "School", "New template here");
 	await u.type(
 		await screen.findByRole("textbox", { name: "Template name" }),
@@ -231,7 +231,7 @@ it("makes a folder, and a template inside a folder from its menu", async () => {
 it("saves edits to the template file", async () => {
 	const u = user();
 	const { host } = await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	type(" more");
 	expect(await screen.findByText("Unsaved changes")).toBeTruthy();
@@ -249,16 +249,16 @@ it("saves edits to the template file", async () => {
 it("asks before dropping unsaved edits, and keeps them if you say keep editing", async () => {
 	const u = user();
 	const { host } = await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	type(" more");
-	await u.click(screen.getByRole("button", { name: "Meeting" }));
+	await u.click(screen.getByRole("treeitem", { name: "Meeting" }));
 	const ask = await screen.findByRole("alertdialog");
 	expect(within(ask).getByText("Discard your changes?")).toBeTruthy();
 	await u.click(within(ask).getByRole("button", { name: "Keep editing" }));
 	expect(screen.getByText("Standup", { selector: "strong" })).toBeTruthy();
 	expect(editorOf().state.doc.textContent).toContain("more");
-	await u.click(screen.getByRole("button", { name: "Meeting" }));
+	await u.click(screen.getByRole("treeitem", { name: "Meeting" }));
 	await u.click(await screen.findByRole("button", { name: "Discard changes" }));
 	expect(
 		await screen.findByText("Work/Meeting", { selector: "strong" }),
@@ -273,7 +273,7 @@ it("asks before dropping unsaved edits, and keeps them if you say keep editing",
 it("asks before closing with unsaved edits", async () => {
 	const u = user();
 	const { onClose } = await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	type("!");
 	await u.keyboard("{Escape}");
@@ -285,13 +285,13 @@ it("asks before closing with unsaved edits", async () => {
 it("renames a template, keeping it chosen", async () => {
 	const u = user();
 	const { host } = await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await menu(u, "Standup", "Rename");
 	const box = await screen.findByRole("textbox", { name: "Template name" });
 	await u.clear(box);
 	await u.type(box, "Daily");
 	await u.click(screen.getByRole("button", { name: "Rename" }));
-	await screen.findByRole("button", { name: "Daily" });
+	await screen.findByRole("treeitem", { name: "Daily" });
 	expect(screen.getByText("Daily", { selector: "strong" })).toBeTruthy();
 	expect(notify).toHaveBeenCalledWith('Renamed "Standup" to "Daily".');
 	expect((await listTemplates(host)).templates.map((t) => t.label)).toEqual(
@@ -303,7 +303,7 @@ it("duplicates a template next to itself", async () => {
 	const u = user();
 	const { host } = await setup(seedMeeting);
 	await menu(u, "Standup", "Duplicate");
-	await screen.findByRole("button", { name: "Standup copy" });
+	await screen.findByRole("treeitem", { name: "Standup copy" });
 	expect(notify).toHaveBeenCalledWith('Duplicated "Standup".');
 	expect((await listTemplates(host)).templates.map((t) => t.label)).toContain(
 		"Standup copy",
@@ -325,7 +325,7 @@ it("deletes only after asking, and keeps the file in recovery", async () => {
 		}),
 	);
 	await waitFor(() =>
-		expect(screen.queryByRole("button", { name: "Standup" })).toBeNull(),
+		expect(screen.queryByRole("treeitem", { name: "Standup" })).toBeNull(),
 	);
 	expect((await listTemplates(host)).templates.map((t) => t.name)).toEqual([
 		"Meeting",
@@ -352,7 +352,7 @@ it("deletes a folder with what is in it, also into recovery", async () => {
 		}),
 	);
 	await waitFor(() =>
-		expect(screen.queryByRole("button", { name: "Work" })).toBeNull(),
+		expect(screen.queryByRole("treeitem", { name: "Work" })).toBeNull(),
 	);
 	const recovered = (await host.list(".vaultops/recovery")).map((e) => e.name);
 	expect(
@@ -399,7 +399,7 @@ it("shows Loading templates… until the list arrives", async () => {
 it("keeps a failed save inline as an alert and does not toast it", async () => {
 	const u = user();
 	const { host } = await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	type(" more");
 	vi.spyOn(host, "writeTextAtomic").mockRejectedValue(new Error("disk full"));
@@ -412,7 +412,7 @@ it("keeps a failed save inline as an alert and does not toast it", async () => {
 it("previews the template filled in with the document you pick, without changing anything", async () => {
 	const u = user();
 	const { host } = await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Meeting" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Meeting" }));
 	await screen.findByText("Work/Meeting", { selector: "strong" });
 	await u.click(screen.getByRole("combobox", { name: "Preview context" }));
 	await u.click(await screen.findByRole("option", { name: "Beta" }));
@@ -430,7 +430,7 @@ it("previews the template filled in with the document you pick, without changing
 it("previews with Untitled when no document is chosen", async () => {
 	const u = user();
 	await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Meeting" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Meeting" }));
 	await screen.findByText("Work/Meeting", { selector: "strong" });
 	await u.click(screen.getByRole("button", { name: "Preview template" }));
 	expect(
@@ -442,7 +442,7 @@ it("previews with Untitled when no document is chosen", async () => {
 it("only lets you look in a read-only vault", async () => {
 	const u = user();
 	await setup(seedMeeting, false);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	expect(
 		(screen.getByRole("button", { name: "New template" }) as HTMLButtonElement)
 			.disabled,
@@ -464,7 +464,7 @@ it("shows a template it can't read, with the reason, and lets it be deleted", as
 		await h.makeFolder(TEMPLATES);
 		await h.writeTextAtomic(`${TEMPLATES}/Broken.vnote`, "junk");
 	});
-	await u.click(await screen.findByRole("button", { name: "Broken" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Broken" }));
 	expect(await screen.findByText(/could not be read/)).toBeTruthy();
 	expect(
 		(
@@ -480,7 +480,7 @@ it("shows a template it can't read, with the reason, and lets it be deleted", as
 		}),
 	);
 	await waitFor(() =>
-		expect(screen.queryByRole("button", { name: "Broken" })).toBeNull(),
+		expect(screen.queryByRole("treeitem", { name: "Broken" })).toBeNull(),
 	);
 	expect(await host.kindOf(`${TEMPLATES}/Broken.vnote`)).toBeNull();
 });
@@ -493,7 +493,7 @@ const newNoteButton = () =>
 it("offers New note from this template only when the app can act on it", async () => {
 	const u = user();
 	await setup(seedMeeting);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	expect(
 		screen.queryByRole("button", { name: "New note from this template" }),
@@ -504,7 +504,7 @@ it("hands the chosen template to the app", async () => {
 	const u = user();
 	const make = vi.fn();
 	await setup(seedMeeting, true, make);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	await u.click(newNoteButton());
 	expect(make).toHaveBeenCalledTimes(1);
@@ -518,7 +518,7 @@ it("asks about unsaved edits first, and only goes on once they are discarded", a
 	const u = user();
 	const make = vi.fn();
 	await setup(seedMeeting, true, make);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	type(" more");
 	await u.click(newNoteButton());
@@ -542,7 +542,7 @@ it("is off in a read-only vault and for a template that can't be read", async ()
 		false,
 		make,
 	);
-	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
 	await screen.findByText("Standup", { selector: "strong" });
 	expect(newNoteButton().disabled).toBe(true);
 	cleanup();
@@ -554,17 +554,127 @@ it("is off in a read-only vault and for a template that can't be read", async ()
 		true,
 		make,
 	);
-	await u.click(await screen.findByRole("button", { name: "Broken" }));
+	await u.click(await screen.findByRole("treeitem", { name: "Broken" }));
 	await screen.findByText(/could not be read/);
 	expect(newNoteButton().disabled).toBe(true);
 	expect(make).not.toHaveBeenCalled();
 });
 
-it("makes the row menu trigger a ghost icon Button", async () => {
+const focusedName = () =>
+	(document.activeElement as HTMLElement | null)?.textContent ?? "";
+
+it("is an ARIA tree: roles, levels, expanded state and one Tab stop", async () => {
+	await setup(seedMeeting);
+	const tree = await screen.findByRole("tree", { name: "Templates" });
+	const work = within(tree).getByRole("treeitem", { name: "Work" });
+	expect(work.getAttribute("aria-expanded")).toBe("true");
+	expect(work.getAttribute("aria-level")).toBe("1");
+	const meeting = within(tree).getByRole("treeitem", { name: "Meeting" });
+	expect(meeting.getAttribute("aria-level")).toBe("2");
+	expect(meeting.getAttribute("aria-selected")).toBe("false");
+	expect(within(tree).getByRole("group")).toBeTruthy();
+	const all = within(tree).getAllByRole("treeitem");
+	expect(all.filter((row) => row.tabIndex === 0)).toEqual([work]);
+	for (const more of within(tree).getAllByRole("button", {
+		name: /^Actions for/,
+	}))
+		expect(more.tabIndex).toBe(-1);
+});
+
+it("walks the tree with arrows: open, close, child, parent, collapsed rows skipped", async () => {
+	const u = user();
+	await setup(seedMeeting);
+	const work = await screen.findByRole("treeitem", { name: "Work" });
+	work.focus();
+	await u.keyboard("{ArrowRight}");
+	expect(focusedName()).toBe("Meeting");
+	await u.keyboard("{ArrowDown}");
+	expect(focusedName()).toBe("Standup");
+	await u.keyboard("{ArrowUp}{ArrowLeft}");
+	expect(document.activeElement).toBe(work);
+	await u.keyboard("{ArrowLeft}");
+	expect(work.getAttribute("aria-expanded")).toBe("false");
+	expect(screen.queryByRole("treeitem", { name: "Meeting" })).toBeNull();
+	await u.keyboard("{ArrowDown}");
+	expect(focusedName()).toBe("Standup");
+	await u.keyboard("{ArrowUp}{ArrowRight}");
+	expect(work.getAttribute("aria-expanded")).toBe("true");
+	expect(document.activeElement).toBe(work);
+	await u.keyboard("{End}");
+	expect(focusedName()).toBe("Standup");
+	await u.keyboard("{Home}");
+	expect(document.activeElement).toBe(work);
+	// Moving did not choose anything; Enter does.
+	expect(screen.queryByText("Choose a template to edit it.")).toBeTruthy();
+	await u.keyboard("{ArrowDown}{Enter}");
+	await waitFor(() =>
+		expect(
+			screen
+				.getByRole("treeitem", { name: "Meeting" })
+				.getAttribute("aria-selected"),
+		).toBe("true"),
+	);
+});
+
+it("leaves arrow keys alone in the search box", async () => {
+	const u = user();
+	await setup(seedMeeting);
+	await screen.findByRole("treeitem", { name: "Standup" });
+	const search = screen.getByRole("textbox", {
+		name: "Search templates by name or path",
+	});
+	await u.click(search);
+	await u.keyboard("{ArrowDown}{End}{ArrowLeft}");
+	expect(document.activeElement).toBe(search);
+});
+
+it("opens a row's actions from the keyboard and returns to the row", async () => {
+	const u = user();
+	await setup(seedMeeting);
+	const standup = await screen.findByRole("treeitem", { name: "Standup" });
+	standup.focus();
+	await u.keyboard("{Shift>}{F10}{/Shift}");
+	expect(await screen.findByRole("menuitem", { name: "Rename" })).toBeTruthy();
+	await u.keyboard("{Escape}");
+	await waitFor(() => expect(document.activeElement).toBe(standup));
+});
+
+it("puts focus on the next row after deleting a template, and on a duplicate", async () => {
+	const u = user();
+	await setup(seedMeeting);
+	await menu(u, "Standup", "Duplicate");
+	await screen.findByRole("treeitem", { name: "Standup copy" });
+	await waitFor(() => expect(focusedName()).toBe("Standup copy"));
+	await menu(u, "Standup copy", "Delete");
+	await u.click(
+		within(await screen.findByRole("alertdialog")).getByRole("button", {
+			name: "Delete",
+		}),
+	);
+	await waitFor(() =>
+		expect(screen.queryByRole("treeitem", { name: "Standup copy" })).toBeNull(),
+	);
+	await waitFor(() => expect(focusedName()).toBe("Standup"));
+});
+
+it("puts focus on a renamed template", async () => {
+	const u = user();
+	await setup(seedMeeting);
+	await menu(u, "Standup", "Rename");
+	const box = await screen.findByRole("textbox", { name: "Template name" });
+	await u.clear(box);
+	await u.type(box, "Daily");
+	await u.click(screen.getByRole("button", { name: "Rename" }));
+	await screen.findByRole("treeitem", { name: "Daily" });
+	await waitFor(() => expect(focusedName()).toBe("Daily"));
+});
+
+it("makes the row menu trigger a ghost icon Button that stays out of the Tab order", async () => {
 	await setup(seedMeeting);
 	const more = await screen.findByRole("button", {
 		name: "Actions for Standup",
 	});
 	expect(more.getAttribute("data-slot")).toBe("button");
 	expect(more.getAttribute("data-variant")).toBe("ghost");
+	expect(more.tabIndex).toBe(-1);
 });

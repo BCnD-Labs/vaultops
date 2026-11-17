@@ -172,6 +172,8 @@ export function App({ host }: { host: Host }) {
 	const [showDebug, setShowDebug] = useState(false);
 	const [maintainer, setMaintainer] = useState(false);
 	const maintainerRef = useRef(false);
+	const openTemplatesRef = useRef<(() => void) | undefined>(undefined);
+	const openResourcesRef = useRef<(() => void) | undefined>(undefined);
 	const [showMaintainer, setShowMaintainer] = useState(false);
 	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [treeNotice, setTreeNotice] = useState<string | null>(null);
@@ -387,6 +389,19 @@ export function App({ host }: { host: Host }) {
 		[host],
 	);
 
+	// What the manager shortcuts open: the same as the palette commands, and
+	// only once a vault is open.
+	useEffect(() => {
+		const ready = view !== null && view.status !== "none";
+		openTemplatesRef.current = ready ? () => setTemplatesOpen(true) : undefined;
+		openResourcesRef.current = ready
+			? () => {
+					setFocusResource(null);
+					setResourcesOpen(true);
+				}
+			: undefined;
+	});
+
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
 			if (commandMatches(event, "debug")) {
@@ -397,6 +412,17 @@ export function App({ host }: { host: Host }) {
 			if (commandMatches(event, "save")) {
 				event.preventDefault();
 				void wsRef.current.flushAll();
+				return;
+			}
+			// Unbound by default: an empty binding never matches.
+			if (commandMatches(event, "open-templates")) {
+				event.preventDefault();
+				openTemplatesRef.current?.();
+				return;
+			}
+			if (commandMatches(event, "open-resources")) {
+				event.preventDefault();
+				openResourcesRef.current?.();
 			}
 		};
 		window.addEventListener("keydown", onKey);

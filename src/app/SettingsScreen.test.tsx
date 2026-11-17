@@ -228,6 +228,14 @@ it("lists the keyboard shortcuts", async () => {
 	await user.click(screen.getByRole("button", { name: "Shortcuts" }));
 	expect(screen.getByText("Open the command bar")).toBeTruthy();
 	expect(screen.getByText("Save open notes now")).toBeTruthy();
+	// The two manager shortcuts are listed and start unbound.
+	for (const label of ["Open Template manager", "Open Resource manager"]) {
+		expect(screen.getByText(label)).toBeTruthy();
+		const row = screen.getByRole("button", {
+			name: `Change shortcut for ${label}`,
+		});
+		expect(row.textContent).toBe("None");
+	}
 });
 
 it("rebinds a shortcut by recording keys, and resets it", async () => {
@@ -267,7 +275,11 @@ it("clears a shortcut with Backspace", async () => {
 	);
 	fireEvent.keyDown(window, { key: "Backspace" });
 	expect(saved()).toBe("");
-	expect(screen.getByText("None")).toBeTruthy();
+	expect(
+		screen.getByRole("button", {
+			name: "Change shortcut for Save open notes now",
+		}).textContent,
+	).toBe("None");
 });
 
 it("refuses a duplicate binding and names the other command", async () => {

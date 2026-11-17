@@ -85,6 +85,15 @@ export const themes = [
 			dark: ["#020202", "#101010", "#ffffff"],
 		},
 	},
+	{
+		id: "daylight",
+		name: "Daylight",
+		modes: ["light", "dark"],
+		swatch: {
+			light: ["#ffffff", "#eff2f5", "#0b4fb8"],
+			dark: ["#2b2e33", "#353a41", "#5ca5ff"],
+		},
+	},
 ] as const;
 export type ThemeChoice = { id: string; mode: "light" | "dark" | "system" };
 const fallback: ThemeChoice = { id: "default", mode: "system" };

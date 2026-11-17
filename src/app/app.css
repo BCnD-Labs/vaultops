@@ -321,18 +321,18 @@ body {
 	min-width: 0;
 	min-height: 0;
 }
-/* Floating tabs, like Safari's: each one is a rounded pill with a gap around
-   it, the active one raised on a surface of its own. The bar's rule stays as a
-   transparent line so a focused split pane can still colour it. */
+/* Floating tabs: the strip has no frame or fill of its own and sits on the
+   window's background above the pane's frame; each tab is a rounded pill with
+   a gap around it, the active one raised on a surface of its own. */
 .tab-bar {
 	display: flex;
 	flex: none;
 	align-items: center;
 	gap: var(--space-1);
+	margin-bottom: var(--space-1);
 	padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
-	background: var(--editor-bg);
+	background: none;
 	border-bottom: var(--border-width) solid transparent;
-	border-radius: var(--shell-radius) var(--shell-radius) 0 0;
 }
 .tab-list {
 	display: flex;
@@ -424,6 +424,22 @@ body {
 }
 .shell-regions > [data-slot="resizable-panel"]:has(> .shell-editor) {
 	background: var(--editor-bg);
+}
+/* With panes (a note is open) the panel itself has no frame: each pane's
+   .pane-frame draws it, below its floating tab strip. The border stays,
+   transparent, so everything keeps its place. */
+.shell-regions > [data-slot="resizable-panel"]:has(.editor-split) {
+	border-color: transparent;
+	background: none;
+	box-shadow: none;
+}
+/* The panel's inner wrapper clips with an inline overflow; the frames' shadows
+   (Refined) need room. */
+.shell-editor:has(.editor-split) {
+	overflow: visible !important;
+}
+.shell-editor:has(.editor-split) .status-bar {
+	border-top-color: transparent;
 }
 .shell-right {
 	height: 100%;
@@ -698,14 +714,18 @@ select {
 	box-sizing: border-box;
 	min-height: var(--chrome-bar-height);
 }
-.pane-column[data-clear-left] > :is(.tab-bar, .nav-bar):first-child {
+.pane-column[data-clear-left] > .tab-bar:first-child,
+.pane-column[data-clear-left] > .pane-frame:first-child > .nav-bar:first-child {
 	padding-left: calc(8px + var(--control-height) + 4px);
 }
-.pane-column[data-clear-right] > :is(.tab-bar, .nav-bar):first-child {
+.pane-column[data-clear-right] > .tab-bar:first-child,
+.pane-column[data-clear-right]
+	> .pane-frame:first-child
+	> .nav-bar:first-child {
 	padding-right: calc(8px + var(--control-height) + 4px);
 }
 /* The title bar is the active tab's own header: same surface, no rule above. */
-.pane-column > .nav-bar {
+.pane-frame > .nav-bar {
 	background: var(--editor-bg);
 }
 

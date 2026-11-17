@@ -256,8 +256,10 @@
 		font-size: 13px;
 	}
 
-	/* The three main panels. */
-	& .shell-regions > [data-slot="resizable-panel"] {
+	/* The main panels: both sidebars, and each pane's frame in the editor
+	   (the editor's own panel has none while panes show; its tabs float). */
+	& .shell-regions > [data-slot="resizable-panel"]:not(:has(.editor-split)),
+	& .pane-frame {
 		box-shadow: var(--panel-shadow);
 	}
 

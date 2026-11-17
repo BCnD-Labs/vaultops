@@ -34,6 +34,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -262,24 +263,28 @@ function HeaderCell({
 								{PICKABLE_TYPES.map((type) => {
 									const TypeIcon = TYPE_ICONS[type];
 									return (
-										<button
+										<Button
 											key={type}
 											type="button"
+											variant="ghost"
+											size="sm"
 											className="db-menu-item"
 											aria-pressed={column.type === type}
 											onClick={() => act.changeType(column.id, type)}
 										>
 											<TypeIcon aria-hidden="true" />
 											{COLUMN_TYPE_LABELS[type]}
-										</button>
+										</Button>
 									);
 								})}
 							</div>
 						</>
 					)}
 					<div className="db-menu-sep" />
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="sm"
 						className="db-menu-item"
 						aria-pressed={sorted === "asc"}
 						onClick={() => {
@@ -290,9 +295,11 @@ function HeaderCell({
 						}}
 					>
 						<ArrowUp aria-hidden="true" /> Sort ascending
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
+						variant="ghost"
+						size="sm"
 						className="db-menu-item"
 						aria-pressed={sorted === "desc"}
 						onClick={() => {
@@ -303,28 +310,34 @@ function HeaderCell({
 						}}
 					>
 						<ArrowDown aria-hidden="true" /> Sort descending
-					</button>
+					</Button>
 					{!isTitle && (
 						<>
-							<button
+							<Button
 								type="button"
+								variant="ghost"
+								size="sm"
 								className="db-menu-item"
 								disabled={index <= 1}
 								onClick={() => act.moveColumn(column.id, -1)}
 							>
 								<ArrowLeft aria-hidden="true" /> Move left
-							</button>
-							<button
+							</Button>
+							<Button
 								type="button"
+								variant="ghost"
+								size="sm"
 								className="db-menu-item"
 								disabled={index >= count - 1}
 								onClick={() => act.moveColumn(column.id, 1)}
 							>
 								<ArrowRight aria-hidden="true" /> Move right
-							</button>
+							</Button>
 							<div className="db-menu-sep" />
-							<button
+							<Button
 								type="button"
+								variant="ghost"
+								size="sm"
 								className="db-menu-item db-danger"
 								onClick={() => {
 									close();
@@ -332,7 +345,7 @@ function HeaderCell({
 								}}
 							>
 								<Trash2 aria-hidden="true" /> Delete column
-							</button>
+							</Button>
 						</>
 					)}
 				</PopoverContent>
@@ -370,8 +383,10 @@ function NoteMark({
 }) {
 	const gone = known && name === null;
 	return (
-		<button
+		<Button
 			type="button"
+			variant="ghost"
+			size="icon-sm"
 			className="db-row-note"
 			data-missing={gone ? "true" : undefined}
 			disabled={gone}
@@ -380,7 +395,7 @@ function NoteMark({
 			onClick={onOpen}
 		>
 			<FileText aria-hidden="true" />
-		</button>
+		</Button>
 	);
 }
 
@@ -502,28 +517,31 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 							)}
 							{sortColumn.name || "Untitled"}
 							{editable && (
-								<button
+								<Button
 									type="button"
-									className="db-icon-button"
+									variant="ghost"
+									size="icon-sm"
+									className="size-5"
 									aria-label="Clear sort"
 									onClick={() => act.sort(null)}
 								>
 									<X aria-hidden="true" />
-								</button>
+								</Button>
 							)}
 						</span>
 					)}
 					{editable && (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<button
+								<Button
 									type="button"
-									className="db-add-property"
+									variant="ghost"
+									size="sm"
 									aria-label="Add property"
 								>
 									<Plus aria-hidden="true" />
 									<span>Property</span>
-								</button>
+								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								{PICKABLE_TYPES.map((type) => {
@@ -618,13 +636,15 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 														{editable && (
 															<DropdownMenu>
 																<DropdownMenuTrigger asChild>
-																	<button
+																	<Button
 																		type="button"
-																		className="db-icon-button db-row-menu"
+																		variant="ghost"
+																		size="icon-sm"
+																		className="db-row-menu"
 																		aria-label="Row menu"
 																	>
 																		<Ellipsis aria-hidden="true" />
-																	</button>
+																	</Button>
 																</DropdownMenuTrigger>
 																<DropdownMenuContent align="start">
 																	<DropdownMenuItem
@@ -645,15 +665,17 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 													</span>
 												)}
 												{column.id === TITLE_ID && (
-													<button
+													<Button
 														type="button"
+														variant="outline"
+														size="sm"
 														className="db-open"
 														onClick={() => setPeekId(row.id)}
 														title="Open row page"
 													>
 														<PanelRightOpen aria-hidden="true" />
 														Open
-													</button>
+													</Button>
 												)}
 											</td>
 										))}
@@ -665,14 +687,16 @@ function DatabaseView({ node, editor, getPos, extension }: NodeViewProps) {
 					{db.rows.length === 0 && <p className="db-empty-hint">No rows yet</p>}
 				</div>
 				{editable && (
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="sm"
 						className="db-new-row"
 						aria-label="New row"
 						onClick={newRow}
 					>
 						<Plus aria-hidden="true" /> New
-					</button>
+					</Button>
 				)}
 			</div>
 			{/* The rows' blocks stay in the document; the table above draws them. */}

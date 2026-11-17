@@ -1,8 +1,10 @@
 import type { Editor, Extensions, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { FileText, Unlink, X } from "lucide-react";
+import { FileText, Unlink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { noteTitleFor } from "../../core/notes/row-notes";
 import { ensureUniqueIds } from "../ids";
 import { useLinkSource } from "../note-link";
@@ -190,25 +192,19 @@ export function RowPeek({
 			>
 				<header className="db-peek-bar">
 					{editable && noteActions && !linked && (
-						<button
+						<Button
 							type="button"
+							variant="outline"
+							size="sm"
 							className="db-peek-action"
 							disabled={making}
 							onClick={() => void turnIntoNote()}
 						>
 							<FileText aria-hidden="true" />
 							{making ? "Making note…" : "Turn into note"}
-						</button>
+						</Button>
 					)}
-					<button
-						type="button"
-						className="db-icon-button"
-						aria-label="Close"
-						title="Close (Esc)"
-						onClick={onClose}
-					>
-						<X aria-hidden="true" />
-					</button>
+					<CloseButton title="Close (Esc)" onClick={onClose} />
 				</header>
 				<div className="db-peek-body">
 					{title && (
@@ -261,8 +257,10 @@ export function RowPeek({
 								</span>
 							)}
 							{!noteGone && row.noteId && (
-								<button
+								<Button
 									type="button"
+									variant="outline"
+									size="sm"
 									className="db-peek-action"
 									onClick={() =>
 										source?.open({
@@ -273,17 +271,19 @@ export function RowPeek({
 									}
 								>
 									Open note
-								</button>
+								</Button>
 							)}
 							{editable && (
-								<button
+								<Button
 									type="button"
+									variant="outline"
+									size="sm"
 									className="db-peek-action"
 									onClick={() => unlinkRow(editor, rowId)}
 								>
 									<Unlink aria-hidden="true" />
 									Unlink
-								</button>
+								</Button>
 							)}
 						</div>
 					) : (

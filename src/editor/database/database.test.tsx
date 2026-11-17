@@ -296,6 +296,44 @@ describe("the view", () => {
 		expect(state(editor).rows[0]?.cells.title).toBe("Dune Messiah");
 	});
 
+	it("draws its toolbar and header icon buttons with the shared Button", async () => {
+		open(
+			doc(
+				db([row("r1", { title: "Dune" })], {
+					sort: { column: "title", dir: "asc" },
+				}),
+			),
+		);
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "New row" })).toBeTruthy(),
+		);
+		for (const name of ["New row", "Add property", "Row menu", "Clear sort"]) {
+			const button = screen.getByRole("button", { name });
+			expect(button.getAttribute("data-slot"), name).toBe("button");
+		}
+		expect(
+			screen.getByRole("button", { name: "Row menu" }).dataset.variant,
+		).toBe("ghost");
+		expect(screen.getByTitle("Open row page").dataset.slot).toBe("button");
+	});
+
+	it("shows which sort and column type is on with aria-pressed", async () => {
+		open(
+			doc(
+				db([row("r1", { title: "Dune" })], {
+					sort: { column: "title", dir: "asc" },
+				}),
+			),
+		);
+		const header = await screen.findByRole("button", { name: /Name/ });
+		fireEvent.click(header);
+		const asc = await screen.findByRole("button", { name: /Sort ascending/ });
+		const desc = screen.getByRole("button", { name: /Sort descending/ });
+		expect(asc.dataset.slot).toBe("button");
+		expect(asc.getAttribute("aria-pressed")).toBe("true");
+		expect(desc.getAttribute("aria-pressed")).toBe("false");
+	});
+
 	it("opens a row's page in a side panel, edits it, and closes on Escape", async () => {
 		const editor = open(
 			doc(
@@ -311,6 +349,10 @@ describe("the view", () => {
 			name: "Row page",
 		});
 		expect(panel.textContent).toContain("Spice");
+		// The panel's close is the shared CloseButton.
+		const close = within(panel).getByRole("button", { name: "Close" });
+		expect(close.getAttribute("data-slot")).toBe("button");
+		expect(close.dataset.variant).toBe("ghost");
 		// The title in the panel is the same cell as the table's.
 		const titles = screen.getAllByDisplayValue("Dune");
 		expect(titles).toHaveLength(2);

@@ -23,6 +23,14 @@ import { MemoryHost } from "../host/memory-host";
 import type { NoteRow } from "./session";
 import { TemplateManager } from "./TemplateManager";
 
+// Radix Select needs pointer-capture and scrolling APIs that happy-dom lacks.
+Object.assign(Element.prototype, {
+	hasPointerCapture: () => false,
+	setPointerCapture: () => {},
+	releasePointerCapture: () => {},
+	scrollIntoView: () => {},
+});
+
 const notify = vi.hoisted(() => vi.fn());
 vi.mock("../ui/notify", () => ({ notify }));
 
@@ -406,10 +414,8 @@ it("previews the template filled in with the document you pick, without changing
 	const { host } = await setup(seedMeeting);
 	await u.click(await screen.findByRole("button", { name: "Meeting" }));
 	await screen.findByText("Work/Meeting", { selector: "strong" });
-	await u.selectOptions(
-		screen.getByRole("combobox", { name: "Preview context" }),
-		"Beta",
-	);
+	await u.click(screen.getByRole("combobox", { name: "Preview context" }));
+	await u.click(await screen.findByRole("option", { name: "Beta" }));
 	await u.click(screen.getByRole("button", { name: "Preview template" }));
 	const preview = await screen.findByRole("region", {
 		name: "Template preview",

@@ -7,8 +7,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import type { ResourceType } from "../../core/resources/resources";
-import { Choice } from "./Choice";
 import { plural } from "./resource-utils";
 
 export interface FieldRemoval {
@@ -23,6 +30,29 @@ export interface TypeRemoval {
 	cards: number;
 	choice: "none" | "move";
 	target: string;
+}
+
+/** One option card in a removal dialog's radio group. */
+function Choice({
+	id,
+	value,
+	label,
+	detail,
+}: {
+	id: string;
+	value: string;
+	label: string;
+	detail: string;
+}) {
+	return (
+		<label className="res-choice" htmlFor={id}>
+			<RadioGroupItem id={id} value={value} />
+			<span className="res-choice-text">
+				<strong>{label}</strong>
+				<span className="res-hint">{detail}</span>
+			</span>
+		</label>
+	);
 }
 
 /** Asks what happens to a field's values before the field is removed. */
@@ -59,24 +89,27 @@ export function FieldRemovalDialog({
 							</DialogDescription>
 						</DialogHeader>
 						{removal.withValue > 0 && (
-							<div
+							<RadioGroup
 								className="res-choices"
-								role="radiogroup"
 								aria-label="What happens to the values"
+								value={removal.alsoValues ? "also" : "keep"}
+								onValueChange={(v) =>
+									onChange({ ...removal, alsoValues: v === "also" })
+								}
 							>
 								<Choice
-									checked={!removal.alsoValues}
+									id="res-field-keep"
+									value="keep"
 									label="Keep the values as extra properties"
 									detail="Each card keeps the value and it stays searchable. Recommended."
-									onPick={() => onChange({ ...removal, alsoValues: false })}
 								/>
 								<Choice
-									checked={removal.alsoValues}
+									id="res-field-also"
+									value="also"
 									label="Remove the values too"
 									detail="A copy of each card goes to the recovery folder first."
-									onPick={() => onChange({ ...removal, alsoValues: true })}
 								/>
-							</div>
+							</RadioGroup>
 						)}
 						<DialogFooter>
 							<Button variant="outline" onClick={onCancel}>
@@ -126,42 +159,50 @@ export function TypeRemovalDialog({
 						</DialogHeader>
 						{removal.cards > 0 && (
 							<>
-								<div
+								<RadioGroup
 									className="res-choices"
-									role="radiogroup"
 									aria-label="What happens to the cards"
+									value={removal.choice}
+									onValueChange={(v) =>
+										onChange({ ...removal, choice: v as TypeRemoval["choice"] })
+									}
 								>
 									<Choice
-										checked={removal.choice === "none"}
+										id="res-type-none"
+										value="none"
 										label="Keep the cards without a type"
 										detail="Every value stays on the card as an extra property. You can give them a type later."
-										onPick={() => onChange({ ...removal, choice: "none" })}
 									/>
 									<Choice
-										checked={removal.choice === "move"}
+										id="res-type-move"
+										value="move"
 										label="Move the cards to another type"
 										detail="Values with a matching field name move across. The rest stay as extra properties."
-										onPick={() => onChange({ ...removal, choice: "move" })}
 									/>
-								</div>
+								</RadioGroup>
 								{removal.choice === "move" && (
-									<label className="res-field">
-										<span>Move cards to</span>
-										<select
+									<div className="res-field">
+										<span id="res-move-label">Move cards to</span>
+										<Select
 											value={removal.target}
-											onChange={(event) =>
-												onChange({ ...removal, target: event.target.value })
+											onValueChange={(target) =>
+												onChange({ ...removal, target })
 											}
 										>
-											{types
-												.filter((t) => t.id !== removal.typeId)
-												.map((t) => (
-													<option key={t.id} value={t.id}>
-														{t.name}
-													</option>
-												))}
-										</select>
-									</label>
+											<SelectTrigger aria-labelledby="res-move-label">
+												<SelectValue placeholder="Choose a type" />
+											</SelectTrigger>
+											<SelectContent>
+												{types
+													.filter((t) => t.id !== removal.typeId)
+													.map((t) => (
+														<SelectItem key={t.id} value={t.id}>
+															{t.name}
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
+									</div>
 								)}
 							</>
 						)}

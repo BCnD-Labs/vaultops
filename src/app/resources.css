@@ -223,19 +223,11 @@
 	font-weight: 400;
 }
 .res-field input,
-.res-field select {
-	height: var(--control-height);
+.res-field textarea,
+.res-field button[role="combobox"] {
 	font-weight: 400;
 }
 .res-field textarea {
-	min-height: 4.5rem;
-	padding: var(--space-1) var(--space-2);
-	border: var(--border-width) solid var(--border);
-	border-radius: var(--radius-control);
-	background: transparent;
-	color: inherit;
-	font: inherit;
-	font-weight: 400;
 	resize: vertical;
 }
 .res-setting-row {
@@ -308,10 +300,10 @@
 	border-radius: var(--radius-control);
 	cursor: pointer;
 }
-.res-choice[data-checked="true"] {
+.res-choice:has([data-state="checked"]) {
 	border-color: var(--ring, currentColor);
 }
-.res-choice span {
+.res-choice-text {
 	display: flex;
 	flex-direction: column;
 }

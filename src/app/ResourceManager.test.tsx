@@ -358,3 +358,117 @@ it("shows an inline hint and blocks a field name the type already has", async ()
 		true,
 	);
 });
+
+it("edits an existing card, saves it and shows the new value", async () => {
+	const u = user();
+	const { host } = await setup(async (h) =>
+		addContact(h, "Mara", { Phone: "555 0100" }),
+	);
+	await u.click(await screen.findByRole("button", { name: /Mara/ }));
+	await u.click(screen.getByRole("button", { name: "Edit" }));
+	const phone = screen.getByLabelText(/^Phone/);
+	await u.clear(phone);
+	await u.type(phone, "555 0199");
+	await u.click(screen.getByRole("button", { name: "Save changes" }));
+	await waitFor(() =>
+		expect(screen.getByRole("status").textContent).toBe(
+			'Saved changes to "Mara".',
+		),
+	);
+	const article = await screen.findByRole("article", { name: "Resource card" });
+	expect(within(article).getByText("555 0199")).toBeTruthy();
+	expect(within(article).queryByText("555 0100")).toBeNull();
+	expect(JSON.stringify((await listCards(host))[0]?.props)).toContain(
+		"555 0199",
+	);
+});
+
+it("blocks saving a link field with a bad link and shows the problem", async () => {
+	const u = user();
+	const { host } = await setup();
+	await u.click(await screen.findByRole("button", { name: /New resource/ }));
+	await u.click(screen.getByRole("button", { name: /^Article\s*Needs only/ }));
+	await u.type(screen.getByLabelText(/^Title/), "Field notes");
+	await u.click(screen.getByRole("button", { name: /Add more details/ }));
+	const save = screen.getByRole("button", { name: "Save card" });
+	expect(save).toHaveProperty("disabled", false);
+	await u.type(screen.getByLabelText(/^Link/), "example.com");
+	expect(
+		await screen.findByText(
+			"Start the link with https:// (or http://, mailto: or tel:).",
+		),
+	).toBeTruthy();
+	expect(save).toHaveProperty("disabled", true);
+	expect((await listCards(host)).length).toBe(0);
+	await u.clear(screen.getByLabelText(/^Link/));
+	await u.type(screen.getByLabelText(/^Link/), "https://example.com");
+	expect(save).toHaveProperty("disabled", false);
+});
+
+it("deleting a type can move its cards to another type", async () => {
+	const u = user();
+	const { host } = await setup(async (h) => addContact(h, "Mara"));
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	await u.click(within(nav).getByRole("button", { name: /^Contact/ }));
+	await u.click(screen.getByRole("button", { name: "Edit type and fields" }));
+	await u.click(screen.getByRole("button", { name: "Delete type" }));
+	const dialog = await screen.findByRole("dialog", {
+		name: /Delete the Contact type/,
+	});
+	await u.click(
+		within(dialog).getByRole("radio", {
+			name: /Move the cards to another type/,
+		}),
+	);
+	await u.selectOptions(within(dialog).getByLabelText("Move cards to"), "Book");
+	await u.click(within(dialog).getByRole("button", { name: "Delete type" }));
+	await waitFor(() =>
+		expect(screen.getByRole("status").textContent).toContain(
+			"1 card moved to Book.",
+		),
+	);
+	const cards = await listCards(host);
+	expect(cards.map((c) => c.typeId)).toEqual(["book"]);
+	expect((await loadTypes(host)).map((t) => t.id)).not.toContain("contact");
+});
+
+it("removing a field with its values drops the value and keeps a recovery copy", async () => {
+	const u = user();
+	const { host } = await setup(async (h) =>
+		addContact(h, "Mara", { Phone: "555 0100" }),
+	);
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	await u.click(within(nav).getByRole("button", { name: /^Contact/ }));
+	await u.click(screen.getByRole("button", { name: "Edit type and fields" }));
+	await u.click(screen.getByRole("button", { name: "Remove Phone" }));
+	const dialog = await screen.findByRole("dialog", {
+		name: /Remove "Phone" from Contact/,
+	});
+	await u.click(
+		within(dialog).getByRole("radio", { name: /Remove the values too/ }),
+	);
+	await u.click(within(dialog).getByRole("button", { name: "Remove field" }));
+	await waitFor(() =>
+		expect(screen.getByRole("status").textContent).toContain(
+			"1 value removed; copies are in the recovery folder.",
+		),
+	);
+	await u.click(screen.getByRole("button", { name: "Done" }));
+	await u.click(await screen.findByRole("button", { name: /Mara/ }));
+	const article = await screen.findByRole("article", { name: "Resource card" });
+	expect(within(article).queryByText("555 0100")).toBeNull();
+	expect(within(article).queryByText("Extra properties")).toBeNull();
+	expect((await listCards(host))[0]?.props).toEqual({});
+	// The card as it was before the value went is kept under the recovery folder.
+	const stamps = await host.list(".vaultops/recovery");
+	expect(stamps.length).toBe(1);
+	const copies = await host.list(
+		`.vaultops/recovery/${stamps[0]?.name}/resources/cards`,
+	);
+	expect(copies.length).toBe(1);
+	expect(
+		await host.readText(
+			`.vaultops/recovery/${stamps[0]?.name}/resources/cards/${copies[0]?.name}`,
+		),
+	).toContain("555 0100");
+});

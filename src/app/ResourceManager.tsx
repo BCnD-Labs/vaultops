@@ -1,31 +1,19 @@
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { type Backlink, backlinks } from "../core/links/links";
-import { linkProblem } from "../core/resources/link";
 import {
 	addField,
 	addType,
 	type CardResult,
-	cardExtras,
 	cardFields,
 	completeness,
 	countValues,
 	createCard,
 	deleteType,
-	KIND_LABELS,
 	listCards,
 	loadTypes,
-	missingRequired,
 	type ResourceCard,
 	type ResourceType,
 	removeCard,
@@ -41,17 +29,25 @@ import { ConfirmDialog } from "./TemplateDialogs";
 import "./resources.css";
 import { AddFieldDialog } from "./resources/AddFieldDialog";
 import { AddTypeDialog } from "./resources/AddTypeDialog";
-import { Choice } from "./resources/Choice";
-import { FieldInput } from "./resources/FieldInput";
+import { CardDetail } from "./resources/CardDetail";
+import { CardForm } from "./resources/CardForm";
+import { CardList } from "./resources/CardList";
+import {
+	type FieldRemoval,
+	FieldRemovalDialog,
+	type TypeRemoval,
+	TypeRemovalDialog,
+} from "./resources/RemoveDialogs";
 import {
 	type FormState,
 	labelOf,
 	type Mode,
 	plural,
 	subtitle,
-	whenLabel,
 } from "./resources/resource-utils";
+import { TypePicker } from "./resources/TypePicker";
 import { TypeRow } from "./resources/TypeRow";
+import { TypeSettings } from "./resources/TypeSettings";
 
 /**
  * The resource manager: contacts, books, articles and anything you define,
@@ -91,18 +87,8 @@ export function ResourceManager({
 	const [removingCard, setRemovingCard] = useState<ResourceCard | null>(null);
 	const [typeDialog, setTypeDialog] = useState(false);
 	const [fieldDialog, setFieldDialog] = useState<string | null>(null);
-	const [fieldRemoval, setFieldRemoval] = useState<{
-		typeId: string;
-		label: string;
-		withValue: number;
-		alsoValues: boolean;
-	} | null>(null);
-	const [typeRemoval, setTypeRemoval] = useState<{
-		typeId: string;
-		cards: number;
-		choice: "none" | "move";
-		target: string;
-	} | null>(null);
+	const [fieldRemoval, setFieldRemoval] = useState<FieldRemoval | null>(null);
+	const [typeRemoval, setTypeRemoval] = useState<TypeRemoval | null>(null);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -274,449 +260,103 @@ export function ResourceManager({
 			setMessage(null);
 		});
 
-	const missing = form
-		? (() => {
-				const type = types.find((t) => t.id === form.typeId);
-				if (!type) return [];
-				const out: string[] = [];
-				if (form.title.trim() === "") out.push(type.titleLabel);
-				for (const f of type.fields) {
-					if (f.required && (form.values[f.label] ?? "").trim() === "") {
-						out.push(f.label);
-					}
-				}
-				return out;
-			})()
-		: [];
-
-	// Link fields whose text is not a usable link; the form can't be saved until fixed.
-	const badLinks = form
-		? (types.find((t) => t.id === form.typeId)?.fields ?? []).filter(
-				(f) => f.kind === "link" && linkProblem(form.values[f.label] ?? ""),
-			)
-		: [];
-
 	const idBase = useId();
-
-	const renderForm = () => {
-		if (!form) return null;
-		const type = types.find((t) => t.id === form.typeId);
-		if (!type) return null;
-		const shown = type.fields.filter(
-			(f) =>
-				f.required ||
-				form.showMore ||
-				(form.values[f.label] ?? "").trim() !== "",
-		);
-		const hidden = type.fields.length - shown.length;
-		const filledCount =
-			(form.title.trim() === "" ? 0 : 1) +
-			type.fields.filter((f) => (form.values[f.label] ?? "").trim() !== "")
-				.length;
-		return (
-			<form
-				className="res-form"
-				onSubmit={(event) => {
-					event.preventDefault();
-					if (missing.length === 0 && badLinks.length === 0) void save();
-				}}
-			>
-				<div>
-					<h2>
-						{form.path ? "Edit" : "New"} {type.name}
-					</h2>
-					<p className="res-hint">
-						{form.path
-							? ""
-							: `Only the ${type.titleLabel.toLowerCase()} is required. `}
-						{filledCount} of {1 + type.fields.length} fields filled.
-					</p>
-				</div>
-				<label className="res-field" htmlFor={`${idBase}-title`}>
-					<span>
-						{type.titleLabel} <em>Required</em>
-					</span>
-					<Input
-						id={`${idBase}-title`}
-						autoFocus
-						value={form.title}
-						onChange={(event) =>
-							setForm({ ...form, title: event.target.value })
-						}
-					/>
-				</label>
-				{shown.map((f) => (
-					<FieldInput
-						key={f.label}
-						id={`${idBase}-${f.label}`}
-						field={f}
-						value={form.values[f.label] ?? ""}
-						onChange={(value) =>
-							setForm({ ...form, values: { ...form.values, [f.label]: value } })
-						}
-					/>
-				))}
-				{hidden > 0 && (
-					<div>
-						<Button
-							type="button"
-							size="sm"
-							variant="outline"
-							onClick={() => setForm({ ...form, showMore: true })}
-						>
-							Add more details ({plural(hidden, "more field")})
-						</Button>
-					</div>
-				)}
-				{formError && (
-					<p role="alert" className="res-error">
-						{formError}
-					</p>
-				)}
-				<div className="res-actions">
-					<Button
-						type="submit"
-						size="sm"
-						disabled={missing.length > 0 || badLinks.length > 0}
-					>
-						{form.path ? "Save changes" : "Save card"}
-					</Button>
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						onClick={() =>
-							guard(() => {
-								setForm(null);
-								setMode("view");
-							})
-						}
-					>
-						Cancel
-					</Button>
-					<span className="res-hint">
-						{missing.length > 0
-							? `Needs: ${missing.join(", ")}.`
-							: "Saved cards stay out of the Notes tree."}
-					</span>
-				</div>
-			</form>
-		);
-	};
-
-	const renderCard = () => {
-		if (!card) {
-			return (
-				<div className="res-empty">
-					<h2>Nothing selected</h2>
-					<p className="res-hint">
-						Pick a card from the list, or start a new one. A card only needs its
-						name to be saved.
-					</p>
-					<Button
-						size="sm"
-						disabled={!canWrite}
-						onClick={() => setMode("pick")}
-					>
-						<Plus aria-hidden="true" /> Start a new card
-					</Button>
-				</div>
-			);
-		}
-		const fields = cardType ? cardFields(card, cardType) : [];
-		const filledFields = fields.filter((f) => f.value.trim() !== "");
-		const emptyFields = fields.filter((f) => f.value.trim() === "");
-		const extras = cardExtras(card, cardType);
-		const lacking = missingRequired(card, cardType);
-		const meter = cardType ? completeness(card, cardType) : null;
-		return (
-			<article aria-label="Resource card" className="res-card">
-				<div className="res-card-head">
-					<div>
-						<p className="res-hint">{cardType ? cardType.name : "No type"}</p>
-						<h2>{card.title}</h2>
-						<p className="res-hint">
-							{card.updated
-								? `Updated ${whenLabel(card.updated)}`
-								: "Not edited here yet"}
-							{meter
-								? ` · ${meter.filled} of ${meter.total} fields filled`
-								: ""}
-						</p>
-					</div>
-					<div className="res-actions">
-						{cardType && !card.problem && (
-							<Button
-								size="sm"
-								variant="outline"
-								disabled={!canWrite}
-								onClick={() => startForm(cardType, card)}
-							>
-								Edit
-							</Button>
-						)}
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={!canWrite}
-							onClick={() => setRemovingCard(card)}
-						>
-							Remove card
-						</Button>
-					</div>
-				</div>
-				{card.problem && (
-					<p role="alert" className="res-error">
-						{card.problem}
-					</p>
-				)}
-				{filledFields.length > 0 && (
-					<dl className="res-values">
-						{filledFields.map(({ field, value }) => (
-							<div key={field.label}>
-								<dt>{field.label}</dt>
-								<dd>{value}</dd>
-							</div>
-						))}
-					</dl>
-				)}
-				{emptyFields.length > 0 && (
-					<p className="res-note">
-						Empty: {emptyFields.map((f) => f.field.label).join(", ")}
-					</p>
-				)}
-				{lacking.length > 0 && (
-					<p className="res-warn">
-						Missing a required field: {lacking.join(", ")}. Edit the card to
-						fill it in.
-					</p>
-				)}
-				{extras.length > 0 && (
-					<div>
-						<h3>Extra properties</h3>
-						<p className="res-hint">
-							Kept from removed fields or types. They stay searchable and
-							nothing was deleted.
-						</p>
-						<dl className="res-values">
-							{extras.map((e) => (
-								<div key={e.name}>
-									<dt>{e.name}</dt>
-									<dd>
-										{e.value ?? "Kept as it is (this version can't show it)"}
-									</dd>
-								</div>
-							))}
-						</dl>
-					</div>
-				)}
-				<div>
-					<h3>Mentioned in</h3>
-					{mentions === null ? (
-						<p className="res-hint">Looking through your notes...</p>
-					) : mentions.length === 0 ? (
-						<p className="res-hint">
-							No note links here yet. In any note, type @ and pick {card.title}.
-						</p>
-					) : (
-						<ul className="res-mentions">
-							{mentions.map((m) => (
-								<li key={m.path}>
-									<button
-										type="button"
-										className="res-mention"
-										disabled={!onOpenNote}
-										onClick={() => onOpenNote?.(m.path)}
-									>
-										{m.title}
-										{m.kind === "canvas" ? " (canvas)" : ""}
-									</button>
-								</li>
-							))}
-						</ul>
-					)}
-				</div>
-				{!cardType && !card.problem && (
-					<div className="res-note">
-						<h3>Give this card a type</h3>
-						<p className="res-hint">
-							Values with a matching field name move into that field. The rest
-							stay as extra properties.
-						</p>
-						<div className="res-chips">
-							{types.map((t) => (
-								<Button
-									key={t.id}
-									size="sm"
-									variant="outline"
-									disabled={!canWrite}
-									onClick={() =>
-										void run(async () => {
-											await setCardType(host, card.path, t.id);
-											await refresh();
-											setMessage(`"${card.title}" is now a ${t.name}.`);
-										})
-									}
-								>
-									Make it a {t.name}
-								</Button>
-							))}
-						</div>
-					</div>
-				)}
-			</article>
-		);
-	};
-
-	const renderSettings = () => {
-		const type = filterType;
-		if (!type) return null;
-		const used = cards.filter((c) => c.typeId === type.id).length;
-		return (
-			<div className="res-settings">
-				<div>
-					<h2>{type.name} type</h2>
-					<p className="res-hint">
-						{plural(used, "card")} use this type. Changes here never delete a
-						value without asking.
-					</p>
-				</div>
-				<div className="res-setting-row">
-					<span>
-						<strong>{type.titleLabel}</strong>{" "}
-						<span className="res-hint">
-							· name of the card, always required
-						</span>
-					</span>
-					<span className="res-hint">Fixed</span>
-				</div>
-				{type.fields.map((f) => (
-					<div className="res-setting-row" key={f.label}>
-						<span>
-							<strong>{f.label}</strong>{" "}
-							<span className="res-hint">· {KIND_LABELS[f.kind]}</span>
-						</span>
-						<Button
-							size="sm"
-							variant={f.required ? "default" : "outline"}
-							aria-pressed={f.required}
-							aria-label={`${f.label} is ${f.required ? "required" : "optional"}`}
-							disabled={!canWrite}
-							onClick={() =>
-								void run(async () => {
-									await setFieldRequired(host, type.id, f.label, !f.required);
-									await refresh();
-									setMessage(
-										f.required
-											? `"${f.label}" is optional again.`
-											: `"${f.label}" is now required for new and edited ${type.name} cards. Cards already saved without it are left as they are and flagged.`,
-									);
-								})
-							}
-						>
-							{f.required ? "Required" : "Optional"}
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							aria-label={`Remove ${f.label}`}
-							disabled={!canWrite}
-							onClick={() =>
-								void run(async () => {
-									const counts = await countValues(host, type.id, f.label);
-									setFieldRemoval({
-										typeId: type.id,
-										label: f.label,
-										withValue: counts.withValue,
-										alsoValues: false,
-									});
-								})
-							}
-						>
-							Remove
-						</Button>
-					</div>
-				))}
-				<div className="res-actions">
-					<Button
-						size="sm"
-						disabled={!canWrite}
-						onClick={() => setFieldDialog(type.id)}
-					>
-						<Plus aria-hidden="true" /> Add field
-					</Button>
-					<Button size="sm" variant="outline" onClick={() => setMode("view")}>
-						Done
-					</Button>
-					<Button
-						size="sm"
-						variant="outline"
-						className="res-danger"
-						disabled={!canWrite}
-						onClick={() => {
-							const others = types.filter((t) => t.id !== type.id);
-							setTypeRemoval({
-								typeId: type.id,
-								cards: used,
-								choice: "none",
-								target: others[0]?.id ?? "",
-							});
-						}}
-					>
-						Delete type
-					</Button>
-				</div>
-			</div>
-		);
-	};
 
 	const detail = () => {
 		if (mode === "pick") {
 			return (
-				<div className="res-pick">
-					<div>
-						<h2>What are you adding?</h2>
-						<p className="res-hint">
-							Each type asks for as little as possible. You can add detail
-							later.
-						</p>
-					</div>
-					<div className="res-pick-grid">
-						{types.map((t) => (
-							<button
-								key={t.id}
-								type="button"
-								className="res-pick-tile"
-								onClick={() => startForm(t, null)}
-							>
-								<strong>{t.name}</strong>
-								<span className="res-hint">
-									Needs only a {t.titleLabel.toLowerCase()}
-								</span>
-								<span className="res-hint">
-									{plural(t.fields.length, "optional field")}
-								</span>
-							</button>
-						))}
-						<button
-							type="button"
-							className="res-pick-tile res-pick-add"
-							onClick={() => setTypeDialog(true)}
-						>
-							+ Add type
-						</button>
-					</div>
-					<div>
-						<Button size="sm" variant="outline" onClick={() => setMode("view")}>
-							Cancel
-						</Button>
-					</div>
-				</div>
+				<TypePicker
+					types={types}
+					onPick={(t) => startForm(t, null)}
+					onAddType={() => setTypeDialog(true)}
+					onCancel={() => setMode("view")}
+				/>
 			);
 		}
-		if (mode === "form") return renderForm();
-		if (mode === "settings") return renderSettings();
-		return renderCard();
+		if (mode === "form") {
+			const formType = form ? types.find((t) => t.id === form.typeId) : null;
+			if (!form || !formType) return null;
+			return (
+				<CardForm
+					form={form}
+					type={formType}
+					idBase={idBase}
+					formError={formError}
+					onChange={setForm}
+					onSave={() => void save()}
+					onCancel={() =>
+						guard(() => {
+							setForm(null);
+							setMode("view");
+						})
+					}
+				/>
+			);
+		}
+		if (mode === "settings") {
+			const type = filterType;
+			if (!type) return null;
+			return (
+				<TypeSettings
+					type={type}
+					used={cards.filter((c) => c.typeId === type.id).length}
+					canWrite={canWrite}
+					onToggleRequired={(f) =>
+						void run(async () => {
+							await setFieldRequired(host, type.id, f.label, !f.required);
+							await refresh();
+							setMessage(
+								f.required
+									? `"${f.label}" is optional again.`
+									: `"${f.label}" is now required for new and edited ${type.name} cards. Cards already saved without it are left as they are and flagged.`,
+							);
+						})
+					}
+					onRemoveField={(f) =>
+						void run(async () => {
+							const counts = await countValues(host, type.id, f.label);
+							setFieldRemoval({
+								typeId: type.id,
+								label: f.label,
+								withValue: counts.withValue,
+								alsoValues: false,
+							});
+						})
+					}
+					onAddField={() => setFieldDialog(type.id)}
+					onDone={() => setMode("view")}
+					onDeleteType={() => {
+						const others = types.filter((t) => t.id !== type.id);
+						setTypeRemoval({
+							typeId: type.id,
+							cards: cards.filter((c) => c.typeId === type.id).length,
+							choice: "none",
+							target: others[0]?.id ?? "",
+						});
+					}}
+				/>
+			);
+		}
+		return (
+			<CardDetail
+				card={card}
+				cardType={cardType}
+				types={types}
+				mentions={mentions}
+				canWrite={canWrite}
+				onNewCard={() => setMode("pick")}
+				onEdit={startForm}
+				onRemove={setRemovingCard}
+				onOpenNote={onOpenNote}
+				onSetType={(target, t) =>
+					void run(async () => {
+						await setCardType(host, target.path, t.id);
+						await refresh();
+						setMessage(`"${target.title}" is now a ${t.name}.`);
+					})
+				}
+			/>
+		);
 	};
 
 	return (
@@ -800,63 +440,17 @@ export function ResourceManager({
 							+ Add type
 						</button>
 					</nav>
-					<section aria-label="Cards" className="res-list">
-						<div className="res-list-head">
-							<h2>
-								{query.trim()
-									? "Results"
-									: (filterType?.name ?? labelOf(filter))}
-							</h2>
-							<span className="res-hint">{plural(rows.length, "card")}</span>
-						</div>
-						{filterType && (
-							<div>
-								<Button
-									size="sm"
-									variant="outline"
-									onClick={() => guard(() => setMode("settings"))}
-								>
-									Edit type and fields
-								</Button>
-							</div>
-						)}
-						<ul className="res-rows">
-							{rows.map((c) => {
-								const t = typeOf(c);
-								const meter = t ? completeness(c, t) : null;
-								return (
-									<li key={c.path}>
-										<button
-											type="button"
-											className="res-row res-card-row"
-											aria-current={selected === c.path ? "true" : undefined}
-											onClick={() => pickCard(c.path)}
-										>
-											<span className="res-tile" aria-hidden="true">
-												{t ? t.name.charAt(0).toUpperCase() : "–"}
-											</span>
-											<span className="res-card-text">
-												<strong>{c.title}</strong>
-												<span className="res-hint">{subtitle(c, t)}</span>
-											</span>
-											<span className="res-hint res-meter">
-												{meter
-													? `${meter.filled} of ${meter.total}`
-													: "No type"}
-											</span>
-										</button>
-									</li>
-								);
-							})}
-						</ul>
-						{loaded && rows.length === 0 && (
-							<p className="res-note">
-								{query.trim()
-									? `No cards match "${query.trim()}". Try fewer words, or search All.`
-									: "No cards here yet."}
-							</p>
-						)}
-					</section>
+					<CardList
+						rows={rows}
+						types={types}
+						query={query}
+						filter={filter}
+						filterType={filterType}
+						loaded={loaded}
+						selected={selected}
+						onPick={pickCard}
+						onEditType={() => guard(() => setMode("settings"))}
+					/>
 					<section aria-label="Detail" className="res-detail">
 						{detail()}
 					</section>
@@ -921,187 +515,56 @@ export function ResourceManager({
 				}
 			/>
 
-			<Dialog
-				open={fieldRemoval !== null}
-				onOpenChange={(next) => !next && setFieldRemoval(null)}
-			>
-				<DialogContent className="res-dialog">
-					{fieldRemoval && (
-						<>
-							<DialogHeader>
-								<DialogTitle>
-									Remove "{fieldRemoval.label}" from{" "}
-									{types.find((t) => t.id === fieldRemoval.typeId)?.name}?
-								</DialogTitle>
-								<DialogDescription>
-									{fieldRemoval.withValue > 0
-										? `${plural(fieldRemoval.withValue, "card")} ${fieldRemoval.withValue === 1 ? "has" : "have"} a value in this field. Choose what happens to ${fieldRemoval.withValue === 1 ? "that value" : "those values"}.`
-										: "No cards have a value here, so nothing is lost."}
-								</DialogDescription>
-							</DialogHeader>
-							{fieldRemoval.withValue > 0 && (
-								<div
-									className="res-choices"
-									role="radiogroup"
-									aria-label="What happens to the values"
-								>
-									<Choice
-										checked={!fieldRemoval.alsoValues}
-										label="Keep the values as extra properties"
-										detail="Each card keeps the value and it stays searchable. Recommended."
-										onPick={() =>
-											setFieldRemoval({ ...fieldRemoval, alsoValues: false })
-										}
-									/>
-									<Choice
-										checked={fieldRemoval.alsoValues}
-										label="Remove the values too"
-										detail="A copy of each card goes to the recovery folder first."
-										onPick={() =>
-											setFieldRemoval({ ...fieldRemoval, alsoValues: true })
-										}
-									/>
-								</div>
-							)}
-							<DialogFooter>
-								<Button variant="outline" onClick={() => setFieldRemoval(null)}>
-									Keep the field
-								</Button>
-								<Button
-									onClick={() =>
-										void run(async () => {
-											const r = fieldRemoval;
-											const done = await removeField(host, r.typeId, r.label, {
-												alsoValues: r.alsoValues,
-											});
-											setFieldRemoval(null);
-											await refresh();
-											setMessage(
-												r.alsoValues && done.removedValues > 0
-													? `Removed "${r.label}". ${plural(done.removedValues, "value")} removed; copies are in the recovery folder.`
-													: r.withValue > 0
-														? `Removed "${r.label}". ${plural(r.withValue, "card")} kept the value as an extra property.`
-														: `Removed "${r.label}".`,
-											);
-										})
-									}
-								>
-									Remove field
-								</Button>
-							</DialogFooter>
-						</>
-					)}
-				</DialogContent>
-			</Dialog>
+			<FieldRemovalDialog
+				removal={fieldRemoval}
+				types={types}
+				onChange={setFieldRemoval}
+				onCancel={() => setFieldRemoval(null)}
+				onConfirm={(r) =>
+					void run(async () => {
+						const done = await removeField(host, r.typeId, r.label, {
+							alsoValues: r.alsoValues,
+						});
+						setFieldRemoval(null);
+						await refresh();
+						setMessage(
+							r.alsoValues && done.removedValues > 0
+								? `Removed "${r.label}". ${plural(done.removedValues, "value")} removed; copies are in the recovery folder.`
+								: r.withValue > 0
+									? `Removed "${r.label}". ${plural(r.withValue, "card")} kept the value as an extra property.`
+									: `Removed "${r.label}".`,
+						);
+					})
+				}
+			/>
 
-			<Dialog
-				open={typeRemoval !== null}
-				onOpenChange={(next) => !next && setTypeRemoval(null)}
-			>
-				<DialogContent className="res-dialog">
-					{typeRemoval && (
-						<>
-							<DialogHeader>
-								<DialogTitle>
-									Delete the{" "}
-									{types.find((t) => t.id === typeRemoval.typeId)?.name} type?
-								</DialogTitle>
-								<DialogDescription>
-									{typeRemoval.cards > 0
-										? `${plural(typeRemoval.cards, "card")} use this type. The cards stay either way; choose where they go.`
-										: "No cards use this type, so nothing else changes."}
-								</DialogDescription>
-							</DialogHeader>
-							{typeRemoval.cards > 0 && (
-								<>
-									<div
-										className="res-choices"
-										role="radiogroup"
-										aria-label="What happens to the cards"
-									>
-										<Choice
-											checked={typeRemoval.choice === "none"}
-											label="Keep the cards without a type"
-											detail="Every value stays on the card as an extra property. You can give them a type later."
-											onPick={() =>
-												setTypeRemoval({ ...typeRemoval, choice: "none" })
-											}
-										/>
-										<Choice
-											checked={typeRemoval.choice === "move"}
-											label="Move the cards to another type"
-											detail="Values with a matching field name move across. The rest stay as extra properties."
-											onPick={() =>
-												setTypeRemoval({ ...typeRemoval, choice: "move" })
-											}
-										/>
-									</div>
-									{typeRemoval.choice === "move" && (
-										<label className="res-field">
-											<span>Move cards to</span>
-											<select
-												value={typeRemoval.target}
-												onChange={(event) =>
-													setTypeRemoval({
-														...typeRemoval,
-														target: event.target.value,
-													})
-												}
-											>
-												{types
-													.filter((t) => t.id !== typeRemoval.typeId)
-													.map((t) => (
-														<option key={t.id} value={t.id}>
-															{t.name}
-														</option>
-													))}
-											</select>
-										</label>
-									)}
-								</>
-							)}
-							<DialogFooter>
-								<Button variant="outline" onClick={() => setTypeRemoval(null)}>
-									Keep the type
-								</Button>
-								<Button
-									disabled={
-										typeRemoval.cards > 0 &&
-										typeRemoval.choice === "move" &&
-										typeRemoval.target === ""
-									}
-									onClick={() =>
-										void run(async () => {
-											const r = typeRemoval;
-											const name =
-												types.find((t) => t.id === r.typeId)?.name ?? "";
-											const moveTo =
-												r.cards > 0 && r.choice === "move" ? r.target : null;
-											const done = await deleteType(host, r.typeId, { moveTo });
-											setTypeRemoval(null);
-											setMode("view");
-											setFilter("all");
-											await refresh();
-											const target = types.find((t) => t.id === moveTo)?.name;
-											setMessage(
-												`Deleted the ${name} type.${
-													done.cards === 0
-														? ""
-														: target
-															? ` ${plural(done.cards, "card")} moved to ${target}.`
-															: ` ${plural(done.cards, "card")} kept their values without a type.`
-												}`,
-											);
-										})
-									}
-								>
-									Delete type
-								</Button>
-							</DialogFooter>
-						</>
-					)}
-				</DialogContent>
-			</Dialog>
+			<TypeRemovalDialog
+				removal={typeRemoval}
+				types={types}
+				onChange={setTypeRemoval}
+				onCancel={() => setTypeRemoval(null)}
+				onConfirm={(r) =>
+					void run(async () => {
+						const name = types.find((t) => t.id === r.typeId)?.name ?? "";
+						const moveTo = r.cards > 0 && r.choice === "move" ? r.target : null;
+						const done = await deleteType(host, r.typeId, { moveTo });
+						setTypeRemoval(null);
+						setMode("view");
+						setFilter("all");
+						await refresh();
+						const target = types.find((t) => t.id === moveTo)?.name;
+						setMessage(
+							`Deleted the ${name} type.${
+								done.cards === 0
+									? ""
+									: target
+										? ` ${plural(done.cards, "card")} moved to ${target}.`
+										: ` ${plural(done.cards, "card")} kept their values without a type.`
+							}`,
+						);
+					})
+				}
+			/>
 
 			<ConfirmDialog
 				open={removingCard !== null}

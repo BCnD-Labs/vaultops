@@ -461,6 +461,7 @@ export function Agenda({
 	writable,
 	onSelect,
 	onAdd,
+	hideEvents = false,
 }: {
 	date: string;
 	tasks: PlannerTask[];
@@ -468,8 +469,11 @@ export function Agenda({
 	writable: boolean;
 	onSelect: (t: PlannerTask) => void;
 	onAdd: (d: string) => void;
+	/** The sidebar lists the day's events itself, so its agenda leaves them out. */
+	hideEvents?: boolean;
 }) {
-	const items = tasks.filter((t) => taskOnDate(t, date));
+	const all = tasks.filter((t) => taskOnDate(t, date));
+	const items = hideEvents ? all.filter((t) => t.kind !== "event") : all;
 	return (
 		<section className="plan-agenda" aria-label={`Items on ${fmtDay(date)}`}>
 			<div className="plan-agenda-head">
@@ -477,7 +481,9 @@ export function Agenda({
 				<span>
 					{items.length
 						? `${items.length} ${items.length === 1 ? "item" : "items"}`
-						: "Nothing scheduled"}
+						: all.length
+							? ""
+							: "Nothing scheduled"}
 				</span>
 				{writable && (
 					<Button

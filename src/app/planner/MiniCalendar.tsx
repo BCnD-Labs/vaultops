@@ -14,12 +14,12 @@ import {
 } from "../../core/planner/rules";
 import { weekStartsOnValue } from "../settings";
 import { useSetting } from "../useSetting";
-import { dayNum, fmtMonth, fmtWeekday } from "./fmt";
+import { dayNum, fmtLong, fmtMonth, fmtWeekday } from "./fmt";
 
 /**
  * A month grid for picking the day: today is a ring, the chosen day a filled
- * pill, dots show open / overdue / closed items, and a small mark shows a day
- * with a log. Arrow keys move by a day or a week.
+ * pill, dots show open / overdue / closed tasks, an accent dot shows a day
+ * with an event, and a small mark shows a day with a log. Arrow keys move by a day or a week.
  */
 export function MiniCalendar({
 	date,
@@ -101,7 +101,17 @@ export function MiniCalendar({
 				))}
 				{grid.map((key) => {
 					const items = tasks.filter((t) => taskOnDate(t, key));
-					const dots = dayDots(items, today, key);
+					const events = items.filter((t) => t.kind === "event").length;
+					const plain = items.filter((t) => t.kind !== "event");
+					const dots = dayDots(plain, today, key);
+					const parts = [fmtLong(key)];
+					if (plain.length)
+						parts.push(
+							`${plain.length} ${plain.length === 1 ? "task" : "tasks"}`,
+						);
+					if (events)
+						parts.push(`${events} ${events === 1 ? "event" : "events"}`);
+					if (loggedDays.has(key)) parts.push("has a log");
 					return (
 						<button
 							key={key}
@@ -114,13 +124,14 @@ export function MiniCalendar({
 								key.slice(0, 7) !== month.slice(0, 7) && "is-outside",
 							)}
 							aria-pressed={key === date}
-							aria-label={`${key}${items.length ? `, ${items.length} ${items.length === 1 ? "item" : "items"}` : ""}${loggedDays.has(key) ? ", has a log" : ""}`}
+							aria-label={parts.join(", ")}
 							tabIndex={key === date ? 0 : -1}
 							onKeyDown={(e) => onKey(e, key)}
 							onClick={() => onDate(key)}
 						>
 							<span>{dayNum(key)}</span>
 							<span className="mini-cal-marks" aria-hidden>
+								{events > 0 && <i className="plan-dot is-event" />}
 								{dots.dots.slice(0, 3).map((k, i) => (
 									// biome-ignore lint/suspicious/noArrayIndexKey: at most three identical dots
 									<i key={`${key}${i}`} className={cn("plan-dot", `is-${k}`)} />

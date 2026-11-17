@@ -8,7 +8,13 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SegmentedInput } from "@/components/ui/segmented";
+import { cn } from "@/lib/utils";
 import { logPath } from "../../core/planner/log";
+import {
+	type PlannerTask,
+	startTimeOn,
+	taskOnDate,
+} from "../../core/planner/rules";
 import {
 	CalendarOptions,
 	PlannerHomeZone,
@@ -28,6 +34,52 @@ const VIEWS = [
 	{ value: "tasks", label: "Tasks" },
 	{ value: "log", label: "Log" },
 ] as const;
+
+/** The picked day's events, timed ones by time (all-day first), then by title. */
+function DayEvents({
+	tasks,
+	date,
+	selected,
+	onSelect,
+}: {
+	tasks: PlannerTask[];
+	date: string;
+	selected: string | null;
+	onSelect: (t: PlannerTask) => void;
+}) {
+	const events = tasks
+		.filter((t) => t.kind === "event" && taskOnDate(t, date))
+		.map((t) => ({ t, time: startTimeOn(t, date) ?? "" }))
+		.sort(
+			(a, b) =>
+				a.time.localeCompare(b.time) || a.t.title.localeCompare(b.t.title),
+		);
+	if (events.length === 0) return null;
+	return (
+		<section className="plan-events" aria-label="Events">
+			<h3 className="plan-group">Events</h3>
+			<ul>
+				{events.map(({ t, time }) => (
+					<li key={t.path}>
+						<button
+							type="button"
+							className={cn(
+								"plan-event-row",
+								t.status === "closed" && "is-done",
+								selected === t.path && "is-selected",
+							)}
+							onClick={() => onSelect(t)}
+						>
+							<i className="plan-dot is-event" aria-hidden />
+							{time && <span className="plan-event-time">{time}</span>}
+							<span className="plan-event-title">{t.title}</span>
+						</button>
+					</li>
+				))}
+			</ul>
+		</section>
+	);
+}
 
 function loadView(): View {
 	try {
@@ -101,7 +153,7 @@ export function PlannerPanel() {
 					{p.notice}
 				</p>
 			)}
-			{calendarHere && <CalendarPanel bare />}
+			{calendarHere && <CalendarPanel bare hideEvents={view === "tasks"} />}
 			<div className="planner-switch-row">
 				<SegmentedInput
 					label="Planner view"
@@ -128,7 +180,9 @@ export function PlannerPanel() {
 							New task
 						</DropdownMenuItem>
 						<DropdownMenuItem
-							onSelect={() => setDialog({ date: p.today, kind: "event" })}
+							onSelect={() =>
+								setDialog({ date: p.date || p.today, kind: "event" })
+							}
 						>
 							New event
 						</DropdownMenuItem>
@@ -151,18 +205,29 @@ export function PlannerPanel() {
 					onOpenLink={p.openLink}
 				/>
 			) : (
-				<TaskList
-					tasks={p.tasks}
-					today={p.today}
-					selected={p.selectedPath}
-					writable={p.writable}
-					onSelect={(t) => {
-						p.select(t);
-						setEditPath(t.path);
-					}}
-					onToggle={p.toggleFromList}
-					onQuickAdd={(title, due) => p.create({ title, kind: "task", due })}
-				/>
+				<>
+					<DayEvents
+						tasks={p.tasks}
+						date={p.date}
+						selected={p.selectedPath}
+						onSelect={(t) => {
+							p.select(t);
+							setEditPath(t.path);
+						}}
+					/>
+					<TaskList
+						tasks={p.tasks}
+						today={p.today}
+						selected={p.selectedPath}
+						writable={p.writable}
+						onSelect={(t) => {
+							p.select(t);
+							setEditPath(t.path);
+						}}
+						onToggle={p.toggleFromList}
+						onQuickAdd={(title, due) => p.create({ title, kind: "task", due })}
+					/>
+				</>
 			)}
 			{dialog && (
 				<NewItemDialog

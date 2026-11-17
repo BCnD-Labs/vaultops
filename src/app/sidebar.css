@@ -8,6 +8,8 @@
 	min-height: 0;
 	background: var(--panel);
 	overflow: hidden;
+	/* The top icon row sizes itself from the sidebar's width (see below). */
+	container: sidebar / inline-size;
 }
 
 .note-list {
@@ -235,6 +237,21 @@
    the floating sidebar toggle. */
 .sidebar-header-first {
 	padding-bottom: var(--space-1);
+	/* The row may shrink with the panel and never grows past it; it used to
+	   keep its content width and ran under the panel's clipped right edge. */
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+/* The first row's left padding clears the floating toggle, so at the narrowest
+   sidebar (the left panel's 220px minimum) the five icons would not fit at
+   full size: they step down to the small control size, which fits in every
+   theme (the widest, Refined, needs 207px at this size). */
+@container sidebar (max-width: 240px) {
+	.sidebar-header-first [data-slot="button"] {
+		width: var(--control-height-sm);
+		height: var(--control-height-sm);
+	}
 }
 .sidebar-header button {
 	flex-shrink: 0;

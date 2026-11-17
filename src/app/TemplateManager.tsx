@@ -315,14 +315,16 @@ export function TemplateManager({
 			onOpenChange={(next) => setMenuFor(next ? key : null)}
 		>
 			<DropdownMenuTrigger asChild>
-				<button
+				<Button
 					type="button"
-					className="tpl-more"
+					variant="ghost"
+					size="icon-sm"
+					className="text-muted-foreground"
 					aria-label={`Actions for ${label}`}
 					tabIndex={-1}
 				>
 					<Ellipsis aria-hidden="true" />
-				</button>
+				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				align="end"

@@ -618,3 +618,85 @@ it("shows a long field as a textarea and saves what is typed", async () => {
 		}),
 	);
 });
+
+const tabStops = (root: HTMLElement) =>
+	Array.from(root.querySelectorAll<HTMLElement>("button")).filter(
+		(b) => b.tabIndex === 0,
+	);
+const cardRows = () =>
+	Array.from(document.querySelectorAll<HTMLElement>(".res-card-row"));
+
+it("makes the type list and the card list one Tab stop each", async () => {
+	await setup(async (h) => {
+		await addContact(h, "Anna");
+		await addContact(h, "Bela");
+	});
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	await screen.findByText("Anna");
+	expect(tabStops(nav)).toHaveLength(1);
+	expect(tabStops(nav)[0]?.textContent).toMatch(/^All/);
+	expect(cardRows()).toHaveLength(2);
+	expect(tabStops(screen.getByRole("region", { name: "Cards" }))).toEqual(
+		cardRows().slice(0, 1),
+	);
+});
+
+it("moves between cards with arrows without selecting; Enter selects", async () => {
+	const u = user();
+	await setup(async (h) => {
+		await addContact(h, "Anna");
+		await addContact(h, "Bela");
+		await addContact(h, "Cleo");
+	});
+	await screen.findByText("Anna");
+	const [first, second, third] = cardRows();
+	first?.focus();
+	await u.keyboard("{ArrowDown}");
+	expect(document.activeElement).toBe(second);
+	expect(second?.getAttribute("aria-current")).toBeNull();
+	await u.keyboard("{End}");
+	expect(document.activeElement).toBe(third);
+	await u.keyboard("{Home}");
+	expect(document.activeElement).toBe(first);
+	await u.keyboard("{ArrowDown}{Enter}");
+	expect(second?.getAttribute("aria-current")).toBe("true");
+	expect(second?.tabIndex).toBe(0);
+	expect(first?.tabIndex).toBe(-1);
+});
+
+it("moves between types with arrows and leaves the search box alone", async () => {
+	const u = user();
+	await setup();
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	const all = within(nav).getByRole("button", { name: /^All/ });
+	all.focus();
+	await u.keyboard("{ArrowDown}");
+	expect(document.activeElement).toBe(
+		within(nav).getByRole("button", { name: /^Recent/ }),
+	);
+	expect(all.getAttribute("aria-current")).toBe("true");
+	const search = screen.getByLabelText("Search resources");
+	await u.click(search);
+	await u.keyboard("{ArrowDown}{End}");
+	expect(document.activeElement).toBe(search);
+});
+
+it("puts focus on the next card after removing one", async () => {
+	const u = user();
+	await setup(async (h) => {
+		await addContact(h, "Anna");
+		await addContact(h, "Bela");
+	});
+	await screen.findByText("Anna");
+	const [first, second] = cardRows();
+	await u.click(first as HTMLElement);
+	await u.click(screen.getByRole("button", { name: "Remove card" }));
+	await u.click(
+		await screen.findByRole("button", { name: "Remove card", hidden: false }),
+	);
+	await waitFor(() => expect(cardRows()).toHaveLength(1));
+	await waitFor(() => expect(document.activeElement).toBe(cardRows()[0]));
+	expect(cardRows()[0]?.textContent).toContain(
+		second?.textContent?.slice(1, 5) ?? "",
+	);
+});

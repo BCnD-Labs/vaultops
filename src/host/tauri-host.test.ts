@@ -27,7 +27,7 @@ describe("tauriHost", () => {
 		await tauriHost.chooseReportsFolder();
 		await tauriHost.reportsFolder();
 		await tauriHost.writeReport("r.txt", "text");
-		await tauriHost.startUpdateScript("develop");
+		await tauriHost.startUpdateScript();
 		await tauriHost.updateScriptStatus();
 		await tauriHost.buildInfo();
 		await tauriHost.updateChannels();
@@ -45,7 +45,7 @@ describe("tauriHost", () => {
 			["choose_reports_folder", undefined],
 			["reports_folder", undefined],
 			["write_report", { name: "r.txt", text: "text" }],
-			["start_update_script", { channel: "develop" }],
+			["start_update_script", undefined],
 			["update_script_status", undefined],
 			["build_info", undefined],
 			["update_channels", undefined],

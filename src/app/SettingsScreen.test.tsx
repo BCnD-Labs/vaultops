@@ -97,14 +97,12 @@ it("offers every color setting with a label", async () => {
 		expect(screen.getByLabelText(label)).toBeTruthy();
 });
 
-it("has an Updates block with the update check under General, beside the version", async () => {
+it("has an Updates block with the update button under General, beside the version", async () => {
 	render(<SettingsScreen host={new MemoryHost()} />);
 	await userEvent.click(screen.getByRole("button", { name: "General" }));
 	expect(screen.getByText("Version")).toBeTruthy();
 	expect(screen.getByRole("heading", { name: "Updates" })).toBeTruthy();
-	expect(
-		screen.getByRole("button", { name: "Check for updates" }),
-	).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Update VaultOps" })).toBeTruthy();
 });
 
 it("picks the editor font and the heading font apart from the theme", async () => {

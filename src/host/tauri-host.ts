@@ -65,8 +65,7 @@ export const tauriHost: Host = {
 	chooseReportsFolder: () => call<string | null>("choose_reports_folder"),
 	reportsFolder: () => call<string | null>("reports_folder"),
 	writeReport: (name, text) => call<void>("write_report", { name, text }),
-	startUpdateScript: (channel) =>
-		call<void>("start_update_script", { channel }),
+	startUpdateScript: () => call<void>("start_update_script"),
 	updateScriptStatus: () => call<UpdateScriptStatus>("update_script_status"),
 	buildInfo: () => call<BuildInfo>("build_info"),
 	updateChannels: () => call<UpdateChannels>("update_channels"),

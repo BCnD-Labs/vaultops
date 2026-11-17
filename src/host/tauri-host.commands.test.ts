@@ -68,7 +68,7 @@ describe("tauriHost app files, log and window", () => {
 			tauriHost.chooseReportsFolder(),
 			tauriHost.reportsFolder(),
 			tauriHost.writeReport("r.txt", "x"),
-			tauriHost.startUpdateScript("main"),
+			tauriHost.startUpdateScript(),
 			tauriHost.updateScriptStatus(),
 			tauriHost.buildInfo(),
 			tauriHost.updateChannels(),

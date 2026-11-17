@@ -46,9 +46,9 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 				state: "idle",
 				lastLine: "",
 			});
-			await host.startUpdateScript("main");
+			await host.startUpdateScript();
 			expect((await host.updateScriptStatus()).state).toBe("running");
-			await expectCode(host.startUpdateScript("develop"), "io");
+			await expectCode(host.startUpdateScript(), "io");
 		});
 
 		it("reads the end of the log", async () => {

@@ -107,7 +107,7 @@ describe("readOnlyHost pass-through", () => {
 		await host.appendLog("l");
 		await host.writeAppFile("session.json", "{}");
 		await host.writeReport("r.txt", "t");
-		await host.startUpdateScript("develop");
+		await host.startUpdateScript();
 		expect(await host.updateScriptStatus()).toEqual({
 			state: "idle",
 			lastLine: "",
@@ -130,7 +130,7 @@ describe("readOnlyHost pass-through", () => {
 			["appendLog", ["l"]],
 			["writeAppFile", ["session.json", "{}"]],
 			["writeReport", ["r.txt", "t"]],
-			["startUpdateScript", ["develop"]],
+			["startUpdateScript", []],
 			["updateScriptStatus", []],
 			["buildInfo", []],
 			["updateChannels", []],

@@ -134,31 +134,9 @@ fn shell_from(var: Option<&str>) -> String {
     }
 }
 
-/// A channel name from the window, checked against [`CHANNELS`] exactly (no
-/// trimming, no case folding). Returns the allowlisted `&'static str`, so only
-/// one of the two fixed names can ever go on.
-pub fn channel_from(name: &str) -> Result<&'static str, HostError> {
-    CHANNELS
-        .iter()
-        .copied()
-        .find(|c| *c == name)
-        .ok_or_else(|| {
-            HostError::new(
-                ErrorCode::InvalidPath,
-                "the update channel must be main or develop",
-            )
-        })
-}
-
-/// The command that runs the script in `root` for one channel. The shell text is
-/// fixed: the channel never becomes part of it. It is handed over as the shell's
-/// own positional parameter (`$1`, the argument after the `vaultops` name that
-/// fills `$0`), so no shell text is ever built from it.
-pub fn script_command_with(
-    root: &Path,
-    shell: &str,
-    channel: &'static str,
-) -> Result<Command, HostError> {
+/// The command that runs the script in `root`. The command text is fixed: nothing
+/// from the window ever reaches it.
+pub fn script_command_with(root: &Path, shell: &str) -> Result<Command, HostError> {
     if !root.join(SCRIPT).is_file() {
         return Err(HostError::new(
             ErrorCode::NotFound,
@@ -166,21 +144,15 @@ pub fn script_command_with(
         ));
     }
     let mut command = Command::new(shell);
-    command.current_dir(root).args([
-        "-l",
-        "-i",
-        "-c",
-        r#"exec bash scripts/install-vaultops.sh --branch "$1""#,
-        "vaultops",
-        channel,
-    ]);
+    command
+        .current_dir(root)
+        .args(["-l", "-i", "-c", "exec bash scripts/install-vaultops.sh"]);
     Ok(command)
 }
 
-pub fn script_command(root: &Path, channel: &str) -> Result<Command, HostError> {
-    let channel = channel_from(channel)?;
+pub fn script_command(root: &Path) -> Result<Command, HostError> {
     let shell = std::env::var("SHELL").ok();
-    script_command_with(root, &shell_from(shell.as_deref()), channel)
+    script_command_with(root, &shell_from(shell.as_deref()))
 }
 
 fn spawn(command: &mut Command, log_dir: &Path) -> io::Result<Child> {
@@ -482,60 +454,20 @@ mod tests {
         let tmp = TempDir::new();
         fs::create_dir(tmp.path().join("scripts")).unwrap();
         fs::write(tmp.path().join(SCRIPT), "#!/usr/bin/env bash\n").unwrap();
-        let command = script_command_with(tmp.path(), "/bin/zsh", "develop").unwrap();
+        let command = script_command_with(tmp.path(), "/bin/zsh").unwrap();
         assert_eq!(command.get_program(), "/bin/zsh");
         let args: Vec<_> = command.get_args().collect();
-        // The shell text is fixed; the channel is its own last argument ($1).
         assert_eq!(
             args,
-            [
-                "-l",
-                "-i",
-                "-c",
-                r#"exec bash scripts/install-vaultops.sh --branch "$1""#,
-                "vaultops",
-                "develop",
-            ]
+            ["-l", "-i", "-c", "exec bash scripts/install-vaultops.sh"]
         );
         assert_eq!(command.get_current_dir(), Some(tmp.path()));
     }
 
     #[test]
-    fn only_main_and_develop_are_accepted_as_a_channel() {
-        assert_eq!(channel_from("main").unwrap(), "main");
-        assert_eq!(channel_from("develop").unwrap(), "develop");
-        for bad in [
-            "",
-            "Main",
-            "DEVELOP",
-            " main",
-            "main ",
-            "main; rm -rf ~",
-            "../x",
-            "develop\n",
-            "main\0",
-            "origin/main",
-            "--no-pull",
-        ] {
-            let error = channel_from(bad).unwrap_err();
-            assert_eq!(error.code, ErrorCode::InvalidPath, "{bad:?}");
-        }
-    }
-
-    #[test]
-    fn a_refused_channel_builds_no_command() {
-        // The real script is there, so only the channel can be what is refused.
-        for bad in ["", "Main", "main; rm -rf ~", "../x", "develop\n"] {
-            let error = script_command(&checkout_root(), bad).unwrap_err();
-            assert_eq!(error.code, ErrorCode::InvalidPath, "{bad:?}");
-        }
-        assert!(script_command(&checkout_root(), "main").is_ok());
-    }
-
-    #[test]
     fn a_missing_script_is_a_plain_error() {
         let tmp = TempDir::new();
-        let error = script_command_with(tmp.path(), "/bin/zsh", "main").unwrap_err();
+        let error = script_command_with(tmp.path(), "/bin/zsh").unwrap_err();
         assert_eq!(error.code, ErrorCode::NotFound);
         assert!(!error.message.contains('/'));
     }

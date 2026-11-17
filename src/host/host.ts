@@ -40,9 +40,6 @@ export interface UpdateChannel {
 	subject: string;
 }
 
-/** The only two branches the updater can install, matching the Rust allowlist. */
-export type UpdateChannelName = "main" | "develop";
-
 export interface UpdateChannels {
 	main: UpdateChannel;
 	develop: UpdateChannel;
@@ -166,15 +163,13 @@ export interface Host {
 	writeReport(name: string, text: string): Promise<void>;
 
 	/**
-	 * STOPGAP(update-script): run the maintainer's install script (check out and
-	 * pull the newest `channel`, build, install, reopen) from the code folder this
-	 * app was built from. The window sends only the channel, which the host checks
-	 * against the same two fixed names; which script runs is decided by the host.
-	 * Fails with `io` while a run is going, `not-found` when the script is missing
-	 * and `invalid-path` for any other channel. `updateScriptStatus` is read-only
-	 * and safe to poll.
+	 * STOPGAP(update-script): run the maintainer's install script (pull the newest
+	 * `main`, build, install, reopen) from the code folder this app was built from.
+	 * The window sends nothing: which script runs is decided by the host. Fails
+	 * with `io` while a run is going and `not-found` when the script is missing.
+	 * `updateScriptStatus` is read-only and safe to poll.
 	 */
-	startUpdateScript(channel: UpdateChannelName): Promise<void>;
+	startUpdateScript(): Promise<void>;
 	updateScriptStatus(): Promise<UpdateScriptStatus>;
 	/** STOPGAP(update-script): the branch and commit this app was built from. */
 	buildInfo(): Promise<BuildInfo>;

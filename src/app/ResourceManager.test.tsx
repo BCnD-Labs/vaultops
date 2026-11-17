@@ -17,6 +17,15 @@ import {
 import { openVault } from "../core/vault/vault";
 import { MemoryHost } from "../host/memory-host";
 import { ResourceManager } from "./ResourceManager";
+import { TypeRemovalDialog } from "./resources/RemoveDialogs";
+
+// Radix Select needs pointer-capture and scrolling APIs that happy-dom lacks.
+Object.assign(Element.prototype, {
+	hasPointerCapture: () => false,
+	setPointerCapture: () => {},
+	releasePointerCapture: () => {},
+	scrollIntoView: () => {},
+});
 
 const notify = vi.hoisted(() => vi.fn());
 vi.mock("../ui/notify", () => ({ notify }));
@@ -428,7 +437,10 @@ it("deleting a type can move its cards to another type", async () => {
 			name: /Move the cards to another type/,
 		}),
 	);
-	await u.selectOptions(within(dialog).getByLabelText("Move cards to"), "Book");
+	await u.click(
+		within(dialog).getByRole("combobox", { name: "Move cards to" }),
+	);
+	await u.click(await screen.findByRole("option", { name: "Book" }));
 	await u.click(within(dialog).getByRole("button", { name: "Delete type" }));
 	await waitFor(() =>
 		expect(notify).toHaveBeenCalledWith(
@@ -516,4 +528,93 @@ it("keeps a failed save inline as an alert and does not toast it", async () => {
 	const alert = await screen.findByRole("alert");
 	expect(alert.textContent).toContain("disk full");
 	expect(notify).not.toHaveBeenCalled();
+});
+
+it("moves between the removal choices with the arrow keys", async () => {
+	const u = user();
+	await setup(async (h) => addContact(h, "Mara", { Phone: "555 0100" }));
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	await u.click(within(nav).getByRole("button", { name: /^Contact/ }));
+	await u.click(screen.getByRole("button", { name: "Edit type and fields" }));
+	await u.click(screen.getByRole("button", { name: "Remove Phone" }));
+	const dialog = await screen.findByRole("dialog", {
+		name: /Remove "Phone" from Contact/,
+	});
+	const group = within(dialog).getByRole("radiogroup", {
+		name: "What happens to the values",
+	});
+	const keep = within(group).getByRole("radio", { name: /Keep the values/ });
+	const drop = within(group).getByRole("radio", {
+		name: /Remove the values too/,
+	});
+	expect(keep.getAttribute("aria-checked")).toBe("true");
+	keep.focus();
+	// Radix moves focus on a timer and only checks it while the key is held.
+	await u.keyboard("{ArrowDown>}");
+	await waitFor(() => expect(drop.getAttribute("aria-checked")).toBe("true"));
+	await u.keyboard("{/ArrowDown}");
+	expect(keep.getAttribute("aria-checked")).toBe("false");
+	await u.keyboard("{ArrowUp>}");
+	await waitFor(() => expect(keep.getAttribute("aria-checked")).toBe("true"));
+	await u.keyboard("{/ArrowUp}");
+});
+
+it("keeps Delete type disabled until a target type is picked", async () => {
+	const u = user();
+	const types = await loadTypes(
+		await (async () => {
+			const host = new MemoryHost();
+			await openVault(host);
+			return host;
+		})(),
+	);
+	const onConfirm = vi.fn();
+	render(
+		<TypeRemovalDialog
+			removal={{ typeId: "contact", cards: 2, choice: "move", target: "" }}
+			types={types}
+			onChange={() => {}}
+			onCancel={() => {}}
+			onConfirm={onConfirm}
+		/>,
+	);
+	const dialog = await screen.findByRole("dialog");
+	const del = within(dialog).getByRole("button", { name: "Delete type" });
+	expect(del).toHaveProperty("disabled", true);
+	cleanup();
+	render(
+		<TypeRemovalDialog
+			removal={{ typeId: "contact", cards: 2, choice: "move", target: "book" }}
+			types={types}
+			onChange={() => {}}
+			onCancel={() => {}}
+			onConfirm={onConfirm}
+		/>,
+	);
+	const again = within(await screen.findByRole("dialog")).getByRole("button", {
+		name: "Delete type",
+	});
+	expect(again).toHaveProperty("disabled", false);
+	await u.click(again);
+	expect(onConfirm).toHaveBeenCalled();
+});
+
+it("shows a long field as a textarea and saves what is typed", async () => {
+	const u = user();
+	const { host } = await setup();
+	await u.click(await screen.findByRole("button", { name: /New resource/ }));
+	await u.click(screen.getByRole("button", { name: /^Contact\s*Needs only/ }));
+	await u.type(screen.getByLabelText(/^Name/), "Priya");
+	await u.click(screen.getByRole("button", { name: /Add more details/ }));
+	const notes = screen.getByLabelText(/^Notes/);
+	expect(notes.tagName).toBe("TEXTAREA");
+	expect(notes.getAttribute("data-slot")).toBe("textarea");
+	await u.type(notes, "Met at the fair");
+	await u.click(screen.getByRole("button", { name: "Save card" }));
+	await waitFor(async () =>
+		expect((await listCards(host))[0]?.props.Notes).toEqual({
+			type: "text",
+			value: "Met at the fair",
+		}),
+	);
 });

@@ -1,3 +1,8 @@
+import {
+	contrastRatio,
+	hexToHsl,
+	hslToHex,
+} from "../components/ui/color-utils";
 import { applyFonts, loadFontChoice } from "./fonts";
 import { applyCustomCss, applyStyle, loadStyle } from "./style-tokens";
 import { applyTheme, loadThemeChoice, type ThemeChoice } from "./themes";
@@ -357,8 +362,6 @@ export function applyInterface(root: HTMLElement, prefs: InterfacePrefs) {
 		if (value) root.style.setProperty(name, value);
 		else root.style.removeProperty(name);
 	};
-	set("--primary", prefs.accent);
-	set("--ring", prefs.accent);
 	set("--size-ui", prefs.uiSize && `${prefs.uiSize}px`);
 	set("--editor-line-height", prefs.lineHeight);
 	set("--motion-fast", prefs.reduceMotion ? "0ms" : null);
@@ -370,6 +373,94 @@ export function applyInterface(root: HTMLElement, prefs: InterfacePrefs) {
 	root.toggleAttribute("data-hide-code-wrap", !prefs.codeWrapOption);
 	root.toggleAttribute("data-hide-code-highlight", !prefs.codeLineHighlight);
 	root.setAttribute("spellcheck", String(prefs.spellcheck));
+}
+
+/** Least contrast a filled accent needs against the window background. */
+const ACCENT_MIN_CONTRAST = 3;
+/** Least contrast the text on a filled accent needs. */
+const ON_ACCENT_MIN_CONTRAST = 4.5;
+const ON_ACCENT_LIGHT = "#ffffff";
+const ON_ACCENT_DARK = "#0b0b0b";
+const ACCENT_STEP = 0.02;
+const ACCENT_MAX_STEPS = 50;
+
+export interface AccentColors {
+	primary: string;
+	primaryForeground: string;
+	/** True when `primary` is not the color the user picked. */
+	adjusted: boolean;
+}
+
+/** Whichever of white or near-black reads better on the color. */
+function onAccent(primary: string): string {
+	return contrastRatio(primary, ON_ACCENT_LIGHT) >=
+		contrastRatio(primary, ON_ACCENT_DARK)
+		? ON_ACCENT_LIGHT
+		: ON_ACCENT_DARK;
+}
+
+/**
+ * The accent to show on a given background. A chosen accent that is too close
+ * to the background (under 3:1) is stepped lighter on a dark background and
+ * darker on a light one, keeping its hue, until it can be seen and its button
+ * text reaches 4.5:1. The user's stored choice is never changed.
+ */
+export function accentForBackground(
+	accent: string,
+	background: string,
+): AccentColors {
+	const start = hexToHsl(accent);
+	const towardWhite =
+		contrastRatio(background, ON_ACCENT_LIGHT) >
+		contrastRatio(background, ON_ACCENT_DARK);
+	let primary = accent;
+	for (let step = 0; step <= ACCENT_MAX_STEPS; step++) {
+		const l = Math.min(
+			1,
+			Math.max(0, start.l + (towardWhite ? 1 : -1) * step * ACCENT_STEP),
+		);
+		primary = step === 0 ? accent : hslToHex({ ...start, l });
+		const foreground = onAccent(primary);
+		if (
+			contrastRatio(primary, background) >= ACCENT_MIN_CONTRAST &&
+			contrastRatio(primary, foreground) >= ON_ACCENT_MIN_CONTRAST
+		)
+			return { primary, primaryForeground: foreground, adjusted: step > 0 };
+	}
+	return { primary, primaryForeground: onAccent(primary), adjusted: true };
+}
+
+/** The one-line Settings note for an adjusted accent, or null when it is shown as picked. */
+export function accentNote(
+	accent: string | null,
+	mode: ModeName,
+	background: string,
+): string | null {
+	if (!accent || !accentForBackground(accent, background).adjusted) return null;
+	return mode === "dark"
+		? "Too dark to see in dark mode, so a lighter shade is used here."
+		: "Too light to see in light mode, so a darker shade is used here.";
+}
+
+/**
+ * Set the accent (`--primary`, its text and the focus ring) inline on the root,
+ * adjusted so it stays readable on this mode's background. No accent means the
+ * theme's own. Run after the theme and its overrides are applied, so the
+ * background it reads is the final one.
+ */
+export function applyAccent(
+	root: Pick<HTMLElement, "style">,
+	accent: string | null,
+	background: string,
+) {
+	const colors = accent ? accentForBackground(accent, background) : null;
+	const set = (name: string, value: string | undefined) => {
+		if (value) root.style.setProperty(name, value);
+		else root.style.removeProperty(name);
+	};
+	set("--primary", colors?.primary);
+	set("--primary-foreground", colors?.primaryForeground);
+	set("--ring", colors?.primary);
 }
 
 /** Apply the stored theme, mode and colors to the window. */
@@ -389,6 +480,8 @@ export function refreshAppearance(root: HTMLElement) {
 			? stored["themes.customCss"]
 			: "",
 	);
+	// Last, so the background it reads is the one every override has settled.
+	applyAccent(root, loadInterface().accent, currentColor("--background", root));
 }
 
 /** Apply at startup and follow the system light/dark setting while mode is System. */

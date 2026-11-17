@@ -206,6 +206,10 @@ body {
 [data-slot="button"]:active::after {
 	opacity: var(--pressed-layer);
 }
+/* A link button changes by underline, not by a tinted layer. */
+[data-slot="button"][data-variant="link"]::after {
+	display: none;
+}
 
 .app-shell {
 	display: grid;

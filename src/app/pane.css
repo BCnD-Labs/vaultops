@@ -1299,30 +1299,18 @@ input.canvas-item-field {
 	font-weight: 500;
 	color: var(--muted-foreground);
 }
-.settings-close {
+/* The title bar's close button: only its place here, the look is the shared
+   Button (ghost, icon-sm). The selector is strong enough to win over the
+   settings window's outlined button rule below. */
+.settings-titlebar [data-slot="button"].settings-close {
 	position: absolute;
-	left: 14px;
+	left: 10px;
 	top: 50%;
 	translate: 0 -50%;
-	display: grid;
-	place-items: center;
-	width: 14px;
-	height: 14px;
-	padding: 0;
-	border: 0;
-	border-radius: var(--radius-pill, 100vmax);
-	background: var(--destructive);
-	color: transparent;
-	cursor: pointer;
-}
-.settings-close svg {
-	width: 10px;
-	height: 10px;
-	stroke-width: 3;
-}
-.settings-close:hover,
-.settings-close:focus-visible {
-	color: var(--background);
+	height: var(--control-height-sm);
+	padding-inline: 0;
+	border-color: transparent;
+	color: var(--muted-foreground);
 }
 .settings-body {
 	flex: 1;
@@ -1384,16 +1372,7 @@ input.canvas-item-field {
 
 /* Controls in the settings window: simple outlined buttons with room around
    them, in the chosen theme's colors. The chosen choice gets a tinted fill. */
-.settings-window [data-slot="button"] {
-	height: var(--control-height);
-	padding-inline: 14px;
-	border: var(--border-width) solid var(--border);
-	border-radius: var(--radius-control);
-	background: transparent;
-	color: var(--foreground);
-	font-weight: 400;
-	box-shadow: none;
-}
+/* Settings buttons use the shared Button variants (no local look). */
 .settings-window [data-slot="toggle-group"] {
 	flex-wrap: wrap;
 	justify-content: flex-end;

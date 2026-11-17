@@ -1,14 +1,18 @@
 /* The template picker beside the caret, and the template manager. */
-.template-picker {
-	position: fixed;
-	z-index: 30;
+/* Placement, z-index, collisions and dismissal come from the Popover. The
+   doubled class beats the popover's default width, padding and surface. */
+.template-picker.template-picker {
 	box-sizing: border-box;
 	width: 22rem;
 	--template-picker-max-height: 24rem;
-	max-height: var(--template-picker-max-height);
+	max-height: min(
+		var(--radix-popover-content-available-height),
+		var(--template-picker-max-height)
+	);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	padding: 0;
 	background: var(--surface);
 	color: var(--foreground);
 	border: var(--border-width) solid var(--border);

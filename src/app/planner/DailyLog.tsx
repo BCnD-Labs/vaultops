@@ -268,10 +268,10 @@ export function DailyLog({
 						/>
 						<div className="log-links">
 							{choices.map((t) => (
-								<button
+								<Button
 									key={t.target}
-									type="button"
-									className="note-link-chip"
+									variant="soft"
+									size="sm"
 									onClick={() => {
 										setPending([...pending, t]);
 										setQuery("");
@@ -279,7 +279,7 @@ export function DailyLog({
 								>
 									{t.label}
 									{t.hint ? ` (${t.hint})` : ""}
-								</button>
+								</Button>
 							))}
 						</div>
 					</div>
@@ -287,15 +287,15 @@ export function DailyLog({
 				{pending.length > 0 && (
 					<div className="log-links">
 						{pending.map((l) => (
-							<button
+							<Button
 								key={l.target}
-								type="button"
-								className="note-link-chip"
+								variant="soft"
+								size="sm"
 								aria-label={`Remove link to ${l.label}`}
 								onClick={() => setPending(pending.filter((p) => p !== l))}
 							>
 								{l.label} ×
-							</button>
+							</Button>
 						))}
 					</div>
 				)}
@@ -342,15 +342,15 @@ export function DailyLog({
 								{e.links.length > 0 && (
 									<span className="log-links">
 										{e.links.map((l) => (
-											<button
+											<Button
 												key={l.target}
-												type="button"
-												className="note-link-chip"
+												variant="soft"
+												size="sm"
 												onClick={() => onOpenLink?.(l)}
 											>
 												{linkTargets.find((t) => t.target === l.target)
 													?.label ?? l.label}
-											</button>
+											</Button>
 										))}
 									</span>
 								)}

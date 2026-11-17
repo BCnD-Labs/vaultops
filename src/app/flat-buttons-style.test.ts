@@ -33,7 +33,6 @@ const flat = [
 	".tpl-row",
 	".note-list button",
 	'[data-slot="tabs-trigger"]',
-	".plan-checkin-slot",
 ];
 
 it("never applies the raised look to buttons or selected rows in Refined", () => {
@@ -42,8 +41,6 @@ it("never applies the raised look to buttons or selected rows in Refined", () =>
 		.filter((r) =>
 			/raise-shadow|raise-edge|raised-control|box-shadow/.test(r.body),
 		)
-		// The coloured "done" ring on a check-in slot is state, not elevation.
-		.filter((r) => !r.selector.includes("[data-done]"))
 		.map((r) => r.selector);
 	expect(bad).toEqual([]);
 });
@@ -52,10 +49,9 @@ it("shows every selected row and segment in Refined as the one soft tint", () =>
 	const selected = refined.filter(
 		(r) =>
 			r.selector.endsWith('.note-list button[aria-current="true"]') ||
-			r.selector.includes('[data-state="active"][data-slot="tabs-trigger"]') ||
-			r.selector.includes(".plan-checkin-slot[data-current]"),
+			r.selector.includes('[data-state="active"][data-slot="tabs-trigger"]'),
 	);
-	expect(selected.length).toBeGreaterThanOrEqual(3);
+	expect(selected.length).toBeGreaterThanOrEqual(2);
 	for (const r of selected)
 		expect(r.body).toContain("background: var(--row-raised)");
 });

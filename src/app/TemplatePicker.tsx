@@ -102,6 +102,9 @@ export function TemplatePicker({
 								The templates could not be read.
 							</p>
 						)}
+						{entries === null && !failed && (
+							<p className="template-picker-note">Loading templates…</p>
+						)}
 						{entries !== null && entries.length === 0 && !failed && (
 							<p className="template-picker-note">
 								No templates yet. Save a note as a template, or add one in the

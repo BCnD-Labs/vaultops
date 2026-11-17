@@ -34,6 +34,7 @@ import {
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import { NoteEditor } from "../editor/NoteEditor";
 import type { Host } from "../host/host";
+import { notify } from "../ui/notify";
 import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import type { NoteRow } from "./session";
 import { templateFormats } from "./settings";
@@ -73,7 +74,7 @@ export function TemplateManager({
 }) {
 	const [list, setList] = useState<TemplateList | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const [message, setMessage] = useState<string | null>(null);
+	const [problem, setProblem] = useState<string | null>(null);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [folder, setFolder] = useState("");
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -108,7 +109,7 @@ export function TemplateManager({
 
 	useEffect(() => {
 		if (!open) return;
-		setMessage(null);
+		setProblem(null);
 		setPreview(null);
 		void refresh();
 	}, [open, refresh]);
@@ -135,7 +136,7 @@ export function TemplateManager({
 		if (folderLabel !== undefined) setFolder(folderLabel);
 		setDirty(false);
 		setPreview(null);
-		setMessage(null);
+		setProblem(null);
 		edited.current = null;
 		setRevision((n) => n + 1);
 	};
@@ -154,10 +155,10 @@ export function TemplateManager({
 		try {
 			await updateTemplate(host, entry.path, docToBlocks(edited.current));
 			setDirty(false);
-			setMessage("Saved.");
+			notify(`Saved "${entry.label}".`);
 			await refresh();
 		} catch (error) {
-			setMessage(messageOf(error));
+			setProblem(messageOf(error));
 		} finally {
 			setSaving(false);
 		}
@@ -218,6 +219,7 @@ export function TemplateManager({
 			} else {
 				const result = await renameTemplateEntry(host, prompt.path, name);
 				setPrompt(null);
+				notify(`Renamed "${prompt.initial}" to "${name}".`);
 				const moved =
 					selected === prompt.path
 						? result.path
@@ -233,23 +235,30 @@ export function TemplateManager({
 
 	const duplicate = async (path: string) => {
 		try {
+			const label = list?.templates.find((t) => t.path === path)?.label;
 			const result = await duplicateTemplate(host, path);
 			await reload(result.path);
+			notify(label ? `Duplicated "${label}".` : "Duplicated the template.");
 		} catch (error) {
-			setMessage(messageOf(error));
+			setProblem(messageOf(error));
 		}
 	};
 
 	const remove = async () => {
 		if (!removing) return;
-		const { path } = removing;
+		const { path, name, isFolder } = removing;
 		setRemoving(null);
 		try {
 			await removeTemplateEntry(host, path);
 			const gone = selected === path || selected?.startsWith(`${path}/`);
 			await reload(gone ? null : selected);
+			notify(
+				isFolder
+					? `Moved the folder "${name}" and its templates to the recovery folder.`
+					: `Moved "${name}" to the recovery folder.`,
+			);
 		} catch (error) {
-			setMessage(messageOf(error));
+			setProblem(messageOf(error));
 		}
 	};
 
@@ -479,6 +488,11 @@ export function TemplateManager({
 						{loadError}
 					</p>
 				)}
+				{problem && (
+					<p role="alert" className="tpl-error">
+						{problem}
+					</p>
+				)}
 				<div className="tpl-body">
 					<div className="tpl-side">
 						<Input
@@ -490,6 +504,9 @@ export function TemplateManager({
 						<nav aria-label="Templates" className="tpl-nav">
 							<ul className="tpl-tree">{renderLevel("")}</ul>
 						</nav>
+						{list === null && !loadError && (
+							<p className="manager-empty">Loading templates…</p>
+						)}
 						{empty && (
 							<p className="manager-empty">
 								No templates yet. Add one with New template, or save a note as a
@@ -528,7 +545,7 @@ export function TemplateManager({
 											onChange={(doc) => {
 												edited.current = doc;
 												setDirty(true);
-												setMessage(null);
+												setProblem(null);
 											}}
 										/>
 									</div>
@@ -562,11 +579,6 @@ export function TemplateManager({
 										</Button>
 									)}
 									{dirty && <span className="tpl-note">Unsaved changes</span>}
-									{message && (
-										<span role="status" className="tpl-note">
-											{message}
-										</span>
-									)}
 								</div>
 								<div className="tpl-context">
 									<strong>Preview context</strong>

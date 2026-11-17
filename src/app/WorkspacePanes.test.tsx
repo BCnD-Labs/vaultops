@@ -97,6 +97,28 @@ it("a single pane has one tab strip and shows the open note", async () => {
 	).toBeNull();
 });
 
+it("each pane's frame holds its title bar and note, and its tab strip floats above it", async () => {
+	const { run, a, b, menu, left } = await setup();
+	await run(() => api.open(a));
+	await run(() => api.open(b));
+	await menu(left().getByRole("tab", { name: "Alpha" }), "Split view");
+	await screen.findByRole("heading", { name: "Beta" });
+	const columns = [...document.querySelectorAll(".workspace-pane")];
+	expect(columns).toHaveLength(2);
+	for (const column of columns) {
+		const frame = column.querySelector(":scope > .pane-frame") as HTMLElement;
+		const strip = column.querySelector(":scope > .tab-bar") as HTMLElement;
+		expect(frame).toBeTruthy();
+		// The strip is a sibling above the frame, not inside it.
+		expect(frame.contains(strip)).toBe(false);
+		expect(
+			strip.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(frame.querySelector('[data-testid^="title-"]')).toBeTruthy();
+		expect(frame.querySelector(".pane")).toBeTruthy();
+	}
+});
+
 it("picking a tab shows that note", async () => {
 	const { run, a, b, left } = await setup();
 	await run(() => api.open(a));

@@ -12,12 +12,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -40,6 +34,7 @@ import {
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import { NoteEditor } from "../editor/NoteEditor";
 import type { Host } from "../host/host";
+import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import type { NoteRow } from "./session";
 import { templateFormats } from "./settings";
 import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
@@ -52,8 +47,6 @@ type Prompt =
 
 const parentOf = (label: string) =>
 	label.includes("/") ? label.slice(0, label.lastIndexOf("/")) : "";
-const messageOf = (error: unknown) =>
-	error instanceof Error ? error.message : String(error);
 
 /**
  * The template manager: every template in a folder tree with a search box, an
@@ -93,7 +86,6 @@ export function TemplateManager({
 		name: string;
 		isFolder: boolean;
 	} | null>(null);
-	const [discard, setDiscard] = useState<(() => void) | null>(null);
 	const [preview, setPreview] = useState<JSONContent | null>(null);
 	const [previewKey, setPreviewKey] = useState(0);
 	const [contextQuery, setContextQuery] = useState("");
@@ -126,10 +118,14 @@ export function TemplateManager({
 		entry?.note && readable?.ok ? blocksToDoc(entry.note.blocks) : null;
 
 	// Anything that would drop typed edits asks first.
-	const guard = (action: () => void) => {
-		if (dirty) setDiscard(() => action);
-		else action();
-	};
+	const { guard, dialog: discardDialog } = useDiscardGuard(dirty, {
+		title: "Discard your changes?",
+		description:
+			"This template has edits you haven't saved. Going on will drop them.",
+		confirmLabel: "Discard changes",
+		cancelLabel: "Keep editing",
+		onDiscard: () => setDirty(false),
+	});
 
 	const choose = (path: string | null, folderLabel?: string) => {
 		setSelected(path);
@@ -433,187 +429,177 @@ export function TemplateManager({
 
 	return (
 		<>
-			<Dialog
+			<ManagerDialog
 				open={open}
-				onOpenChange={(next) => {
-					if (!next) guard(onClose);
-				}}
+				onRequestClose={() => guard(onClose)}
+				className="tpl-manager"
+				title="Template manager"
+				description="Add, edit, organise and preview templates for new content."
+				descriptionId="tpl-manager-about"
 			>
-				<DialogContent
-					className="tpl-manager"
-					lightOverlay
-					aria-describedby="tpl-manager-about"
-				>
-					<DialogTitle>Template manager</DialogTitle>
-					<DialogDescription id="tpl-manager-about" className="sr-only">
-						Add, edit, organise and preview templates for new content.
-					</DialogDescription>
-					<div className="tpl-toolbar">
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={!writable}
-							onClick={() =>
-								guard(() => setPrompt({ kind: "new-template", folder }))
-							}
-						>
-							<Plus aria-hidden="true" /> New template
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={!writable}
-							onClick={() =>
-								guard(() => setPrompt({ kind: "new-folder", folder }))
-							}
-						>
-							<FolderPlus aria-hidden="true" /> New folder
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => guard(() => void reload())}
-						>
-							<RefreshCw aria-hidden="true" /> Refresh
-						</Button>
+				<div className="tpl-toolbar">
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!writable}
+						onClick={() =>
+							guard(() => setPrompt({ kind: "new-template", folder }))
+						}
+					>
+						<Plus aria-hidden="true" /> New template
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={!writable}
+						onClick={() =>
+							guard(() => setPrompt({ kind: "new-folder", folder }))
+						}
+					>
+						<FolderPlus aria-hidden="true" /> New folder
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => guard(() => void reload())}
+					>
+						<RefreshCw aria-hidden="true" /> Refresh
+					</Button>
+				</div>
+				{!writable && (
+					<p className="tpl-note">
+						This vault is read-only, so templates can only be viewed.
+					</p>
+				)}
+				{loadError && (
+					<p role="alert" className="tpl-error">
+						{loadError}
+					</p>
+				)}
+				<div className="tpl-body">
+					<div className="tpl-side">
+						<Input
+							aria-label="Search templates by name or path"
+							placeholder="Search templates by name or path"
+							value={query}
+							onChange={(event) => setQuery(event.target.value)}
+						/>
+						<nav aria-label="Templates" className="tpl-nav">
+							<ul className="tpl-tree">{renderLevel("")}</ul>
+						</nav>
+						{empty && (
+							<p className="tpl-note">
+								No templates yet. Add one with New template, or save a note as a
+								template from its menu.
+							</p>
+						)}
 					</div>
-					{!writable && (
-						<p className="tpl-note">
-							This vault is read-only, so templates can only be viewed.
-						</p>
-					)}
-					{loadError && (
-						<p role="alert" className="tpl-error">
-							{loadError}
-						</p>
-					)}
-					<div className="tpl-body">
-						<div className="tpl-side">
-							<Input
-								aria-label="Search templates by name or path"
-								placeholder="Search templates by name or path"
-								value={query}
-								onChange={(event) => setQuery(event.target.value)}
-							/>
-							<nav aria-label="Templates" className="tpl-nav">
-								<ul className="tpl-tree">{renderLevel("")}</ul>
-							</nav>
-							{empty && (
-								<p className="tpl-note">
-									No templates yet. Add one with New template, or save a note as
-									a template from its menu.
-								</p>
-							)}
-						</div>
-						<div className="tpl-main">
-							{!entry && (
-								<div className="tpl-empty">
-									<p className="tpl-note">Choose a template to edit it.</p>
+					<div className="tpl-main">
+						{!entry && (
+							<div className="tpl-empty">
+								<p className="tpl-note">Choose a template to edit it.</p>
+							</div>
+						)}
+						{entry && (
+							<>
+								<div className="tpl-path">
+									<strong>{entry.label}</strong>
 								</div>
-							)}
-							{entry && (
-								<>
-									<div className="tpl-path">
-										<strong>{entry.label}</strong>
+								{entry.problem && (
+									<p role="alert" className="tpl-error">
+										{entry.problem}
+									</p>
+								)}
+								{entry.note && readable && !readable.ok && (
+									<p role="alert" className="tpl-error">
+										This template has {readable.reason}, which this version
+										can't edit, so it is shown read-only unchanged.
+									</p>
+								)}
+								{startDoc && (
+									<div className="tpl-editor">
+										<NoteEditor
+											key={`${entry.path}:${revision}`}
+											doc={startDoc}
+											editable={editable}
+											onChange={(doc) => {
+												edited.current = doc;
+												setDirty(true);
+												setMessage(null);
+											}}
+										/>
 									</div>
-									{entry.problem && (
-										<p role="alert" className="tpl-error">
-											{entry.problem}
-										</p>
-									)}
-									{entry.note && readable && !readable.ok && (
-										<p role="alert" className="tpl-error">
-											This template has {readable.reason}, which this version
-											can't edit, so it is shown read-only unchanged.
-										</p>
-									)}
-									{startDoc && (
-										<div className="tpl-editor">
-											<NoteEditor
-												key={`${entry.path}:${revision}`}
-												doc={startDoc}
-												editable={editable}
-												onChange={(doc) => {
-													edited.current = doc;
-													setDirty(true);
-													setMessage(null);
-												}}
-											/>
-										</div>
-									)}
-									<div className="tpl-actions">
-										{writable && (
-											<Button
-												size="sm"
-												disabled={!dirty || saving || !editable}
-												onClick={() => void save()}
-											>
-												Save
-											</Button>
-										)}
+								)}
+								<div className="tpl-actions">
+									{writable && (
 										<Button
 											size="sm"
-											variant="outline"
-											disabled={!entry.note}
-											onClick={showPreview}
+											disabled={!dirty || saving || !editable}
+											onClick={() => void save()}
 										>
-											Preview template
+											Save
 										</Button>
-										{dirty && <span className="tpl-note">Unsaved changes</span>}
-										{message && (
-											<span role="status" className="tpl-note">
-												{message}
-											</span>
-										)}
-									</div>
-									<div className="tpl-context">
-										<strong>Preview context</strong>
-										<p className="tpl-note">
-											Fills in {"{{title}}"}, {"{{date}}"} and {"{{time}}"}{" "}
-											using the document you choose, without changing it.
-										</p>
-										<div className="tpl-context-pick">
-											<Input
-												aria-label="Search context documents"
-												placeholder="Search context documents"
-												value={contextQuery}
-												onChange={(event) =>
-													setContextQuery(event.target.value)
-												}
-											/>
-											<select
-												aria-label="Preview context"
-												value={contextPath}
-												onChange={(event) => setContextPath(event.target.value)}
-											>
-												<option value="">Untitled</option>
-												{contextMatches.map((n) => (
-													<option key={n.path} value={n.path}>
-														{n.title}
-													</option>
-												))}
-											</select>
-										</div>
-									</div>
-									{preview && (
-										<section
-											className="tpl-preview"
-											aria-label="Template preview"
-										>
-											<NoteEditor
-												key={previewKey}
-												doc={preview}
-												editable={false}
-												onChange={() => {}}
-											/>
-										</section>
 									)}
-								</>
-							)}
-						</div>
+									<Button
+										size="sm"
+										variant="outline"
+										disabled={!entry.note}
+										onClick={showPreview}
+									>
+										Preview template
+									</Button>
+									{dirty && <span className="tpl-note">Unsaved changes</span>}
+									{message && (
+										<span role="status" className="tpl-note">
+											{message}
+										</span>
+									)}
+								</div>
+								<div className="tpl-context">
+									<strong>Preview context</strong>
+									<p className="tpl-note">
+										Fills in {"{{title}}"}, {"{{date}}"} and {"{{time}}"} using
+										the document you choose, without changing it.
+									</p>
+									<div className="tpl-context-pick">
+										<Input
+											aria-label="Search context documents"
+											placeholder="Search context documents"
+											value={contextQuery}
+											onChange={(event) => setContextQuery(event.target.value)}
+										/>
+										<select
+											aria-label="Preview context"
+											value={contextPath}
+											onChange={(event) => setContextPath(event.target.value)}
+										>
+											<option value="">Untitled</option>
+											{contextMatches.map((n) => (
+												<option key={n.path} value={n.path}>
+													{n.title}
+												</option>
+											))}
+										</select>
+									</div>
+								</div>
+								{preview && (
+									<section
+										className="tpl-preview"
+										aria-label="Template preview"
+									>
+										<NoteEditor
+											key={previewKey}
+											doc={preview}
+											editable={false}
+											onChange={() => {}}
+										/>
+									</section>
+								)}
+							</>
+						)}
 					</div>
-				</DialogContent>
-			</Dialog>
+				</div>
+			</ManagerDialog>
 			<NameDialog
 				open={prompt !== null}
 				title={
@@ -650,20 +636,7 @@ export function TemplateManager({
 				onConfirm={() => void remove()}
 				onCancel={() => setRemoving(null)}
 			/>
-			<ConfirmDialog
-				open={discard !== null}
-				title="Discard your changes?"
-				description="This template has edits you haven't saved. Going on will drop them."
-				confirmLabel="Discard changes"
-				cancelLabel="Keep editing"
-				onConfirm={() => {
-					const action = discard;
-					setDiscard(null);
-					setDirty(false);
-					action?.();
-				}}
-				onCancel={() => setDiscard(null)}
-			/>
+			{discardDialog}
 		</>
 	);
 }

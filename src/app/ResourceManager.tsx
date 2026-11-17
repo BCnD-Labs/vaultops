@@ -39,6 +39,7 @@ import {
 	updateCard,
 } from "../core/resources/resources";
 import type { Host } from "../host/host";
+import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import { ConfirmDialog } from "./TemplateDialogs";
 import "./resources.css";
 
@@ -54,9 +55,6 @@ interface FormState {
 	/** The form as it was opened, to tell whether anything changed. */
 	original: string;
 }
-
-const messageOf = (error: unknown) =>
-	error instanceof Error ? error.message : String(error);
 
 const STARTERS: { label: string; kind: FieldKind }[] = [
 	{ label: "Notes", kind: "long" },
@@ -130,7 +128,6 @@ export function ResourceManager({
 	const [mode, setMode] = useState<Mode>("view");
 	const [form, setForm] = useState<FormState | null>(null);
 	const [formError, setFormError] = useState<string | null>(null);
-	const [discard, setDiscard] = useState<(() => void) | null>(null);
 	const [removingCard, setRemovingCard] = useState<ResourceCard | null>(null);
 	const [typeDialog, setTypeDialog] = useState(false);
 	const [fieldDialog, setFieldDialog] = useState<string | null>(null);
@@ -223,10 +220,19 @@ export function ResourceManager({
 	const dirty =
 		form !== null &&
 		JSON.stringify({ t: form.title, v: form.values }) !== form.original;
-	const guard = (action: () => void) => {
-		if (mode === "form" && dirty) setDiscard(() => action);
-		else action();
-	};
+	const { guard, dialog: discardDialog } = useDiscardGuard(
+		mode === "form" && dirty,
+		{
+			title: "Discard what you typed?",
+			description: "This card has changes that are not saved yet.",
+			confirmLabel: "Discard",
+			cancelLabel: "Keep editing",
+			onDiscard: () => {
+				setForm(null);
+				setMode("view");
+			},
+		},
+	);
 
 	const startForm = (type: ResourceType, existing: ResourceCard | null) => {
 		const values: Record<string, string> = {};
@@ -755,159 +761,147 @@ export function ResourceManager({
 
 	return (
 		<>
-			<Dialog
+			<ManagerDialog
 				open={open}
-				onOpenChange={(next) => {
-					if (!next) guard(onClose);
-				}}
+				onRequestClose={() => guard(onClose)}
+				className="res-manager"
+				title="Resource manager"
+				description="Contacts, books, articles and your own kinds of resource, kept apart from your notes."
+				descriptionId="res-manager-about"
 			>
-				<DialogContent
-					className="res-manager"
-					lightOverlay
-					aria-describedby="res-manager-about"
-				>
-					<DialogTitle>Resource manager</DialogTitle>
-					<DialogDescription id="res-manager-about" className="sr-only">
-						Contacts, books, articles and your own kinds of resource, kept apart
-						from your notes.
-					</DialogDescription>
-					<div className="res-toolbar">
-						<Input
-							aria-label="Search resources"
-							placeholder="Search names, emails, authors, extra properties"
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
+				<div className="res-toolbar">
+					<Input
+						aria-label="Search resources"
+						placeholder="Search names, emails, authors, extra properties"
+						value={query}
+						onChange={(event) => setQuery(event.target.value)}
+					/>
+					<Button
+						size="sm"
+						disabled={!canWrite}
+						onClick={() => guard(() => setMode("pick"))}
+					>
+						<Plus aria-hidden="true" /> New resource
+					</Button>
+					<span className="res-hint">Cards are not notes.</span>
+				</div>
+				{!writable && (
+					<p className="res-note">
+						This vault is read-only, so resources can only be viewed.
+					</p>
+				)}
+				{loadError && (
+					<p role="alert" className="res-error">
+						{loadError}
+					</p>
+				)}
+				{message && (
+					<p role="status" className="res-status">
+						{message}
+					</p>
+				)}
+				<div className="res-body">
+					<nav aria-label="Resource types" className="res-types">
+						<TypeRow
+							label="All"
+							count={cards.length}
+							active={filter === "all"}
+							onClick={() => pickFilter("all")}
 						/>
-						<Button
-							size="sm"
+						<TypeRow
+							label="Recent"
+							count={Math.min(8, cards.filter((c) => c.updated !== "").length)}
+							active={filter === "recent"}
+							onClick={() => pickFilter("recent")}
+						/>
+						{types.map((t) => (
+							<TypeRow
+								key={t.id}
+								label={t.name}
+								count={cards.filter((c) => c.typeId === t.id).length}
+								active={filter === t.id}
+								onClick={() => pickFilter(t.id)}
+							/>
+						))}
+						{untyped.length > 0 && (
+							<TypeRow
+								label="No type"
+								count={untyped.length}
+								active={filter === "none"}
+								onClick={() => pickFilter("none")}
+							/>
+						)}
+						<button
+							type="button"
+							className="res-row res-add"
 							disabled={!canWrite}
-							onClick={() => guard(() => setMode("pick"))}
+							onClick={() => setTypeDialog(true)}
 						>
-							<Plus aria-hidden="true" /> New resource
-						</Button>
-						<span className="res-hint">Cards are not notes.</span>
-					</div>
-					{!writable && (
-						<p className="res-note">
-							This vault is read-only, so resources can only be viewed.
-						</p>
-					)}
-					{loadError && (
-						<p role="alert" className="res-error">
-							{loadError}
-						</p>
-					)}
-					{message && (
-						<p role="status" className="res-status">
-							{message}
-						</p>
-					)}
-					<div className="res-body">
-						<nav aria-label="Resource types" className="res-types">
-							<TypeRow
-								label="All"
-								count={cards.length}
-								active={filter === "all"}
-								onClick={() => pickFilter("all")}
-							/>
-							<TypeRow
-								label="Recent"
-								count={Math.min(
-									8,
-									cards.filter((c) => c.updated !== "").length,
-								)}
-								active={filter === "recent"}
-								onClick={() => pickFilter("recent")}
-							/>
-							{types.map((t) => (
-								<TypeRow
-									key={t.id}
-									label={t.name}
-									count={cards.filter((c) => c.typeId === t.id).length}
-									active={filter === t.id}
-									onClick={() => pickFilter(t.id)}
-								/>
-							))}
-							{untyped.length > 0 && (
-								<TypeRow
-									label="No type"
-									count={untyped.length}
-									active={filter === "none"}
-									onClick={() => pickFilter("none")}
-								/>
-							)}
-							<button
-								type="button"
-								className="res-row res-add"
-								disabled={!canWrite}
-								onClick={() => setTypeDialog(true)}
-							>
-								+ Add type
-							</button>
-						</nav>
-						<section aria-label="Cards" className="res-list">
-							<div className="res-list-head">
-								<h2>
-									{query.trim()
-										? "Results"
-										: (filterType?.name ?? labelOf(filter))}
-								</h2>
-								<span className="res-hint">{plural(rows.length, "card")}</span>
+							+ Add type
+						</button>
+					</nav>
+					<section aria-label="Cards" className="res-list">
+						<div className="res-list-head">
+							<h2>
+								{query.trim()
+									? "Results"
+									: (filterType?.name ?? labelOf(filter))}
+							</h2>
+							<span className="res-hint">{plural(rows.length, "card")}</span>
+						</div>
+						{filterType && (
+							<div>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => guard(() => setMode("settings"))}
+								>
+									Edit type and fields
+								</Button>
 							</div>
-							{filterType && (
-								<div>
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => guard(() => setMode("settings"))}
-									>
-										Edit type and fields
-									</Button>
-								</div>
-							)}
-							<ul className="res-rows">
-								{rows.map((c) => {
-									const t = typeOf(c);
-									const meter = t ? completeness(c, t) : null;
-									return (
-										<li key={c.path}>
-											<button
-												type="button"
-												className="res-row res-card-row"
-												aria-current={selected === c.path ? "true" : undefined}
-												onClick={() => pickCard(c.path)}
-											>
-												<span className="res-tile" aria-hidden="true">
-													{t ? t.name.charAt(0).toUpperCase() : "–"}
-												</span>
-												<span className="res-card-text">
-													<strong>{c.title}</strong>
-													<span className="res-hint">{subtitle(c, t)}</span>
-												</span>
-												<span className="res-hint res-meter">
-													{meter
-														? `${meter.filled} of ${meter.total}`
-														: "No type"}
-												</span>
-											</button>
-										</li>
-									);
-								})}
-							</ul>
-							{loaded && rows.length === 0 && (
-								<p className="res-note">
-									{query.trim()
-										? `No cards match "${query.trim()}". Try fewer words, or search All.`
-										: "No cards here yet."}
-								</p>
-							)}
-						</section>
-						<section aria-label="Detail" className="res-detail">
-							{detail()}
-						</section>
-					</div>
-				</DialogContent>
-			</Dialog>
+						)}
+						<ul className="res-rows">
+							{rows.map((c) => {
+								const t = typeOf(c);
+								const meter = t ? completeness(c, t) : null;
+								return (
+									<li key={c.path}>
+										<button
+											type="button"
+											className="res-row res-card-row"
+											aria-current={selected === c.path ? "true" : undefined}
+											onClick={() => pickCard(c.path)}
+										>
+											<span className="res-tile" aria-hidden="true">
+												{t ? t.name.charAt(0).toUpperCase() : "–"}
+											</span>
+											<span className="res-card-text">
+												<strong>{c.title}</strong>
+												<span className="res-hint">{subtitle(c, t)}</span>
+											</span>
+											<span className="res-hint res-meter">
+												{meter
+													? `${meter.filled} of ${meter.total}`
+													: "No type"}
+											</span>
+										</button>
+									</li>
+								);
+							})}
+						</ul>
+						{loaded && rows.length === 0 && (
+							<p className="res-note">
+								{query.trim()
+									? `No cards match "${query.trim()}". Try fewer words, or search All.`
+									: "No cards here yet."}
+							</p>
+						)}
+					</section>
+					<section aria-label="Detail" className="res-detail">
+						{detail()}
+					</section>
+				</div>
+			</ManagerDialog>
 
 			<AddTypeDialog
 				open={typeDialog}
@@ -1178,21 +1172,7 @@ export function ResourceManager({
 				}
 				onCancel={() => setRemovingCard(null)}
 			/>
-			<ConfirmDialog
-				open={discard !== null}
-				title="Discard what you typed?"
-				description="This card has changes that are not saved yet."
-				confirmLabel="Discard"
-				cancelLabel="Keep editing"
-				onConfirm={() => {
-					const action = discard;
-					setDiscard(null);
-					setForm(null);
-					setMode("view");
-					action?.();
-				}}
-				onCancel={() => setDiscard(null)}
-			/>
+			{discardDialog}
 		</>
 	);
 }

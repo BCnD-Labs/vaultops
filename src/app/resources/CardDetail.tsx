@@ -40,7 +40,7 @@ export function CardDetail({
 		return (
 			<div className="res-empty">
 				<h2>Nothing selected</h2>
-				<p className="res-hint">
+				<p className="manager-empty">
 					Pick a card from the list, or start a new one. A card only needs its
 					name to be saved.
 				</p>
@@ -140,7 +140,7 @@ export function CardDetail({
 				{mentions === null ? (
 					<p className="res-hint">Looking through your notes...</p>
 				) : mentions.length === 0 ? (
-					<p className="res-hint">
+					<p className="manager-empty">
 						No note links here yet. In any note, type @ and pick {card.title}.
 					</p>
 				) : (

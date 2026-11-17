@@ -71,7 +71,7 @@ export function CardList({
 				})}
 			</ul>
 			{loaded && rows.length === 0 && (
-				<p className="res-note">
+				<p className="manager-empty">
 					{query.trim()
 						? `No cards match "${query.trim()}". Try fewer words, or search All.`
 						: "No cards here yet."}

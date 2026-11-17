@@ -1,0 +1,27 @@
+/* The window both managers share: one size, the Settings-style title bar
+   (`.settings-titlebar`, in pane.css) over a padded content grid. The doubled
+   class beats the dialog's default width, padding and gap. */
+.manager-dialog.manager-dialog {
+	box-sizing: border-box;
+	width: min(58rem, calc(100vw - var(--space-8) * 2));
+	max-width: none;
+	height: min(40rem, calc(100vh - var(--space-8) * 2));
+	grid-template-rows: auto minmax(0, 1fr);
+	gap: 0;
+	padding: 0;
+	overflow: hidden;
+}
+.manager-content {
+	display: grid;
+	grid-template-rows: auto auto auto minmax(0, 1fr);
+	gap: var(--space-2);
+	min-height: 0;
+	padding: var(--space-3) var(--space-4);
+	font-size: var(--font-size-small);
+}
+/* One quiet, short-sentence style for "nothing here yet" text in both managers. */
+.manager-empty {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}

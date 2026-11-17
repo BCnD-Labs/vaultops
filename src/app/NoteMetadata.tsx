@@ -7,9 +7,9 @@ import {
 	List,
 	Tag,
 	Type,
-	X,
 } from "lucide-react";
 import { type ReactNode, useContext, useState } from "react";
+import { Chip } from "@/components/ui/chip";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -48,20 +48,16 @@ export function NoteChips({
 		<section className="note-chips" aria-label="Note tags and properties">
 			{props &&
 				tagsOf(props).map((tag) => (
-					<span className="note-meta-chip" key={tag}>
+					<Chip
+						key={tag}
+						onRemove={
+							editable ? () => onChange(removeTag(props, tag)) : undefined
+						}
+						removeLabel={`Remove ${tag} from tags`}
+					>
 						<Tag aria-hidden="true" />
 						{tag}
-						{editable && (
-							<button
-								type="button"
-								className="chip-remove"
-								aria-label={`Remove ${tag} from tags`}
-								onClick={() => onChange(removeTag(props, tag))}
-							>
-								<X aria-hidden="true" />
-							</button>
-						)}
-					</span>
+					</Chip>
 				))}
 			{items.map((item) => {
 				if (!item.known) return null;

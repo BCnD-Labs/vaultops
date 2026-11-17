@@ -8,9 +8,9 @@ import {
 	Plus,
 	Tag,
 	Type,
-	X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { CloseButton } from "@/components/ui/close-button";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -257,15 +257,12 @@ export function PropertiesBlock({
 									</span>
 								)}
 								{editable && (
-									<button
-										type="button"
-										className="chip-remove prop-remove"
-										aria-label={`Remove property ${item.name}`}
+									<CloseButton
+										className="prop-remove"
+										label={`Remove property ${item.name}`}
 										title="Remove property"
 										onClick={() => onChange(removeProperty(props, item.name))}
-									>
-										<X className="tree-icon" aria-hidden="true" />
-									</button>
+									/>
 								)}
 							</div>
 						);

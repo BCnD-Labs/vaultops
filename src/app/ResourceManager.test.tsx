@@ -206,6 +206,30 @@ it("adds a custom type and goes straight to its first card", async () => {
 	expect((await loadTypes(host)).map((t) => t.name)).toContain("Recipe");
 });
 
+it("builds the starter toggles and the disabled Create type from the Button", async () => {
+	const u = user();
+	await setup();
+	await u.click(await screen.findByRole("button", { name: "+ Add type" }));
+	const dialog = await screen.findByRole("dialog", { name: "Add a type" });
+	const starters = within(dialog).getByRole("group", {
+		name: "Optional fields to start with",
+	});
+	const toggle = within(starters).getAllByRole("button")[0] as HTMLElement;
+	expect(toggle.getAttribute("data-slot")).toBe("button");
+	// Pressed keeps the outline variant: the Button shows its own selected look.
+	const before = toggle.getAttribute("aria-pressed");
+	expect(["true", "false"]).toContain(before);
+	expect(toggle.getAttribute("data-variant")).toBe("outline");
+	await u.click(toggle);
+	expect(toggle.getAttribute("aria-pressed")).toBe(
+		before === "true" ? "false" : "true",
+	);
+	expect(toggle.getAttribute("data-variant")).toBe("outline");
+	const create = within(dialog).getByRole("button", { name: "Create type" });
+	expect(create.getAttribute("data-slot")).toBe("button");
+	expect(create).toHaveProperty("disabled", true);
+});
+
 it("refuses a type name that already exists", async () => {
 	const u = user();
 	await setup();

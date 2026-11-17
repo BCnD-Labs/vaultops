@@ -147,15 +147,17 @@ export function CardDetail({
 					<ul className="res-mentions">
 						{mentions.map((m) => (
 							<li key={m.path}>
-								<button
+								<Button
 									type="button"
-									className="res-mention"
+									variant="ghost"
+									size="sm"
+									className="h-auto w-full justify-start whitespace-normal py-1 text-left font-normal"
 									disabled={!onOpenNote}
 									onClick={() => onOpenNote?.(m.path)}
 								>
 									{m.title}
 									{m.kind === "canvas" ? " (canvas)" : ""}
-								</button>
+								</Button>
 							</li>
 						))}
 					</ul>

@@ -559,3 +559,12 @@ it("is off in a read-only vault and for a template that can't be read", async ()
 	expect(newNoteButton().disabled).toBe(true);
 	expect(make).not.toHaveBeenCalled();
 });
+
+it("makes the row menu trigger a ghost icon Button", async () => {
+	await setup(seedMeeting);
+	const more = await screen.findByRole("button", {
+		name: "Actions for Standup",
+	});
+	expect(more.getAttribute("data-slot")).toBe("button");
+	expect(more.getAttribute("data-variant")).toBe("ghost");
+});

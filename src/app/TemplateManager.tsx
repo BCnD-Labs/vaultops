@@ -288,13 +288,15 @@ export function TemplateManager({
 	) => (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<button
+				<Button
 					type="button"
-					className="tpl-more"
+					variant="ghost"
+					size="icon-sm"
+					className="text-muted-foreground"
 					aria-label={`Actions for ${label}`}
 				>
 					<Ellipsis aria-hidden="true" />
-				</button>
+				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">
 				{items.map((item) => (

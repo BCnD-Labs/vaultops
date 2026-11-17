@@ -76,17 +76,13 @@ it("keeps elevation shadows for menus, popovers and dialogs", () => {
 	expect(theme).toContain("--shadow-lg: var(--elevation-3)");
 });
 
-// Hand-made buttons in the managers and planner are ghost: no border or shadow.
+// Rows and gears left in the managers are ghost: no border or shadow. (Tiles,
+// mentions and the row "…" trigger are Buttons now, styled by button.tsx.)
 it("keeps the hand-made manager buttons borderless", () => {
 	const css = rules(
 		read("src/app/resources.css") + read("src/app/templates.css"),
 	);
-	for (const name of [
-		".res-pick-tile",
-		".res-pick-add",
-		".tpl-more",
-		".res-mention",
-	]) {
+	for (const name of [".res-row", ".tpl-row-main", ".template-picker-gear"]) {
 		for (const r of css.filter((x) => x.selector === name)) {
 			expect(r.body, name).not.toMatch(/border:\s*var|border-style|box-shadow/);
 		}

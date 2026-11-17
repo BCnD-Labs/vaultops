@@ -67,9 +67,7 @@
 	color: var(--text);
 	font-weight: 600;
 }
-.res-row:focus-visible,
-.res-pick-tile:focus-visible,
-.res-mention:focus-visible {
+.res-row:focus-visible {
 	outline: var(--focus-ring-width) solid var(--ring, currentColor);
 	outline-offset: 1px;
 }
@@ -248,32 +246,6 @@
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--space-2);
 }
-.res-pick-tile {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--space-unit) / 2);
-	padding: var(--space-2) var(--space-3);
-	border: 0;
-	border-radius: var(--radius-control);
-	background: var(--muted);
-	color: inherit;
-	font: inherit;
-	text-align: left;
-	cursor: pointer;
-}
-.res-pick-tile:hover {
-	background: var(--accent);
-}
-/* "+ Add type" is a ghost button: no fill or border until hovered. */
-.res-pick-add {
-	justify-content: center;
-	background: none;
-	color: var(--accent-foreground, inherit);
-	font-weight: 600;
-}
-.res-pick-add:hover {
-	background: var(--accent);
-}
 .res-dialog form {
 	display: flex;
 	flex-direction: column;
@@ -321,17 +293,4 @@
 	margin: 0;
 	padding: 0;
 	list-style: none;
-}
-.res-mention {
-	padding: calc(var(--space-unit) / 2) var(--space-1);
-	border: 0;
-	border-radius: var(--radius-control);
-	background: none;
-	color: inherit;
-	font: inherit;
-	text-align: left;
-	cursor: pointer;
-}
-.res-mention:hover:not(:disabled) {
-	background: var(--accent);
 }

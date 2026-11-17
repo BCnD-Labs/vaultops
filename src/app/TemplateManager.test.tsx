@@ -16,6 +16,7 @@ import {
 	listTemplates,
 	saveTemplate,
 	TEMPLATES,
+	type TemplateEntry,
 } from "../core/notes/templates";
 import { openVault } from "../core/vault/vault";
 import { MemoryHost } from "../host/memory-host";
@@ -49,6 +50,7 @@ const rows: NoteRow[] = [
 async function setup(
 	seed: (host: MemoryHost) => Promise<void> = async () => {},
 	writable = true,
+	onNewNoteFromTemplate?: (entry: TemplateEntry) => void,
 ) {
 	const host = new MemoryHost();
 	await openVault(host);
@@ -62,6 +64,7 @@ async function setup(
 				writable={writable}
 				open
 				onClose={onClose}
+				onNewNoteFromTemplate={onNewNoteFromTemplate}
 			/>
 		</TooltipProvider>,
 	);
@@ -415,4 +418,79 @@ it("shows a template it can't read, with the reason, and lets it be deleted", as
 		expect(screen.queryByRole("button", { name: "Broken" })).toBeNull(),
 	);
 	expect(await host.kindOf(`${TEMPLATES}/Broken.vnote`)).toBeNull();
+});
+
+const newNoteButton = () =>
+	screen.getByRole("button", {
+		name: "New note from this template",
+	}) as HTMLButtonElement;
+
+it("offers New note from this template only when the app can act on it", async () => {
+	const u = user();
+	await setup(seedMeeting);
+	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await screen.findByText("Standup", { selector: "strong" });
+	expect(
+		screen.queryByRole("button", { name: "New note from this template" }),
+	).toBeNull();
+});
+
+it("hands the chosen template to the app", async () => {
+	const u = user();
+	const make = vi.fn();
+	await setup(seedMeeting, true, make);
+	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await screen.findByText("Standup", { selector: "strong" });
+	await u.click(newNoteButton());
+	expect(make).toHaveBeenCalledTimes(1);
+	expect(make.mock.calls[0]?.[0]).toMatchObject({
+		name: "Standup",
+		path: `${TEMPLATES}/Standup.vnote`,
+	});
+});
+
+it("asks about unsaved edits first, and only goes on once they are discarded", async () => {
+	const u = user();
+	const make = vi.fn();
+	await setup(seedMeeting, true, make);
+	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await screen.findByText("Standup", { selector: "strong" });
+	type(" more");
+	await u.click(newNoteButton());
+	const ask = await screen.findByRole("alertdialog");
+	expect(make).not.toHaveBeenCalled();
+	await u.click(within(ask).getByRole("button", { name: "Keep editing" }));
+	expect(make).not.toHaveBeenCalled();
+	await u.click(newNoteButton());
+	await u.click(await screen.findByRole("button", { name: "Discard changes" }));
+	expect(make).toHaveBeenCalledTimes(1);
+});
+
+it("is off in a read-only vault and for a template that can't be read", async () => {
+	const u = user();
+	const make = vi.fn();
+	await setup(
+		async (h) => {
+			await seedMeeting(h);
+			await h.writeTextAtomic(`${TEMPLATES}/Broken.vnote`, "junk");
+		},
+		false,
+		make,
+	);
+	await u.click(await screen.findByRole("button", { name: "Standup" }));
+	await screen.findByText("Standup", { selector: "strong" });
+	expect(newNoteButton().disabled).toBe(true);
+	cleanup();
+	await setup(
+		async (h) => {
+			await h.makeFolder(TEMPLATES);
+			await h.writeTextAtomic(`${TEMPLATES}/Broken.vnote`, "junk");
+		},
+		true,
+		make,
+	);
+	await u.click(await screen.findByRole("button", { name: "Broken" }));
+	await screen.findByText(/could not be read/);
+	expect(newNoteButton().disabled).toBe(true);
+	expect(make).not.toHaveBeenCalled();
 });

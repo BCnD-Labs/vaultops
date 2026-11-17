@@ -61,12 +61,15 @@ export function TemplateManager({
 	writable,
 	open,
 	onClose,
+	onNewNoteFromTemplate,
 }: {
 	host: Host;
 	notes: NoteRow[];
 	writable: boolean;
 	open: boolean;
 	onClose: () => void;
+	/** Makes a note from the saved template; the button is hidden without it. */
+	onNewNoteFromTemplate?: (entry: TemplateEntry) => void;
 }) {
 	const [list, setList] = useState<TemplateList | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
@@ -548,6 +551,16 @@ export function TemplateManager({
 									>
 										Preview template
 									</Button>
+									{onNewNoteFromTemplate && (
+										<Button
+											size="sm"
+											variant="outline"
+											disabled={!writable || !entry.note || !readable?.ok}
+											onClick={() => guard(() => onNewNoteFromTemplate(entry))}
+										>
+											New note from this template
+										</Button>
+									)}
 									{dirty && <span className="tpl-note">Unsaved changes</span>}
 									{message && (
 										<span role="status" className="tpl-note">

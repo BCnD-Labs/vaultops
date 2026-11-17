@@ -12,8 +12,12 @@ import {
 	within,
 } from "../core/notes/folders";
 import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
-import { loadNote } from "../core/notes/repository";
+import { createNote, loadNote } from "../core/notes/repository";
 import { noteTitleFor, syncRowTitles } from "../core/notes/row-notes";
+import {
+	blocksFromTemplate,
+	type TemplateEntry,
+} from "../core/notes/templates";
 import {
 	deleteForever,
 	listTrash,
@@ -35,6 +39,7 @@ import { NEW_TAB, type PaneId } from "../core/workspace";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
+import { checkBlocks } from "../editor/doc-blocks";
 import { openNote } from "../editor/note-io";
 import type { RowNoteActions } from "../editor/note-link";
 import { createQuitGuard } from "../editor/quit";
@@ -42,6 +47,7 @@ import { saveAsCopy } from "../editor/save-draft";
 import type { SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
 import { readOnlyHost } from "../host/read-only-host";
+import { notify } from "../ui/notify";
 import { AppearanceProvider } from "./AppearanceContext";
 import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
@@ -80,7 +86,7 @@ import {
 	loadVault,
 	type VaultView,
 } from "./session";
-import { newNoteFolder } from "./settings";
+import { newNoteFolder, templateFormats } from "./settings";
 import { commandMatches } from "./shortcuts";
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import { TemplateManager } from "./TemplateManager";
@@ -679,6 +685,51 @@ export function App({ host }: { host: Host }) {
 					focusBody.current = noteTitle !== "Untitled";
 					await open(made.path, { pane });
 				}
+			} catch (e) {
+				setError(e instanceof Error ? e.message : String(e));
+			} finally {
+				setBusy(false);
+			}
+		} finally {
+			creating.current = false;
+		}
+	};
+
+	// "New note from this template" in the template manager: a note in the
+	// folder a plain "New note" would use, named after the template, whose body
+	// is the template with {{title}}, {{date}} and {{time}} filled in.
+	const startNoteFromTemplate = async (entry: TemplateEntry) => {
+		if (!view || !writable || !entry.note || creating.current) return;
+		const title = entry.name;
+		const blocks = blocksFromTemplate(
+			entry.note,
+			title,
+			new Date(),
+			templateFormats(),
+		);
+		const understood = checkBlocks(blocks);
+		if (!understood.ok) {
+			setTemplatesOpen(false);
+			setError(
+				`"${title}" has ${understood.reason}, which this version can't use for a new note.`,
+			);
+			return;
+		}
+		creating.current = true;
+		try {
+			if (!(await ws.settleAll())) return;
+			setTemplatesOpen(false);
+			setBusy(true);
+			try {
+				const folder = newNoteFolder(
+					selection.kind === "folder" ? selection.value : "",
+					view.folders,
+				);
+				const made = await createNote(vaultHost, folder, title, { blocks });
+				changeView(await loadVault(host));
+				focusBody.current = true;
+				await open(made.path);
+				notify(`Created "${title}" from the template.`);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			} finally {
@@ -1611,6 +1662,9 @@ export function App({ host }: { host: Host }) {
 							notes={(view?.notes ?? []).filter((n) => n.kind !== "canvas")}
 							writable={writable}
 							open={templatesOpen}
+							onNewNoteFromTemplate={(entry) =>
+								void startNoteFromTemplate(entry)
+							}
 							onClose={() => setTemplatesOpen(false)}
 						/>
 						<ResourceManager

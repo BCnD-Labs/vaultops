@@ -224,19 +224,21 @@ fn read_log_tail(app: tauri::AppHandle, max_lines: usize) -> Result<String, Host
 }
 
 /// STOPGAP(update-script): start the maintainer's install script (see
-/// `update_script`). The window sends nothing: which script runs, and where, is
-/// decided here.
+/// `update_script`). The window sends only the channel, which must be exactly
+/// `main` or `develop` (anything else is refused and starts nothing); which
+/// script runs, and where, is decided here.
 #[tauri::command(async)]
 fn start_update_script(
     app: tauri::AppHandle,
     state: tauri::State<'_, update_script::UpdateState>,
+    channel: String,
 ) -> Result<(), HostError> {
     use tauri::Manager;
+    let command = update_script::script_command(&update_script::checkout_root(), &channel)?;
     let dir = app
         .path()
         .app_log_dir()
         .map_err(|_| HostError::new(ErrorCode::Io, "log folder is unavailable"))?;
-    let command = update_script::script_command(&update_script::checkout_root())?;
     update_script::start(&state, command, &dir)
 }
 

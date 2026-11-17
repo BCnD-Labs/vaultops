@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { linkProblem } from "../../core/resources/link";
 import type { ResourceField } from "../../core/resources/resources";
 
@@ -21,7 +22,7 @@ export function FieldInput({
 					{field.label} <em>{field.required ? "Required" : "Optional"}</em>
 				</span>
 				{field.kind === "long" ? (
-					<textarea
+					<Textarea
 						id={id}
 						value={value}
 						onChange={(event) => onChange(event.target.value)}

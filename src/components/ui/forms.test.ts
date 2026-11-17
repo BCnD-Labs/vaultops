@@ -12,6 +12,7 @@ import { Checkbox } from "./checkbox";
 import { Input } from "./input";
 import { Kbd } from "./kbd";
 import { Label } from "./label";
+import { RadioGroup, RadioGroupItem } from "./radio-group";
 import { Select, SelectTrigger, SelectValue } from "./select";
 import { Skeleton } from "./skeleton";
 import { Switch } from "./switch";
@@ -55,6 +56,21 @@ describe("form and display components", () => {
 				),
 			),
 		).toContain("combobox");
+	});
+
+	it("renders a radio group with its checked option", () => {
+		const out = html(
+			createElement(
+				RadioGroup,
+				{ defaultValue: "b", "aria-label": "Pick" },
+				createElement(RadioGroupItem, { value: "a" }),
+				createElement(RadioGroupItem, { value: "b" }),
+			),
+		);
+		expect(out).toContain('role="radiogroup"');
+		expect(out).toContain('aria-label="Pick"');
+		expect(out.match(/role="radio"/g)).toHaveLength(2);
+		expect(out).toContain('data-state="checked"');
 	});
 
 	it("renders a toggle group and a breadcrumb", () => {

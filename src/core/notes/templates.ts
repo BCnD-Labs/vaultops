@@ -78,6 +78,7 @@ async function readEntry(
 	}
 	if (
 		!parsed?.note ||
+		parsed.skippedLines.length > 0 ||
 		parsed.problems.some((p) => p.kind === "newer-version")
 	) {
 		return {
@@ -209,7 +210,12 @@ async function readTemplate(host: Host, path: string): Promise<Note> {
 		throw new Error("That template was not found.");
 	}
 	const parsed = parseNote(await host.readText(path));
-	if (!parsed.note) throw new Error("That template could not be read.");
+	if (
+		!parsed.note ||
+		parsed.skippedLines.length > 0 ||
+		parsed.problems.some((p) => p.kind === "newer-version")
+	)
+		throw new Error("That template could not be read.");
 	return parsed.note;
 }
 

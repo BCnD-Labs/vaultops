@@ -52,6 +52,16 @@ async function names(host: MemoryHost) {
 	};
 }
 
+async function damagedTemplate(host: MemoryHost) {
+	const saved = await saveTemplate(host, "Meeting", source());
+	if (!saved.ok) throw new Error("save failed");
+	const lines = (await host.readText(saved.path)).trimEnd().split("\n");
+	lines.splice(2, 0, "{broken");
+	const damaged = `${lines.join("\n")}\n`;
+	await host.writeTextAtomic(saved.path, damaged);
+	return { path: saved.path, damaged };
+}
+
 describe("templates", () => {
 	it("starts empty and creates its folder only when the first template is saved", async () => {
 		const host = await vault();
@@ -266,6 +276,53 @@ describe("templates", () => {
 		expect(entry?.problem).toMatch(/could not be read/);
 		await removeTemplateEntry(host, entry?.path ?? "");
 		expect((await listTemplates(host)).templates).toEqual([]);
+	});
+
+	it("lists a partly damaged template as unusable instead of offering partial insertion", async () => {
+		const host = await vault();
+		const { path, damaged } = await damagedTemplate(host);
+		const [entry] = (await listTemplates(host)).templates;
+		expect(entry).toMatchObject({ path, note: null });
+		expect(entry?.problem).toMatch(/can't be used/);
+		expect(await host.readText(path)).toBe(damaged);
+	});
+
+	it("refuses to rewrite or duplicate a partly damaged template", async () => {
+		const host = await vault();
+		const { path, damaged } = await damagedTemplate(host);
+		for (const action of [
+			() => updateTemplate(host, path, source().blocks),
+			() => renameTemplateEntry(host, path, "Weekly"),
+			() => duplicateTemplate(host, path),
+		]) {
+			await expect(action()).rejects.toThrow(/could not be read/);
+			expect(await host.readText(path)).toBe(damaged);
+			expect((await host.list(TEMPLATES)).map((entry) => entry.name)).toEqual([
+				"Meeting.vnote",
+			]);
+		}
+	});
+
+	it("still lists and uses a template with a duplicate block id", async () => {
+		const host = await vault();
+		const saved = await saveTemplate(host, "Meeting", source());
+		if (!saved.ok) throw new Error("save failed");
+		const lines = (await host.readText(saved.path)).trimEnd().split("\n");
+		const last = JSON.parse(lines[4] ?? "") as { id: string };
+		last.id = "ts";
+		lines[4] = JSON.stringify(last);
+		await host.writeTextAtomic(saved.path, lines.join("\n").concat("\n"));
+
+		const [entry] = (await listTemplates(host)).templates;
+		expect(entry?.note?.blocks).toHaveLength(4);
+		expect(entry?.problem).toBeUndefined();
+		expect(blocksFromTemplate(entry?.note as Note, "Plan", NOW)).toHaveLength(
+			4,
+		);
+		await updateTemplate(host, saved.path, [
+			{ id: "fresh", type: "paragraph", parent: null, content: text("Edited") },
+		]);
+		expect((await listTemplates(host)).templates[0]?.preview).toBe("Edited");
 	});
 
 	it("ignores other files in the folder", async () => {

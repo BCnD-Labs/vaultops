@@ -29,6 +29,8 @@ describe("tauriHost", () => {
 		await tauriHost.writeReport("r.txt", "text");
 		await tauriHost.startUpdateScript();
 		await tauriHost.updateScriptStatus();
+		await tauriHost.buildInfo();
+		await tauriHost.updateChannels();
 		expect(invoke.mock.calls).toEqual([
 			["read_text", { path: "a.vnote" }],
 			["write_text_atomic", { path: "a.vnote", text: "text" }],
@@ -45,6 +47,8 @@ describe("tauriHost", () => {
 			["write_report", { name: "r.txt", text: "text" }],
 			["start_update_script", undefined],
 			["update_script_status", undefined],
+			["build_info", undefined],
+			["update_channels", undefined],
 		]);
 	});
 

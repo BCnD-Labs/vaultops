@@ -254,6 +254,20 @@ fn update_script_status(
     update_script::status(&state, &dir)
 }
 
+/// STOPGAP(update-script): which branch and commit this app was built from.
+#[tauri::command]
+fn build_info() -> update_script::BuildInfo {
+    update_script::build_info()
+}
+
+/// STOPGAP(update-script): fetch `main` and `develop` in the code folder and
+/// report their latest commits. Takes nothing from the window; the working tree
+/// and the checked-out branch are never changed.
+#[tauri::command(async)]
+fn update_channels() -> update_script::Channels {
+    update_script::channels_in(&update_script::checkout_root())
+}
+
 /// The file in the settings folder that remembers the reports folder.
 const REPORTS_FOLDER_FILE: &str = "reports-folder.txt";
 
@@ -417,7 +431,9 @@ pub fn run() {
             reports_folder,
             write_report,
             start_update_script,
-            update_script_status
+            update_script_status,
+            build_info,
+            update_channels
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

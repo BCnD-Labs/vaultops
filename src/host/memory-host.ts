@@ -2,10 +2,12 @@ import { checkVaultPath, nameKey } from "../core/vault-path/vault-path";
 import {
 	type AppFileName,
 	type AppInfo,
+	type BuildInfo,
 	type DirEntry,
 	type EntryKind,
 	type Host,
 	HostError,
+	type UpdateChannels,
 	type UpdateScriptStatus,
 } from "./host";
 
@@ -226,6 +228,36 @@ export class MemoryHost implements Host {
 
 	async updateScriptStatus(): Promise<UpdateScriptStatus> {
 		return { ...this.updateScript };
+	}
+
+	/** Test knobs for the update check: what it reports, and how often it ran. */
+	build: BuildInfo = { branch: "main", commit: "a".repeat(40), builtAt: "" };
+	channels: UpdateChannels = {
+		main: {
+			exists: true,
+			commit: "a".repeat(40),
+			shortCommit: "aaaaaaa",
+			committedAt: "2026-11-17T10:00:00Z",
+			subject: "feat: latest on main",
+		},
+		develop: {
+			exists: false,
+			commit: "",
+			shortCommit: "",
+			committedAt: "",
+			subject: "",
+		},
+		error: null,
+	};
+	updateChecks = 0;
+
+	async buildInfo(): Promise<BuildInfo> {
+		return { ...this.build };
+	}
+
+	async updateChannels(): Promise<UpdateChannels> {
+		this.updateChecks += 1;
+		return structuredClone(this.channels);
 	}
 
 	private readonly closeHandlers = new Set<() => Promise<boolean>>();

@@ -7,6 +7,11 @@
 //! (which saves the open note), so it never force quits. It is started in its own
 //! process group with its output going to a log file in the app's log folder, so
 //! it keeps running while the app closes and the new one opens.
+//!
+//! The same file also answers "is there something newer?" for the two branches
+//! the maintainer builds from, `main` and `develop`: it fetches them in the code
+//! folder (the only network use, from its existing `origin`) and reads their
+//! latest commit. It never changes the working tree or the checked-out branch.
 
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
@@ -18,6 +23,8 @@ use serde::Serialize;
 
 use crate::host_error::{ErrorCode, HostError};
 
+/// The only two branches the updater knows about, in the order they are shown.
+pub const CHANNELS: [&str; 2] = ["main", "develop"];
 /// The script, relative to the code folder.
 const SCRIPT: &str = "scripts/install-vaultops.sh";
 /// The script's output, in the app's log folder. Replaced on every run.
@@ -42,6 +49,60 @@ pub enum RunState {
 pub struct Status {
     pub state: RunState,
     pub last_line: String,
+}
+
+/// Which branch and commit this app was built from, baked in by
+/// `scripts/install-vaultops.sh`. A build made any other way says "unknown".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildInfo {
+    pub branch: String,
+    pub commit: String,
+    pub built_at: String,
+}
+
+fn build_info_from(
+    branch: Option<&str>,
+    commit: Option<&str>,
+    built_at: Option<&str>,
+) -> BuildInfo {
+    let pick = |value: Option<&str>| match value.map(str::trim) {
+        Some(text) if !text.is_empty() => text.chars().take(MAX_LINE_CHARS).collect(),
+        _ => "unknown".to_string(),
+    };
+    BuildInfo {
+        branch: pick(branch),
+        commit: pick(commit),
+        built_at: pick(built_at),
+    }
+}
+
+pub fn build_info() -> BuildInfo {
+    build_info_from(
+        option_env!("VAULTOPS_BUILD_BRANCH"),
+        option_env!("VAULTOPS_BUILD_COMMIT"),
+        option_env!("VAULTOPS_BUILD_TIME"),
+    )
+}
+
+/// What one branch looks like on `origin` after the last fetch.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelInfo {
+    pub exists: bool,
+    pub commit: String,
+    pub short_commit: String,
+    pub committed_at: String,
+    pub subject: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct Channels {
+    pub main: ChannelInfo,
+    pub develop: ChannelInfo,
+    /// Set when a fetch failed (offline, say); the commits shown are then the
+    /// ones fetched last time.
+    pub error: Option<String>,
 }
 
 /// The one update run this app knows about, if any.
@@ -166,6 +227,126 @@ pub fn status(state: &UpdateState, log_dir: &Path) -> Result<Status, HostError> 
         state: run_state,
         last_line: last_line(&log_dir.join(LOG_NAME)),
     })
+}
+
+/// Fixed arguments: only a branch name from [`CHANNELS`] ever goes in.
+fn fetch_args(branch: &'static str) -> [&'static str; 4] {
+    ["fetch", "--quiet", "origin", branch]
+}
+
+/// `origin/<branch>`, for the rev to read. Built from the allowlisted names only.
+fn remote_ref(branch: &str) -> String {
+    format!("origin/{branch}")
+}
+
+/// Separates the four fields of the log line (a control character no commit
+/// subject has).
+const FIELD: char = '\u{1f}';
+const LOG_FORMAT: &str = "--format=%H%x1f%h%x1f%cI%x1f%s";
+
+/// Parse the one line `git log -1` printed. `None` when it isn't four fields.
+fn parse_log(output: &str) -> Option<ChannelInfo> {
+    let mut parts = output.trim_end_matches(['\n', '\r']).splitn(4, FIELD);
+    let (commit, short, at, subject) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+    if commit.is_empty() {
+        return None;
+    }
+    Some(ChannelInfo {
+        exists: true,
+        commit: commit.to_string(),
+        short_commit: short.to_string(),
+        committed_at: at.to_string(),
+        subject: subject.chars().take(MAX_LINE_CHARS).collect(),
+    })
+}
+
+/// A fetch that failed only because the branch isn't on the remote (yet) is not
+/// an error: the branch just doesn't exist.
+fn branch_is_missing(stderr: &str) -> bool {
+    stderr.contains("couldn't find remote ref")
+}
+
+fn git(root: &Path) -> Command {
+    let mut command = Command::new("git");
+    // English messages (branch_is_missing reads them) and no credential prompt.
+    command
+        .current_dir(root)
+        .env("LC_ALL", "C")
+        .env("GIT_TERMINAL_PROMPT", "0");
+    command
+}
+
+enum Fetched {
+    Done,
+    Missing,
+    Failed(String),
+}
+
+fn fetch(root: &Path, branch: &'static str) -> Fetched {
+    match git(root)
+        .args(fetch_args(branch))
+        .stdin(Stdio::null())
+        .output()
+    {
+        Ok(out) if out.status.success() => Fetched::Done,
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            if branch_is_missing(&stderr) {
+                Fetched::Missing
+            } else {
+                Fetched::Failed(stderr.trim().chars().take(MAX_LINE_CHARS).collect())
+            }
+        }
+        Err(_) => Fetched::Failed("git could not be run".to_string()),
+    }
+}
+
+fn latest(root: &Path, branch: &str) -> ChannelInfo {
+    let rev = remote_ref(branch);
+    match git(root)
+        .args(["log", "-1", LOG_FORMAT, &rev, "--"])
+        .output()
+    {
+        Ok(out) if out.status.success() => {
+            parse_log(&String::from_utf8_lossy(&out.stdout)).unwrap_or_default()
+        }
+        _ => ChannelInfo::default(),
+    }
+}
+
+/// Fetch `main` and `develop` from `origin` in `root`, then read each one's
+/// latest commit. A branch that is not on the remote is `exists: false`; a failed
+/// fetch is reported in `error` while the last known commits are still returned.
+pub fn channels_in(root: &Path) -> Channels {
+    let mut error = None;
+    let mut missing = [false; 2];
+    for (i, branch) in CHANNELS.iter().enumerate() {
+        match fetch(root, branch) {
+            Fetched::Done => {}
+            Fetched::Missing => missing[i] = true,
+            Fetched::Failed(why) => {
+                error.get_or_insert_with(|| {
+                    if why.is_empty() {
+                        "Could not reach GitHub.".to_string()
+                    } else {
+                        why
+                    }
+                });
+            }
+        }
+    }
+    let read = |i: usize| {
+        if missing[i] {
+            ChannelInfo::default()
+        } else {
+            latest(root, CHANNELS[i])
+        }
+    };
+    Channels {
+        main: read(0),
+        develop: read(1),
+        error,
+    }
 }
 
 #[cfg(test)]
@@ -304,5 +485,138 @@ mod tests {
     #[test]
     fn this_checkout_has_the_script_the_button_runs() {
         assert!(checkout_root().join(SCRIPT).is_file());
+    }
+
+    #[test]
+    fn the_fetch_and_log_arguments_are_fixed_and_only_name_an_allowed_branch() {
+        assert_eq!(CHANNELS, ["main", "develop"]);
+        for branch in CHANNELS {
+            assert_eq!(fetch_args(branch), ["fetch", "--quiet", "origin", branch]);
+        }
+        assert_eq!(remote_ref("develop"), "origin/develop");
+        assert!(LOG_FORMAT.starts_with("--format="));
+    }
+
+    #[test]
+    fn a_log_line_is_split_into_commit_time_and_subject() {
+        let line = "abc123def456\u{1f}abc123d\u{1f}2026-11-17T10:40:00+00:00\u{1f}feat: x\u{1f}y\n";
+        let info = parse_log(line).unwrap();
+        assert!(info.exists);
+        assert_eq!(info.commit, "abc123def456");
+        assert_eq!(info.short_commit, "abc123d");
+        assert_eq!(info.committed_at, "2026-11-17T10:40:00+00:00");
+        assert_eq!(info.subject, "feat: x\u{1f}y");
+        assert_eq!(parse_log(""), None);
+        assert_eq!(parse_log("only one field"), None);
+    }
+
+    #[test]
+    fn a_missing_remote_branch_is_told_apart_from_other_fetch_failures() {
+        assert!(branch_is_missing(
+            "fatal: couldn't find remote ref develop\n"
+        ));
+        assert!(!branch_is_missing(
+            "fatal: Could not resolve host: github.com"
+        ));
+    }
+
+    #[test]
+    fn build_info_falls_back_to_unknown() {
+        let unknown = build_info_from(None, Some("  "), Some(""));
+        assert_eq!(unknown.branch, "unknown");
+        assert_eq!(unknown.commit, "unknown");
+        assert_eq!(unknown.built_at, "unknown");
+        let known = build_info_from(Some("main"), Some("abc"), Some("2026-11-17T10:40:00Z"));
+        assert_eq!(known.branch, "main");
+        assert_eq!(known.built_at, "2026-11-17T10:40:00Z");
+    }
+
+    fn run_git(dir: &Path, args: &[&str]) {
+        let out = Command::new("git")
+            .current_dir(dir)
+            .args(["-c", "user.name=t", "-c", "user.email=t@example.com"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}: {out:?}");
+    }
+
+    /// A bare "origin" with a `main` commit, and a clone of it.
+    fn origin_and_clone() -> (TempDir, PathBuf) {
+        let tmp = TempDir::new();
+        let seed = tmp.path().join("seed");
+        fs::create_dir(&seed).unwrap();
+        run_git(&seed, &["init", "-q", "-b", "main"]);
+        fs::write(seed.join("a.txt"), "a").unwrap();
+        run_git(&seed, &["add", "a.txt"]);
+        run_git(&seed, &["commit", "-q", "-m", "first change"]);
+        let origin = tmp.path().join("origin.git");
+        let origin_arg = origin.to_str().unwrap();
+        run_git(tmp.path(), &["clone", "-q", "--bare", "seed", origin_arg]);
+        let clone = tmp.path().join("clone");
+        run_git(tmp.path(), &["clone", "-q", origin_arg, "clone"]);
+        (tmp, clone)
+    }
+
+    #[test]
+    fn a_folder_without_develop_reports_main_and_no_develop() {
+        let (_tmp, clone) = origin_and_clone();
+        let channels = channels_in(&clone);
+        assert_eq!(channels.error, None);
+        assert!(channels.main.exists);
+        assert_eq!(channels.main.subject, "first change");
+        assert_eq!(channels.main.commit.len(), 40);
+        assert!(!channels.develop.exists);
+    }
+
+    #[test]
+    fn a_new_develop_branch_shows_up_and_the_checkout_is_untouched() {
+        let (tmp, clone) = origin_and_clone();
+        let other = tmp.path().join("other");
+        let origin = tmp.path().join("origin.git");
+        run_git(
+            tmp.path(),
+            &["clone", "-q", origin.to_str().unwrap(), "other"],
+        );
+        run_git(&other, &["checkout", "-q", "-b", "develop"]);
+        fs::write(other.join("b.txt"), "b").unwrap();
+        run_git(&other, &["add", "b.txt"]);
+        run_git(&other, &["commit", "-q", "-m", "on develop"]);
+        run_git(&other, &["push", "-q", "origin", "develop"]);
+
+        let head = |dir: &Path| {
+            let out = Command::new("git")
+                .current_dir(dir)
+                .args(["rev-parse", "HEAD"])
+                .output()
+                .unwrap();
+            String::from_utf8(out.stdout).unwrap()
+        };
+        let before = head(&clone);
+        let channels = channels_in(&clone);
+        assert!(channels.develop.exists);
+        assert_eq!(channels.develop.subject, "on develop");
+        assert_eq!(head(&clone), before);
+        assert!(!clone.join("b.txt").exists());
+    }
+
+    #[test]
+    fn a_failed_fetch_is_reported_and_the_last_known_commits_are_kept() {
+        let (tmp, clone) = origin_and_clone();
+        assert!(channels_in(&clone).main.exists);
+        fs::remove_dir_all(tmp.path().join("origin.git")).unwrap();
+        let channels = channels_in(&clone);
+        assert!(channels.error.is_some());
+        assert!(channels.main.exists);
+        assert_eq!(channels.main.subject, "first change");
+    }
+
+    #[test]
+    fn a_folder_that_is_not_a_git_checkout_reports_an_error_and_nothing_else() {
+        let tmp = TempDir::new();
+        let channels = channels_in(tmp.path());
+        assert!(channels.error.is_some());
+        assert!(!channels.main.exists);
+        assert!(!channels.develop.exists);
     }
 }

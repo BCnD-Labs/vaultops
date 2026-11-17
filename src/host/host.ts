@@ -20,6 +20,33 @@ export interface UpdateScriptStatus {
 	lastLine: string;
 }
 
+/** STOPGAP(update-script): which branch and commit this app was built from ("unknown" for a build not made by the install script). */
+export interface BuildInfo {
+	branch: string;
+	/** Full commit id. */
+	commit: string;
+	/** ISO time of the build. */
+	builtAt: string;
+}
+
+/** STOPGAP(update-script): the latest commit of one branch on GitHub. */
+export interface UpdateChannel {
+	/** False when the branch is not on GitHub (yet); the rest is then empty. */
+	exists: boolean;
+	commit: string;
+	shortCommit: string;
+	/** ISO time of the commit. */
+	committedAt: string;
+	subject: string;
+}
+
+export interface UpdateChannels {
+	main: UpdateChannel;
+	develop: UpdateChannel;
+	/** Set when the check could not reach GitHub; the commits are then the ones fetched last time. */
+	error: string | null;
+}
+
 export type EntryKind = "file" | "folder";
 
 export interface DirEntry {
@@ -144,6 +171,14 @@ export interface Host {
 	 */
 	startUpdateScript(): Promise<void>;
 	updateScriptStatus(): Promise<UpdateScriptStatus>;
+	/** STOPGAP(update-script): the branch and commit this app was built from. */
+	buildInfo(): Promise<BuildInfo>;
+	/**
+	 * STOPGAP(update-script): fetch `main` and `develop` from the code folder's
+	 * `origin` and read their latest commits. Never changes the working tree or
+	 * the checked-out branch, and never rejects for being offline (see `error`).
+	 */
+	updateChannels(): Promise<UpdateChannels>;
 }
 
 /** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */

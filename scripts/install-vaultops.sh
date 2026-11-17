@@ -34,6 +34,12 @@ fi
 
 commit="$(git rev-parse HEAD)" || fail "Could not read the build commit."
 short_commit="$(git rev-parse --short HEAD)" || fail "Could not read the short commit."
+# Baked into the app (src-tauri/src/update_script.rs reads them with option_env!)
+# so Settings can say which branch and commit is running.
+export VAULTOPS_BUILD_BRANCH="$branch"
+export VAULTOPS_BUILD_COMMIT="$commit"
+VAULTOPS_BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" || fail "Could not read the time."
+export VAULTOPS_BUILD_TIME
 if [ ! -d node_modules ] || ! git diff --quiet "$before" HEAD -- package-lock.json ||
    ! git diff --quiet HEAD -- package-lock.json; then
   echo "Installing dependencies..."

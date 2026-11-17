@@ -2,12 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
 	type AppInfo,
+	type BuildInfo,
 	type DirEntry,
 	type EntryKind,
 	HOST_ERROR_CODES,
 	type Host,
 	HostError,
 	type HostErrorCode,
+	type UpdateChannels,
 	type UpdateScriptStatus,
 } from "./host";
 
@@ -65,6 +67,8 @@ export const tauriHost: Host = {
 	writeReport: (name, text) => call<void>("write_report", { name, text }),
 	startUpdateScript: () => call<void>("start_update_script"),
 	updateScriptStatus: () => call<UpdateScriptStatus>("update_script_status"),
+	buildInfo: () => call<BuildInfo>("build_info"),
+	updateChannels: () => call<UpdateChannels>("update_channels"),
 	onCloseRequested: (handler) =>
 		getCurrentWindow().onCloseRequested(async (event) => {
 			if (!(await handler())) event.preventDefault();

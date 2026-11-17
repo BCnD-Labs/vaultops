@@ -4,6 +4,7 @@ import {
 	type ResourceCard,
 	type ResourceType,
 } from "../../core/resources/resources";
+import type { useRovingList } from "../useRovingList";
 import { labelOf, plural, subtitle } from "./resource-utils";
 
 /** The middle column: the cards that match the filter and the search. */
@@ -15,6 +16,7 @@ export function CardList({
 	filterType,
 	loaded,
 	selected,
+	roving,
 	onPick,
 	onEditType,
 }: {
@@ -25,11 +27,18 @@ export function CardList({
 	filterType: ResourceType | null;
 	loaded: boolean;
 	selected: string | null;
+	/** One Tab stop over the rows, with Up/Down/Home/End (from ResourceManager). */
+	roving: ReturnType<typeof useRovingList>;
 	onPick: (path: string) => void;
 	onEditType: () => void;
 }) {
 	return (
-		<section aria-label="Cards" className="res-list">
+		<section
+			aria-label="Cards"
+			className="res-list"
+			ref={roving.rootRef}
+			onKeyDown={roving.onKeyDown}
+		>
 			<div className="res-list-head">
 				<h2>
 					{query.trim() ? "Results" : (filterType?.name ?? labelOf(filter))}
@@ -54,6 +63,7 @@ export function CardList({
 								className="res-row res-card-row"
 								aria-current={selected === c.path ? "true" : undefined}
 								onClick={() => onPick(c.path)}
+								{...roving.itemProps(c.path)}
 							>
 								<span className="res-tile" aria-hidden="true">
 									{t ? t.name.charAt(0).toUpperCase() : "–"}

@@ -27,6 +27,7 @@ import type { Host } from "../host/host";
 import { notify } from "../ui/notify";
 import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import { ConfirmDialog } from "./TemplateDialogs";
+import { useRovingList } from "./useRovingList";
 import "./resources.css";
 import { AddFieldDialog } from "./resources/AddFieldDialog";
 import { AddTypeDialog } from "./resources/AddTypeDialog";
@@ -164,6 +165,20 @@ export function ResourceManager({
 	const readOnlyReason = loadError !== null;
 	const canWrite = writable && !readOnlyReason;
 
+	// Each list is one Tab stop; arrows move focus, never the selection.
+	const typeKeys = [
+		"all",
+		"recent",
+		...types.map((t) => t.id),
+		...(untyped.length > 0 ? ["none"] : []),
+		...(canWrite ? ["+add"] : []),
+	];
+	const typeList = useRovingList(typeKeys, filter);
+	const cardList = useRovingList(
+		rows.map((c) => c.path),
+		selected,
+	);
+
 	const dirty =
 		form !== null &&
 		JSON.stringify({ t: form.title, v: form.values }) !== form.original;
@@ -214,6 +229,7 @@ export function ResourceManager({
 		setSelected(result.path);
 		setForm(null);
 		setMode("view");
+		cardList.requestFocus(result.path);
 		notify(text(saved?.title ?? ""));
 	};
 
@@ -402,18 +418,25 @@ export function ResourceManager({
 					</p>
 				)}
 				<div className="res-body">
-					<nav aria-label="Resource types" className="res-types">
+					<nav
+						aria-label="Resource types"
+						className="res-types"
+						ref={typeList.rootRef}
+						onKeyDown={typeList.onKeyDown}
+					>
 						<TypeRow
 							label="All"
 							count={cards.length}
 							active={filter === "all"}
 							onClick={() => pickFilter("all")}
+							{...typeList.itemProps("all")}
 						/>
 						<TypeRow
 							label="Recent"
 							count={Math.min(8, cards.filter((c) => c.updated !== "").length)}
 							active={filter === "recent"}
 							onClick={() => pickFilter("recent")}
+							{...typeList.itemProps("recent")}
 						/>
 						{types.map((t) => (
 							<TypeRow
@@ -422,6 +445,7 @@ export function ResourceManager({
 								count={cards.filter((c) => c.typeId === t.id).length}
 								active={filter === t.id}
 								onClick={() => pickFilter(t.id)}
+								{...typeList.itemProps(t.id)}
 							/>
 						))}
 						{untyped.length > 0 && (
@@ -430,6 +454,7 @@ export function ResourceManager({
 								count={untyped.length}
 								active={filter === "none"}
 								onClick={() => pickFilter("none")}
+								{...typeList.itemProps("none")}
 							/>
 						)}
 						<button
@@ -437,6 +462,7 @@ export function ResourceManager({
 							className="res-row res-add"
 							disabled={!canWrite}
 							onClick={() => setTypeDialog(true)}
+							{...(canWrite ? typeList.itemProps("+add") : {})}
 						>
 							+ Add type
 						</button>
@@ -449,6 +475,7 @@ export function ResourceManager({
 						filterType={filterType}
 						loaded={loaded}
 						selected={selected}
+						roving={cardList}
 						onPick={pickCard}
 						onEditType={() => guard(() => setMode("settings"))}
 					/>
@@ -553,6 +580,7 @@ export function ResourceManager({
 						setMode("view");
 						setFilter("all");
 						await refresh();
+						typeList.requestFocus("all");
 						const target = types.find((t) => t.id === moveTo)?.name;
 						notify(
 							`Deleted the ${name} type.${
@@ -586,9 +614,12 @@ export function ResourceManager({
 						const target = removingCard;
 						setRemovingCard(null);
 						if (!target) return;
+						const at = rows.findIndex((c) => c.path === target.path);
+						const neighbour = rows[at + 1] ?? rows[at - 1];
 						await removeCard(host, target.path);
 						setSelected(null);
 						await refresh();
+						cardList.requestFocus(neighbour?.path ?? null);
 						notify(`Removed "${target.title}". It is in the recovery folder.`);
 					})
 				}

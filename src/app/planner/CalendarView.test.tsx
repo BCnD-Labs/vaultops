@@ -310,7 +310,9 @@ describe("CalendarView month view", () => {
 			.querySelector('[data-plan-date="2026-11-05"]')
 			?.closest(".plan-month-day") as HTMLElement;
 		expect(box.querySelectorAll(".plan-event")).toHaveLength(2);
-		await userEvent.click(within(box).getByRole("button", { name: "+2 more" }));
+		const more = within(box).getByRole("button", { name: "+2 more" });
+		expect(more.getAttribute("data-slot")).toBe("button");
+		await userEvent.click(more);
 		expect(p.onDate).toHaveBeenCalledWith("2026-11-05");
 		expect(
 			screen.getByRole("tab", { name: "Day" }).getAttribute("aria-selected"),
@@ -412,6 +414,8 @@ describe("CalendarView month view", () => {
 			})[0] as HTMLElement,
 		);
 		expect(p.onAdd).toHaveBeenCalledWith("2026-11-05");
+		for (const b of document.querySelectorAll(".plan-add-day"))
+			expect(b.getAttribute("data-slot")).toBe("button");
 		cleanup();
 		setup([], { writable: false });
 		await chooseView("Month");

@@ -50,6 +50,18 @@ it("shows one button per enabled slot on a row, all closed, the current one mark
 	expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull();
 });
 
+it("draws each slot with the Button component and marks the open one as on", async () => {
+	const user = userEvent.setup();
+	setup();
+	for (const n of ["Morning", "Afternoon", "Evening"]) {
+		expect(slot(n).getAttribute("data-slot")).toBe("button");
+		expect(slot(n).getAttribute("data-state")).toBe("off");
+	}
+	await user.click(slot("Evening"));
+	expect(slot("Evening").getAttribute("data-state")).toBe("on");
+	expect(slot("Morning").getAttribute("data-state")).toBe("off");
+});
+
 it("marks no slot as now on a day that is not today", () => {
 	setup({ isToday: false });
 	for (const n of ["Morning", "Afternoon", "Evening"])

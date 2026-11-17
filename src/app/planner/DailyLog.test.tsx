@@ -292,5 +292,8 @@ describe("DailyLog links and save feedback", () => {
 			await screen.findByRole("button", { name: "Trip plan" }),
 		);
 		expect(onOpenLink).toHaveBeenCalledWith(targets[0]);
+		expect(screen.getByRole("button", { name: "Trip plan" }).dataset.slot).toBe(
+			"button",
+		);
 	});
 });

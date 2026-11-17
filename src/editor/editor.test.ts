@@ -2,7 +2,7 @@ import { getSchema, type JSONContent } from "@tiptap/core";
 import { Node } from "@tiptap/pm/model";
 import { describe, expect, it } from "vitest";
 import { BLOCK_TYPES } from "./blocks";
-import { createExtensions } from "./extensions";
+import { createExtensions, INLINE_EXTRA_ATTR } from "./extensions";
 import { ensureUniqueIds } from "./ids";
 
 const schema = getSchema(createExtensions());
@@ -143,7 +143,12 @@ describe("tasks and marks", () => {
 
 	it("keeps checked and unchecked tasks and every mark through the schema", () => {
 		const back = Node.fromJSON(schema, doc).toJSON();
-		expect(back).toEqual(doc);
+		const expected = structuredClone(doc);
+		for (const inline of expected.content?.[2]?.content ?? []) {
+			for (const mark of inline.marks ?? [])
+				mark.attrs = { [INLINE_EXTRA_ATTR]: null };
+		}
+		expect(back).toEqual(expected);
 		const node = Node.fromJSON(schema, doc);
 		expect(() => node.check()).not.toThrow();
 	});

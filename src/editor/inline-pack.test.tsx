@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import { afterEach, expect, it } from "vitest";
-import { createExtensions } from "./extensions";
+import { createExtensions, INLINE_EXTRA_ATTR } from "./extensions";
 import { SLASH_ITEMS } from "./slash-items";
 
 let current: Editor | null = null;
@@ -141,6 +141,6 @@ it("marks text as a keyboard key", () => {
 		editor.chain().setTextSelection({ from: 1, to: 5 }).toggleMark("kbd").run();
 	});
 	expect(editor.getJSON().content?.[0]?.content?.[0]?.marks).toEqual([
-		{ type: "kbd" },
+		{ type: "kbd", attrs: { [INLINE_EXTRA_ATTR]: null } },
 	]);
 });

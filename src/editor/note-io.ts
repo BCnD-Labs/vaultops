@@ -8,7 +8,12 @@ import {
 } from "../core/note-format";
 import { scanVault } from "../core/notes/scan";
 import type { Host } from "../host/host";
-import { blocksToDoc, checkBlocks, docToBlocks } from "./doc-blocks";
+import {
+	blocksToDoc,
+	checkBlocks,
+	docToBlocks,
+	inlinePreservationProblem,
+} from "./doc-blocks";
 import { ensureUniqueIds } from "./ids";
 
 export interface OpenedNote {
@@ -156,6 +161,11 @@ export async function saveDoc(
 			header: opened.note.header,
 			blocks: docToBlocks(doc),
 		};
+		const inlineProblem = inlinePreservationProblem(
+			opened.note.blocks,
+			note.blocks,
+		);
+		if (inlineProblem) return { ok: false, message: inlineProblem };
 		const check = await saveWithPending(
 			host,
 			opened.path,

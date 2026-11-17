@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
-import type { JSONContent } from "@tiptap/core";
+import { getSchema, type JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vitest";
 import { type Block, parseNote, serializeNote } from "../core/note-format";
 import { blocksToDoc, checkBlocks, docToBlocks } from "./doc-blocks";
+import { createExtensions, INLINE_EXTRA_ATTR } from "./extensions";
 
 const text = (value: string, marks?: string[]): JSONContent => ({
 	type: "text",
@@ -102,10 +103,21 @@ const FIXTURE: Block[] = [
 ];
 
 describe("document and blocks", () => {
+	it("declares pass-through storage on every known inline node and mark", () => {
+		const schema = getSchema(createExtensions());
+		for (const type of Object.values(schema.nodes)) {
+			if (type.isInline && !type.isText) {
+				expect(type.spec.attrs?.[INLINE_EXTRA_ATTR], type.name).toBeDefined();
+			}
+		}
+		for (const type of Object.values(schema.marks)) {
+			expect(type.spec.attrs?.[INLINE_EXTRA_ATTR], type.name).toBeDefined();
+		}
+	});
 	it("maps every block type and nesting both ways, ids unchanged", () => {
 		expect(checkBlocks(FIXTURE)).toEqual({ ok: true });
 		const doc = blocksToDoc(FIXTURE);
-		expect(docToBlocks(doc)).toEqual(FIXTURE);
+		expect(docToBlocks(doc)).toStrictEqual(FIXTURE);
 		expect(blocksToDoc(docToBlocks(doc))).toEqual(doc);
 	});
 
@@ -265,6 +277,7 @@ describe("toggle fixture", () => {
 			"toggle",
 		]);
 		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+		expect(docToBlocks(doc)).toStrictEqual(note.blocks);
 	});
 
 	it("refuses a toggle that does not start with a summary paragraph", () => {

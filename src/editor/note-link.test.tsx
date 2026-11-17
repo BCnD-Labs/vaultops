@@ -4,7 +4,7 @@ import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { searchTargets } from "../core/links/links";
-import { createExtensions } from "./extensions";
+import { createExtensions, INLINE_EXTRA_ATTR } from "./extensions";
 import { type LinkSource, setLinkSource } from "./note-link";
 
 const TARGETS = [
@@ -115,7 +115,12 @@ it("choosing removes the typed text and leaves a link and a space", async () => 
 		{ type: "text", text: "see " },
 		{
 			type: "noteLink",
-			attrs: { kind: "resource", target: "r1", label: "Sam Rivera" },
+			attrs: {
+				kind: "resource",
+				target: "r1",
+				label: "Sam Rivera",
+				[INLINE_EXTRA_ATTR]: null,
+			},
 		},
 		{ type: "text", text: " " },
 	]);

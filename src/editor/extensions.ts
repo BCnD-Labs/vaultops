@@ -1,4 +1,4 @@
-import type { Extensions } from "@tiptap/core";
+import { Extension, type Extensions } from "@tiptap/core";
 import Highlight from "@tiptap/extension-highlight";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
@@ -29,6 +29,35 @@ import { SlashMenu } from "./slash-menu";
 import { SwitchBlock } from "./switch";
 import { TaskBlock } from "./task-block";
 import { Toggle } from "./toggle";
+
+/** Editor-only storage for note attrs from a newer build; never written to v1 files. */
+export const INLINE_EXTRA_ATTR = "__vaultopsInlineExtra";
+
+const InlineExtra = Extension.create({
+	name: "inlineExtra",
+	addGlobalAttributes() {
+		return [
+			{
+				types: [
+					"hardBreak",
+					"date",
+					"noteLink",
+					"bold",
+					"italic",
+					"strike",
+					"code",
+					"underline",
+					"highlight",
+					"subscript",
+					"superscript",
+					"kbd",
+					"quoteColor",
+				],
+				attributes: { [INLINE_EXTRA_ATTR]: { default: null, rendered: false } },
+			},
+		];
+	},
+});
 
 /**
  * The editor's extensions. StarterKit supplies paragraph, headings, lists,
@@ -62,6 +91,7 @@ export function createExtensions(): Extensions {
 		LinkMenu,
 		CodeLanguage,
 		QuoteColor,
+		InlineExtra,
 		TaskBlock,
 		Divider,
 		MathBlock,

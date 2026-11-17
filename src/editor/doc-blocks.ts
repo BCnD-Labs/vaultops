@@ -1,8 +1,8 @@
 import { getSchema, type JSONContent } from "@tiptap/core";
-import type { NodeType } from "@tiptap/pm/model";
+import type { MarkType, NodeType } from "@tiptap/pm/model";
 import type { Block, JsonValue } from "../core/note-format";
 import { BLOCK_TYPES } from "./blocks";
-import { createExtensions } from "./extensions";
+import { createExtensions, INLINE_EXTRA_ATTR } from "./extensions";
 
 const schema = getSchema(createExtensions());
 const KNOWN = new Set<string>(BLOCK_TYPES);
@@ -21,6 +21,154 @@ function declaredAttrs(type: NodeType): string[] {
 
 function sameValue(a: unknown, b: unknown): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
+}
+
+type InlineType = NodeType | MarkType | undefined;
+const record = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+function withExtra(
+	attrs: Record<string, unknown> | undefined,
+	type: InlineType,
+) {
+	if (!attrs || !type || type.name === "text") return attrs;
+	const declared = type.spec.attrs ?? {};
+	const extra = Object.fromEntries(
+		Object.entries(attrs).filter(([key]) => !(key in declared)),
+	);
+	if (!Object.keys(extra).length) return attrs;
+	const known = Object.fromEntries(
+		Object.entries(attrs).filter(([key]) => key in declared),
+	);
+	return { ...known, [INLINE_EXTRA_ATTR]: extra };
+}
+
+/** Move future inline attrs into the schema's private pass-through slot. */
+function toEditorInline(item: JSONContent): JSONContent {
+	const nodeType = schema.nodes[item.type ?? ""];
+	const type = nodeType?.isInline ? nodeType : undefined;
+	const attrs = withExtra(item.attrs, type);
+	return {
+		...item,
+		...(attrs === undefined ? {} : { attrs }),
+		...(item.marks
+			? {
+					marks: item.marks.map((mark) => ({
+						...mark,
+						attrs: withExtra(mark.attrs, schema.marks[mark.type]),
+					})),
+				}
+			: {}),
+		...(item.content ? { content: item.content.map(toEditorInline) } : {}),
+	};
+}
+
+function fromEditorAttrs(attrs: Record<string, unknown> | undefined) {
+	if (!attrs) return undefined;
+	const { [INLINE_EXTRA_ATTR]: extra, ...known } = attrs;
+	const merged = { ...known, ...(record(extra) ? extra : {}) };
+	return Object.keys(merged).length ? merged : undefined;
+}
+
+/** Emit the original v1 attr keys, never the editor-only pass-through slot. */
+function fromEditorInline(item: JSONContent): JSONContent {
+	const attrs = fromEditorAttrs(item.attrs);
+	const result = { ...item };
+	delete result.attrs;
+	if (attrs) result.attrs = attrs;
+	if (item.marks)
+		result.marks = item.marks.map((mark) => {
+			const restored = { ...mark };
+			const markAttrs = fromEditorAttrs(mark.attrs);
+			delete restored.attrs;
+			if (markAttrs) restored.attrs = markAttrs;
+			return restored;
+		});
+	if (item.content) result.content = item.content.map(fromEditorInline);
+	return result;
+}
+
+/** Reject any original inline shape whose future data cannot be accounted for. */
+export function inlinePreservationProblem(
+	before: Block[],
+	after: Block[],
+): string | null {
+	const afterById = new Map(after.map((block) => [block.id, block]));
+	const refusal =
+		"This edit would remove content from a newer version of the app, so it was not saved. Undo the last change to continue.";
+	function signatures(block: Block): string[] | null {
+		const found: string[] = [];
+		function collect(type: InlineType, attrs: unknown): boolean {
+			if (attrs === undefined) return true;
+			if (!type || !record(attrs) || INLINE_EXTRA_ATTR in attrs) return false;
+			for (const [key, value] of Object.entries(attrs)) {
+				if (!(key in (type.spec.attrs ?? {})))
+					found.push(JSON.stringify([type.name, key, value]));
+			}
+			return true;
+		}
+		function visit(item: JSONContent): boolean {
+			const type = schema.nodes[item.type ?? ""];
+			if (!type) return false;
+			if (
+				Object.keys(item).some(
+					(key) => !["type", "attrs", "text", "marks", "content"].includes(key),
+				)
+			)
+				return false;
+			if (
+				item.type === "text" &&
+				(item.content !== undefined ||
+					(record(item.attrs) && Object.keys(item.attrs).length > 0))
+			)
+				return false;
+			if (
+				item.type !== "text" &&
+				(item.text !== undefined || item.content !== undefined)
+			)
+				return false;
+			if (type.isInline && !collect(type, item.attrs)) return false;
+			for (const mark of item.marks ?? []) {
+				const markType = schema.marks[mark.type];
+				if (
+					!markType ||
+					Object.keys(mark).some((key) => !["type", "attrs"].includes(key)) ||
+					!collect(markType, mark.attrs)
+				)
+					return false;
+			}
+			return (item.content ?? []).every(visit);
+		}
+		return Array.isArray(block.content) &&
+			block.content.every((item) => visit(item as JSONContent))
+			? found.sort()
+			: block.content === undefined
+				? found
+				: null;
+	}
+	// Note-wide: Enter or a join can move an owner to another block, so every
+	// future attr from a surviving block only has to survive somewhere in the
+	// saved note.
+	const required = new Map<string, number>();
+	for (const block of before) {
+		if (!schema.nodes[block.type]?.inlineContent) continue;
+		if (!afterById.has(block.id)) continue; // Removing the whole block is an explicit edit.
+		const original = signatures(block);
+		if (!original) return refusal;
+		for (const sig of original) required.set(sig, (required.get(sig) ?? 0) + 1);
+	}
+	if (!required.size) return null;
+	const available = new Map<string, number>();
+	for (const block of after) {
+		if (!schema.nodes[block.type]?.inlineContent) continue;
+		const saved = signatures(block);
+		if (!saved) return refusal;
+		for (const sig of saved) available.set(sig, (available.get(sig) ?? 0) + 1);
+	}
+	for (const [sig, count] of required) {
+		if ((available.get(sig) ?? 0) < count) return refusal;
+	}
+	return null;
 }
 
 /**
@@ -54,7 +202,9 @@ export function docToBlocks(doc: JSONContent): Block[] {
 		if (Object.keys(attrs).length > 0) block.attrs = attrs;
 		if (type.inlineContent) {
 			if (node.content && node.content.length > 0) {
-				block.content = node.content as unknown as JsonValue;
+				block.content = node.content.map(
+					fromEditorInline,
+				) as unknown as JsonValue;
 			}
 			blocks.push(block);
 			return;
@@ -87,7 +237,9 @@ export function blocksToDoc(blocks: Block[]): JSONContent {
 			},
 		};
 		if (Array.isArray(block.content)) {
-			node.content = block.content as unknown as JSONContent[];
+			node.content = (block.content as unknown as JSONContent[]).map(
+				toEditorInline,
+			);
 		}
 		if (block.parent === null) {
 			root.push(node);

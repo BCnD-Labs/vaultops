@@ -62,6 +62,42 @@ export function hsvToHex({ h, s, v }: Hsv): string {
 export const clamp = (n: number, lo: number, hi: number) =>
 	Math.min(hi, Math.max(lo, n));
 
+export interface Hsl {
+	/** 0 to 360 */
+	h: number;
+	/** 0 to 1 */
+	s: number;
+	/** 0 to 1 */
+	l: number;
+}
+
+export function hexToHsl(hex: string): Hsl {
+	const { h, s: sv, v } = hexToHsv(hex);
+	const l = v * (1 - sv / 2);
+	return { h, s: l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l), l };
+}
+
+export function hslToHex({ h, s, l }: Hsl): string {
+	const v = l + s * Math.min(l, 1 - l);
+	return hsvToHex({ h, s: v === 0 ? 0 : 2 * (1 - l / v), v });
+}
+
+/** WCAG relative luminance of a #rrggbb colour, 0 (black) to 1 (white). */
+export function luminance(hex: string): number {
+	const norm = parseHex(hex) ?? "#000000";
+	const [r = 0, g = 0, b = 0] = [1, 3, 5].map((i) => {
+		const c = Number.parseInt(norm.slice(i, i + 2), 16) / 255;
+		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	});
+	return r * 0.2126 + g * 0.7152 + b * 0.0722;
+}
+
+/** WCAG contrast ratio of two #rrggbb colours, 1 to 21. */
+export function contrastRatio(a: string, b: string): number {
+	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+	return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+}
+
 const RECENT_KEY = "vaultops.recentColors";
 const RECENT_MAX = 8;
 

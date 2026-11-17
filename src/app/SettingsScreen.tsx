@@ -32,10 +32,12 @@ import {
 } from "../core/settings/registry";
 import { SHORTCUT_COMMANDS } from "../core/settings/shortcuts";
 import {
+	accentNote,
 	type ColorKey,
 	colorPreview,
 	colorTokens,
 	currentColor,
+	loadInterface,
 	refreshAppearance,
 	resolveMode,
 	systemIsDark,
@@ -183,6 +185,15 @@ export function SettingsScreen({
 					)
 				}
 				labelSuffix={searching && defMode ? `${defMode} mode` : undefined}
+				note={
+					def.key === "appearance.accent"
+						? accentNote(
+								loadInterface().accent,
+								mode,
+								currentColor("--background", root),
+							)
+						: undefined
+				}
 				colorFallback={
 					colorKey
 						? currentColor(

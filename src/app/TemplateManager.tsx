@@ -18,6 +18,13 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { NOTE_FORMAT, NOTE_FORMAT_VERSION } from "../core/note-format";
 import {
 	blocksFromTemplate,
@@ -40,6 +47,9 @@ import type { NoteRow } from "./session";
 import { templateFormats } from "./settings";
 import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
 import "./templates.css";
+
+/** Radix Select items cannot have an empty value, so "no context note" gets a stand-in. */
+const UNTITLED = "__untitled__";
 
 type Prompt =
 	| { kind: "new-template"; folder: string }
@@ -593,18 +603,24 @@ export function TemplateManager({
 											value={contextQuery}
 											onChange={(event) => setContextQuery(event.target.value)}
 										/>
-										<select
-											aria-label="Preview context"
-											value={contextPath}
-											onChange={(event) => setContextPath(event.target.value)}
+										<Select
+											value={contextPath === "" ? UNTITLED : contextPath}
+											onValueChange={(v) =>
+												setContextPath(v === UNTITLED ? "" : v)
+											}
 										>
-											<option value="">Untitled</option>
-											{contextMatches.map((n) => (
-												<option key={n.path} value={n.path}>
-													{n.title}
-												</option>
-											))}
-										</select>
+											<SelectTrigger aria-label="Preview context">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value={UNTITLED}>Untitled</SelectItem>
+												{contextMatches.map((n) => (
+													<SelectItem key={n.path} value={n.path}>
+														{n.title}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 									</div>
 								</div>
 								{preview && (

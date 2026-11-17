@@ -80,7 +80,7 @@ it("makes a note from a template in the current folder, opens it and closes the 
 		name: "Template manager",
 	});
 	await u.click(
-		await within(manager).findByRole("button", { name: "Meeting" }),
+		await within(manager).findByRole("treeitem", { name: "Meeting" }),
 	);
 	await u.click(
 		await within(manager).findByRole("button", {

@@ -324,3 +324,37 @@ it("warns, before a card is removed, that notes mention it", async () => {
 	expect(dialog.textContent).toContain("1 note or canvas mentions it (Trip)");
 	expect(dialog.textContent).toContain("nothing in the notes is changed");
 });
+
+it("adds a field from a type's settings and lists it", async () => {
+	const u = user();
+	await setup();
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	await u.click(within(nav).getByRole("button", { name: /^Contact/ }));
+	await u.click(screen.getByRole("button", { name: "Edit type and fields" }));
+	await u.click(screen.getByRole("button", { name: /Add field/ }));
+	await u.type(await screen.findByLabelText("Field name"), "Pronouns");
+	await u.click(screen.getByRole("button", { name: "Add field" }));
+	await waitFor(() =>
+		expect(screen.getByRole("status").textContent).toContain(
+			'Added "Pronouns" to Contact',
+		),
+	);
+	expect(screen.getByRole("button", { name: "Remove Pronouns" })).toBeTruthy();
+});
+
+it("shows an inline hint and blocks a field name the type already has", async () => {
+	const u = user();
+	await setup();
+	const nav = await screen.findByRole("navigation", { name: "Resource types" });
+	await u.click(within(nav).getByRole("button", { name: /^Contact/ }));
+	await u.click(screen.getByRole("button", { name: "Edit type and fields" }));
+	await u.click(screen.getByRole("button", { name: /Add field/ }));
+	await u.type(await screen.findByLabelText("Field name"), "phone");
+	expect(
+		screen.getByText("Contact already has a field called phone."),
+	).toBeTruthy();
+	expect(screen.getByRole("button", { name: "Add field" })).toHaveProperty(
+		"disabled",
+		true,
+	);
+});

@@ -1,20 +1,26 @@
+import { X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "./TemplateDialogs";
+import "./manager.css";
 
 /** The text of an error, for showing in a message line. */
 export const messageOf = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
 /**
- * The modal shell the managers share: a dialog with a light overlay, a title
- * and a screen-reader-only description. Closing (Escape, the overlay, the X)
- * goes through `onRequestClose`, so a manager can ask before dropping edits.
+ * The modal shell the managers share: a window like Settings, with a light
+ * overlay, a quiet centred title bar (the close button on its left; the
+ * `.settings-*` title bar classes are reused so the two stay alike) and a
+ * screen-reader-only description. Closing (Escape, the overlay, the X) goes
+ * through `onRequestClose`, so a manager can ask before dropping edits.
  */
 export function ManagerDialog({
 	open,
@@ -41,15 +47,21 @@ export function ManagerDialog({
 			}}
 		>
 			<DialogContent
-				className={className}
+				className={cn("manager-dialog", className)}
 				lightOverlay
+				showClose={false}
 				aria-describedby={descriptionId}
 			>
-				<DialogTitle>{title}</DialogTitle>
-				<DialogDescription id={descriptionId} className="sr-only">
-					{description}
-				</DialogDescription>
-				{children}
+				<header className="settings-titlebar">
+					<DialogClose className="settings-close" aria-label="Close">
+						<X aria-hidden="true" />
+					</DialogClose>
+					<DialogTitle className="settings-window-title">{title}</DialogTitle>
+					<DialogDescription id={descriptionId} className="sr-only">
+						{description}
+					</DialogDescription>
+				</header>
+				<div className="manager-content">{children}</div>
 			</DialogContent>
 		</Dialog>
 	);

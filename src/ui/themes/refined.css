@@ -577,3 +577,15 @@
 		--prompt-tone: var(--tone-yellow);
 	}
 }
+
+/* Manager windows: the selected row is raised, like the sidebar's controls.
+   Their search boxes already sit in sunken wells through the input rule. */
+:root[data-theme="refined"] {
+	& .res-row[aria-current="true"],
+	& .tpl-row[data-selected="true"] {
+		background: var(--raised-control);
+		box-shadow:
+			var(--raise-shadow),
+			0 0 0 var(--border-width) var(--raise-edge);
+	}
+}

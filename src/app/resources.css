@@ -1,24 +1,16 @@
-/* The resource manager: a compact index in a modal, like the template manager. */
-.res-manager.res-manager {
-	width: 94vw;
-	max-width: 58rem;
-	height: min(40rem, 80vh);
-	grid-template-rows: auto auto auto minmax(0, 1fr);
-	overflow: hidden;
-	gap: 8px;
-	padding: 12px 16px;
-	font-size: var(--font-size-small);
-}
+/* The resource manager: a compact index in a modal, like the template manager.
+   The window itself (size, title bar, padding) is `.manager-dialog` in
+   templates.css, shared by both managers. */
 .res-toolbar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px;
+	gap: var(--space-2);
 }
 .res-toolbar input {
 	flex: 1 1 14rem;
 	max-width: 24rem;
-	height: 2rem;
+	height: var(--control-height);
 }
 .res-body {
 	display: grid;
@@ -33,31 +25,31 @@
 .res-detail {
 	min-height: 0;
 	overflow-y: auto;
-	padding: 8px;
+	padding: var(--space-2);
 }
 .res-types {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
+	gap: calc(var(--space-unit) / 2);
 	border-right: var(--border-width) solid var(--border);
 }
 .res-list {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--space-2);
 	border-right: var(--border-width) solid var(--border);
 }
 .res-detail {
-	padding: 12px 16px;
+	padding: var(--space-3) var(--space-4);
 }
 .res-row {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--space-2);
 	width: 100%;
-	min-height: 1.75rem;
-	padding: 3px 8px;
+	min-height: var(--control-height);
+	padding: var(--space-1) var(--space-2);
 	border: 0;
 	border-radius: var(--radius-control);
 	background: none;
@@ -66,14 +58,13 @@
 	text-align: left;
 	cursor: pointer;
 }
+/* Hover and selected match the note tree: --accent and --row-raised. */
 .res-row:hover:not(:disabled) {
-	background: var(--hover, color-mix(in srgb, currentColor 8%, transparent));
+	background: var(--accent);
 }
 .res-row[aria-current="true"] {
-	background: var(
-		--selected,
-		color-mix(in srgb, currentColor 14%, transparent)
-	);
+	background: var(--row-raised);
+	color: var(--text);
 	font-weight: 600;
 }
 .res-row:focus-visible,
@@ -82,7 +73,7 @@
 	outline-offset: 1px;
 }
 .res-add {
-	margin-top: 6px;
+	margin-top: var(--space-2);
 	color: var(--accent-foreground, inherit);
 	font-weight: 600;
 }
@@ -94,8 +85,8 @@
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: 8px;
-	padding: 0 4px;
+	gap: var(--space-2);
+	padding: 0 var(--space-1);
 }
 .res-list-head h2,
 .res-detail h2 {
@@ -108,14 +99,14 @@
 	overflow-wrap: anywhere;
 }
 .res-detail h3 {
-	margin: 0 0 2px;
+	margin: 0 0 calc(var(--space-unit) / 2);
 	font-size: inherit;
 	font-weight: 600;
 }
 .res-rows {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
+	gap: calc(var(--space-unit) / 2);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -123,7 +114,7 @@
 .res-card-row {
 	align-items: flex-start;
 	justify-content: flex-start;
-	padding: 4px 6px;
+	padding: var(--space-1) var(--space-2);
 }
 .res-tile {
 	flex: none;
@@ -155,20 +146,20 @@
 }
 .res-note {
 	margin: 0;
-	padding: 6px 8px;
+	padding: var(--space-2);
 	border-radius: var(--radius-control);
 	background: var(--muted, color-mix(in srgb, currentColor 7%, transparent));
 	color: var(--muted-foreground);
 }
 .res-warn {
 	margin: 0;
-	padding: 6px 8px;
+	padding: var(--space-2);
 	border-radius: var(--radius-control);
 	background: color-mix(in srgb, var(--warn) 22%, transparent);
 }
 .res-status {
 	margin: 0;
-	padding: 6px 8px;
+	padding: var(--space-2);
 	border-radius: var(--radius-control);
 	background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
@@ -183,7 +174,7 @@
 .res-empty {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: var(--space-3);
 	max-width: 36rem;
 }
 .res-card-head {
@@ -191,7 +182,7 @@
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--space-2);
 }
 .res-card-head p,
 .res-form p,
@@ -203,7 +194,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 6px;
+	gap: var(--space-2);
 }
 .res-values {
 	display: flex;
@@ -213,8 +204,8 @@
 .res-values > div {
 	display: grid;
 	grid-template-columns: 7.5rem minmax(0, 1fr);
-	gap: 10px;
-	padding: 4px 0;
+	gap: var(--space-3);
+	padding: var(--space-1) 0;
 	border-top: var(--border-width) solid var(--border);
 }
 .res-values dt {
@@ -228,7 +219,7 @@
 .res-field {
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: var(--space-1);
 	font-weight: 600;
 }
 .res-field em {
@@ -239,12 +230,12 @@
 }
 .res-field input,
 .res-field select {
-	height: 2rem;
+	height: var(--control-height);
 	font-weight: 400;
 }
 .res-field textarea {
 	min-height: 4.5rem;
-	padding: 4px 8px;
+	padding: var(--space-1) var(--space-2);
 	border: var(--border-width) solid var(--border);
 	border-radius: var(--radius-control);
 	background: transparent;
@@ -257,8 +248,8 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto auto;
 	align-items: center;
-	gap: 6px;
-	padding: 4px 0;
+	gap: var(--space-2);
+	padding: var(--space-1) 0;
 	border-top: var(--border-width) solid var(--border);
 }
 .res-danger {
@@ -268,13 +259,13 @@
 .res-pick-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 8px;
+	gap: var(--space-2);
 }
 .res-pick-tile {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
-	padding: 8px 10px;
+	gap: calc(var(--space-unit) / 2);
+	padding: var(--space-2) var(--space-3);
 	border: var(--border-width) solid var(--border);
 	border-radius: var(--radius-control);
 	background: none;
@@ -284,7 +275,7 @@
 	cursor: pointer;
 }
 .res-pick-tile:hover {
-	background: var(--hover, color-mix(in srgb, currentColor 8%, transparent));
+	background: var(--accent);
 }
 .res-pick-add {
 	justify-content: center;
@@ -294,31 +285,31 @@
 .res-dialog form {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: var(--space-3);
 }
 .res-starters {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 6px;
+	gap: var(--space-2);
 	margin: 0;
 	padding: 0;
 	border: 0;
 }
 .res-starters legend {
 	width: 100%;
-	padding: 0 0 3px;
+	padding: 0 0 var(--space-1);
 	font-weight: 600;
 }
 .res-choices {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--space-2);
 }
 .res-choice {
 	display: flex;
 	align-items: flex-start;
-	gap: 8px;
-	padding: 8px 10px;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
 	border: var(--border-width) solid var(--border);
 	border-radius: var(--radius-control);
 	cursor: pointer;
@@ -334,13 +325,13 @@
 .res-mentions {
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
+	gap: calc(var(--space-unit) / 2);
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 .res-mention {
-	padding: 2px 4px;
+	padding: calc(var(--space-unit) / 2) var(--space-1);
 	border: 0;
 	border-radius: var(--radius-control);
 	background: none;

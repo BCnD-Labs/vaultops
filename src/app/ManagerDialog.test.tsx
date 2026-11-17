@@ -90,6 +90,28 @@ it("shows the title and asks to close through onRequestClose", async () => {
 	expect(onRequestClose).toHaveBeenCalledTimes(1);
 });
 
+it("has a Settings-style title bar whose close button asks via onRequestClose", async () => {
+	const onRequestClose = vi.fn();
+	render(
+		<ManagerDialog
+			open
+			onRequestClose={onRequestClose}
+			className="x-manager"
+			title="Thing manager"
+			description="About the thing."
+			descriptionId="x-about"
+		>
+			<p>Body</p>
+		</ManagerDialog>,
+	);
+	const bar = screen.getByText("Thing manager").closest("header");
+	expect(bar?.className).toContain("settings-titlebar");
+	const close = screen.getByRole("button", { name: "Close" });
+	expect(bar?.contains(close)).toBe(true);
+	await userEvent.click(close);
+	expect(onRequestClose).toHaveBeenCalledTimes(1);
+});
+
 it("reads the text out of an error, a string or anything else", () => {
 	expect(messageOf(new Error("boom"))).toBe("boom");
 	expect(messageOf("plain")).toBe("plain");

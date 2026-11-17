@@ -491,7 +491,7 @@ export function TemplateManager({
 							<ul className="tpl-tree">{renderLevel("")}</ul>
 						</nav>
 						{empty && (
-							<p className="tpl-note">
+							<p className="manager-empty">
 								No templates yet. Add one with New template, or save a note as a
 								template from its menu.
 							</p>
@@ -500,7 +500,7 @@ export function TemplateManager({
 					<div className="tpl-main">
 						{!entry && (
 							<div className="tpl-empty">
-								<p className="tpl-note">Choose a template to edit it.</p>
+								<p className="manager-empty">Choose a template to edit it.</p>
 							</div>
 						)}
 						{entry && (

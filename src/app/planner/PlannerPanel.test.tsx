@@ -13,6 +13,7 @@ import { keyOfDate } from "../../core/planner/dates";
 import { MemoryHost } from "../../host/memory-host";
 import type { NoteRow } from "../session";
 import { createTask } from "./actions";
+import { fmtLong as fmtLongFor } from "./fmt";
 import { PlannerProvider } from "./PlannerContext";
 import { PlannerPanel } from "./PlannerPanel";
 
@@ -28,7 +29,9 @@ const taskRow = () =>
 		name: /Write it up/,
 	});
 
-async function setup() {
+type EventSeed = { title: string; due: string; dueTime?: string };
+
+async function setup(events: EventSeed[] = []) {
 	localStorage.setItem("vaultops:calendar-button", "0");
 	const host = new MemoryHost();
 	const path = await createTask(host, {
@@ -51,6 +54,34 @@ async function setup() {
 	const rows: NoteRow[] = [
 		{ path, title: task.title, preview: "", readOnly: false, tags: [], task },
 	];
+	for (const [i, e] of events.entries()) {
+		const evPath = await createTask(host, {
+			title: e.title,
+			number: 10 + i,
+			due: e.due,
+			now: new Date(),
+		});
+		const ev = {
+			path: evPath,
+			number: 10 + i,
+			title: e.title,
+			status: "open" as const,
+			kind: "event" as const,
+			due: e.due,
+			dueTime: e.dueTime,
+			starred: false,
+			labels: [],
+			preview: "",
+		};
+		rows.push({
+			path: evPath,
+			title: e.title,
+			preview: "",
+			readOnly: false,
+			tags: [],
+			task: ev,
+		});
+	}
 	const onChanged = vi.fn(async () => {});
 	const view = () => (
 		<TooltipProvider>
@@ -175,4 +206,82 @@ it("starts with the switch when the calendar is docked out", async () => {
 	expect(planner.querySelector('section[aria-label="Calendar"]')).toBeNull();
 	expect(screen.queryByRole("img", { name: "Drag the calendar" })).toBeNull();
 	expect(screen.getByRole("radiogroup", { name: "Planner view" })).toBeTruthy();
+});
+
+const dayButton = (re: RegExp) =>
+	within(screen.getByRole("region", { name: "Calendar" })).getByRole("button", {
+		name: re,
+	});
+
+it("marks a day that has an event with its own dot and a label that counts them", async () => {
+	await setup([
+		{ title: "Dentist", due: today, dueTime: "09:30" },
+		{ title: "Standup", due: today, dueTime: "10:00" },
+	]);
+	const day = dayButton(/2 events/);
+	expect(day.getAttribute("aria-label")).toMatch(/1 task, 2 events/);
+	expect(day.querySelectorAll(".plan-dot.is-event")).toHaveLength(1);
+	// The task still has its own marker, apart from the event dot.
+	expect(day.querySelectorAll(".plan-dot:not(.is-event)")).toHaveLength(1);
+});
+
+it("lists the picked day's events under Events, above the tasks, by time", async () => {
+	await setup([
+		{ title: "Standup", due: today, dueTime: "10:00" },
+		{ title: "Dentist", due: today, dueTime: "09:30" },
+	]);
+	const events = screen.getByRole("region", { name: "Events" });
+	expect(within(events).getByRole("heading", { name: "Events" })).toBeTruthy();
+	const names = within(events)
+		.getAllByRole("button")
+		.map((b) => b.textContent);
+	expect(names).toEqual(["09:30Dentist", "10:00Standup"]);
+	const tasks = screen.getByRole("region", { name: "Tasks" });
+	expect(
+		events.compareDocumentPosition(tasks) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+});
+
+it("shows no Events section on a day without events", async () => {
+	await setup([{ title: "Dentist", due: "2001-01-01" }]);
+	expect(screen.queryByRole("region", { name: "Events" })).toBeNull();
+});
+
+it("lists an event once, not also in the calendar agenda or the task list", async () => {
+	await setup([{ title: "Dentist", due: today, dueTime: "09:30" }]);
+	expect(screen.getAllByText("Dentist")).toHaveLength(1);
+	// The agenda keeps the task, and does not say "Nothing scheduled" for the day.
+	expect(screen.getAllByText("Write it up")).toHaveLength(2);
+});
+
+it("opens an event's details window on click", async () => {
+	await setup([{ title: "Dentist", due: today, dueTime: "09:30" }]);
+	await userEvent.click(
+		within(screen.getByRole("region", { name: "Events" })).getByRole("button", {
+			name: /Dentist/,
+		}),
+	);
+	const dialog = await screen.findByRole("dialog");
+	expect(within(dialog).getByText("Dentist")).toBeTruthy();
+});
+
+it("starts a new event on the picked day", async () => {
+	await setup();
+	const other = new Date();
+	other.setDate(other.getDate() + (other.getDate() > 15 ? -3 : 3));
+	const key = keyOfDate(other);
+	await userEvent.click(
+		within(screen.getByRole("region", { name: "Calendar" })).getByRole(
+			"button",
+			{ name: new RegExp(`^${fmtLongFor(key)}`) },
+		),
+	);
+	await userEvent.click(
+		screen.getByRole("button", { name: "Add a task or event" }),
+	);
+	await userEvent.click(
+		await screen.findByRole("menuitem", { name: "New event" }),
+	);
+	const date = await screen.findByLabelText("Date");
+	expect((date as HTMLInputElement).value).toBe(key);
 });

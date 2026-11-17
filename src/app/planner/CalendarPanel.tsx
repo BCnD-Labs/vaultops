@@ -8,7 +8,13 @@ import "./planner.css";
 
 /** The calendar tool: a month and the chosen day's items. Wherever it sits, it
  *  reads and writes the same planner state. */
-export function CalendarPanel({ bare = false }: { bare?: boolean }) {
+export function CalendarPanel({
+	bare = false,
+	hideEvents = false,
+}: {
+	bare?: boolean;
+	hideEvents?: boolean;
+}) {
 	const p = usePlanner();
 	const [dialog, setDialog] = useState<string | null>(null);
 	const [editPath, setEditPath] = useState<string | null>(null);
@@ -34,6 +40,7 @@ export function CalendarPanel({ bare = false }: { bare?: boolean }) {
 					setEditPath(t.path);
 				}}
 				onAdd={(d) => setDialog(d)}
+				hideEvents={hideEvents}
 			/>
 			{dialog !== null && (
 				<NewItemDialog

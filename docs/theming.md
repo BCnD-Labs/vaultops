@@ -30,6 +30,10 @@ Check contrast after palette changes. In the light theme, filled blue buttons us
   blue accent. Its component touches sit at the end of `themes/refined.css`, scoped to the theme.
 - `high-contrast` (High contrast): near-black and white, 2px borders and focus rings,
   with at least 7:1 body text contrast in both modes.
+- `daylight` (Daylight): for a screen in direct sunlight. Mid-dark grey surfaces
+  (not near-black) with clearly separate steps, near-white text, light-grey borders
+  at 3:1 or more, a strong blue accent, solid hover and selected fills and almost no
+  shadows. Body and muted text reach 7:1 on its main surfaces in both modes.
 
 All support light, dark and system mode. Start the browser preview as described in
 `src/preview/README.md`, then open `/harness.html?theme=high-contrast&mode=dark`

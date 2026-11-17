@@ -15,6 +15,7 @@ describe("theme choice", () => {
 				"cosmos",
 				"arcade",
 				"high-contrast",
+				"daylight",
 			]);
 			expect(modes).toEqual(["light", "dark"]);
 			for (const mode of ["light", "dark", "system"] as const) {

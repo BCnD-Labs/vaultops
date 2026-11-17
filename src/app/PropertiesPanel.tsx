@@ -1,6 +1,9 @@
-import { Plus, Settings2, X } from "lucide-react";
+import { Plus, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { CloseButton } from "@/components/ui/close-button";
+import { Input } from "@/components/ui/input";
 import {
 	Popover,
 	PopoverContent,
@@ -96,15 +99,11 @@ function SelectControl(props: {
 				</Select>
 			)}
 			{options.length > SEGMENT_MAX && editable && value !== null && (
-				<button
-					type="button"
-					className="chip-remove"
-					aria-label={`Clear ${item.name}`}
+				<CloseButton
+					label={`Clear ${item.name}`}
 					title="Clear"
 					onClick={() => onValue(null)}
-				>
-					<X className="tree-icon" aria-hidden="true" />
-				</button>
+				/>
 			)}
 			{stray && (
 				<span className="read-only-tag" role="status">
@@ -125,12 +124,15 @@ function SelectControl(props: {
 			)}
 			{editable && onOptions && (
 				<Popover>
-					<PopoverTrigger
-						className="chip-remove"
-						aria-label={`Edit options of ${item.name}`}
-						title="Edit options"
-					>
-						<Settings2 className="tree-icon" aria-hidden="true" />
+					<PopoverTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label={`Edit options of ${item.name}`}
+							title="Edit options"
+						>
+							<Settings2 aria-hidden="true" />
+						</Button>
 					</PopoverTrigger>
 					<PopoverContent align="start">
 						<Chips
@@ -166,12 +168,11 @@ export function Chips(props: {
 	return (
 		<span className="chips">
 			{props.items.map((item) => (
-				<span
+				<Chip
 					key={item}
-					className="chip"
-					data-tone={
-						props.label === "tags" ? tagTone(item, appearance) : undefined
-					}
+					tone={props.label === "tags" ? tagTone(item, appearance) : undefined}
+					onRemove={props.editable ? () => props.onRemove(item) : undefined}
+					removeLabel={`Remove ${item} from ${props.label}`}
 				>
 					{props.onPick ? (
 						<button
@@ -185,22 +186,11 @@ export function Chips(props: {
 					) : (
 						<span>{item}</span>
 					)}
-					{props.editable && (
-						<button
-							type="button"
-							className="chip-remove"
-							aria-label={`Remove ${item} from ${props.label}`}
-							title={`Remove ${item} from ${props.label}`}
-							onClick={() => props.onRemove(item)}
-						>
-							<X className="tree-icon" aria-hidden="true" />
-						</button>
-					)}
-				</span>
+				</Chip>
 			))}
 			{props.editable && (
-				<input
-					className="chip-input"
+				<Input
+					className="chip-input h-[var(--control-height-sm)] w-[90px]"
 					aria-label={`Add to ${props.label}`}
 					placeholder={props.label === "tags" ? "Add tag" : "Add…"}
 					value={draft}
@@ -370,15 +360,11 @@ export function PropertiesPanel({
 						</span>
 					)}
 					{editable && (
-						<button
-							type="button"
-							className="chip-remove"
-							aria-label={`Remove property ${item.name}`}
+						<CloseButton
+							label={`Remove property ${item.name}`}
 							title="Remove property"
 							onClick={() => onChange(removeProperty(props, item.name))}
-						>
-							<X className="tree-icon" aria-hidden="true" />
-						</button>
+						/>
 					)}
 				</div>
 			))}

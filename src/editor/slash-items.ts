@@ -348,6 +348,28 @@ const ITEMS: SlashItem[] = [
 		},
 	},
 	{
+		id: "chart",
+		label: "Chart",
+		keywords: ["graph", "bar", "line", "pie", "visualize"],
+		section: "Visual",
+		icon: ChartPie,
+		feature: "charts",
+		run: (editor, range) => {
+			let databaseId = "";
+			editor.state.doc.descendants((node) => {
+				if (
+					!databaseId &&
+					node.type.name === "database" &&
+					typeof node.attrs.id === "string"
+				)
+					databaseId = node.attrs.id;
+			});
+			start(editor, range)
+				.insertContent({ type: "chart", attrs: { databaseId } })
+				.run();
+		},
+	},
+	{
 		id: "columns-2",
 		label: "2 columns",
 		keywords: ["columns", "layout", "side by side", "two"],

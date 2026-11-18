@@ -28,6 +28,7 @@ export const BLOCK_TYPES = [
 	"tableCell",
 	"database",
 	"databaseRow",
+	"chart",
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];

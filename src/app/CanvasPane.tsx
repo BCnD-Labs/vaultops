@@ -66,10 +66,9 @@ import {
 	setTone,
 } from "../core/notes/canvas-ops";
 import { reorderItems } from "../core/notes/canvas-order";
-import { blockPosition } from "../core/notes/canvas-position";
+import { blockPosition, moveCanvasCard } from "../core/notes/canvas-position";
 import { setShapeKind, setTextSize } from "../core/notes/canvas-style";
 import { headerIcon, withIcon } from "../core/notes/icon";
-import { renameNote } from "../core/notes/rename";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { BLOCK_TYPES } from "../editor/blocks";
 import type { LinkSource } from "../editor/note-link";
@@ -114,8 +113,6 @@ export function CanvasPane({
 	writable,
 	focusName = false,
 	onFocusedName,
-	onSelect,
-	onRename,
 	onIconSaved,
 	onDropBlock,
 	onMoveToNote,
@@ -131,9 +128,7 @@ export function CanvasPane({
 	writable: boolean;
 	focusName?: boolean;
 	onFocusedName?: () => void;
-	onSelect: (path: string) => void;
 	onIconSaved?: (path: string, icon: string | undefined) => void;
-	onRename?: (oldPath: string, newPath: string, title: string) => void;
 	onDropBlock: (
 		blockId: string,
 		noteId: string,
@@ -225,19 +220,15 @@ export function CanvasPane({
 	const editable = Boolean(
 		writable && !row?.readOnly && isCanvas && !document?.readOnly && !failed,
 	);
-	const savedTitle =
+	const title =
 		typeof canvasHeader?.title === "string"
 			? canvasHeader.title
 			: (row?.title ?? activePath);
 	const history = document?.canvasHistory;
-	const [name, setName] = useState(savedTitle);
-	const nameRef = useRef(savedTitle);
-	const [prevKey, setPrevKey] = useState(`${activePath}\n${savedTitle}`);
-	if (`${activePath}\n${savedTitle}` !== prevKey) {
-		setPrevKey(`${activePath}\n${savedTitle}`);
-		nameRef.current = savedTitle;
-		setName(savedTitle);
-	}
+	const [name, setName] = useState<{ noteId: string; text: string } | null>(
+		null,
+	);
+	const nameEdit = name?.noteId === document?.noteId ? name : null;
 	useEffect(() => {
 		if (editable && shouldFocus.current && nameInput.current) {
 			shouldFocus.current = false;
@@ -246,46 +237,6 @@ export function CanvasPane({
 			onFocusedName?.();
 		}
 	}, [editable, onFocusedName]);
-	const commitName = () =>
-		inOrder(host, activePath, async () => {
-			const nextTitle = nameRef.current;
-			const current = binding?.current();
-			if (
-				!editable ||
-				current?.path !== activePath ||
-				current.readOnly ||
-				!current.base ||
-				current.saveStatus.kind !== "saved" ||
-				nextTitle === current.base.header.title
-			)
-				return;
-			try {
-				if ((await host.readText(activePath)) !== current.diskText)
-					throw new Error(
-						"The canvas changed on disk. Reload it before renaming it.",
-					);
-				const result = await renameNote(
-					documents?.guardMoves(host) ?? host,
-					activePath,
-					current.base,
-					nextTitle,
-				);
-				binding?.acceptCanvasText(
-					activePath,
-					result.path,
-					await host.readText(result.path),
-				);
-				setError(result.notice ?? null);
-				if (!result.notice) {
-					onRename?.(activePath, result.path, nextTitle);
-					if (result.path !== activePath) onSelect(result.path);
-				}
-			} catch (reason) {
-				nameRef.current = savedTitle;
-				setName(savedTitle);
-				setError(reason instanceof Error ? reason.message : String(reason));
-			}
-		});
 	const actOnCanvas = async (work: Promise<boolean> | undefined) => {
 		try {
 			const saved = await work;
@@ -305,6 +256,15 @@ export function CanvasPane({
 		actOnCanvas(
 			editable ? binding?.editCanvas(mutate, action, mutateHeader) : undefined,
 		);
+	const commitName = async () => {
+		if (!editable || !nameEdit) return;
+		await commit(
+			(all) => all,
+			"renaming it",
+			(header) => ({ ...header, title: nameEdit.text }),
+		);
+		setName((current) => (current === nameEdit ? null : current));
+	};
 	const addItem = async (
 		type: "sticky" | "shape" | "label",
 		extra: { [k: string]: string } = {},
@@ -478,9 +438,9 @@ export function CanvasPane({
 				void step(key === "y" || event.shiftKey ? "redo" : "undo");
 			}}
 		>
-			{(failed || error) && (
+			{(failed || error || document?.canvasRenameNotice) && (
 				<p role="alert" className="notice">
-					{failed || error}
+					{failed || error || document?.canvasRenameNotice}
 				</p>
 			)}
 			{unknownType !== undefined && (
@@ -513,11 +473,11 @@ export function CanvasPane({
 					ref={nameInput}
 					className="canvas-name"
 					aria-label="Canvas name"
-					value={name}
+					value={nameEdit?.text ?? title}
 					disabled={!editable}
 					onChange={(event) => {
-						nameRef.current = event.target.value;
-						setName(event.target.value);
+						if (document?.noteId)
+							setName({ noteId: document.noteId, text: event.target.value });
 					}}
 					onBlur={() => void commitName()}
 					onKeyDown={(event) => {
@@ -526,8 +486,7 @@ export function CanvasPane({
 							void commitName();
 						} else if (event.key === "Escape") {
 							event.preventDefault();
-							nameRef.current = savedTitle;
-							setName(savedTitle);
+							setName(null);
 						}
 					}}
 				/>
@@ -662,7 +621,7 @@ export function CanvasPane({
 							onMove={(id, position) => {
 								if (!locked)
 									void commit(
-										(all) => setPositions(all, { [id]: position }),
+										(all) => moveCanvasCard(all, id, position),
 										"moving a card",
 									);
 							}}

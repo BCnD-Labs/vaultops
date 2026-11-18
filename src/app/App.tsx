@@ -338,6 +338,24 @@ export function App({ host }: { host: Host }) {
 		writable,
 		isCanvas,
 		onSaved,
+		onCanvasTitleSaved: (from, to, title) => {
+			if (from !== to) {
+				if (vaultName && lastCanvas(vaultName) === from) selectCanvas(to);
+				followHistory(from, to);
+			}
+			changeView(
+				(v) =>
+					v && {
+						...v,
+						report: v.report.map((e) =>
+							e.path === from ? { ...e, path: to } : e,
+						),
+						notes: v.notes
+							.map((n) => (n.path === from ? { ...n, path: to, title } : n))
+							.sort(compareRows),
+					},
+			);
+		},
 		onUnsaved: setError,
 		onError: setError,
 	});
@@ -1505,28 +1523,6 @@ export function App({ host }: { host: Host }) {
 				focusName={focusCanvas}
 				onFocusedName={() => setFocusCanvas(false)}
 				onIconSaved={onCanvasIconSaved}
-				onSelect={(next) => void open(next, { pane: pane.id })}
-				onRename={(oldPath, newPath, nextTitle) => {
-					selectCanvas(newPath);
-					ws.rename(oldPath, newPath);
-					changeView((v) =>
-						v
-							? {
-									...v,
-									report: v.report.map((e) =>
-										e.path === oldPath ? { ...e, path: newPath } : e,
-									),
-									notes: v.notes
-										.map((n) =>
-											n.path === oldPath
-												? { ...n, path: newPath, title: nextTitle }
-												: n,
-										)
-										.sort(compareRows),
-								}
-							: v,
-					);
-				}}
 				onDropBlock={async (blockId, noteId, position, copy) => {
 					await dropBlock(pane, blockId, noteId, position, copy);
 					// Show the new card. A refused move throws first, and the canvas

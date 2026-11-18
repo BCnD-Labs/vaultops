@@ -21,6 +21,7 @@ import { attrsOf } from "../core/notes/canvas-ops";
 import { createCanvas } from "../core/notes/repository";
 import { scanVault } from "../core/notes/scan";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
+import { createQuitGuard } from "../editor/quit";
 import { MemoryHost } from "../host/memory-host";
 import { CanvasPane as RegistryCanvasPane } from "./CanvasPane";
 import { createLiveDocuments, type LiveDocuments } from "./live-documents";
@@ -194,7 +195,6 @@ it("shows the empty canvas, then saves and reloads a dragged card", async () => 
 			},
 		],
 		writable: true,
-		onSelect: vi.fn(),
 		onDropBlock: vi.fn(),
 	};
 	const first = render(<CanvasPane {...props} />);
@@ -241,7 +241,6 @@ it("accepts a VaultOps block and explains invalid or read-only drops", async () 
 			},
 		],
 		writable: true,
-		onSelect: vi.fn(),
 		onDropBlock,
 	};
 	const first = render(<CanvasPane {...props} />);
@@ -287,7 +286,6 @@ it("ignores a card dropped back on its own canvas", async () => {
 				},
 			]}
 			writable={true}
-			onSelect={vi.fn()}
 			onDropBlock={onDropBlock}
 		/>,
 	);
@@ -329,7 +327,6 @@ it("toggles canvas lock, remembers the state, disables flow pan/zoom/drag while 
 			},
 		],
 		writable: true,
-		onSelect: vi.fn(),
 		onDropBlock: vi.fn(),
 		onMoveToNote,
 	};
@@ -440,8 +437,12 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	const host = new MemoryHost();
 	const made = await createCanvas(host);
 	await createCanvas(host, "", "Taken");
-	const onSelect = vi.fn();
-	const onRename = vi.fn();
+	const onCanvasTitleSaved = vi.fn();
+	const documents = createLiveDocuments(host, {
+		notes: [{ path: made.path, id: made.note.header.noteId, readOnly: false }],
+		writable: true,
+		onCanvasTitleSaved,
+	});
 	const row = (path: string, title: string, readOnly = false) => ({
 		path,
 		title,
@@ -456,12 +457,10 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 		canvases: [row("Taken.vnote", "Taken"), row(made.path, "Untitled canvas")],
 		writable: true,
 		focusName: true,
-		onSelect,
-		onRename,
 		onDropBlock: vi.fn(),
 	};
 
-	const view = render(<CanvasPane {...baseProps} />);
+	const view = render(<CanvasPane {...baseProps} documents={documents} />);
 	await screen.findByText("Drag a block here from a note.");
 	const nameInput = screen.getByRole("textbox", {
 		name: "Canvas name",
@@ -495,8 +494,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect(
 		parseNote(await host.readText("Roadmap.vnote")).note?.header.title,
 	).toBe("Roadmap");
-	expect(onSelect).toHaveBeenCalledWith("Roadmap.vnote");
-	expect(onRename).toHaveBeenCalledWith(
+	expect(onCanvasTitleSaved).toHaveBeenCalledWith(
 		"Untitled canvas.vnote",
 		"Roadmap.vnote",
 		"Roadmap",
@@ -511,7 +509,11 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect(
 		parseNote(await host.readText("roadmap.vnote")).note?.header.title,
 	).toBe("roadmap");
-	expect(onSelect).toHaveBeenLastCalledWith("roadmap.vnote");
+	expect(onCanvasTitleSaved).toHaveBeenLastCalledWith(
+		"Roadmap.vnote",
+		"roadmap.vnote",
+		"roadmap",
+	);
 
 	// Duplicate name (including case-only clash) gets " 2" like notes.
 	fireEvent.change(nameInput, { target: { value: "taken" } });
@@ -522,7 +524,11 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect(
 		parseNote(await host.readText("taken 2.vnote")).note?.header.title,
 	).toBe("taken");
-	expect(onSelect).toHaveBeenLastCalledWith("taken 2.vnote");
+	expect(onCanvasTitleSaved).toHaveBeenLastCalledWith(
+		"roadmap.vnote",
+		"taken 2.vnote",
+		"taken",
+	);
 
 	// Failed rename keeps the old name and shows a notice.
 	const moveSpy = vi
@@ -534,7 +540,11 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 		"keeps its old name",
 	);
 	expect(nameInput.value).toBe("Blocked");
-	expect(onSelect).toHaveBeenLastCalledWith("taken 2.vnote");
+	expect(onCanvasTitleSaved).toHaveBeenLastCalledWith(
+		"taken 2.vnote",
+		"taken 2.vnote",
+		"Blocked",
+	);
 	expect(await host.kindOf("taken 2.vnote")).toBe("file");
 	expect(await host.kindOf("Blocked.vnote")).toBeNull();
 	moveSpy.mockRestore();
@@ -546,8 +556,12 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect((await screen.findByRole("alert")).textContent).toContain(
 		"changed on disk",
 	);
-	expect(nameInput.value).toBe("Blocked");
+	expect(nameInput.value).toBe("Overwrite");
 	expect(await host.readText("taken 2.vnote")).toBe("changed elsewhere");
+	expect(await documents.flushAll()).toBe(false);
+	expect(documents.recoveryTexts(new Date())).toEqual([
+		expect.stringContaining('"title":"Overwrite"'),
+	]);
 	view.unmount();
 
 	// Read-only canvas disables the name field.
@@ -582,7 +596,6 @@ it("opens a canvas with an unknown block type read-only and says why", async () 
 			path={made.path}
 			canvases={[]}
 			writable
-			onSelect={vi.fn()}
 			onDropBlock={vi.fn()}
 		/>,
 	);
@@ -608,7 +621,6 @@ it("adds a sticky note from the Add menu and saves it on the canvas", async () =
 			path={made.path}
 			canvases={[]}
 			writable
-			onSelect={vi.fn()}
 			onDropBlock={vi.fn()}
 		/>,
 	);
@@ -637,7 +649,6 @@ it("puts the canvas icon in the title area and keeps Add in the canvas toolbar",
 			path={made.path}
 			canvases={[]}
 			writable
-			onSelect={vi.fn()}
 			onDropBlock={vi.fn()}
 		/>,
 	);
@@ -690,13 +701,75 @@ async function boardWithCard() {
 			},
 		],
 		writable: true,
-		onSelect: vi.fn(),
 		onDropBlock: vi.fn(),
 	};
 	return { host, path: made.path, props };
 }
 const positionOnDisk = async (host: MemoryHost, path: string) =>
 	parseNote(await host.readText(path)).note?.blocks[0]?.attrs;
+
+it.each(["position", "title"])(
+	"saves a queued position and title in order (%s first) and waits for both at quit",
+	async (first) => {
+		const { host, path, props } = await boardWithCard();
+		const id = parseNote(await host.readText(path)).note?.header.noteId;
+		const documents = createLiveDocuments(host, {
+			notes: [{ path, id, readOnly: false }],
+			writable: true,
+		});
+		render(<CanvasPane {...props} documents={documents} />);
+		await screen.findByText("12,30");
+		let releaseFirst!: () => void;
+		let releaseSecond!: () => void;
+		const firstWrite = new Promise<void>((resolve) => {
+			releaseFirst = resolve;
+		});
+		const secondWrite = new Promise<void>((resolve) => {
+			releaseSecond = resolve;
+		});
+		const write = host.writeTextAtomic.bind(host);
+		const writes = vi
+			.spyOn(host, "writeTextAtomic")
+			.mockImplementationOnce(async (path, text) => {
+				await firstWrite;
+				return write(path, text);
+			})
+			.mockImplementationOnce(async (path, text) => {
+				await secondWrite;
+				return write(path, text);
+			});
+		const drag = () =>
+			fireEvent.click(screen.getByRole("button", { name: "Drag card" }));
+		const rename = () => {
+			const name = screen.getByRole("textbox", { name: "Canvas name" });
+			fireEvent.change(name, { target: { value: "Renamed" } });
+			fireEvent.keyDown(name, { key: "Enter" });
+		};
+		const actions = first === "position" ? [drag, rename] : [rename, drag];
+		for (const action of actions) action();
+		const quitAllowed = vi.fn();
+		const close = createQuitGuard(documents.flushAll)().then(quitAllowed);
+		try {
+			await waitFor(() => expect(writes).toHaveBeenCalledTimes(1));
+			expect(quitAllowed).not.toHaveBeenCalled();
+			releaseFirst();
+			await waitFor(() => expect(writes).toHaveBeenCalledTimes(2));
+			expect(quitAllowed).not.toHaveBeenCalled();
+		} finally {
+			releaseFirst();
+			releaseSecond();
+			await close;
+		}
+		expect(quitAllowed).toHaveBeenCalledExactlyOnceWith(true);
+		expect(writes.mock.calls.map(([path]) => path)).toEqual([
+			path,
+			first === "position" ? path : "Renamed.vnote",
+		]);
+		const note = parseNote(await host.readText("Renamed.vnote")).note;
+		expect(note?.header.title).toBe("Renamed");
+		expect(note?.blocks[0]?.attrs).toMatchObject({ x: 88, y: 99 });
+	},
+);
 
 it("shares changes and undo between two views and keeps a conflicted draft in both", async () => {
 	const { host, path, props } = await boardWithCard();
@@ -895,7 +968,6 @@ async function boardWithThreeStickies() {
 			},
 		],
 		writable: true,
-		onSelect: vi.fn(),
 		onDropBlock: vi.fn(),
 	};
 	const places = async () =>
@@ -1185,7 +1257,6 @@ async function boardWithMeetingNote() {
 		],
 		notes: [meetingRow()],
 		writable: true,
-		onSelect: vi.fn(),
 		onDropBlock: vi.fn(),
 	};
 	return { host, path: made.path, props, meetingRow };

@@ -72,6 +72,7 @@ export interface WorkspaceHostOptions {
 	isCanvas: (path: string) => boolean;
 	/** After any save, for the note list and history (tab paths are handled here). */
 	onSaved: (info: SavedInfo) => void;
+	onCanvasTitleSaved?: (from: string, to: string, title: string) => void;
 	/** A save was refused because a note is unsaved, so the command did not run. */
 	onUnsaved: (message: string) => void;
 	/** A note could not be read into its pane; its tab was closed. */
@@ -113,6 +114,7 @@ export function useWorkspaceHost({
 	notes,
 	isCanvas,
 	onSaved,
+	onCanvasTitleSaved,
 	onUnsaved,
 	onError,
 }: WorkspaceHostOptions) {
@@ -132,6 +134,8 @@ export function useWorkspaceHost({
 	}, []);
 	const latest = useRef({ isCanvas, onSaved, onError, onUnsaved, writable });
 	latest.current = { isCanvas, onSaved, onError, onUnsaved, writable };
+	const canvasTitleSaved = useRef(onCanvasTitleSaved);
+	canvasTitleSaved.current = onCanvasTitleSaved;
 	const notesRef = useRef(notes);
 	notesRef.current = notes;
 	const canvas = useCallback(
@@ -177,7 +181,14 @@ export function useWorkspaceHost({
 	useEffect(() => {
 		const registry = createLiveDocuments(
 			nativeHost,
-			{ notes: notesRef.current ?? [], writable: latest.current.writable },
+			{
+				notes: notesRef.current ?? [],
+				writable: latest.current.writable,
+				onCanvasTitleSaved: (from, to, title) => {
+					if (from !== to) change((ws) => renameDoc(ws, from, to));
+					canvasTitleSaved.current?.(from, to, title);
+				},
+			},
 			{
 				open: (path, text) => openNote(nativeHost, path, text),
 				onSaved: handleSaved,
@@ -193,7 +204,7 @@ export function useWorkspaceHost({
 			documents.current = null;
 			registry.dispose();
 		};
-	}, [nativeHost, vaultGeneration, handleSaved]);
+	}, [nativeHost, vaultGeneration, handleSaved, change]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reattach after replacing the registry.
 	useEffect(() => {
 		for (const id of SLOTS) {

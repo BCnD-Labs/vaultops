@@ -10,7 +10,7 @@ function createLiveDocuments(
 	editor?: Parameters<typeof createRegistry>[2],
 ) {
 	return createRegistry(
-		host instanceof MemoryHost ? host : { ...host, writeTextAtomic: vi.fn() },
+		host instanceof MemoryHost ? host : Object.assign(new MemoryHost(), host),
 		options,
 		editor,
 	);

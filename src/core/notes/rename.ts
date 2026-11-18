@@ -73,16 +73,25 @@ export async function renameNote(
 		};
 	}
 
-	const { folder, name } = split(path);
-	const others = (await host.list(folder))
-		.map((entry) => entry.name)
-		.filter((entry) => entry !== name);
-	const target = fileNameFor(newTitle, others);
-	if (target === name) return { path, renamed: false };
+	return renameSavedNote(host, path, newTitle);
+}
 
-	const newPath = join(folder, target);
+/** Match the filename to a title that has already been written. */
+export async function renameSavedNote(
+	host: Pick<Host, "list" | "move">,
+	path: string,
+	newTitle: string,
+): Promise<RenameResult> {
+	const { folder, name } = split(path);
 	try {
+		const others = (await host.list(folder))
+			.map((entry) => entry.name)
+			.filter((entry) => entry !== name);
+		const target = fileNameFor(newTitle, others);
+		if (target === name) return { path, renamed: false };
+		const newPath = join(folder, target);
 		await host.move(path, newPath);
+		return { path: newPath, renamed: true };
 	} catch (error) {
 		return {
 			path,
@@ -90,7 +99,6 @@ export async function renameNote(
 			notice: `The title was saved, but the file could not be renamed (${message(error)}). It keeps its old name.`,
 		};
 	}
-	return { path: newPath, renamed: true };
 }
 
 /**

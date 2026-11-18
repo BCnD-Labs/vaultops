@@ -20,6 +20,7 @@ import { copyToRecovery } from "./trash";
 export interface MoveReceipt {
 	source: string;
 	destination: string;
+	copy?: boolean;
 	sourceBefore: string;
 	destinationBefore: string;
 	sourceAfter: string;
@@ -291,20 +292,31 @@ function groupsChanged(
 	).length;
 }
 
-/**
- * Put both files back as they were before a move, if neither has changed since.
- * The source is restored first, so the block is never missing from both.
- */
+export class StaleMove extends Error {
+	constructor(copy?: boolean) {
+		super(
+			copy
+				? "The destination changed since the copy, so it can't be undone here. Remove the copy by hand."
+				: "One of the two changed since the move, so it can't be undone here. Drag the block back instead.",
+		);
+	}
+}
+
+/** Restore the source first for a move, so the block always has a copy. */
 export function undoMove(host: Host, receipt: MoveReceipt): Promise<void> {
 	const { source, destination } = receipt;
+	if (receipt.copy)
+		return inOrder(host, destination, async () => {
+			if ((await host.readText(destination)) !== receipt.destinationAfter)
+				throw new StaleMove(true);
+			await host.writeTextAtomic(destination, receipt.destinationBefore);
+		});
 	return withMoveLocks(host, source, destination, async () => {
 		if (
 			(await host.readText(destination)) !== receipt.destinationAfter ||
 			(await host.readText(source)) !== receipt.sourceAfter
 		)
-			throw new Error(
-				"One of the two changed since the move, so it can't be undone here. Drag the block back instead.",
-			);
+			throw new StaleMove();
 		await host.writeTextAtomic(source, receipt.sourceBefore);
 		await finishMove(
 			host,

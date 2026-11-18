@@ -62,7 +62,7 @@ import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
 import { linkedFrom } from "./LinkedFromPanel";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { buildLinkSource, linkTargets } from "./link-source";
-import type { LiveDocuments } from "./live-documents";
+import type { LiveDocuments, UndoResult } from "./live-documents";
 import { NavBar } from "./NavBar";
 import { NewTab } from "./NewTab";
 import { NotePickerDialog } from "./NotePickerDialog";
@@ -131,7 +131,9 @@ export function App({ host }: { host: Host }) {
 	// The block just moved, with the way to take it back.
 	const [moveNotice, setMoveNotice] = useState<{
 		text: string;
-		undo: () => Promise<{ ok: true } | { ok: false; message: string }>;
+		undo?: () => Promise<UndoResult>;
+		dismiss?: () => void;
+		block?: true;
 	} | null>(null);
 	// A canvas card waiting for "Move to…" to be answered.
 	const [cardMove, setCardMove] = useState<{
@@ -160,8 +162,6 @@ export function App({ host }: { host: Host }) {
 	// The canvas to reopen when a vault opens with no note to show.
 	const [canvasPath, setCanvasPath] = useState<string | null>(null);
 	const [focusCanvas, setFocusCanvas] = useState(false);
-	// A canvas reads its file again when this changes (after a block left it).
-	const [canvasKey, setCanvasKey] = useState(0);
 	// Opening a vault may create it, so loading and choosing a vault use `host`.
 	// Everything that changes notes and folders goes through `vaultHost`, which
 	// refuses every write unless the vault is writable. Even a missed check in a
@@ -1248,7 +1248,7 @@ export function App({ host }: { host: Host }) {
 	// shown as the error line.
 	const announceMove = (result: BlockMoveResult) => {
 		if (!result.ok || !result.moved) return;
-		const { destination, lost, recoveryPath, undo } = result.moved;
+		const { destination, lost, recoveryPath, undo, copy } = result.moved;
 		const row = viewRef.current?.notes.find((n) => n.path === destination);
 		const plural = (n: number, word: string) =>
 			`${n} ${word}${n === 1 ? "" : "s"}`;
@@ -1257,14 +1257,73 @@ export function App({ host }: { host: Host }) {
 			lost.groups > 0 ? "its place in a group" : "",
 		].filter(Boolean);
 		setMoveNotice({
+			block: true,
 			text:
-				`Moved a block to "${row?.title ?? destination}".` +
+				`${copy ? "Copied" : "Moved"} a block to "${row?.title ?? destination}".` +
 				(gave.length > 0
 					? ` The canvas gave up ${gave.join(" and ")}; Undo brings ${gave.length === 1 && lost.groups === 0 && lost.connectors === 1 ? "it" : "them"} back${recoveryPath ? ", and a copy of the canvas is in the recovery folder" : ""}.`
 					: ""),
 			undo,
 		});
 	};
+
+	const finishUndo = useCallback(
+		(result: UndoResult) => {
+			if (!result.ok) {
+				if (result.dismiss)
+					setMoveNotice({
+						text: result.message,
+						dismiss: result.dismiss,
+						block: true,
+					});
+				else setError(result.message);
+			} else if (result.move) {
+				setMoveNotice((notice) => (notice?.block ? null : notice));
+				void refreshVault()?.catch((error: unknown) => setError(String(error)));
+			}
+		},
+		[refreshVault],
+	);
+
+	useEffect(() => {
+		const onUndo = (event: KeyboardEvent) => {
+			if (
+				!(event.metaKey || event.ctrlKey) ||
+				event.altKey ||
+				event.shiftKey ||
+				event.isComposing ||
+				event.key.toLowerCase() !== "z"
+			)
+				return;
+			const target = event.target;
+			if (
+				!(target instanceof Element) ||
+				target.closest(
+					"input, textarea, select, math-field, dialog, [role=dialog], [role=alertdialog]",
+				)
+			)
+				return;
+			const field = target.closest(
+				"[contenteditable]:not([contenteditable=false])",
+			);
+			const note = field?.matches(".tiptap")
+				? field.closest<HTMLElement>("[data-undo-note]")?.dataset.undoNote
+				: undefined;
+			if (field && !note) return;
+			const canvas =
+				target.closest<HTMLElement>("[data-undo-canvas]")?.dataset.undoCanvas;
+			const workspace = wsRef.current;
+			const id = note ?? canvas;
+			if (id && workspace.documents?.prefersLocalUndo(id, !note)) return;
+			const result = workspace.undo();
+			if (!result) return;
+			event.preventDefault();
+			event.stopPropagation();
+			void result.then(finishUndo);
+		};
+		window.addEventListener("keydown", onUndo, true);
+		return () => window.removeEventListener("keydown", onUndo, true);
+	}, [finishUndo]);
 
 	const dropBlock = async (
 		destinationId: string,
@@ -1455,7 +1514,7 @@ export function App({ host }: { host: Host }) {
 
 	// The notice goes by itself; Undo itself refuses if anything changed since.
 	useEffect(() => {
-		if (!moveNotice) return;
+		if (!moveNotice || moveNotice.dismiss) return;
 		const timer = setTimeout(() => setMoveNotice(null), 20000);
 		return () => clearTimeout(timer);
 	}, [moveNotice]);
@@ -1508,7 +1567,6 @@ export function App({ host }: { host: Host }) {
 			writable;
 		return (
 			<CanvasPane
-				key={canvasKey}
 				host={vaultHost}
 				documents={ws.documents}
 				links={links}
@@ -1533,7 +1591,7 @@ export function App({ host }: { host: Host }) {
 								);
 								if (!result.ok) throw new Error(result.message);
 								announceMove(result);
-								setCanvasKey((count) => count + 1);
+								await refreshVault();
 							}
 						: undefined
 				}
@@ -1770,26 +1828,30 @@ export function App({ host }: { host: Host }) {
 										</p>
 									)}
 									{moveNotice && (
-										<p role="status" className="notice move-notice">
+										<p
+											role={moveNotice.dismiss ? "alert" : "status"}
+											className="notice move-notice"
+										>
 											{moveNotice.text}{" "}
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={() => {
-													const { undo } = moveNotice;
-													setMoveNotice(null);
-													void undo().then((result) => {
-														if (!result.ok) setError(result.message);
-														setCanvasKey((count) => count + 1);
-													});
-												}}
-											>
-												Undo
-											</Button>{" "}
+											{moveNotice.undo && (
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => {
+														setMoveNotice(null);
+														void moveNotice.undo?.().then(finishUndo);
+													}}
+												>
+													Undo
+												</Button>
+											)}{" "}
 											<Button
 												size="sm"
 												variant="ghost"
-												onClick={() => setMoveNotice(null)}
+												onClick={() => {
+													moveNotice.dismiss?.();
+													setMoveNotice(null);
+												}}
 											>
 												Dismiss
 											</Button>
@@ -1867,7 +1929,9 @@ export function App({ host }: { host: Host }) {
 									);
 									if (!result.ok) setError(result.message);
 									else announceMove(result);
-									setCanvasKey((count) => count + 1);
+									await refreshVault()?.catch((reason: unknown) =>
+										setError(String(reason)),
+									);
 								})();
 							}}
 						/>

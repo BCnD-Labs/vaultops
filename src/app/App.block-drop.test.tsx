@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -8,7 +9,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { JSONContent } from "@tiptap/core";
+import type { Editor } from "@tiptap/core";
 import { type DragEvent, useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { parseNote, serializeNote } from "../core/note-format";
@@ -20,6 +21,11 @@ import { loadVault } from "./session";
 
 let dragNoteId = "";
 let dragCanvasId = "";
+let realEditor = false;
+
+const { NoteEditor: ActualEditor } = await vi.importActual<
+	typeof import("../editor/NoteEditor")
+>("../editor/NoteEditor");
 
 vi.mock("../editor/NoteEditor", () => ({
 	NoteEditor: ({
@@ -27,17 +33,19 @@ vi.mock("../editor/NoteEditor", () => ({
 		onChange,
 		onDropBlock,
 		editable,
-	}: {
-		editable?: boolean;
-		doc: JSONContent;
-		onChange: (doc: JSONContent) => void;
-		onDropBlock: (
-			blockId: string,
-			canvasId: string,
-			slot: { after: string | null; near: string[]; start: boolean },
-		) => Promise<void>;
-	}) => {
+		...rest
+	}: import("../editor/NoteEditor").NoteEditorProps) => {
 		const [initial] = useState(doc);
+		if (realEditor)
+			return (
+				<ActualEditor
+					{...rest}
+					doc={doc}
+					onChange={onChange}
+					onDropBlock={onDropBlock}
+					editable={editable}
+				/>
+			);
 		return (
 			<div>
 				<output data-testid="editor-blocks">{JSON.stringify(initial)}</output>
@@ -45,7 +53,7 @@ vi.mock("../editor/NoteEditor", () => ({
 				<button
 					type="button"
 					onClick={() =>
-						void onDropBlock("block", dragCanvasId, {
+						void onDropBlock?.("block", dragCanvasId, {
 							after: "before",
 							near: [],
 							start: false,
@@ -57,7 +65,7 @@ vi.mock("../editor/NoteEditor", () => ({
 				<button
 					type="button"
 					onClick={() =>
-						void onDropBlock("block", dragCanvasId, {
+						void onDropBlock?.("block", dragCanvasId, {
 							after: null,
 							near: [],
 							start: false,
@@ -124,6 +132,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	realEditor = false;
 	cleanup();
 	localStorage.clear();
 });
@@ -267,6 +276,46 @@ it("offers Undo after a move, and Undo puts both files back exactly", async () =
 	expect(screen.queryByRole("alert")).toBeNull();
 });
 
+const cmdZ = (target: Element) =>
+	fireEvent.keyDown(target, {
+		key: "z",
+		...(/Mac|iP(hone|[oa]d)/.test(navigator.platform)
+			? { metaKey: true }
+			: { ctrlKey: true }),
+	});
+
+it("uses the new note undo group first, then restores the move in one press", async () => {
+	realEditor = true;
+	const { host, note, canvas } = await setup();
+	const field = () =>
+		document.querySelector<HTMLElement & { editor: Editor }>(
+			".tiptap",
+		) as HTMLElement & { editor: Editor };
+	await openEditorAndCanvas(host);
+	field().editor.commands.insertContent("Before move");
+	fireEvent.click(screen.getByRole("button", { name: "Drop block" }));
+	await moveNotice();
+	const afterMove = await host.readText(note.path);
+	expect(field().editor.can().undo()).toBe(false);
+	expect(cmdZ(screen.getByRole("textbox", { name: "Title" }))).toBe(true);
+
+	field().editor.commands.insertContent("After move");
+	await waitFor(async () =>
+		expect(await host.readText(note.path)).toContain("After move"),
+	);
+	cmdZ(field());
+	expect(field().editor.getText()).toBe("");
+	expect(await host.readText(canvas.path)).toContain("block");
+	await waitFor(async () =>
+		expect(await host.readText(note.path)).toBe(afterMove),
+	);
+	cmdZ(field());
+	await waitFor(async () =>
+		expect(await host.readText(note.path)).toContain("Before move"),
+	);
+	expect(parseNote(await host.readText(canvas.path)).note?.blocks).toEqual([]);
+});
+
 it("says why Undo cannot run when a file changed after the move", async () => {
 	const { host, note } = await setup();
 	await openEditorAndCanvas(host);
@@ -282,9 +331,11 @@ it("says why Undo cannot run when a file changed after the move", async () => {
 		`${await host.readText(note.path)}${JSON.stringify({ id: "later", type: "paragraph", parent: null })}\n`,
 	);
 	fireEvent.click(within(status).getByRole("button", { name: "Undo" }));
-	expect((await screen.findByRole("alert")).textContent).toContain(
-		"can't be undone here",
-	);
+	const alert = await screen.findByRole("alert");
+	expect(alert.textContent).toContain("changed since the move");
+	await act(async () => expect(cmdZ(document.body)).toBe(false));
+	fireEvent.click(within(alert).getByRole("button", { name: "Dismiss" }));
+	expect(cmdZ(document.body)).toBe(true);
 });
 
 it("does not let the note be typed in while a block is on its way", async () => {
@@ -490,6 +541,55 @@ it("refuses a return when unsaved note edits cannot be saved", async () => {
 	expect(parseNote(await host.readText(note.path)).note?.blocks).toEqual([]);
 });
 
+it("restores the canvas group and connector together with the moved card", async () => {
+	const user = userEvent.setup();
+	const { host, note, canvas } = await setup();
+	const board = canvas.note;
+	board.blocks = [
+		{ id: "block", type: "paragraph", parent: null, attrs: { x: 1, y: 1 } },
+		{ id: "peer", type: "paragraph", parent: null, attrs: { x: 9, y: 9 } },
+		{
+			id: "link",
+			type: "connector",
+			parent: null,
+			attrs: { from: "block", to: "peer" },
+		},
+		{
+			id: "group",
+			type: "group",
+			parent: null,
+			attrs: { x: 0, y: 0, members: ["block", "peer"] },
+		},
+	];
+	const before = serializeNote(board);
+	// Give the moved card an ID that is available in the note.
+	const empty = serializeNote({ ...note.note, blocks: [] });
+	await host.writeTextAtomic(note.path, empty);
+	await host.writeTextAtomic(canvas.path, before);
+	await openEditorAndCanvas(host);
+	fireEvent.click(screen.getByRole("button", { name: "Drop at end" }));
+	expect((await moveNotice()).textContent).toContain("connector");
+	const canvasView = screen.getByRole("region", { name: "Canvas view" });
+	const afterMove = await host.readText(canvas.path);
+	await user.click(screen.getByRole("button", { name: "Add to canvas" }));
+	await user.click(
+		await screen.findByRole("menuitem", { name: "Sticky note" }),
+	);
+	await waitFor(async () =>
+		expect(await host.readText(canvas.path)).toContain('"sticky"'),
+	);
+	cmdZ(canvasView);
+	await waitFor(async () =>
+		expect(await host.readText(canvas.path)).toBe(afterMove),
+	);
+	expect(await host.readText(note.path)).not.toBe(empty);
+	cmdZ(canvasView);
+	await waitFor(async () => {
+		expect(await host.readText(canvas.path)).toBe(before);
+		expect(await host.readText(note.path)).toBe(empty);
+	});
+});
+
 it("sends a card to any other canvas, open or not, from its Move to… menu", async () => {
 	const user = userEvent.setup();
 	const { host, canvas } = await setup();
@@ -521,4 +621,10 @@ it("sends a card to any other canvas, open or not, from its Move to… menu", as
 		).toBe("block"),
 	);
 	expect(parseNote(await host.readText(other.path)).note?.blocks).toEqual([]);
+	cmdZ(screen.getByRole("region", { name: "Canvas view" }));
+	await waitFor(async () =>
+		expect(parseNote(await host.readText(canvas.path)).note?.blocks).toEqual(
+			[],
+		),
+	);
 });

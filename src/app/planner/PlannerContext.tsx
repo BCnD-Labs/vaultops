@@ -146,6 +146,7 @@ export function PlannerProvider({
 	host,
 	writable,
 	onChanged,
+	writeLog = (work) => work(),
 	onOpenNote,
 	onOpenScreen,
 	children,
@@ -153,6 +154,7 @@ export function PlannerProvider({
 	notes: NoteRow[];
 	host: Host;
 	writable: boolean;
+	writeLog?: (work: () => Promise<string>) => Promise<string | undefined>;
 	onChanged: (paths: string[]) => Promise<void>;
 	onOpenNote: (path: string) => void;
 	onOpenScreen: () => void;
@@ -280,14 +282,16 @@ export function PlannerProvider({
 			if (path) setSelectedPath(path);
 		},
 		addEntry: async (day, section, text, links) => {
-			await run(() => appendLogEntry(host, day, section, text, links));
+			await run(() =>
+				writeLog(() => appendLogEntry(host, day, section, text, links)),
+			);
 		},
 		addSection: async (day, name) => {
-			await run(() => appendLogSection(host, day, name));
+			await run(() => writeLog(() => appendLogSection(host, day, name)));
 		},
 		checkInConfig: checkInCfg,
 		saveCheckIn: async (day, slot, draft) => {
-			await run(() => saveCheckIn(host, day, slot, draft));
+			await run(() => writeLog(() => saveCheckIn(host, day, slot, draft)));
 		},
 		loadDay: (day) => loadLog(host, day),
 		openNote: onOpenNote,

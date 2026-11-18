@@ -1684,3 +1684,10 @@ input.canvas-item-field {
 .settings-shortcut kbd {
 	pointer-events: none;
 }
+
+.journal-day .ProseMirror {
+	min-height: 4rem;
+}
+.journal-day:not(:has(.note-editor)) {
+	min-height: var(--measured-height, 7rem);
+}

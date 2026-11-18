@@ -19,13 +19,16 @@ import { headerIcon } from "../core/notes/icon";
 import { createNote } from "../core/notes/repository";
 import { MemoryHost } from "../host/memory-host";
 import { CanvasEmbed } from "./CanvasEmbed";
+import { JournalSpace } from "./journal/JournalSpace";
 import { SessionNoteView } from "./NoteView";
-import { loadVault, type NoteRow } from "./session";
+import { appendLogEntry } from "./planner/actions";
+import { loadVault, type NoteRow, type VaultView } from "./session";
 import { useWorkspaceHost, type WorkspaceHost } from "./useWorkspaceHost";
 import { WorkspacePanes } from "./WorkspacePanes";
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 	reading = false;
 });
 
@@ -39,12 +42,14 @@ function Harness({
 	writable,
 	onMoveToTrash,
 	embed,
+	journal,
 }: {
 	host: MemoryHost;
 	rows: NoteRow[];
 	writable: boolean;
 	onMoveToTrash: () => void;
 	embed: boolean;
+	journal?: VaultView;
 }) {
 	api = useWorkspaceHost({
 		host,
@@ -65,6 +70,14 @@ function Harness({
 						target={{ status: "found", row: first }}
 					/>
 				</div>
+			)}
+			{journal && api.documents && (
+				<JournalSpace
+					documents={api.documents}
+					host={host}
+					view={journal}
+					locked={false}
+				/>
 			)}
 			<WorkspacePanes
 				host={api}
@@ -87,20 +100,24 @@ function Harness({
 	);
 }
 
-async function setup(writable = true, embed = false) {
+async function setup(writable = true, embed = false, journal = false) {
 	const host = new MemoryHost();
 	await loadVault(host);
-	const a = (await createNote(host, "", "Alpha")).path;
+	// The Journal uses the default Planner context date in this harness.
+	const a = journal
+		? await appendLogEntry(host, "1970-01-01", null, "Daily entry")
+		: (await createNote(host, "", "Alpha")).path;
 	const b = (await createNote(host, "", "Beta")).path;
-	const rows = (await loadVault(host)).notes;
+	const view = await loadVault(host);
 	const onMoveToTrash = vi.fn();
 	render(
 		<Harness
 			host={host}
-			rows={rows}
+			rows={view.notes}
 			writable={writable}
 			onMoveToTrash={onMoveToTrash}
 			embed={embed}
+			journal={journal ? view : undefined}
 		/>,
 	);
 	const run = (command: () => Promise<boolean>) =>
@@ -194,6 +211,30 @@ it("transfers the same editor and history both ways after composition during a s
 	expect(await waitFor(() => soleEditorIn(embed))).toBe(field);
 	fireEvent.keyDown(field, { key: "Escape" });
 	expect(await waitFor(() => soleEditorIn(pane("left")))).toBe(field);
+});
+
+it("transfers a day between Journal and its open pane with one editable body", async () => {
+	vi.stubGlobal("IntersectionObserver", undefined);
+	const { a, run, pane } = await setup(true, false, true);
+	const journal = screen.getByRole("region", { name: "Journal" });
+	const activeEditor = () => {
+		const editors = document.querySelectorAll(
+			'.ProseMirror[contenteditable="true"]',
+		);
+		expect(editors).toHaveLength(1);
+		return editors.item(0);
+	};
+	const editor = await waitFor(activeEditor);
+	expect(journal.contains(editor)).toBe(true);
+	await run(() => api.open(a));
+	fireEvent.pointerDown(
+		await within(pane("left")).findByLabelText("Note preview"),
+	);
+	await waitFor(() => expect(journal.contains(activeEditor())).toBe(false));
+	expect(activeEditor()).toBe(editor);
+	fireEvent.pointerDown(within(journal).getByLabelText("Note preview"));
+	await waitFor(() => expect(journal.contains(activeEditor())).toBe(true));
+	expect(activeEditor()).toBe(editor);
 });
 
 it("shows one note's title, status line and editor", async () => {

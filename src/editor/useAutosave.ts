@@ -29,6 +29,7 @@ export interface SavedInfo {
 	/** The note's path before and after this save (they differ after a rename). */
 	oldPath: string;
 	path: string;
+	created?: boolean;
 	title: string;
 	preview: string;
 	icon?: string;
@@ -141,7 +142,11 @@ export function useAutosave(
 				written(note, draft, {
 					oldPath,
 					path: result.path,
-					title: draft.title,
+					...(base.baseText === null ? { created: true } : {}),
+					title:
+						typeof result.note.header.title === "string"
+							? result.note.header.title
+							: result.path,
 					preview: previewOf(result.note.blocks),
 					icon: headerIcon(result.note.header),
 					text: searchTextOf(result.note.blocks),

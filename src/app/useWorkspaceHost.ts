@@ -8,6 +8,7 @@ import {
 } from "react";
 import { parseNote } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
+import { movedPath } from "../core/notes/folders";
 import {
 	copyBlock,
 	type MoveReceipt,
@@ -180,7 +181,10 @@ export function useWorkspaceHost({
 			loading.current[id] = null;
 			sessions.current[id].clear();
 		}
-		return () => registry.dispose();
+		return () => {
+			documents.current = null;
+			registry.dispose();
+		};
 	}, [nativeHost, vaultGeneration, handleSaved]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reattach after replacing the registry.
 	useEffect(() => {
@@ -206,7 +210,7 @@ export function useWorkspaceHost({
 					if (loading.current[id] !== load) return;
 					loading.current[id] = null;
 					if (note?.opened)
-						sessions.current[id].load(note.opened, want, subscription);
+						sessions.current[id].load(note.opened, note.path, subscription);
 				},
 				(reason) => {
 					if (loading.current[id] !== load) return;
@@ -253,17 +257,24 @@ export function useWorkspaceHost({
 
 	const chooseVault = async (pick: Host["chooseVault"]) => {
 		const registry = documents.current;
-		if (!(await settleAll())) return false;
-		// The native picker changes the host's vault before it returns.
-		registry?.setWritable(false);
-		try {
-			if (!(await settleAll())) return false;
-			if ((await pick()) === null) return false;
-			registry?.dispose();
-			return true;
-		} finally {
-			registry?.setWritable(latest.current.writable);
-		}
+		if (!registry || !(await settleAll())) return false;
+		return registry.run(async () => {
+			if (documents.current !== registry) return false;
+			if (registry.hasDrafts()) {
+				latest.current.onUnsaved(UNSAVED_NOTE_MESSAGE);
+				return false;
+			}
+			// The native picker changes the host's vault before it returns.
+			registry.setWritable(false);
+			try {
+				if ((await pick()) === null) return false;
+				documents.current = null;
+				registry.dispose();
+				return true;
+			} finally {
+				registry.setWritable(latest.current.writable);
+			}
+		});
 	};
 
 	const paneOf = useCallback((id: PaneId) => {
@@ -572,6 +583,8 @@ export function useWorkspaceHost({
 	const focusedPane = panes[workspace.focused] ?? panes.left;
 	const recoveryTexts = (now: Date) =>
 		documents.current?.recoveryTexts(now) ?? [];
+	const rename = (from: string, to: string) =>
+		change((ws) => renameDoc(ws, from, to));
 
 	return {
 		workspace,
@@ -600,8 +613,26 @@ export function useWorkspaceHost({
 			run((ws) => pruneDocs(ws, exists)),
 		focus: (pane: PaneId) => change((ws) => focusPane(ws, pane)),
 		/** A canvas or note that was renamed or moved keeps its tab. */
-		rename: (from: string, to: string) =>
-			change((ws) => renameDoc(ws, from, to)),
+		rename,
+		rekey(from: string, to: string) {
+			documents.current?.rekey(from, to);
+			change((ws) =>
+				[...ws.left.tabs, ...(ws.right?.tabs ?? [])].reduce(
+					(next, path) => renameDoc(next, path, movedPath(path, from, to)),
+					ws,
+				),
+			);
+		},
+		withDocuments<T>(
+			task: (registry: LiveDocuments, host: Host) => Promise<T>,
+		) {
+			const registry = documents.current;
+			return registry?.run(async () => {
+				if (documents.current === registry) return task(registry, host);
+			});
+		},
+		renameDraft: (path: string, title: string) =>
+			documents.current?.renameDraft(path, title),
 		restoreFrom,
 		chooseVault,
 		settleAll,

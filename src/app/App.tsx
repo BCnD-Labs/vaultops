@@ -60,6 +60,7 @@ import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
 import { linkedFrom } from "./LinkedFromPanel";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { buildLinkSource, linkTargets } from "./link-source";
+import type { LiveDocuments } from "./live-documents";
 import { NavBar } from "./NavBar";
 import { NewTab } from "./NewTab";
 import { NotePickerDialog } from "./NotePickerDialog";
@@ -95,6 +96,7 @@ import { type Selection, selectionForPath } from "./sidebar-selection";
 import { TemplateManager } from "./TemplateManager";
 import { browserTabs, pruneTabs } from "./tabs";
 import { useFeatures } from "./useFeature";
+import { UNSAVED_NOTE_MESSAGE } from "./useNoteSession";
 import {
 	type BlockMoveResult,
 	type PaneView,
@@ -238,13 +240,19 @@ export function App({ host }: { host: Host }) {
 
 	// A save that renamed a note: the workspace carries the tab (inside the
 	// host); history and the note list follow here.
+	const followHistory = useCallback((from: string, to: string) => {
+		setNavState((state) => ({
+			...state,
+			history: state.history.entries.reduce(
+				(history, path) =>
+					renameEntry(history, path, movedPath(path, from, to)),
+				state.history,
+			),
+		}));
+	}, []);
 	const onSaved = useCallback(
 		(info: SavedInfo) => {
-			if (info.oldPath !== info.path)
-				setNavState((state) => ({
-					...state,
-					history: renameEntry(state.history, info.oldPath, info.path),
-				}));
+			if (info.oldPath !== info.path) followHistory(info.oldPath, info.path);
 			changeView((v) => {
 				const row = v?.notes.find((n) => n.path === info.oldPath);
 				if (!v || !row) return v;
@@ -308,7 +316,7 @@ export function App({ host }: { host: Host }) {
 				};
 			});
 		},
-		[changeView],
+		[changeView, followHistory],
 	);
 
 	// The workspace owns the tabs, note sessions and draft recovery.
@@ -323,6 +331,29 @@ export function App({ host }: { host: Host }) {
 	});
 	const wsRef = useRef(ws);
 	wsRef.current = ws;
+	const scan = useCallback(
+		async (registry: LiveDocuments) => {
+			const next = await loadVault(host);
+			const applied = await registry.refresh(next.notes, (from, to) => {
+				wsRef.current.rename(from, to);
+				followHistory(from, to);
+			});
+			if (applied) changeView(next);
+		},
+		[host, changeView, followHistory],
+	);
+	const refreshVault = useCallback(
+		() => wsRef.current.withDocuments(scan),
+		[scan],
+	);
+	useEffect(() => {
+		const onFocus = () => {
+			if (viewRef.current?.name)
+				void refreshVault()?.catch((error: unknown) => setError(String(error)));
+		};
+		window.addEventListener("focus", onFocus);
+		return () => window.removeEventListener("focus", onFocus);
+	}, [refreshVault]);
 	const { left, right } = ws.panes;
 	const focusedPane = ws.panes[ws.focused] ?? left;
 	// The focused pane's note, for the tools, status bar and breadcrumb.
@@ -614,7 +645,7 @@ export function App({ host }: { host: Host }) {
 		setBusy(true);
 		try {
 			if (next === "trash") setTrash(await listTrash(host));
-			if (next === "health") changeView(await loadVault(host));
+			if (next === "health") await refreshVault();
 			if (next === "note") {
 				// Notes the planner wrote while it was on screen: read them again so a
 				// later edit in the pane can't write the old text over the change.
@@ -653,7 +684,7 @@ export function App({ host }: { host: Host }) {
 	const plannerTouched = useRef(new Set<string>());
 	const plannerChanged = async (paths: string[]) => {
 		for (const path of paths) plannerTouched.current.add(path);
-		changeView(await loadVault(host));
+		await refreshVault();
 	};
 
 	const changeTrash = async (path: string, restore: boolean) => {
@@ -839,46 +870,37 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
-	// The documents being shown, by the path they are saved at right now.
-	const shownPaths = () =>
-		[left, right].flatMap((pane) => {
-			if (!pane) return [];
-			const path =
-				pane.kind === "note"
-					? (pane.session.livePathRef.current ?? pane.active)
-					: pane.kind === "canvas"
-						? pane.active
-						: null;
-			return path ? [path] : [];
-		});
-
-	// A folder action from the tree (make, rename, move, trash). Open notes are
-	// saved first. A shown document the change touches follows its file to the
-	// new path, or loses its tab when it went to the trash.
+	// Path moves follow admitted saves. Pending edits can save at the new path.
 	const changeTree = async (
-		where: string | null | (() => string),
-		task: () => Promise<{ notice?: string; follow?: (path: string) => string }>,
+		task: (host: Host) => Promise<{ notice?: string }>,
+		moving = false,
 	) => {
-		if (!view || !(await ws.settleAll())) return;
-		// Read after the save: a title edit in an open note may have renamed it.
-		const affected = typeof where === "function" ? where() : where;
+		if (!view || (!moving && !(await ws.settleAll()))) return;
 		setTreeNotice(null);
-		const touched = shownPaths().filter(
-			(path) => affected !== null && within(path, affected),
-		);
 		setBusy(true);
 		try {
-			const done = await task();
-			if (done.notice) setTreeNotice(done.notice);
-			const next = await loadVault(host);
-			changeView(next);
-			for (const path of touched) {
-				const target = done.follow ? done.follow(path) : null;
-				if (target && target !== path) ws.rename(path, target);
-			}
-			if (touched.length > 0) autoOpened.current = false;
-			const exists = new Set(next.notes.map((n) => n.path));
-			await ws.prune((p) => exists.has(p));
+			await ws.withDocuments(async (registry, host) => {
+				const treeHost = moving
+					? registry.guardMoves(host, (from, to) => {
+							ws.rekey(from, to);
+							followHistory(from, to);
+							const path = (p: string) => movedPath(p, from, to);
+							const v = viewRef.current;
+							if (v)
+								changeView({
+									...v,
+									notes: v.notes.map((row) => ({
+										...row,
+										path: path(row.path),
+									})),
+									folders: v.folders.map(path),
+								});
+						})
+					: host;
+				const { notice } = await task(treeHost);
+				if (notice) setTreeNotice(notice);
+				await scan(registry);
+			});
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -889,13 +911,14 @@ export function App({ host }: { host: Host }) {
 	// A tree row's path as it will be after open notes are saved: saving an open
 	// note with an edited title renames its file, so actions read it late.
 	const afterSave = (path: string) => {
-		const pane = [left, right].find(
-			(p) =>
-				p?.kind === "note" &&
-				(p.session.livePathRef.current ?? p.active) === path,
-		);
+		const id = viewRef.current?.notes.find((row) => row.path === path)?.id;
 		return () =>
-			pane?.kind === "note" ? (pane.session.livePathRef.current ?? path) : path;
+			viewRef.current?.notes.find((row) => id && row.id === id && !row.readOnly)
+				?.path ?? path;
+	};
+	const afterTrash = (path: string) => {
+		if ([left, right].some((pane) => pane?.active && within(pane.active, path)))
+			autoOpened.current = false;
 	};
 
 	// Renames or merges a tag (and the tags below it) in every note. A note that
@@ -944,8 +967,8 @@ export function App({ host }: { host: Host }) {
 			return "An open note could not be saved, so the rename stopped.";
 		const disk = plan.paths.filter((path) => !open.has(path));
 		let message = "";
-		await changeTree(null, async () => {
-			const done = await renameTagOnDisk(vaultHost, disk, from, to);
+		await changeTree(async (host) => {
+			const done = await renameTagOnDisk(host, disk, from, to);
 			const count = done.changed + open.size;
 			message = `${count === 1 ? "1 note" : `${count} notes`} updated.`;
 			if (done.problems.length > 0)
@@ -962,20 +985,15 @@ export function App({ host }: { host: Host }) {
 
 	const treeActions: TreeActions = {
 		createFolder: (parent, name) =>
-			void changeTree(null, async () => ({
+			void changeTree(async () => ({
 				notice: (await createFolder(vaultHost, parent, name)).notice,
 			})),
 		renameFolder: (path, name) =>
-			void changeTree(path, async () => {
-				const r = await renameFolder(vaultHost, path, name);
-				return {
-					notice: r.notice,
-					follow: (p) => movedPath(p, path, r.path),
-				};
-			}),
+			void changeTree((host) => renameFolder(host, path, name), true),
 		deleteFolder: (path) =>
-			void changeTree(path, async () => {
+			void changeTree(async () => {
 				await trashFolder(vaultHost, path);
+				afterTrash(path);
 				return {};
 			}),
 		deleteNote: (path) => {
@@ -985,8 +1003,10 @@ export function App({ host }: { host: Host }) {
 				path.slice(path.lastIndexOf("/") + 1).replace(/\.vnote$/, "");
 			let trashPath: string | undefined;
 			const at = afterSave(path);
-			void changeTree(at, async () => {
-				trashPath = (await trashNote(vaultHost, at())).trashPath;
+			void changeTree(async () => {
+				const path = at();
+				trashPath = (await trashNote(vaultHost, path)).trashPath;
+				afterTrash(path);
 				return {};
 			}).then(() => {
 				if (trashPath) offerRestore(trashPath, title);
@@ -994,19 +1014,13 @@ export function App({ host }: { host: Host }) {
 		},
 		move: (item, into) => {
 			const at = afterSave(item.path);
-			void changeTree(at, async () => {
-				if (item.kind === "folder") {
-					const r = await moveFolder(vaultHost, item.path, into);
-					return {
-						notice: r.notice,
-						follow: (p) => movedPath(p, item.path, r.path),
-					};
-				}
-				const r = await moveNote(vaultHost, at(), into, {
-					readOnly: item.readOnly,
-				});
-				return { notice: r.notice, follow: () => r.path };
-			});
+			void changeTree(
+				(host) =>
+					item.kind === "folder"
+						? moveFolder(host, item.path, into)
+						: moveNote(host, at(), into, { readOnly: item.readOnly }),
+				true,
+			);
 		},
 		renameNote: (path, title) => {
 			// A note on screen renames through its own title field's save path,
@@ -1018,23 +1032,28 @@ export function App({ host }: { host: Host }) {
 			);
 			if (shown?.kind === "note") {
 				shown.session.editTitle(title);
-				void changeTree(null, async () => ({}));
+				void shown.session.settle();
+				return;
+			}
+			const saved = ws.renameDraft(path, title);
+			if (saved) {
+				void saved.then((ok) => {
+					if (!ok) setError(UNSAVED_NOTE_MESSAGE);
+				});
 				return;
 			}
 			const readOnly = viewRef.current?.notes.find(
 				(n) => n.path === path,
 			)?.readOnly;
-			void changeTree(path, async () => {
-				const parsed = await loadNote(vaultHost, path);
-				if (!parsed.note)
+			const at = afterSave(path);
+			void changeTree(async (host) => {
+				const parsed = await loadNote(host, at());
+				if (!parsed.note || parsed.problems.length)
 					return {
 						notice: "This note could not be read, so it was not renamed.",
 					};
-				const r = await renameNote(vaultHost, path, parsed.note, title, {
-					readOnly,
-				});
-				return { notice: r.notice, follow: () => r.path };
-			});
+				return renameNote(host, at(), parsed.note, title, { readOnly });
+			}, true);
 		},
 		// Open notes are saved first (changeTree), so the copy has the latest text.
 		duplicateNote: (path) => {
@@ -1042,7 +1061,7 @@ export function App({ host }: { host: Host }) {
 				(n) => n.path === path,
 			)?.readOnly;
 			const at = afterSave(path);
-			void changeTree(null, async () => ({
+			void changeTree(async () => ({
 				notice: (await duplicateNote(vaultHost, at(), { readOnly })).notice,
 			}));
 		},
@@ -1066,22 +1085,22 @@ export function App({ host }: { host: Host }) {
 			: "";
 		const title = pane.session.title.trim() || "Untitled";
 		let result: MoveResult | undefined;
-		await changeTree(from, async () => {
-			result = await moveNote(vaultHost, from, folder, {
+		await changeTree(async (host) => {
+			result = await moveNote(host, from, folder, {
 				readOnly: !opened.editable,
 			});
-			return { notice: result.notice, follow: () => result?.path ?? from };
-		});
+			return result;
+		}, true);
 		if (!result?.moved) return;
 		const now = result.path;
 		setMoveNotice({
 			text: `Moved "${title}" to ${folder === "" ? VAULT_ROOT : folder}.`,
 			undo: async () => {
 				let back: MoveResult | undefined;
-				await changeTree(now, async () => {
-					back = await moveNote(vaultHost, now, fromFolder);
-					return { notice: back.notice, follow: () => back?.path ?? now };
-				});
+				await changeTree(async (host) => {
+					back = await moveNote(host, now, fromFolder);
+					return back;
+				}, true);
 				return back?.moved
 					? { ok: true }
 					: {
@@ -1239,7 +1258,7 @@ export function App({ host }: { host: Host }) {
 		const written: string[] = [];
 		const skipped: string[] = [];
 		let ran = false;
-		await changeTree(null, async () => {
+		await changeTree(async () => {
 			ran = true;
 			for (const holder of holders) {
 				if (holder.readOnly) {

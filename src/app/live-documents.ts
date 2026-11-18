@@ -8,6 +8,7 @@ import {
 	type DocumentRow,
 	indexDocumentIds,
 } from "../core/notes/document-identity";
+import { movedPath, within } from "../core/notes/folders";
 import { buildRecoveryText } from "../core/session/recovery";
 import type { Autosave, AutosaveState } from "../editor/autosave";
 import { BLOCK_TYPES } from "../editor/blocks";
@@ -15,7 +16,8 @@ import { blocksToDoc, checkBlocks } from "../editor/doc-blocks";
 import { allowEditing, type OpenedNote } from "../editor/note-io";
 import type { Draft } from "../editor/save-draft";
 import type { DraftAutosaveOwner, SavedInfo } from "../editor/useAutosave";
-import type { Host } from "../host/host";
+import { type Host, HostError } from "../host/host";
+import { READ_ONLY_VAULT_MESSAGE } from "../host/read-only-host";
 
 export type DocumentTarget = { path: string } | { noteId: string };
 
@@ -37,8 +39,9 @@ export interface LiveDocument {
 	readonly lastSave?: SavedInfo;
 }
 
-type Listener = (document: LiveDocument) => void;
+type Listener = (document: LiveDocument, reloaded: boolean) => void;
 interface Entry {
+	path: string;
 	document: LiveDocument | null;
 	ready: Promise<void>;
 	autosave?: Autosave<Draft>;
@@ -92,9 +95,45 @@ export function createLiveDocuments(
 		onSaved(info: SavedInfo): void;
 	},
 ) {
-	const indexedPaths = indexDocumentIds(notes);
+	let indexedPaths = indexDocumentIds(notes);
 	const entries = new Map<string, Entry>();
 	let disposed = false;
+	let tail: Promise<unknown> | null = null;
+
+	function run<T>(task: () => Promise<T>) {
+		const result = tail ? tail.then(task) : task();
+		const done = result.catch(() => {});
+		tail = done;
+		void done.then(() => {
+			if (tail === done) tail = null;
+		});
+		return result;
+	}
+
+	function canMove(from: string, to: string) {
+		for (const path of entries.keys())
+			if (within(path, to) && !within(path, from)) return false;
+		return true;
+	}
+
+	function guardMoves(
+		host: Host,
+		moved?: (from: string, to: string) => void,
+	): Host {
+		return new Proxy(host, {
+			get(target, key, receiver) {
+				if (key === "move")
+					return async (from: string, to: string) => {
+						if (!canMove(from, to))
+							throw new Error("A note at the destination is still in use.");
+						await target.move(from, to);
+						moved?.(from, to);
+					};
+				const value = Reflect.get(target, key, receiver);
+				return typeof value === "function" ? value.bind(target) : value;
+			},
+		});
+	}
 
 	function fromOpened(opened: OpenedNote) {
 		const { path, baseText } = opened;
@@ -109,35 +148,38 @@ export function createLiveDocuments(
 
 	function load(path: string, opened?: OpenedNote): Entry {
 		const entry: Entry = {
+			path,
 			document: opened ? fromOpened(opened) : null,
 			subscribers: new Map(),
-			ready: opened
-				? Promise.resolve()
-				: (editor?.open(path) ?? host.readText(path)).then((value) => {
-						if (entries.get(path) !== entry) return;
-						entry.document =
-							typeof value === "string"
-								? openedDocument(path, value, indexedPaths, writable)
-								: fromOpened(value);
-					}),
+			ready: Promise.resolve(),
 		};
 		entries.set(path, entry);
+		if (!opened)
+			entry.ready = run(async () => {
+				const path = entry.path;
+				if (entries.get(path) !== entry) return;
+				const value = await (editor?.open(path) ?? host.readText(path));
+				if (entries.get(path) !== entry) return;
+				entry.document =
+					typeof value === "string"
+						? openedDocument(path, value, indexedPaths, writable)
+						: fromOpened(value);
+			});
 		return entry;
 	}
 
-	function publish(entry: Entry, document: LiveDocument) {
+	function publish(entry: Entry, document: LiveDocument, reloaded = false) {
 		entry.document = document;
 		for (const listener of entry.subscribers.values()) {
 			if (entry.document !== document) break;
-			listener?.(document);
+			listener?.(document, reloaded);
 		}
 	}
 
-	function evictCleanEntry(entry: Entry, path: string) {
+	function evictCleanEntry(entry: Entry) {
 		if (isDirty(entry)) return;
 		const evict = () => {
-			const document = entry.document;
-			const key = document?.path ?? path;
+			const key = entry.path;
 			if (
 				entry.subscribers.size === 0 &&
 				!isDirty(entry) &&
@@ -175,7 +217,7 @@ export function createLiveDocuments(
 			const document = entry.document;
 			if (document?.editorOwner === subscriber)
 				publish(entry, { ...document, editorOwner: null });
-			if (!entry.subscribers.size) evictCleanEntry(entry, path);
+			if (!entry.subscribers.size) evictCleanEntry(entry);
 		}
 
 		function current() {
@@ -215,12 +257,14 @@ export function createLiveDocuments(
 				const { note, path } = saved;
 				const noteId = note?.header.noteId ?? null;
 				entries.delete(latest.path);
+				entry.path = path;
 				entries.set(path, entry);
 				if (noteId) indexedPaths.set(noteId, path);
 				publish(entry, {
 					...latest,
 					path,
 					noteId,
+					opened: saved,
 					base: note,
 					diskText: saved.baseText ?? "",
 					draft: latest.editorDraft === draft ? note : latest.draft,
@@ -233,7 +277,7 @@ export function createLiveDocuments(
 				if (disposed || !latest || entries.get(latest.path) !== entry) return;
 				publish(entry, { ...latest, saveStatus });
 				if (saveStatus.kind === "saved" && !entry.subscribers.size)
-					evictCleanEntry(entry, latest.path);
+					evictCleanEntry(entry);
 			});
 			const change = auto.change;
 			auto.change = (editorDraft) => {
@@ -252,12 +296,32 @@ export function createLiveDocuments(
 			return auto;
 		};
 
+		const write: DraftAutosaveOwner["write"] = (host, save) =>
+			run(async () => {
+				const document = entry?.document;
+				if (!writable || !document?.opened)
+					return {
+						ok: false,
+						message: READ_ONLY_VAULT_MESSAGE,
+						conflict: true,
+					};
+				if (
+					document.noteId &&
+					indexedPaths.get(document.noteId) !== document.path
+				)
+					return {
+						ok: false,
+						message: "This note changed on disk since you opened it.",
+						conflict: true,
+					};
+				return save(guardMoves(host), document.opened);
+			});
 		return {
 			ready,
 			current,
 			unsubscribe,
 			autosave,
-			canWrite: () => writable,
+			write,
 			unlock() {
 				const document = current();
 				if (!writable || !entry || !document?.opened) return null;
@@ -271,10 +335,14 @@ export function createLiveDocuments(
 					return null;
 				entry.autosave?.dispose();
 				entry.autosave = undefined;
-				publish(entry, {
-					...fromOpened(next),
-					revision: document.revision + 1,
-				});
+				publish(
+					entry,
+					{
+						...fromOpened(next),
+						revision: document.revision + 1,
+					},
+					true,
+				);
 				return entry.document;
 			},
 			updateDraft(draft: Note) {
@@ -305,8 +373,120 @@ export function createLiveDocuments(
 		};
 	}
 
+	function rekey(from: string, to: string) {
+		if (from === to) return;
+		for (const [id, path] of indexedPaths)
+			indexedPaths.set(id, movedPath(path, from, to));
+		for (const [oldPath, entry] of [...entries]) {
+			const path = movedPath(oldPath, from, to);
+			if (path === oldPath) continue;
+			entries.delete(oldPath);
+			entry.path = path;
+			entries.set(path, entry);
+			const document = entry.document;
+			if (document)
+				publish(entry, {
+					...document,
+					path,
+					opened: document.opened && { ...document.opened, path },
+					lastSave: undefined,
+				});
+		}
+	}
+
+	async function refresh(
+		notes: readonly DocumentRow[],
+		renamed: (from: string, to: string) => void,
+	) {
+		const index = indexDocumentIds(notes);
+		const paths = new Set(notes.map((row) => row.path));
+		const read = (path: string) =>
+			host.readText(path).catch((error: unknown) => {
+				if (error instanceof HostError && error.code === "not-found")
+					return null;
+				throw error;
+			});
+		const updates = await Promise.all(
+			[...entries.values()].map(async (entry) => {
+				const document = entry.document;
+				if (!document) return;
+				const { path, noteId, diskText } = document;
+				try {
+					const text = await read(path);
+					const candidate = noteId && index.get(noteId);
+					if (
+						candidate &&
+						candidate !== path &&
+						!paths.has(path) &&
+						canMove(path, candidate) &&
+						(text === null || within(candidate, path)) &&
+						(await read(candidate)) === diskText
+					)
+						return () => {
+							if (!canMove(path, candidate)) return;
+							rekey(path, candidate);
+							renamed(path, candidate);
+						};
+					if (text === diskText && (!noteId || index.get(noteId) === path))
+						return;
+					const opened =
+						text !== null && !isDirty(entry)
+							? await editor?.open(path)
+							: undefined;
+					return () => {
+						const latest = entry.document;
+						if (!latest || entries.get(path) !== entry) return;
+						if (isDirty(entry)) {
+							const reason =
+								text === null
+									? "This note was moved or deleted outside the app."
+									: "This note changed on disk since you opened it.";
+							if (entry.autosave) entry.autosave.reportConflict(reason);
+							else
+								publish(entry, {
+									...latest,
+									saveStatus: { kind: "failed", reason, conflict: true },
+								});
+						} else if (text !== null && (opened || !editor)) {
+							entry.autosave?.dispose();
+							entry.autosave = undefined;
+							publish(
+								entry,
+								{
+									...(opened
+										? fromOpened(opened)
+										: openedDocument(path, text, index, writable)),
+									revision: latest.revision + 1,
+								},
+								true,
+							);
+						}
+					};
+				} catch {
+					// Keep the current version when the file could not be read.
+				}
+			}),
+		);
+		if (disposed) return false;
+		indexedPaths = index;
+		for (const update of updates) update?.();
+		return true;
+	}
+
 	return {
 		subscribe,
+		run,
+		guardMoves,
+		hasDrafts: () => [...entries.values()].some(isDirty),
+		rekey,
+		refresh,
+		renameDraft(path: string, title: string) {
+			const entry = entries.get(path);
+			const draft = entry?.document?.editorDraft;
+			if (!entry?.autosave || !draft || !isDirty(entry)) return;
+			entry.autosave.change({ ...draft, title });
+			return entry.autosave.flush();
+		},
 		setWritable(next: boolean) {
 			if (disposed || writable === next) return;
 			writable = next;

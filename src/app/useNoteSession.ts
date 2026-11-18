@@ -129,8 +129,14 @@ export function useNoteSession({
 	const subscribe = (path: string, seed?: OpenedNote) => {
 		const next = documents()?.subscribe(
 			{ path },
-			({ lastSave }) => {
-				if (attached.current === next && lastSave) handleSaved(lastSave);
+			({ lastSave, opened, path }, reloaded) => {
+				if (attached.current !== next) return;
+				if (reloaded && opened) show(opened, path);
+				else if (lastSave) handleSaved(lastSave);
+				else if (path !== livePathRef.current) {
+					livePathRef.current = path;
+					setLivePath(path);
+				}
 			},
 			seed,
 		);
@@ -160,8 +166,7 @@ export function useNoteSession({
 			attached.current === entry && entry.current() === snapshot;
 		try {
 			const note = await openNote(host, path);
-			const fresh = stillCurrent() ? entry.reload(note) : null;
-			if (fresh?.opened) show(fresh.opened, path);
+			if (stillCurrent()) entry.reload(note);
 		} catch (error) {
 			if (stillCurrent()) throw error;
 		}

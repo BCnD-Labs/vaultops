@@ -29,6 +29,8 @@ export interface Autosave<T> {
 	peek(): T | null;
 	/** Throw away the unsaved value on purpose (the person chose the disk version or a copy). */
 	discard(): void;
+	/** Retain the pending edit when a scan finds a change on disk. */
+	reportConflict(reason: string): void;
 	getState(): AutosaveState;
 	subscribe(listener: (state: AutosaveState) => void): () => void;
 	/** Stop timers (the unsaved document stays unsaved: flush first). */
@@ -158,6 +160,10 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 			setState(SAVED);
 		},
 		getState: () => state,
+		reportConflict(reason) {
+			clearTimers();
+			setState({ kind: "failed", reason, conflict: true });
+		},
 		subscribe(listener) {
 			listeners.add(listener);
 			return () => {

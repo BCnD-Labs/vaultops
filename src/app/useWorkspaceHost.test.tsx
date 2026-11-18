@@ -2,6 +2,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { parseNote, serializeNote } from "../core/note-format";
+import { moveFolder } from "../core/notes/folders";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { NEW_TAB } from "../core/workspace";
 import { createQuitGuard } from "../editor/quit";
@@ -18,6 +19,62 @@ const doc = (text: string) => ({
 			content: [{ type: "text", text }],
 		},
 	],
+});
+
+it("renames a detached dirty note through its save queue", async () => {
+	const { result, host, a, b, ready, run } = await setup();
+	await run(() => result.current.open(a));
+	await ready("left");
+	const write = vi
+		.spyOn(host, "writeTextAtomic")
+		.mockRejectedValue(new Error("disk full"));
+	act(() => result.current.panes.left.session.editDoc(doc("Detached draft")));
+	await act(async () => expect(await result.current.flushAll()).toBe(false));
+	act(() => result.current.restoreFrom({ left: [b, a], right: [] }));
+	await ready("left");
+	write.mockRestore();
+	await run(
+		async () => (await result.current.renameDraft(a, "Renamed")) === true,
+	);
+	expect(result.current.workspace.left.tabs).toEqual([b, "Renamed.vnote"]);
+	expect(await host.readText("Renamed.vnote")).toContain("Detached draft");
+});
+
+it("moves both entries in a folder and saves their drafts at the new paths", async () => {
+	const { result, host, ready, run } = await setup();
+	await host.makeFolder("Class");
+	await host.makeFolder("Archive");
+	const one = (await createNote(host, "Class", "One")).path;
+	const two = (await createNote(host, "Class", "Two")).path;
+	await run(() => result.current.open(one));
+	await run(() => result.current.open(two));
+	await run(() => result.current.moveTab(two, "right"));
+	await Promise.all([ready("left"), ready("right")]);
+	act(() => {
+		result.current.panes.left.session.editDoc(doc("Left draft"));
+		result.current.panes.right?.session.editDoc(doc("Right draft"));
+	});
+	await act(async () =>
+		result.current.withDocuments(async (registry) => {
+			const moved = await moveFolder(
+				registry.guardMoves(host, result.current.rekey),
+				"Class",
+				"Archive",
+			);
+			expect(moved.changed).toBe(true);
+		}),
+	);
+	expect(result.current.workspace.left.active).toBe("Archive/Class/One.vnote");
+	expect(result.current.workspace.right?.active).toBe(
+		"Archive/Class/Two.vnote",
+	);
+	await run(result.current.flushAll);
+	expect(await host.readText("Archive/Class/One.vnote")).toContain(
+		"Left draft",
+	);
+	expect(await host.readText("Archive/Class/Two.vnote")).toContain(
+		"Right draft",
+	);
 });
 
 async function setup(writable = true) {

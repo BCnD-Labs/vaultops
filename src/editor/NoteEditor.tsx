@@ -28,6 +28,7 @@ import { type DropSlotState, setDropSlot } from "./drop-slot";
 import { createExtensions } from "./extensions";
 import { FormatBar } from "./FormatBar";
 import { ensureUniqueIds } from "./ids";
+import { ImageBlock, type ImageSource } from "./image-block";
 import { insertBlocksAtCaret } from "./insert-blocks";
 import { abandonLift, liftBlock } from "./lift";
 import type { Anchor } from "./menu-placement";
@@ -42,6 +43,8 @@ import "./editor.css";
 export interface NoteEditorSlot {
 	editor?: Editor;
 	completion?: { completeOn: boolean; links?: LinkSource; noteId?: string };
+	/** Where the editor's image blocks read and store pictures (the surface that owns it). */
+	images?: ImageSource;
 }
 
 export interface NoteEditorProps {
@@ -65,6 +68,8 @@ export interface NoteEditorProps {
 	links?: LinkSource;
 	/** Whether a feature is on; the slash menu hides the items of a feature that is off. */
 	featureOn?: (featureId: string) => boolean;
+	/** Shows image blocks and stores picked, pasted and dropped images. */
+	images?: ImageSource;
 }
 
 /** Asked for when someone picks "Template" from the slash menu. */
@@ -92,6 +97,7 @@ export function NoteEditor({
 	onChooseTemplate,
 	links,
 	featureOn,
+	images,
 }: NoteEditorProps) {
 	const completeOn = useFeature("word-complete");
 	const localSlot = useRef<NoteEditorSlot>({});
@@ -158,9 +164,14 @@ export function NoteEditor({
 	useLayoutEffect(() => {
 		// Acquire after the previous surface's EditorContent has unmounted.
 		slot.completion = completion.current;
+		slot.images = images;
 		slot.editor ??= new TiptapEditor({
 			extensions: [
-				...createExtensions(),
+				...createExtensions().map((extension) =>
+					extension.name === "image"
+						? ImageBlock.configure({ source: () => slot.images ?? null })
+						: extension,
+				),
 				WordComplete.configure({
 					enabled: () => slot.completion?.completeOn ?? false,
 					rows: () => slot.completion?.links?.completionRows ?? [],
@@ -189,7 +200,8 @@ export function NoteEditor({
 
 	useLayoutEffect(() => {
 		slot.completion = { completeOn, links, noteId };
-	}, [slot, completeOn, links, noteId]);
+		slot.images = images;
+	}, [slot, completeOn, links, noteId, images]);
 
 	useLayoutEffect(() => {
 		if (editor && !editor.isDestroyed) editor.setEditable(editable, false);

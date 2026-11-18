@@ -14,7 +14,7 @@ export function latexOf(value: unknown): string {
 }
 
 /** Whether the editor can be edited, redrawn when that changes (a node view isn't). */
-function useEditable(editor: Editor): boolean {
+export function useEditable(editor: Editor): boolean {
 	const [editable, setEditable] = useState(editor.isEditable);
 	useEffect(() => {
 		const sync = () => setEditable(editor.isEditable);

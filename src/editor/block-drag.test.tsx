@@ -133,6 +133,10 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 		type: "mathBlock",
 		attrs: { id: "math", latex: "x^2" },
 	},
+	image: {
+		type: "image",
+		attrs: { id: "image", src: "attachments/cat.png" },
+	},
 	blockquote: {
 		type: "blockquote",
 		attrs: { id: "quote" },

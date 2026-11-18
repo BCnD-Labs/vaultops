@@ -21,6 +21,7 @@ import { DateChip } from "./date-chip";
 import { Divider } from "./divider";
 import { DropSlot } from "./drop-slot";
 import { Folding } from "./folding";
+import { ImageBlock } from "./image-block";
 import { Kbd } from "./kbd";
 import { ListMarkers, ListTabGuard } from "./list-nesting";
 import { MathBlock } from "./math-block";
@@ -97,6 +98,7 @@ export function createExtensions(): Extensions {
 		TaskBlock,
 		Divider,
 		MathBlock,
+		ImageBlock,
 		Callout,
 		Toggle,
 		Document,

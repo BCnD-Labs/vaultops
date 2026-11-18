@@ -96,6 +96,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "images",
+		name: "Images",
+		description: "Adding images to notes. Images already in notes still show.",
+		group: "Visual",
+		defaultOn: true,
+	},
+	{
 		id: "tab-properties",
 		name: "Properties tab",
 		description: "The Properties tab in the right sidebar.",

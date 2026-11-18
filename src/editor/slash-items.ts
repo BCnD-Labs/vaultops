@@ -16,6 +16,7 @@ import {
 	Heading4,
 	Heading5,
 	Heading6,
+	Image,
 	LayoutTemplate,
 	Link2,
 	List,
@@ -37,6 +38,7 @@ import { insertColumns } from "./columns";
 import { insertDatabase } from "./database/commands";
 import { todayIso } from "./date-chip";
 import { DIVIDER_ICONS } from "./divider-icons";
+import { chooseImage } from "./image-block";
 import { insertMathBlock } from "./math-block";
 
 /** The groups the menu is divided into, in the order they appear. */
@@ -387,6 +389,18 @@ const ITEMS: SlashItem[] = [
 		icon: AtSign,
 		hint: "@",
 		run: (e, r) => start(e, r).insertContent("@").run(),
+	},
+	{
+		id: "image",
+		label: "Image",
+		keywords: ["picture", "photo", "screenshot", "attachment"],
+		section: "Media",
+		icon: Image,
+		feature: "images",
+		run: (e, r) => {
+			start(e, r).run();
+			void chooseImage(e);
+		},
 	},
 	{
 		id: "template",

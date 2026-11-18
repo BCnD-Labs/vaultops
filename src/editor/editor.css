@@ -1313,7 +1313,9 @@
 	.note-editor pre .code-wrap,
 	.note-editor pre .code-copy,
 	.note-editor .mermaid-grid,
-	.note-editor .mermaid-block pre {
+	.note-editor .mermaid-block pre,
+	.note-editor .image-block img,
+	.image-viewer img {
 		transition: none;
 	}
 	.note-editor .mermaid-svg[data-fresh] svg {
@@ -1614,4 +1616,63 @@ span.note-link-chip:hover {
 	top: 0.5em;
 	right: 0.4em;
 	margin-right: 0;
+}
+
+/* Image blocks: the display copy fades in once it is ready. */
+.note-editor .image-block {
+	margin: var(--space-2) 0;
+}
+.note-editor .image-block-frame {
+	position: relative;
+	max-width: 100%;
+	min-height: var(--space-6);
+	border-radius: var(--radius-control);
+	background: var(--muted);
+}
+.note-editor .image-block img,
+.image-viewer img {
+	display: block;
+	opacity: 0;
+	transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.note-editor .image-block img {
+	width: 100%;
+	height: auto;
+	border-radius: inherit;
+	cursor: zoom-in;
+}
+.note-editor .image-block img[data-loaded],
+.image-viewer img[data-loaded] {
+	opacity: 1;
+}
+.note-editor .image-block.ProseMirror-selectednode .image-block-frame {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+}
+.note-editor .image-block-caption {
+	display: block;
+	width: 100%;
+	margin-top: var(--space-1);
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	outline: none;
+}
+.note-editor .image-block-missing {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) dashed var(--line);
+	border-radius: var(--radius-control);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.image-viewer img {
+	max-width: 88vw;
+	max-height: 86vh;
+	margin: auto;
+	object-fit: contain;
 }

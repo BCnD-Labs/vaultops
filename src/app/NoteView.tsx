@@ -1,6 +1,13 @@
 import type { JSONContent } from "@tiptap/core";
 import { BookOpen, Ellipsis, Pencil } from "lucide-react";
-import { type Ref, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	type Ref,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -31,6 +38,7 @@ import type { LinkSource } from "../editor/note-link";
 import { SaveStatus } from "../editor/SaveStatus";
 import type { Host } from "../host/host";
 import { NoteBlocks } from "./CanvasCard";
+import { imageSource } from "./display-image";
 import { NoteCover } from "./NoteCover";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
@@ -212,6 +220,10 @@ export function NoteView({
 		</Button>
 	);
 
+	const images = useMemo(
+		() => (coverHost ? imageSource(coverHost) : undefined),
+		[coverHost],
+	);
 	const canTemplate = !!templates && opened.editable && !reading;
 	const Body = editorElsewhere ? NotePreview : NoteEditor;
 	const insertTemplate = (entry: TemplateEntry, request: TemplateRequest) => {
@@ -441,6 +453,7 @@ export function NoteView({
 				onChooseTemplate={canTemplate ? setPicker : undefined}
 				links={links}
 				featureOn={featureEnabled}
+				images={images}
 			/>
 			{picker && templates && (
 				<TemplatePicker

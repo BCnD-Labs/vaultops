@@ -44,6 +44,7 @@ interface Entry {
 	path: string;
 	document: LiveDocument | null;
 	ready: Promise<void>;
+	editorReady?: Promise<void>;
 	autosave?: Autosave<Draft>;
 	subscribers: Map<symbol, Listener | undefined>;
 }
@@ -91,7 +92,7 @@ export function createLiveDocuments(
 	host: Pick<Host, "readText">,
 	{ notes, writable }: { notes: readonly DocumentRow[]; writable: boolean },
 	editor?: {
-		open(path: string): Promise<OpenedNote>;
+		open(path: string, diskText?: string): Promise<OpenedNote>;
 		onSaved(info: SavedInfo): void;
 	},
 ) {
@@ -146,7 +147,7 @@ export function createLiveDocuments(
 		};
 	}
 
-	function load(path: string, opened?: OpenedNote): Entry {
+	function load(path: string, opened?: OpenedNote, passive = false): Entry {
 		const entry: Entry = {
 			path,
 			document: opened ? fromOpened(opened) : null,
@@ -158,14 +159,38 @@ export function createLiveDocuments(
 			entry.ready = run(async () => {
 				const path = entry.path;
 				if (entries.get(path) !== entry) return;
-				const value = await (editor?.open(path) ?? host.readText(path));
+				const value = await (!passive && editor
+					? editor.open(path)
+					: host.readText(path));
 				if (entries.get(path) !== entry) return;
 				entry.document =
 					typeof value === "string"
 						? openedDocument(path, value, indexedPaths, writable)
 						: fromOpened(value);
 			});
+		if (!passive) entry.editorReady = entry.ready;
 		return entry;
+	}
+
+	function prepareEditor(entry: Entry) {
+		if (!editor || entry.editorReady) return entry.editorReady ?? entry.ready;
+		// A passive view may already have read the bytes. Prepare the pane once
+		// from those same bytes, with the usual editor safety checks.
+		const ready = run(async () => {
+			await entry.ready;
+			const { path, document } = entry;
+			if (!document || entries.get(path) !== entry) return;
+			const opened = await editor.open(path, document.diskText);
+			const latest = entry.document;
+			if (entries.get(path) !== entry || !latest) return;
+			const { noteId, readOnly } = fromOpened(opened);
+			publish(entry, { ...latest, noteId, readOnly, opened });
+		});
+		entry.editorReady = ready;
+		void ready.catch(() => {
+			entry.editorReady = undefined;
+		});
+		return ready;
 	}
 
 	function publish(entry: Entry, document: LiveDocument, reloaded = false) {
@@ -200,6 +225,7 @@ export function createLiveDocuments(
 		target: DocumentTarget,
 		onChange?: Listener,
 		opened?: OpenedNote,
+		passive = false,
 	) {
 		const id = "noteId" in target ? target.noteId : null;
 		const path =
@@ -207,7 +233,7 @@ export function createLiveDocuments(
 		const entry =
 			disposed || path === undefined
 				? null
-				: (entries.get(path) ?? load(path, opened));
+				: (entries.get(path) ?? load(path, opened, passive));
 		const subscriber = Symbol();
 		entry?.subscribers.set(subscriber, undefined);
 
@@ -224,14 +250,15 @@ export function createLiveDocuments(
 			const document = entry?.document;
 			return document &&
 				entry.subscribers.has(subscriber) &&
-				(id === null || document.noteId === id)
+				(id === null ||
+					(document.noteId === id && indexedPaths.get(id) === document.path))
 				? document
 				: null;
 		}
 
 		if (entry && current()) entry.subscribers.set(subscriber, onChange);
 		const ready = entry
-			? entry.ready.then(
+			? (passive ? entry.ready : prepareEditor(entry)).then(
 					() => {
 						const document = current();
 						if (document) entry.subscribers.set(subscriber, onChange);
@@ -430,7 +457,7 @@ export function createLiveDocuments(
 					if (text === diskText && (!noteId || index.get(noteId) === path))
 						return;
 					const opened =
-						text !== null && !isDirty(entry)
+						text !== null && document.opened && !isDirty(entry)
 							? await editor?.open(path)
 							: undefined;
 					return () => {
@@ -447,7 +474,7 @@ export function createLiveDocuments(
 									...latest,
 									saveStatus: { kind: "failed", reason, conflict: true },
 								});
-						} else if (text !== null && (opened || !editor)) {
+						} else if (text !== null && (opened || !latest.opened)) {
 							entry.autosave?.dispose();
 							entry.autosave = undefined;
 							publish(
@@ -475,6 +502,11 @@ export function createLiveDocuments(
 
 	return {
 		subscribe,
+		subscribePassive: (noteId: string, onChange: Listener) =>
+			subscribe({ noteId }, onChange, undefined, true),
+		setNotes(notes: readonly DocumentRow[]) {
+			indexedPaths = indexDocumentIds(notes);
+		},
 		run,
 		guardMoves,
 		hasDrafts: () => [...entries.values()].some(isDirty),

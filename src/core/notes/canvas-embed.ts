@@ -40,6 +40,22 @@ export function resolveEmbed<T extends EmbedRow>(
 	return { status: "found", row: first };
 }
 
+/** Reuse each target's resolution across all copies on a canvas. */
+export function indexEmbedTargets<T extends EmbedRow>(rows: readonly T[]) {
+	const matches = new Map<string, T[]>();
+	for (const row of rows) {
+		if (!row.id) continue;
+		const list = matches.get(row.id);
+		if (list) list.push(row);
+		else matches.set(row.id, [row]);
+	}
+	const targets = new Map(
+		Array.from(matches, ([id, rows]) => [id, resolveEmbed(rows, id)] as const),
+	);
+	return (noteId: string): EmbedTarget<T> =>
+		targets.get(noteId) ?? resolveEmbed([], noteId);
+}
+
 /**
  * The notes that can be embedded: not canvases, with an id of their own that no
  * other file shares.

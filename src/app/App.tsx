@@ -323,6 +323,7 @@ export function App({ host }: { host: Host }) {
 	const ws = useWorkspaceHost({
 		host,
 		vaultGeneration,
+		notes: view?.notes,
 		writable,
 		isCanvas,
 		onSaved,
@@ -1404,6 +1405,7 @@ export function App({ host }: { host: Host }) {
 			<CanvasPane
 				key={canvasKey}
 				host={vaultHost}
+				documents={ws.documents}
 				path={path}
 				canvases={(view?.notes ?? []).filter((row) => row.kind === "canvas")}
 				notes={view?.notes ?? []}

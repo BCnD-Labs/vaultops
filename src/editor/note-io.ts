@@ -58,8 +58,12 @@ function whyReadOnly(parsed: ParseResult): string | null {
  * this version doesn't fully understand opens read-only (or empty, if it can't
  * be shown at all) and is never written.
  */
-export async function openNote(host: Host, path: string): Promise<OpenedNote> {
-	const baseText = await host.readText(path);
+export async function openNote(
+	host: Host,
+	path: string,
+	diskText?: string,
+): Promise<OpenedNote> {
+	const baseText = diskText ?? (await host.readText(path));
 	const parsed = parseNote(baseText);
 	if (!parsed.note) {
 		return {

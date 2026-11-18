@@ -43,17 +43,39 @@ async function call<T>(
 	}
 }
 
+/** Raw bytes from Rust arrive as an ArrayBuffer (or, in older shells, a number list). */
+const toBuffer = (bytes: ArrayBuffer | number[]): ArrayBuffer =>
+	Array.isArray(bytes) ? Uint8Array.from(bytes).buffer : bytes;
+
 /** The real host: forwards each call to a Rust command in src-tauri/src/lib.rs. */
 export const tauriHost: Host = {
 	appInfo: () => call<AppInfo>("app_info"),
 	chooseVault: () => call<string | null>("choose_vault"),
 	currentVault: () => call<string | null>("current_vault"),
 	readText: (path) => call<string>("read_text", { path }),
-	readCover: async (path) => {
-		const bytes = await call<ArrayBuffer | number[]>("read_cover", { path });
-		return Array.isArray(bytes) ? Uint8Array.from(bytes).buffer : bytes;
-	},
+	readCover: async (path) =>
+		toBuffer(await call<ArrayBuffer | number[]>("read_cover", { path })),
 	chooseCover: () => call<string | null>("choose_cover"),
+	readCache: async (path) => {
+		try {
+			return toBuffer(
+				await call<ArrayBuffer | number[]>("read_cache", { path }),
+			);
+		} catch (error) {
+			if (error instanceof HostError && error.code === "not-found") return null;
+			throw error;
+		}
+	},
+	// The bytes travel as the raw request body; the path rides in a header.
+	writeCache: async (path, bytes) => {
+		try {
+			await invoke("write_cache", new Uint8Array(bytes), {
+				headers: { "x-cache-path": path },
+			});
+		} catch (raw) {
+			throw toHostError(raw);
+		}
+	},
 	writeTextAtomic: (path, text) =>
 		call<void>("write_text_atomic", { path, text }),
 	move: (from, to) => call<void>("move_entry", { from, to }),

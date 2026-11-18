@@ -23,6 +23,7 @@ export function readOnlyHost(host: Host): Host {
 		currentVault: () => host.currentVault(),
 		readText: (path) => host.readText(path),
 		readCover: (path) => host.readCover(path),
+		readCache: (path) => host.readCache(path),
 		list: (folder) => host.list(folder),
 		kindOf: (path) => host.kindOf(path),
 		onCloseRequested: (handler) => host.onCloseRequested(handler),
@@ -42,6 +43,7 @@ export function readOnlyHost(host: Host): Host {
 		// Everything that changes the vault's folder.
 		writeTextAtomic: refuse,
 		chooseCover: refuse,
+		writeCache: refuse,
 		move: refuse,
 		makeFolder: refuse,
 		removeTrashed: refuse,

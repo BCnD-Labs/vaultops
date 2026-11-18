@@ -82,6 +82,26 @@ describe("tauriHost app files, log and window", () => {
 		}
 	});
 
+	it("sends cache bytes as the raw body and reads a missing file as null", async () => {
+		invoke.mockResolvedValueOnce(undefined);
+		await tauriHost.writeCache("images/a", new Uint8Array([1, 2]).buffer);
+		expect(invoke.mock.calls[0]).toEqual([
+			"write_cache",
+			new Uint8Array([1, 2]),
+			{ headers: { "x-cache-path": "images/a" } },
+		]);
+		invoke.mockRejectedValueOnce({ code: "not-found", message: "missing" });
+		expect(await tauriHost.readCache("images/a")).toBeNull();
+		invoke.mockRejectedValueOnce({ code: "invalid-path", message: "bad" });
+		await expect(tauriHost.readCache("../a")).rejects.toMatchObject({
+			code: "invalid-path",
+		});
+		invoke.mockRejectedValueOnce({ code: "io", message: "full" });
+		await expect(
+			tauriHost.writeCache("images/a", new ArrayBuffer(1)),
+		).rejects.toBeInstanceOf(HostError);
+	});
+
 	it("never leaks an unexpected native message", async () => {
 		invoke.mockRejectedValueOnce("/Users/someone/secret/place failed");
 		const error = (await tauriHost.readText("a").catch((e) => e)) as HostError;

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { type Host, HostError, type HostErrorCode } from "./host";
+import {
+	type Host,
+	HostError,
+	type HostErrorCode,
+	MAX_CACHE_BYTES,
+} from "./host";
 
 async function expectCode(promise: Promise<unknown>, code: HostErrorCode) {
 	const error = await promise.then(
@@ -122,6 +127,36 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 				await expectCode(host.move("x", bad), "invalid-path");
 				await expectCode(host.makeFolder(bad), "invalid-path");
 			}
+		});
+
+		it("keeps cached bytes inside .vaultops/cache only", async () => {
+			expect(await host.readCache("images/a-1")).toBeNull();
+			await host.writeCache("images/a-1", new Uint8Array([1, 2]).buffer);
+			await host.writeCache("images/a-1", new Uint8Array([3]).buffer);
+			const bytes = await host.readCache("images/a-1");
+			expect([...new Uint8Array(bytes as ArrayBuffer)]).toEqual([3]);
+			expect(await host.kindOf(".vaultops/cache/images/a-1")).toBe("file");
+			for (const bad of [
+				"../notes.vnote",
+				"images/../../a",
+				"/abs",
+				"a//b",
+				".hidden",
+				"images/.x",
+				"a\\b",
+				"",
+			]) {
+				await expectCode(host.readCache(bad), "invalid-path");
+				await expectCode(
+					host.writeCache(bad, new ArrayBuffer(1)),
+					"invalid-path",
+				);
+			}
+			await expectCode(
+				host.writeCache("big", new ArrayBuffer(MAX_CACHE_BYTES + 1)),
+				"invalid-path",
+			);
+			await expectCode(host.readCache("images"), "is-a-folder");
 		});
 
 		it("never puts a path from outside into an error message", async () => {

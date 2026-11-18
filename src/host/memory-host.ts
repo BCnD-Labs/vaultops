@@ -7,6 +7,8 @@ import {
 	type EntryKind,
 	type Host,
 	HostError,
+	isCachePath,
+	MAX_CACHE_BYTES,
 	type UpdateChannelName,
 	type UpdateChannels,
 	type UpdateScriptStatus,
@@ -107,6 +109,38 @@ export class MemoryHost implements Host {
 				? new TextEncoder().encode(text)
 				: new Uint8Array(text);
 		return bytes.buffer;
+	}
+
+	private cacheParts(path: string): string[] {
+		if (!isCachePath(path))
+			throw new HostError("invalid-path", "not a valid cache path");
+		return [".vaultops", "cache", ...path.split("/")];
+	}
+
+	async readCache(path: string): Promise<ArrayBuffer | null> {
+		const node = this.find(this.cacheParts(path));
+		if (!node) return null;
+		if (node.kind === "folder")
+			throw new HostError("is-a-folder", "path is a folder");
+		return typeof node.text === "string"
+			? new TextEncoder().encode(node.text).buffer
+			: node.text.slice().buffer;
+	}
+
+	async writeCache(path: string, bytes: ArrayBuffer): Promise<void> {
+		const parts = this.cacheParts(path);
+		if (bytes.byteLength > MAX_CACHE_BYTES)
+			throw new HostError("invalid-path", "the file is larger than 25 MB");
+		await this.makeFolder(parts.slice(0, -1).join("/"));
+		const parent = this.folderAt(parts.slice(0, -1));
+		const name = parts[parts.length - 1] as string;
+		if (parent.children.get(nameKey(name))?.kind === "folder")
+			throw new HostError("is-a-folder", "path is a folder");
+		parent.children.set(nameKey(name), {
+			kind: "file",
+			name,
+			text: new Uint8Array(bytes.slice(0)),
+		});
 	}
 
 	async writeTextAtomic(path: string, text: string): Promise<void> {

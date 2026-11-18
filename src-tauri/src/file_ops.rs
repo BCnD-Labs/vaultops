@@ -180,7 +180,7 @@ fn existing_name_or(parent: &Dir, name: &str) -> Result<String, HostError> {
     Ok(name.to_owned())
 }
 
-fn write_temp(parent: &Dir, bytes: &[u8]) -> Result<String, HostError> {
+pub(crate) fn write_temp(parent: &Dir, bytes: &[u8]) -> Result<String, HostError> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     for _ in 0..16 {
         let nanos = std::time::SystemTime::now()

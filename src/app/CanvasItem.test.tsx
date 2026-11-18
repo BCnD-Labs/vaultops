@@ -68,7 +68,7 @@ const link: Block = {
 	attrs: { from: "a", to: "b" },
 };
 
-it("groups two or more items, but not one, and not a selection that holds a group", () => {
+it("frames even a single selected item", () => {
 	const onGroup = vi.fn();
 	const props = {
 		blocks: [card("a"), card("b")],
@@ -76,14 +76,9 @@ it("groups two or more items, but not one, and not a selection that holds a grou
 		onUngroup: vi.fn(),
 		onDelete: vi.fn(),
 	};
-	const view = render(<CanvasSelectionBar ids={["a"]} {...props} />);
-	expect(
-		(screen.getByRole("button", { name: /Group/ }) as HTMLButtonElement)
-			.disabled,
-	).toBe(true);
-	view.rerender(<CanvasSelectionBar ids={["a", "b"]} {...props} />);
-	fireEvent.click(screen.getByRole("button", { name: /Group/ }));
-	expect(onGroup).toHaveBeenCalledWith(["a", "b"]);
+	render(<CanvasSelectionBar ids={["a"]} {...props} />);
+	fireEvent.click(screen.getByRole("button", { name: "Frame selection" }));
+	expect(onGroup).toHaveBeenCalledWith(["a"]);
 });
 
 it("asks before deleting, names the connectors that go too, and only then deletes", () => {
@@ -107,7 +102,7 @@ it("asks before deleting, names the connectors that go too, and only then delete
 	expect(onDelete).toHaveBeenCalledWith(["a"]);
 });
 
-it("offers Ungroup for a single selected group", () => {
+it("offers to remove a single selected frame", () => {
 	const onUngroup = vi.fn();
 	render(
 		<CanvasSelectionBar
@@ -127,7 +122,7 @@ it("offers Ungroup for a single selected group", () => {
 			onDelete={vi.fn()}
 		/>,
 	);
-	fireEvent.click(screen.getByRole("button", { name: /Ungroup/ }));
+	fireEvent.click(screen.getByRole("button", { name: "Remove frame" }));
 	expect(onUngroup).toHaveBeenCalledWith("g");
 });
 
@@ -192,7 +187,7 @@ const note = (id: string, type: string): Block => ({
 	attrs: { x: 0, y: 0 },
 });
 
-it("offers a style panel with a color section for cards, sticky notes and shapes, and passes only those on", async () => {
+it("offers colors for cards, sticky notes, shapes and frames", async () => {
 	const onTone = vi.fn();
 	const props = {
 		blocks: [
@@ -208,7 +203,7 @@ it("offers a style panel with a color section for cards, sticky notes and shapes
 		onTone,
 	};
 	const user = userEvent.setup();
-	const view = render(<CanvasSelectionBar ids={["l", "g"]} {...props} />);
+	const view = render(<CanvasSelectionBar ids={["l"]} {...props} />);
 	expect(screen.queryByRole("button", { name: /Style/ })).toBeNull();
 	view.rerender(<CanvasSelectionBar ids={["c"]} {...props} />);
 	expect(screen.getByRole("button", { name: /Style/ })).toBeTruthy();
@@ -222,7 +217,7 @@ it("offers a style panel with a color section for cards, sticky notes and shapes
 	expect(screen.queryByText("Shape")).toBeNull();
 	expect(screen.queryByText("Text size")).toBeNull();
 	await user.click(screen.getByRole("button", { name: "Tip" }));
-	expect(onTone).toHaveBeenCalledWith(["s", "h", "c"], "tip");
+	expect(onTone).toHaveBeenCalledWith(["s", "h", "c", "g"], "tip");
 });
 
 it("shows the current color when the whole selection agrees, and none when it differs", async () => {

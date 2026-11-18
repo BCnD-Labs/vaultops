@@ -95,12 +95,13 @@ export function isItemTone(value: unknown): value is ItemTone {
 
 /**
  * The attribute that holds a block's color on a canvas, or null for a block
- * with none (a label, group or connector). Sticky notes and shapes use `tone`.
+ * with none (a label or connector). Frames use `color`, sticky notes and shapes use `tone`.
  * A card is a note block that sits on the canvas, and on a callout `tone`
  * already means the callout's kind, so a card's color is `fill`, which belongs
  * to the canvas only: moving the card to a note drops it.
  */
-export function toneAttr(block: Block): "tone" | "fill" | null {
+export function toneAttr(block: Block): "tone" | "fill" | "color" | null {
+	if (block.type === "group") return "color";
 	if (block.type === "sticky" || block.type === "shape") return "tone";
 	return isCanvasOnly(block.type) ? null : "fill";
 }
@@ -113,8 +114,8 @@ export function blockTone(block: Block): ItemTone {
 }
 
 /**
- * Give sticky notes, shapes and cards a color. `note`, the default, is left out
- * of the file. Refuses anything else (a label, group or connector), so one wrong
+ * Give sticky notes, shapes, cards and frames a color. `note`, the default, is left out
+ * of the file. Refuses anything else (a label or connector), so one wrong
  * id cannot half-apply the change.
  */
 export function setTone(
@@ -123,12 +124,14 @@ export function setTone(
 	tone: ItemTone,
 ): Block[] {
 	if (!isItemTone(tone)) throw new Error("That is not a color.");
-	const names = new Map<string, "tone" | "fill">();
+	const names = new Map<string, NonNullable<ReturnType<typeof toneAttr>>>();
 	for (const id of ids) {
 		const block = blocks.find((b) => b.id === id && b.parent === null);
 		const name = block ? toneAttr(block) : null;
 		if (!name)
-			throw new Error("Only cards, sticky notes and shapes have a color.");
+			throw new Error(
+				"Only cards, sticky notes, shapes and frames have a color.",
+			);
 		names.set(id, name);
 	}
 	let next = blocks;
@@ -226,9 +229,7 @@ export function deleteRoots(
 }
 
 /**
- * Group the given roots. A group is a frame (`x`, `y`, `w`, `h`), an optional
- * title and a list of member ids. A block is in one group at a time, so it
- * leaves any group it was in. Groups and connectors are never members.
+ * Frame the given roots, keeping any selected frame's own members with it.
  */
 export function createGroup(
 	blocks: Block[],
@@ -236,18 +237,20 @@ export function createGroup(
 	frame: { x: number; y: number; w: number; h: number },
 	groupId: string = newBlockId(),
 ): Block[] {
-	const members = ids.filter((id) => {
-		const block = blocks.find((b) => b.id === id && b.parent === null);
-		return !!block && block.type !== "group" && block.type !== "connector";
-	});
-	if (members.length < 2)
-		throw new Error("Select at least two items to group.");
+	const picked = canvasNodes(blocks).filter((b) =>
+		ids.includes(b.id as string),
+	);
+	const nested = new Set(picked.flatMap((b) => frameDescendants(blocks, b)));
+	const members = picked
+		.map((b) => b.id as string)
+		.filter((id) => !nested.has(id));
+	if (members.length === 0) throw new Error("Select an item to frame.");
 	if (
 		![frame.x, frame.y, frame.w, frame.h].every((n) => Number.isFinite(n)) ||
 		frame.w <= 0 ||
 		frame.h <= 0
 	)
-		throw new Error("The group frame is not valid.");
+		throw new Error("The frame is not valid.");
 	const moved = new Set(members);
 	const cleaned = blocks.map((block) =>
 		block.type === "group" && groupMembers(block).some((id) => moved.has(id))
@@ -269,6 +272,20 @@ export function groupOf(blocks: Block[], id: string): Block | undefined {
 	return blocks.find(
 		(block) => block.type === "group" && groupMembers(block).includes(id),
 	);
+}
+
+export function frameDescendants(blocks: Block[], frame: Block): string[] {
+	const seen = new Set([frame.id]);
+	const visit = (block: Block): string[] => {
+		if (block.type !== "group") return [];
+		return groupMembers(block).flatMap((id) => {
+			if (seen.has(id)) return [];
+			seen.add(id);
+			const child = blocks.find((b) => b.id === id);
+			return child ? [id, ...visit(child)] : [];
+		});
+	};
+	return visit(frame);
 }
 
 export function addConnector(

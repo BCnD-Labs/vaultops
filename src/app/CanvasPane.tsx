@@ -38,7 +38,14 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CANVAS_ONLY_TYPES, type NoteHeader } from "../core/note-format";
-import { arrangeItems } from "../core/notes/canvas-arrange";
+import {
+	arrangeItems,
+	dragFrameItems,
+	FRAME_SIZE,
+	frameSelection,
+	framesBySize,
+	type Rect,
+} from "../core/notes/canvas-arrange";
 import {
 	EMBED_SIZE,
 	embedBlock,
@@ -54,18 +61,16 @@ import {
 	canvasConnectors,
 	canvasNodes,
 	connectorEnds,
-	createGroup,
 	deleteRoots,
-	groupMembers,
+	frameDescendants,
 	newBlockId,
 	numberAttr,
 	patchAttrs,
-	setPositions,
 	setText,
 	setTone,
 } from "../core/notes/canvas-ops";
 import { reorderItems } from "../core/notes/canvas-order";
-import { blockPosition, moveCanvasCard } from "../core/notes/canvas-position";
+import { blockPosition } from "../core/notes/canvas-position";
 import { setShapeKind, setTextSize } from "../core/notes/canvas-style";
 import { headerIcon, withIcon } from "../core/notes/icon";
 import {
@@ -90,6 +95,7 @@ import type { LiveDocument, LiveDocuments } from "./live-documents";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NotePickerDialog } from "./NotePickerDialog";
 import type { NoteRow } from "./session";
+import { commandMatches } from "./shortcuts";
 
 const lockLabel = "Lock canvas: drag cards out to the note";
 type Binding = ReturnType<LiveDocuments["subscribe"]>;
@@ -104,7 +110,7 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set([
 const ITEM_SIZE: { [type: string]: { w: number; h: number } } = {
 	sticky: { w: 180, h: 140 },
 	shape: { w: 180, h: 110 },
-	group: { w: 320, h: 220 },
+	group: FRAME_SIZE,
 	embed: { w: EMBED_SIZE.w, h: EMBED_SIZE.h },
 };
 
@@ -300,6 +306,10 @@ export function CanvasPane({
 			editable && !locked ? binding?.stepCanvas(direction) : undefined,
 		);
 	const canEdit = Boolean(editable) && !locked;
+	const framePicked = (boxes: Record<string, Rect> | undefined) => {
+		if (canEdit && boxes && Object.keys(boxes).length)
+			void commit((all) => frameSelection(all, boxes), "framing items");
+	};
 	const toggleSnap = (which: "grid" | "objects") =>
 		setSnapModes((current) => {
 			const next = { ...current, [which]: !current[which] };
@@ -307,6 +317,7 @@ export function CanvasPane({
 			return next;
 		});
 	const embedTarget = useMemo(() => indexEmbedTargets(notes), [notes]);
+	const frameLayers = framesBySize(blocks).map((frame) => frame.id);
 	const nodes: CanvasNode[] = roots.map((block) => {
 		const id = block.id as string;
 		const canvasOnly = (CANVAS_ONLY_TYPES as readonly string[]).includes(
@@ -340,7 +351,7 @@ export function CanvasPane({
 						setEditingId(null);
 						void commit(
 							(all) => patchAttrs(all, id, { title: title || undefined }),
-							"renaming the group",
+							"renaming the frame",
 						);
 					}}
 				/>
@@ -380,7 +391,7 @@ export function CanvasPane({
 				label,
 				resizable: Boolean(editable && !locked && size),
 				connectable: Boolean(editable && !locked && !isGroup),
-				...(isGroup ? { members: groupMembers(block) } : {}),
+				...(isGroup ? { members: frameDescendants(blocks, block) } : {}),
 				onResizeEnd: (
 					itemId: string,
 					box: { x: number; y: number; width: number; height: number },
@@ -401,7 +412,12 @@ export function CanvasPane({
 				: "canvas-node",
 			draggable: Boolean(editable && !locked),
 			...(width > 0 && height > 0 ? { style: { height, width } } : {}),
-			...(isGroup ? { zIndex: -1, dragHandle: ".canvas-group-title" } : {}),
+			...(isGroup
+				? {
+						zIndex: -1 - frameLayers.indexOf(id),
+						dragHandle: ".canvas-group-title",
+					}
+				: {}),
 		};
 	});
 	const present = new Set(roots.map((block) => block.id));
@@ -428,12 +444,17 @@ export function CanvasPane({
 			data-undo-canvas={canEdit ? document?.noteId : undefined}
 			aria-busy={!document && error === null}
 			onKeyDown={(event) => {
+				const target = event.target as HTMLElement;
+				if (target.closest("input, textarea, select, [contenteditable='true']"))
+					return;
+				if (commandMatches(event.nativeEvent, "frame-selection")) {
+					event.preventDefault();
+					framePicked(canvasApi.current?.selectedBoxes());
+					return;
+				}
 				if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
 				const key = event.key.toLowerCase();
 				if (key !== "z" && key !== "y") return;
-				// Inside a text field, undo belongs to the field.
-				const target = event.target as HTMLElement;
-				if (target.closest("input, textarea, [contenteditable='true']")) return;
 				event.preventDefault();
 				void step(key === "y" || event.shiftKey ? "redo" : "undo");
 			}}
@@ -529,10 +550,10 @@ export function CanvasPane({
 							onReady={(api) => {
 								canvasApi.current = api;
 							}}
-							onMoveMany={(positions) => {
-								if (locked) return;
+							onDragItems={(boxes) => {
+								if (!canEdit) return;
 								void commit(
-									(all) => setPositions(all, positions),
+									(all) => dragFrameItems(all, boxes),
 									"moving items",
 								);
 							}}
@@ -548,7 +569,7 @@ export function CanvasPane({
 									"deleting a connector",
 								)
 							}
-							selectionToolbar={({ ids, bounds, boxes, allBoxes }) => (
+							selectionToolbar={({ ids, boxes, allBoxes }) => (
 								<CanvasSelectionBar
 									ids={ids}
 									blocks={blocks}
@@ -588,26 +609,17 @@ export function CanvasPane({
 												: "aligning items",
 										);
 									}}
-									onGroup={(members) => {
-										const box = bounds();
-										if (!box) return;
-										const pad = 24;
-										const title = 28;
+									onGroup={() => framePicked(boxes())}
+									onSlide={(id, slide) =>
 										void commit(
-											(all) =>
-												createGroup(all, members, {
-													h: Math.round(box.height + pad * 2 + title),
-													w: Math.round(box.width + pad * 2),
-													x: Math.round(box.x - pad),
-													y: Math.round(box.y - pad - title),
-												}),
-											"grouping items",
-										);
-									}}
+											(all) => patchAttrs(all, id, { slide }),
+											"changing the slide number",
+										)
+									}
 									onUngroup={(groupId) =>
 										void commit(
 											(all) => deleteRoots(all, [groupId]).blocks,
-											"ungrouping",
+											"removing a frame",
 										)
 									}
 									onDelete={(doomed) =>
@@ -618,13 +630,6 @@ export function CanvasPane({
 									}
 								/>
 							)}
-							onMove={(id, position) => {
-								if (!locked)
-									void commit(
-										(all) => moveCanvasCard(all, id, position),
-										"moving a card",
-									);
-							}}
 							onDropBlock={async (event, position) => {
 								if (!editable) {
 									setError(

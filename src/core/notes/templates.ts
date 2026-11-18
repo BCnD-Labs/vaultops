@@ -465,3 +465,5 @@ export function blocksFromTemplate(
 		return next;
 	});
 }
+
+export { extractPrompts, fillTemplate } from "./template-prompts";

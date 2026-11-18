@@ -42,8 +42,8 @@ it("opens when / is typed at the start of a block and filters as you type", asyn
 	await insert(editor, "/");
 	expect(menu()).toBeTruthy();
 	expect(labels()).toContain("Heading 1");
-	await insert(editor, "tabl");
-	expect(labels()).toEqual(["Table"]);
+	await insert(editor, "table");
+	expect(labels()).toEqual(["Table", "Table of contents"]);
 });
 
 it("opens after a space but not inside a word", async () => {

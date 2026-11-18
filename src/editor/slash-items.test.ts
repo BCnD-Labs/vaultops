@@ -51,6 +51,7 @@ describe("slash menu items", () => {
 			"link",
 			"mention",
 			"template",
+			"toc",
 		]);
 		expect(ids("Plan")).toEqual(["task", "table", "database", "date"]);
 		expect(ids("Visual")).toEqual([
@@ -115,6 +116,11 @@ describe("slash menu items", () => {
 		// The label's start beats a later word in another label.
 		expect(ids("call")[0]).toBe("Callout");
 		expect(ids("data")[0]).toBe("Database");
+		// A label that is exactly what was typed beats a longer one that starts the same way.
+		expect(filterSlashItems("table").map((i) => i.id)).toEqual([
+			"table",
+			"toc",
+		]);
 	});
 
 	it("shows everything for a bare slash", () => {

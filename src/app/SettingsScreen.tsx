@@ -9,6 +9,7 @@ import {
 	Monitor,
 	Palette,
 	PenLine,
+	Puzzle,
 	Search,
 	SlidersHorizontal,
 	Wrench,
@@ -70,6 +71,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
 	editor: PenLine,
 	appearance: Palette,
 	interface: Monitor,
+	features: Puzzle,
 	themes: Brush,
 	canvas: LayoutDashboard,
 	planner: CalendarDays,
@@ -386,6 +388,12 @@ export function SettingsScreen({
 						</div>
 						<UpdateSection host={host} pollMs={updatePollMs} />
 					</Group>
+				)}
+				{id === "features" && (
+					<p className="settings-note">
+						Turn a feature off to hide it from the app. Your notes and files are
+						never changed, and anything you already made with it still opens.
+					</p>
 				)}
 				{colors.length > 0 && (
 					<div className="settings-row settings-mode-note">

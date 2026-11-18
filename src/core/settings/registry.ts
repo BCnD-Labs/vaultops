@@ -97,6 +97,7 @@ export const SECTIONS: readonly SettingSection[] = [
 	{ id: "editor", label: "Editor" },
 	{ id: "appearance", label: "Appearance" },
 	{ id: "interface", label: "Interface" },
+	{ id: "features", label: "Features" },
 	{ id: "themes", label: "Themes" },
 	{ id: "canvas", label: "Canvas" },
 	{ id: "planner", label: "Planner & Logs" },

@@ -91,6 +91,7 @@ import { commandMatches } from "./shortcuts";
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import { TemplateManager } from "./TemplateManager";
 import { browserTabs, pruneTabs } from "./tabs";
+import { useFeatures } from "./useFeature";
 import {
 	type BlockMoveResult,
 	type PaneView,
@@ -103,6 +104,13 @@ import "./app.css";
 const other = (id: PaneId): PaneId => (id === "left" ? "right" : "left");
 
 export function App({ host }: { host: Host }) {
+	// Features switched off in Settings > Features: only the ways to create or
+	// open them are hidden. Existing canvases, database blocks and math still open.
+	const features = useFeatures();
+	const templatesOn = features.isEnabled("templates");
+	const resourcesOn = features.isEnabled("resources");
+	const canvasOn = features.isEnabled("canvas");
+	const plannerOn = features.isEnabled("planner");
 	const [view, setView] = useState<VaultView | null>(null);
 	const [reading, setReading] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -399,13 +407,15 @@ export function App({ host }: { host: Host }) {
 	// only once a vault is open.
 	useEffect(() => {
 		const ready = view !== null && view.status !== "none";
-		openTemplatesRef.current = ready ? () => setTemplatesOpen(true) : undefined;
-		openResourcesRef.current = ready
-			? () => {
-					setFocusResource(null);
-					setResourcesOpen(true);
-				}
-			: undefined;
+		openTemplatesRef.current =
+			ready && templatesOn ? () => setTemplatesOpen(true) : undefined;
+		openResourcesRef.current =
+			ready && resourcesOn
+				? () => {
+						setFocusResource(null);
+						setResourcesOpen(true);
+					}
+				: undefined;
 	});
 
 	useEffect(() => {
@@ -963,7 +973,7 @@ export function App({ host }: { host: Host }) {
 		},
 		moveTo: setTreeMove,
 		newNote: (folder) => void startNote(folder),
-		newCanvas: (folder) => void startCanvas(folder),
+		newCanvas: canvasOn ? (folder) => void startCanvas(folder) : undefined,
 	};
 
 	// "Move to…": the note goes to the folder picked, its tab follows it, and an
@@ -1342,7 +1352,7 @@ export function App({ host }: { host: Host }) {
 			path={doc.path}
 			title={doc.title}
 			controls={doc.focused}
-			calendar={doc.last}
+			calendar={doc.last && plannerOn}
 			canGoBack={canGoBack(nav)}
 			canGoForward={canGoForward(nav)}
 			onBack={() => void goThrough(-1)}
@@ -1366,7 +1376,9 @@ export function App({ host }: { host: Host }) {
 						)
 					}
 					onCreateCanvas={
-						canvasShown ? undefined : () => void startCanvas(folder, pane.id)
+						canvasShown || !canvasOn
+							? undefined
+							: () => void startCanvas(folder, pane.id)
 					}
 					onClose={pane.id === "right" ? () => void ws.closeSplit() : undefined}
 				/>
@@ -1429,14 +1441,14 @@ export function App({ host }: { host: Host }) {
 								)
 							}
 							onNavigateScreen={(next) => void navigate(next)}
-							resources={resources.cards}
+							resources={resourcesOn ? resources.cards : undefined}
 							resourceTypes={resources.types}
 							onOpenResource={(noteId) => {
 								setFocusResource(noteId);
 								setResourcesOpen(true);
 							}}
 							onOpenResources={
-								view && view.status !== "none"
+								view && view.status !== "none" && resourcesOn
 									? () => {
 											setFocusResource(null);
 											setResourcesOpen(true);
@@ -1444,7 +1456,7 @@ export function App({ host }: { host: Host }) {
 									: undefined
 							}
 							onOpenTemplates={
-								view && view.status !== "none"
+								view && view.status !== "none" && templatesOn
 									? () => setTemplatesOpen(true)
 									: undefined
 							}
@@ -1500,7 +1512,7 @@ export function App({ host }: { host: Host }) {
 									onStartNote={(folder) =>
 										void startNote(newNoteFolder(folder, view?.folders ?? []))
 									}
-									onStartCanvas={startCanvas}
+									onStartCanvas={canvasOn ? startCanvas : undefined}
 									onChooseVault={async () => {
 										if (!(await ws.settleAll())) return;
 										setScreen("note");
@@ -1510,11 +1522,17 @@ export function App({ host }: { host: Host }) {
 									onShowMaintainer={() => setShowMaintainer(true)}
 									onNavigate={navigate}
 									onOpenSettings={() => void navigate("settings")}
-									onOpenTemplates={() => setTemplatesOpen(true)}
-									onOpenResources={() => {
-										setFocusResource(null);
-										setResourcesOpen(true);
-									}}
+									onOpenTemplates={
+										templatesOn ? () => setTemplatesOpen(true) : undefined
+									}
+									onOpenResources={
+										resourcesOn
+											? () => {
+													setFocusResource(null);
+													setResourcesOpen(true);
+												}
+											: undefined
+									}
 									onSelection={setSelection}
 									onOpen={(path) => void open(path, { follow: false })}
 								/>

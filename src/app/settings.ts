@@ -1,3 +1,4 @@
+import { FEATURES, featureSettingKey } from "../core/features/registry";
 import { DATE_FORMATS, type PlaceholderFormats } from "../core/notes/templates";
 import {
 	CHECK_IN_SLOTS,
@@ -130,6 +131,26 @@ const textSizeDefs = TEXT_SIZES.map(({ id, label }) => ({
 	keywords: ["font size", "text size", "heading", "body", "px", id],
 	sparse: true as const,
 }));
+
+/**
+ * Settings > Features: one on/off switch per feature in the feature list
+ * (core/features/registry.ts), saved as `features.<id>`. Only an "off" is
+ * written, so a feature added later is on until switched off. Core features
+ * have no switch.
+ */
+const featureDefs = FEATURES.filter((feature) => !feature.core).map(
+	(feature) => ({
+		key: featureSettingKey(feature.id),
+		section: "features",
+		group: feature.group,
+		label: feature.name,
+		description: feature.description,
+		type: "toggle" as const,
+		default: feature.defaultOn,
+		keywords: ["feature", "plugin", "turn off", "hide", "enable", "disable"],
+		sparse: true as const,
+	}),
+);
 
 /** Snap choices, saved under the canvas toolbar's own key and values. */
 const SNAP_STORED: Record<string, string> = {
@@ -495,6 +516,7 @@ export const SETTING_DEFS = [
 	{ key: "planner.checkIn.eveningStart", ...checkInStart("evening") },
 	...NEW_DEFS,
 	...styleDefs,
+	...featureDefs,
 	{
 		key: "themes.customCss",
 		section: "themes",

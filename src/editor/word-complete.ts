@@ -97,10 +97,24 @@ export const WordComplete = Extension.create<{
 						quietWhenEmpty: () => true,
 						className: "word-complete",
 					});
+					// Tab accepts. Enter accepts only after the arrows picked a row, so
+					// finishing a word and pressing Enter still starts a new line.
+					let picked = false;
 					return {
-						onStart: (p) => popup.mount(p),
-						onUpdate: (p) => popup.update(p),
-						onKeyDown: ({ event }) => popup.key(event),
+						onStart: (p) => {
+							picked = false;
+							popup.mount(p);
+						},
+						onUpdate: (p) => {
+							picked = false;
+							popup.update(p);
+						},
+						onKeyDown: ({ event }) => {
+							if (event.key === "ArrowDown" || event.key === "ArrowUp")
+								picked = true;
+							else if (event.key === "Enter" && !picked) return false;
+							return popup.key(event);
+						},
 						onExit: () => popup.destroy(),
 					};
 				},

@@ -33,6 +33,21 @@ it("shows suggestions and Tab inserts only the suffix", async () => {
 	);
 	expect(editor.getText()).toBe("completion");
 });
+const press = (key: string) =>
+	editor.view.someProp("handleKeyDown", (handler) =>
+		handler(editor.view, new KeyboardEvent("keydown", { key })),
+	);
+it("leaves Enter to the editor until the arrows pick a suggestion", async () => {
+	await type("com");
+	press("Enter");
+	expect(editor.getText()).not.toContain("completion");
+});
+it("accepts with Enter after an arrow key", async () => {
+	await type("com");
+	press("ArrowDown");
+	press("Enter");
+	expect(editor.getText()).toBe("completion");
+});
 it("does not open in code or after another menu trigger", async () => {
 	await type("com", true);
 	expect(document.querySelector(".word-complete")).toBeNull();

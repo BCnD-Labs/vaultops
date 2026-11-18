@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useFeature } from "../app/useFeature";
 import {
+	autoScrollOnDrag,
 	BLOCK_DRAG_TYPE,
 	blockDragData,
 	blockDragNote,
@@ -49,6 +50,7 @@ export interface NoteEditorProps {
 		blockId: string,
 		canvasId: string,
 		slot: DropSlot,
+		copy?: boolean,
 	) => Promise<void>;
 	/** Offers "Template" in the slash menu; called with where to put it. */
 	onChooseTemplate?: (request: TemplateRequest) => void;
@@ -285,7 +287,15 @@ export function NoteEditor({
 	const updateDropIndicator = (event: React.DragEvent<HTMLElement>) => {
 		if (!event.dataTransfer.types.includes(BLOCK_DRAG_TYPE)) return;
 		event.preventDefault();
-		setDragEffect(event.dataTransfer, "dropEffect", "move");
+		setDragEffect(
+			event.dataTransfer,
+			"dropEffect",
+			event.altKey ? "copy" : "move",
+		);
+		autoScrollOnDrag(
+			event.currentTarget.closest<HTMLElement>(".pane") ?? event.currentTarget,
+			event.clientY,
+		);
 		if (!editor) return;
 		const view = editor.view;
 		if (view.dragging?.slice) {
@@ -366,7 +376,10 @@ export function NoteEditor({
 							event.clientY,
 							event.currentTarget,
 						);
-						void onDropBlock(data.blockId, data.noteId, { after, near, start });
+						const slot = { after, near, start };
+						void (event.altKey
+							? onDropBlock(data.blockId, data.noteId, slot, true)
+							: onDropBlock(data.blockId, data.noteId, slot));
 					}}
 				>
 					<EditorContent editor={editor} />

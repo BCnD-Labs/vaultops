@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { parseNote } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import {
+	copyBlock,
 	type MoveReceipt,
 	moveBlock,
 	undoMove,
@@ -216,11 +217,13 @@ export function useWorkspaceHost({
 	const moveLocked = useCallback(
 		async (
 			find: () => Promise<
-				{ from: PaneId; to: PaneId | { path: string } } | string
+				| { from: PaneId | { path: string }; to: PaneId | { path: string } }
+				| string
 			>,
 			blockId: string,
 			placement: Placement,
 			refuse: (message: string) => BlockMoveResult,
+			copy = false,
 		): Promise<BlockMoveResult> => {
 			if (!(await settleAll())) {
 				const why = SLOTS.map((id) =>
@@ -233,16 +236,19 @@ export function useWorkspaceHost({
 			const found = await find();
 			if (typeof found === "string") return refuse(found);
 			const { from } = found;
-			// The destination is a pane that shows it, or any file in the vault.
+			// The source and destination are panes that show them, or open files in the vault.
 			const target = found.to;
+			const fromPane = typeof from === "string" ? from : null;
 			const to = typeof target === "string" ? target : null;
-			const source = paneOf(from);
+			const source = typeof from === "string" ? paneOf(from) : from.path;
 			const destination =
 				typeof target === "string" ? paneOf(target) : target.path;
 			if (source === null || destination === null)
 				return refuse("Open both documents before moving a block.");
-			for (const id of to === null ? [from] : [from, to]) {
-				const path = id === from ? source : destination;
+			for (const id of [fromPane, to].filter(
+				(pane): pane is PaneId => pane !== null,
+			)) {
+				const path = id === fromPane ? source : destination;
 				if (canvas(path)) continue;
 				const opened = sessions.current[id].opened;
 				if (!opened?.editable)
@@ -253,27 +259,26 @@ export function useWorkspaceHost({
 			}
 			const reloadBoth = async () => {
 				await Promise.all([
-					reloadPane(from),
+					...(copy || fromPane === null ? [] : [reloadPane(fromPane)]),
 					...(to === null ? [] : [reloadPane(to)]),
 				]);
 			};
 			let failure: string | null = null;
 			let receipt: MoveReceipt | null = null;
 			try {
-				receipt = await moveBlock(
-					host,
-					source,
-					destination,
-					blockId,
-					placement,
-				);
+				receipt = copy
+					? (await copyBlock(host, source, destination, blockId, placement),
+						null)
+					: await moveBlock(host, source, destination, blockId, placement);
 			} catch (reason) {
 				failure = reason instanceof Error ? reason.message : String(reason);
 			}
 			// Win or lose, show what is on disk now.
 			await reloadBoth();
-			if (failure !== null || receipt === null)
+			if (failure !== null)
 				return refuse(failure ?? "The block was not moved.");
+			if (copy) return { ok: true };
+			if (receipt === null) return refuse("The block was not moved.");
 			const made = receipt;
 			return {
 				ok: true,
@@ -320,10 +325,12 @@ export function useWorkspaceHost({
 	const moveBetween = useCallback(
 		async (
 			find: () => Promise<
-				{ from: PaneId; to: PaneId | { path: string } } | string
+				| { from: PaneId | { path: string }; to: PaneId | { path: string } }
+				| string
 			>,
 			blockId: string,
 			placement: Placement,
+			copy = false,
 		): Promise<BlockMoveResult> => {
 			const refuse = (message: string): BlockMoveResult => ({
 				ok: false,
@@ -333,7 +340,7 @@ export function useWorkspaceHost({
 				return refuse("This vault is read-only, so the block was not moved.");
 			setMoving(true);
 			try {
-				return await moveLocked(find, blockId, placement, refuse);
+				return await moveLocked(find, blockId, placement, refuse, copy);
 			} finally {
 				setMoving(false);
 			}
@@ -343,7 +350,7 @@ export function useWorkspaceHost({
 
 	/**
 	 * A block was dropped on a pane. The drag carries only the id of the document
-	 * it came from, so find which other pane is showing that one.
+	 * it came from, so find which other pane or open tab is that one.
 	 */
 	const dropBlock = useCallback(
 		(
@@ -351,6 +358,7 @@ export function useWorkspaceHost({
 			blockId: string,
 			sourceId: string,
 			placement: Placement,
+			copy = false,
 		): Promise<BlockMoveResult> =>
 			moveBetween(
 				async () => {
@@ -359,12 +367,26 @@ export function useWorkspaceHost({
 					for (const from of SLOTS)
 						if (from !== to && (await documentId(from)) === sourceId)
 							return { from, to };
+					for (const path of [
+						...current.current.left.tabs,
+						...(current.current.right?.tabs ?? []),
+					])
+						if (
+							path !== NEW_TAB &&
+							path !== paneOf(to) &&
+							(await host.readText(path).then(
+								(t) => parseNote(t).note?.header.noteId,
+								() => null,
+							)) === sourceId
+						)
+							return { from: { path }, to };
 					return "Open the source note before moving this block.";
 				},
 				blockId,
 				placement,
+				copy,
 			),
-		[moveBetween, paneOf, documentId],
+		[host, moveBetween, paneOf, documentId],
 	);
 
 	/** A canvas card's "move to note": into the note shown beside the canvas. */

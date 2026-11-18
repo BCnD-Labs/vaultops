@@ -13,7 +13,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { setDragEffect } from "../editor/block-drag";
+import { BLOCK_DRAG_TYPE, setDragEffect } from "../editor/block-drag";
 import { ICON_BY_NAME } from "./iconCatalog";
 import {
 	dropIndex,
@@ -23,6 +23,8 @@ import {
 	tabDragData,
 } from "./tab-drag";
 import { NEW_TAB } from "./tabs";
+
+export const SPRING_DELAY = 600;
 
 export interface TabItem {
 	path: string;
@@ -101,6 +103,24 @@ export function TabBar({
 	// The tab being carried, dimmed in its slot so it and the copy that follows
 	// the pointer do not read as two tabs.
 	const [carried, setCarried] = useState<string | null>(null);
+	const [springTab, setSpringTab] = useState<string | null>(null);
+	const selectRef = useRef(onSelect);
+	selectRef.current = onSelect;
+	useEffect(() => {
+		if (!springTab) return;
+		const stop = () => setSpringTab(null);
+		const id = setTimeout(() => {
+			setSpringTab(null);
+			selectRef.current(springTab);
+		}, SPRING_DELAY);
+		document.addEventListener("dragend", stop);
+		document.addEventListener("drop", stop);
+		return () => {
+			clearTimeout(id);
+			document.removeEventListener("dragend", stop);
+			document.removeEventListener("drop", stop);
+		};
+	}, [springTab]);
 	const draggable = !!onDropTab && !!paneId;
 	useLayoutEffect(() => {
 		const lostControl =
@@ -196,6 +216,14 @@ export function TabBar({
 					const Icon =
 						ICON_BY_NAME.get(tab.icon ?? "") ??
 						(tab.canvas ? LayoutDashboard : undefined);
+					const hoverBlock = (event: React.DragEvent) => {
+						if (
+							hasTabDrag(event.dataTransfer) ||
+							!Array.from(event.dataTransfer.types).includes(BLOCK_DRAG_TYPE)
+						)
+							return;
+						setSpringTab(tab.active || tab.path === NEW_TAB ? null : tab.path);
+					};
 					const node = (
 						// biome-ignore lint/a11y/noStaticElementInteractions: dragging is a pointer path; the keyboard route is Alt+Shift+Arrow on the tab button
 						<div
@@ -206,7 +234,19 @@ export function TabBar({
 							data-active={tab.active}
 							data-drop={dropAt === index ? "before" : undefined}
 							data-carried={carried === tab.path ? true : undefined}
+							data-spring={springTab === tab.path ? true : undefined}
 							draggable={draggable && tab.path !== NEW_TAB}
+							onDragEnter={hoverBlock}
+							onDragOver={hoverBlock}
+							onDragLeave={(event) => {
+								if (
+									!event.currentTarget.contains(
+										event.relatedTarget as Node | null,
+									) &&
+									springTab === tab.path
+								)
+									setSpringTab(null);
+							}}
 							onDragStart={(event) => {
 								if (!draggable || !paneId || tab.path === NEW_TAB) return;
 								const drag = { path: tab.path, from: paneId };

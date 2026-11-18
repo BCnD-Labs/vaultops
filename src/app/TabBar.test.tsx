@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -437,4 +438,50 @@ it("keeps focus and the roving stop on a tab moved in the order", () => {
 	expect(
 		(screen.getByRole("tab", { name: "Beta" }) as HTMLButtonElement).tabIndex,
 	).toBe(-1);
+});
+
+it("spring-loads an inactive tab after 600 ms of block-drag hover and cancels on leave", () => {
+	vi.useFakeTimers();
+	try {
+		const onSelect = vi.fn();
+		const { tabEl, onDropTab } = strip({ onSelect });
+		const alpha = tabEl("Alpha");
+		const dt = transfer();
+		dt.setData("application/x-vaultops-block", '{"noteId":"n","blockId":"b"}');
+
+		fireEvent.dragEnter(alpha, { dataTransfer: dt });
+		expect(alpha.getAttribute("data-spring")).toBe("true");
+		vi.advanceTimersByTime(400);
+		fireEvent.dragLeave(alpha, {
+			dataTransfer: dt,
+			relatedTarget: document.body,
+		});
+		expect(alpha.getAttribute("data-spring")).toBeNull();
+		vi.advanceTimersByTime(400);
+		expect(onSelect).not.toHaveBeenCalled();
+
+		fireEvent.dragOver(alpha, { dataTransfer: dt });
+		expect(alpha.getAttribute("data-spring")).toBe("true");
+		act(() => vi.advanceTimersByTime(600));
+		expect(onSelect).toHaveBeenCalledWith("a.vnote");
+		expect(alpha.getAttribute("data-spring")).toBeNull();
+
+		// Already-active tabs and tab-reordering drags do not spring-load.
+		fireEvent.dragEnter(tabEl("Beta"), { dataTransfer: dt });
+		expect(tabEl("Beta").getAttribute("data-spring")).toBeNull();
+		const tabDt = transfer();
+		tabDt.setData(
+			"application/x-vaultops-tab",
+			'{"path":"c.vnote","from":"left"}',
+		);
+		fireEvent.dragEnter(alpha, { dataTransfer: tabDt });
+		expect(alpha.getAttribute("data-spring")).toBeNull();
+		drag(alpha, "drop", tabDt, 10);
+		expect(onDropTab).toHaveBeenCalledWith(
+			{ path: "c.vnote", from: "left" },
+			0,
+		);
+	} finally {
+		vi.useRealTimers();
+	}
 });

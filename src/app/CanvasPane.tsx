@@ -139,6 +139,7 @@ export function CanvasPane({
 		blockId: string,
 		noteId: string,
 		position: { x: number; y: number },
+		copy?: boolean,
 	) => Promise<void>;
 	onMoveToNote?: (blockId: string) => Promise<void>;
 	/** Starts "Move to…" for a card: the app asks where, then moves it. */
@@ -832,7 +833,9 @@ export function CanvasPane({
 										);
 									// A card dropped back on its own canvas has nowhere to move to.
 									if (data.noteId === parsed?.note?.header.noteId) return;
-									await onDropBlock(data.blockId, data.noteId, position);
+									await (event.altKey
+										? onDropBlock(data.blockId, data.noteId, position, true)
+										: onDropBlock(data.blockId, data.noteId, position));
 									setError(null);
 								} catch (reason) {
 									clearHistory();

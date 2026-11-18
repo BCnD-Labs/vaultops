@@ -183,11 +183,13 @@ function dispatchDrag(
 	target: Element | Document,
 	dataTransfer: DataTransfer,
 	clientY = 0,
+	altKey = false,
 ) {
 	const event = createEvent[type](target);
 	Object.defineProperties(event, {
 		dataTransfer: { value: dataTransfer },
 		clientY: { value: clientY },
+		altKey: { value: altKey },
 	});
 	fireEvent(target, event);
 }
@@ -406,4 +408,23 @@ it("sets dropEffect to move on note dragover, shows the indicator at the right b
 		near: [],
 		start: false,
 	});
+
+	// Option (Alt) drag shows the copy cursor, auto-scrolls near top/bottom edges, and passes copy=true.
+	dropArea.scrollTop = 30;
+	const copyTransfer = makeTransfer();
+	dispatchDrag("dragOver", dropArea, copyTransfer, 390, true);
+	expect(copyTransfer.dropEffect).toBe("copy");
+	expect(dropArea.scrollTop).toBeGreaterThan(30);
+	const scrolledDown = dropArea.scrollTop;
+	dispatchDrag("dragOver", dropArea, copyTransfer, 105, true);
+	expect(dropArea.scrollTop).toBeLessThan(scrolledDown);
+
+	onDropBlock.mockClear();
+	dispatchDrag("drop", dropArea, makeTransfer(), 160, true);
+	expect(onDropBlock).toHaveBeenCalledWith(
+		"card-1",
+		"canvas-1",
+		{ after: "first", near: [], start: false },
+		true,
+	);
 });

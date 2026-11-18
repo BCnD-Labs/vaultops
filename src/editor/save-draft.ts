@@ -39,6 +39,13 @@ export type DraftOutcome =
 	  }
 	| { ok: false; message: string; conflict?: boolean };
 
+function withDraftMetadata(header: Note["header"], draft: Draft) {
+	if (draft.props !== undefined) header = withProps(header, draft.props);
+	if (draft.icon !== undefined) header = withIcon(header, draft.icon);
+	if (draft.cover !== undefined) header = withCover(header, draft.cover);
+	return header;
+}
+
 /**
  * Save body and title together so one can never overwrite the other: write the
  * note with the new title first, then rename the file to match. A rename that
@@ -85,9 +92,7 @@ export async function saveDraft(
 	const titleChanged = draft.title !== current.note.header.title;
 	let header = current.note.header;
 	if (titleChanged) header = { ...header, title: draft.title };
-	if (draft.props !== undefined) header = withProps(header, draft.props);
-	if (draft.icon !== undefined) header = withIcon(header, draft.icon);
-	if (draft.cover !== undefined) header = withCover(header, draft.cover);
+	header = withDraftMetadata(header, draft);
 	const target: OpenedNote =
 		header === current.note.header
 			? current
@@ -136,9 +141,7 @@ export async function saveAsCopy(
 			noteId: crypto.randomUUID(),
 			title,
 		};
-		if (draft.props !== undefined) header = withProps(header, draft.props);
-		if (draft.icon !== undefined) header = withIcon(header, draft.icon);
-		if (draft.cover !== undefined) header = withCover(header, draft.cover);
+		header = withDraftMetadata(header, draft);
 		const note: Note = { header, blocks: docToBlocks(draft.doc) };
 		const { path } = await createNote(host, folder, title, note);
 		return { ok: true, path };

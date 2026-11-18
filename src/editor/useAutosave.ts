@@ -7,7 +7,12 @@ import { tagsOf } from "../core/notes/tags";
 import { searchFieldsOf } from "../core/search/fields";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
-import { type Autosave, type AutosaveState, createAutosave } from "./autosave";
+import {
+	type Autosave,
+	type AutosaveOptions,
+	type AutosaveState,
+	createAutosave,
+} from "./autosave";
 import type { OpenedNote } from "./note-io";
 import { type Draft, saveDraft } from "./save-draft";
 
@@ -32,6 +37,13 @@ export interface SavedInfo {
 	notice?: string;
 }
 
+type Written = (note: OpenedNote, draft: Draft, info: SavedInfo) => void;
+export interface DraftAutosaveOwner {
+	autosave(
+		create: (written: Written) => Autosave<Draft>,
+	): Autosave<Draft> | null;
+}
+
 /**
  * Whether a completed save belongs to the note that is open right now. A save
  * flushed on cleanup while switching notes still updates the vault's note list,
@@ -53,6 +65,7 @@ export function useAutosave(
 	host: Host,
 	opened: OpenedNote | null,
 	onSaved?: (info: SavedInfo) => void,
+	owner?: DraftAutosaveOwner | null,
 ) {
 	const [state, setState] = useState<AutosaveState>(SAVED);
 	const current = useRef<Autosave<Draft> | null>(null);
@@ -78,7 +91,8 @@ export function useAutosave(
 			return;
 		}
 		let note: OpenedNote = opened;
-		const auto = createAutosave<Draft>({
+		let written: Written = (_, _draft, info) => savedRef.current?.(info);
+		const options: AutosaveOptions<Draft> = {
 			save: async (draft) => {
 				const started = performance.now();
 				const result = await saveDraft(host, note, draft);
@@ -112,7 +126,7 @@ export function useAutosave(
 					note: result.note,
 					baseText: result.text,
 				};
-				savedRef.current?.({
+				written(note, draft, {
 					oldPath,
 					path: result.path,
 					title: draft.title,
@@ -130,7 +144,14 @@ export function useAutosave(
 				});
 				return { ok: true };
 			},
-		});
+		};
+		const auto = owner
+			? owner.autosave((publish) => {
+					written = publish;
+					return createAutosave(options);
+				})
+			: createAutosave(options);
+		if (!auto) return;
 		current.current = auto;
 		currentFor.current = opened;
 		if (
@@ -148,6 +169,7 @@ export function useAutosave(
 				current.current = null;
 				currentFor.current = null;
 			}
+			if (owner) return;
 			const pending = auto.peek();
 			// In a batched `act()` scope, `rerender(next)` and `change(nextDraft)`
 			// can run `change` before `next` renders; `shown.current` is `next` by
@@ -167,7 +189,7 @@ export function useAutosave(
 			// discards an edit.
 			void auto.flush().finally(() => auto.dispose());
 		};
-	}, [host, opened]);
+	}, [host, opened, owner]);
 
 	const flush = useCallback(
 		() => current.current?.flush() ?? Promise.resolve(true),

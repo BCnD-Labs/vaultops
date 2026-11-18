@@ -5,6 +5,7 @@ import { createNote } from "../core/notes/repository";
 import { textStats } from "../core/notes/text-stats";
 import { openNote } from "../editor/note-io";
 import { MemoryHost } from "../host/memory-host";
+import { createLiveDocuments } from "./live-documents";
 import { loadVault } from "./session";
 import { useNoteSession } from "./useNoteSession";
 
@@ -29,8 +30,16 @@ async function setup(writable = true) {
 	const beta = await openNote(host, (await createNote(host, "", "Beta")).path);
 	const onSaved = vi.fn();
 	const onUnsaved = vi.fn();
+	const registry = createLiveDocuments(
+		host,
+		{ notes: [], writable },
+		{
+			open: (path) => openNote(host, path),
+			onSaved,
+		},
+	);
 	const hook = renderHook(() =>
-		useNoteSession({ host, writable, onSaved, onUnsaved }),
+		useNoteSession({ host, writable, documents: () => registry, onUnsaved }),
 	);
 	return { host, alpha, beta, onSaved, onUnsaved, ...hook };
 }

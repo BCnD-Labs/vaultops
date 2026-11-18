@@ -28,6 +28,7 @@ import {
 import { openNote } from "../editor/note-io";
 import type { SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
+import { createLiveDocuments, type LiveDocuments } from "./live-documents";
 import { type NoteSession, useNoteSession } from "./useNoteSession";
 
 export type PaneKind = "note" | "canvas" | "empty" | "none";
@@ -51,6 +52,7 @@ export interface WorkspaceHostOptions {
 	/** The vault host (it refuses writes when the vault is read-only). */
 	host: Host;
 	writable: boolean;
+	vaultGeneration?: number;
 	/** Whether a path is a canvas; the app answers it from the vault's notes. */
 	isCanvas: (path: string) => boolean;
 	/** After any save, for the note list and history (tab paths are handled here). */
@@ -92,6 +94,7 @@ const DIVIDER = "\n----------------\n\n";
 export function useWorkspaceHost({
 	host,
 	writable,
+	vaultGeneration,
 	isCanvas,
 	onSaved,
 	onUnsaved,
@@ -123,7 +126,13 @@ export function useWorkspaceHost({
 		},
 		[change],
 	);
-	const sessionOptions = { host, writable, onSaved: handleSaved, onUnsaved };
+	const documents = useRef<LiveDocuments | null>(null);
+	const sessionOptions = {
+		host,
+		writable,
+		documents: () => documents.current,
+		onUnsaved,
+	};
 	const left = useNoteSession(sessionOptions);
 	const right = useNoteSession(sessionOptions);
 	const sessions = useRef({ left, right });
@@ -132,33 +141,56 @@ export function useWorkspaceHost({
 	// Each pane reads the note it shows (and puts a note away when it shows
 	// something else). `loading` stops a slow read from landing after the pane
 	// has moved on.
-	const loading = useRef<Record<PaneId, string | null>>({
+	type Load = { path: string; unsubscribe(): void };
+	const loading = useRef<Record<PaneId, Load | null>>({
 		left: null,
 		right: null,
 	});
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Each selected vault gets its own registry.
+	useEffect(() => {
+		const registry = createLiveDocuments(
+			host,
+			{ notes: [], writable },
+			{
+				open: (path) => openNote(host, path),
+				onSaved: handleSaved,
+			},
+		);
+		documents.current = registry;
+		for (const id of SLOTS) {
+			loading.current[id] = null;
+			sessions.current[id].clear();
+		}
+		return () => registry.dispose();
+	}, [host, writable, vaultGeneration, handleSaved]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Reattach after replacing the registry.
 	useEffect(() => {
 		for (const id of SLOTS) {
 			const session = sessions.current[id];
 			const active = (id === "left" ? workspace.left : workspace.right)?.active;
 			const want =
 				active && active !== NEW_TAB && !canvas(active) ? active : null;
+			if (want !== null && loading.current[id]?.path === want) continue;
+			loading.current[id]?.unsubscribe();
+			loading.current[id] = null;
 			if (want === null) {
-				loading.current[id] = null;
-				if (session.opened || session.livePathRef.current !== null)
-					session.clear();
+				session.clear();
 				continue;
 			}
-			if (session.livePathRef.current === want || loading.current[id] === want)
-				continue;
-			loading.current[id] = want;
-			openNote(host, want).then(
+			if (session.livePathRef.current === want) continue;
+			const subscription = session.subscribe(want);
+			if (!subscription) continue;
+			const load = { path: want, unsubscribe: subscription.unsubscribe };
+			loading.current[id] = load;
+			subscription.ready.then(
 				(note) => {
-					if (loading.current[id] !== want) return;
+					if (loading.current[id] !== load) return;
 					loading.current[id] = null;
-					sessions.current[id].load(note, want);
+					if (note?.opened)
+						sessions.current[id].load(note.opened, want, subscription);
 				},
 				(reason) => {
-					if (loading.current[id] !== want) return;
+					if (loading.current[id] !== load) return;
 					loading.current[id] = null;
 					change((ws) => closeTab(ws, want));
 					latest.current.onError(
@@ -167,7 +199,7 @@ export function useWorkspaceHost({
 				},
 			);
 		}
-	}, [workspace, host, canvas, change]);
+	}, [workspace, host, writable, vaultGeneration, canvas, change]);
 
 	/** Save every open note. False (after saying why) if any could not be saved. */
 	const settleAll = useCallback(async () => {
@@ -188,7 +220,7 @@ export function useWorkspaceHost({
 			const path = sessions.current[id].livePathRef.current;
 			if (path === null) return;
 			try {
-				sessions.current[id].load(await openNote(host, path), path);
+				await sessions.current[id].reload(host, path);
 			} catch (reason) {
 				latest.current.onError(
 					reason instanceof Error ? reason.message : String(reason),
@@ -509,6 +541,7 @@ export function useWorkspaceHost({
 		rename: (from: string, to: string) =>
 			change((ws) => renameDoc(ws, from, to)),
 		restoreFrom,
+		endVault: () => documents.current?.dispose(),
 		settleAll,
 		/** True while a block is being moved; notes are not editable then. */
 		moving,

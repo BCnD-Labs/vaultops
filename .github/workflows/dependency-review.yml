@@ -40,6 +40,12 @@ jobs:
             Zlib,
             0BSD,
             Apache-2.0 WITH LLVM-exception
+          # One named exception (Blake, 2026-11-18): robust-predicates, a small
+          # geometry helper that mermaid pulls in through d3, is under the
+          # Unlicense (public domain with a permissive fallback grant). Only this
+          # package is allowed; anything else under the Unlicense still fails.
+          allow-dependencies-licenses: >-
+            pkg:npm/robust-predicates
           # Check dev tools too (the default is runtime only): the license rule
           # covers all code in the repo, not just what ships in the app.
           fail-on-scopes: runtime, development, unknown

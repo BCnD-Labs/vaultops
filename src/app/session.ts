@@ -1,5 +1,6 @@
 import { linksIn } from "../core/links/links";
 import { headerIcon } from "../core/notes/icon";
+import { loadPins } from "../core/notes/pins";
 import { headerProps } from "../core/notes/properties";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { rowNoteIds } from "../core/notes/row-notes";
@@ -43,6 +44,7 @@ export interface VaultView {
 	writable: boolean;
 	messages: string[];
 	report: HealthEntry[];
+	pins?: string[];
 	notes: NoteRow[];
 	/** Every folder outside `.vaultops/`, empty ones included. */
 	folders: string[];
@@ -133,6 +135,10 @@ export async function loadVault(host: Host): Promise<VaultView> {
 		writable: result.status === "opened" || result.status === "created",
 		messages,
 		report,
+		pins: await loadPins(host).catch((error) => {
+			messages.push(String(error));
+			return undefined;
+		}),
 		notes: rows,
 		folders,
 	};

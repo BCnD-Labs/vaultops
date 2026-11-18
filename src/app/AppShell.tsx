@@ -67,6 +67,7 @@ export function AppShell({
 	onBack = () => {},
 	onForward = () => {},
 	onToggleReading,
+	pinAction,
 	onMoveNote,
 	onOpenTemplates,
 	onOpenResources,
@@ -96,6 +97,7 @@ export function AppShell({
 	onForward?: () => void;
 	reading?: boolean;
 	onToggleReading?: () => void;
+	pinAction?: import("./commands").CommandContext["pinAction"];
 	onMoveNote?: () => void;
 	/** Opens the template manager (the command bar offers it when this is set). */
 	onOpenTemplates?: () => void;
@@ -266,6 +268,7 @@ export function AppShell({
 								}}
 								onToggle={toggle}
 								onToggleReading={onToggleReading}
+								pinAction={pinAction}
 								onMoveNote={onMoveNote}
 								onOpenTemplates={onOpenTemplates}
 								onOpenResources={onOpenResources}

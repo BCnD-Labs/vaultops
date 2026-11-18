@@ -81,3 +81,18 @@ it("offers the resource manager only when the app can open it, and opens it", ()
 	COMMANDS.find((x) => x.id === "open-resources")?.run(c);
 	expect(onOpenResources).toHaveBeenCalledTimes(1);
 });
+
+it.each([false, true])(
+	"offers the current pin action (pinned %s)",
+	(pinned) => {
+		const pinAction = { pinned, run: vi.fn() };
+		const c = { ...context(), pinAction };
+		const matches = filterCommands("pinned", c);
+		expect(matches.map((m) => m.label)).toEqual([
+			pinned ? "Unpin note" : "Pin note",
+		]);
+		matches[0]?.run(c);
+		expect(pinAction.run).toHaveBeenCalledOnce();
+		expect(filterCommands("pinned", c, { "pinned-notes": false })).toEqual([]);
+	},
+);

@@ -71,6 +71,7 @@ export function CommandBar({
 	onToggleReading,
 	onOpenTemplates,
 	onOpenResources,
+	pinAction,
 	onMoveNote,
 	resources = [],
 	resourceTypes = [],
@@ -88,6 +89,7 @@ export function CommandBar({
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
 	onOpenResources?: () => void;
+	pinAction?: import("./commands").CommandContext["pinAction"];
 	onMoveNote?: () => void;
 	/** Cards are found by name and by what is on them, like notes are by title. */
 	resources?: ResourceCard[];
@@ -190,6 +192,7 @@ export function CommandBar({
 		onToggleReading,
 		onOpenTemplates,
 		onOpenResources,
+		pinAction,
 		onMoveNote,
 	};
 	return (

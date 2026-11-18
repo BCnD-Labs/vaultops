@@ -613,3 +613,13 @@ describe("row menu (right-click)", () => {
 			expect(item.hasAttribute("data-disabled")).toBe(true);
 	});
 });
+
+it.each([false, true])(
+	"changes a canvas pin from its menu (pinned %s)",
+	async (pinned) => {
+		const run = vi.fn();
+		setup({}, { ...actions(), pinAction: () => ({ pinned, run }) });
+		await choose("Board", pinned ? "Unpin note" : "Pin note");
+		expect(run).toHaveBeenCalledOnce();
+	},
+);

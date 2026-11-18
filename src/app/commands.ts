@@ -8,6 +8,7 @@ import {
 	type LucideIcon,
 	PanelLeft,
 	PanelRight,
+	Pin,
 	Trash2,
 } from "lucide-react";
 import { type FeatureState, isEnabled } from "../core/features/registry";
@@ -25,6 +26,7 @@ export interface CommandContext {
 	onOpenTemplates?: () => void;
 	onOpenResources?: () => void;
 	/** Opens the folder picker for the note being shown. */
+	pinAction?: { pinned: boolean; run: () => void };
 	onMoveNote?: () => void;
 }
 
@@ -46,6 +48,19 @@ export interface Command {
 
 /** Every command, one registry for the whole app. Add a command here and it appears in the bar. */
 export const COMMANDS: Command[] = [
+	...[false, true].map(
+		(pinned): Command => ({
+			id: pinned ? "unpin-note" : "pin-note",
+			label: pinned ? "Unpin note" : "Pin note",
+			group: "View",
+			icon: Pin,
+			keywords: ["pinned"],
+			feature: "pinned-notes",
+			needsWrite: true,
+			available: (c) => c.pinAction?.pinned === pinned,
+			run: (c) => c.pinAction?.run(),
+		}),
+	),
 	{
 		id: "new-folder",
 		label: "New folder",

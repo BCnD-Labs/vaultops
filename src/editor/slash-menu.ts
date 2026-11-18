@@ -33,10 +33,13 @@ function iconHtml(icon: PopupItem["icon"]): string {
  * it when it would run off the bottom of the window.
  */
 export function createPopup<T extends PopupItem = SlashItem>(
-	options: { quietWhenEmpty?: (query: string) => boolean } = {},
+	options: {
+		className?: string;
+		quietWhenEmpty?: (query: string) => boolean;
+	} = {},
 ) {
 	const root = document.createElement("div");
-	root.className = "slash-menu";
+	root.className = `slash-menu ${options.className ?? ""}`;
 	root.setAttribute("role", "listbox");
 	let items: T[] = [];
 	let selected = 0;

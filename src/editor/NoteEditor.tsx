@@ -13,6 +13,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useFeature } from "../app/useFeature";
 import {
 	BLOCK_DRAG_TYPE,
 	blockDragData,
@@ -33,6 +34,7 @@ import { findMovable, type Movable, moveOut, nestLabel } from "./move-out";
 import { type LinkSource, setLinkSource } from "./note-link";
 import { TEMPLATE_EVENT } from "./slash-items";
 import { TableEdgeBars, TableMenuContent } from "./TableControls";
+import { WordComplete } from "./word-complete";
 import "./editor.css";
 
 export interface NoteEditorProps {
@@ -76,6 +78,9 @@ export function NoteEditor({
 	onChooseTemplate,
 	links,
 }: NoteEditorProps) {
+	const completeOn = useFeature("word-complete");
+	const completion = useRef({ completeOn, links, noteId });
+	completion.current = { completeOn, links, noteId };
 	const latest = useRef(onChange);
 	latest.current = onChange;
 	const chooseTemplate = useRef(onChooseTemplate);
@@ -131,7 +136,14 @@ export function NoteEditor({
 	}, [noteId]);
 
 	const editor = useEditor({
-		extensions: createExtensions(),
+		extensions: [
+			...createExtensions(),
+			WordComplete.configure({
+				enabled: () => completion.current.completeOn,
+				rows: () => completion.current.links?.completionRows ?? [],
+				current: () => completion.current.noteId ?? "current",
+			}),
+		],
 		content: ensureUniqueIds(doc),
 		editable,
 		onUpdate: ({ editor }) => {
@@ -142,6 +154,12 @@ export function NoteEditor({
 	});
 
 	editorRef.current = editor;
+	useEffect(() => {
+		if (editor && !editor.isDestroyed)
+			editor.view.dispatch(
+				editor.state.tr.setMeta("wordCompleteEnabled", completeOn),
+			);
+	}, [editor, completeOn]);
 
 	// The gap and line that show where a carried block would land.
 	useEffect(() => {

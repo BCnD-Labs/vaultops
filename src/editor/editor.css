@@ -1451,3 +1451,22 @@ span.note-link-chip:hover {
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);
 }
+
+.word-complete {
+	animation: completion-in var(--motion-fast) ease-out;
+}
+@keyframes completion-in {
+	from {
+		opacity: 0;
+		transform: scale(0.97);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.word-complete {
+		animation: none;
+	}
+}

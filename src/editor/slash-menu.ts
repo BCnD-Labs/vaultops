@@ -7,7 +7,32 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { canInsertColumns } from "./columns";
 import { placeMenu } from "./menu-placement";
-import { filterSlashItems, type SlashItem } from "./slash-items";
+import {
+	filterSlashItems,
+	recentSlashIds,
+	type SlashItem,
+} from "./slash-items";
+
+const RECENT_KEY = "vaultops:slash-recent";
+
+function readRecent(): string[] {
+	try {
+		return recentSlashIds(JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]"));
+	} catch {
+		return [];
+	}
+}
+
+function rememberItem(id: string) {
+	try {
+		localStorage.setItem(
+			RECENT_KEY,
+			JSON.stringify(recentSlashIds([id, ...readRecent()])),
+		);
+	} catch {
+		// The editor still works when UI memory is unavailable.
+	}
+}
 
 /** What a popup row needs; the slash menu and the link picker both fit it. */
 export interface PopupItem {
@@ -176,14 +201,21 @@ export const SlashMenu = Extension.create({
 				char: "/",
 				allowedPrefixes: [" "],
 				items: ({ query, editor }) =>
-					filterSlashItems(query, {
-						columns: canInsertColumns(editor),
-						// Only a note's own editor can open the picker.
-						templates: editor.view.dom.dataset.templates === "on",
-						// Links need the app to say what there is to link to.
-						links: editor.storage.noteLink?.source != null,
-					}),
-				command: ({ editor, range, props }) => props.run(editor, range),
+					filterSlashItems(
+						query,
+						{
+							columns: canInsertColumns(editor),
+							// Only a note's own editor can open the picker.
+							templates: editor.view.dom.dataset.templates === "on",
+							// Links need the app to say what there is to link to.
+							links: editor.storage.noteLink?.source != null,
+						},
+						query === "" ? readRecent() : [],
+					),
+				command: ({ editor, range, props }) => {
+					props.run(editor, range);
+					rememberItem(props.id);
+				},
 				render: () => {
 					const popup = createPopup();
 					return {

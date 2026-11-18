@@ -25,7 +25,7 @@ function markSvg(mark: TabMark, row: TabRow, y: number, top: number): string {
 	if (mark.kind === "bend") {
 		const bx = x(mark.col) + 5;
 		const tip = top - 8;
-		return `<path class="tab-arc" d="M${bx - 1} ${y} Q${bx + 7} ${y} ${bx + 7} ${tip}M${bx + 4} ${tip + 4}L${bx + 7} ${tip}L${bx + 10} ${tip + 4}"/><text class="tab-label" x="${bx + 7}" y="${tip - 4}">${mark.label}</text>`;
+		return `<path class="tab-arc" d="M${bx - 1} ${y} Q${bx + 7} ${y} ${bx + 7} ${tip}M${bx + 4} ${tip + 4}L${bx + 7} ${tip}L${bx + 10} ${tip + 4}"/><text class="tab-label" x="${bx + 7}" y="${tip - 4}">${esc(mark.label)}</text>`;
 	}
 	if (mark.kind === "vibrato") {
 		const x1 = x(mark.from) - 3;

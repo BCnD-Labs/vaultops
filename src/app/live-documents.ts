@@ -361,6 +361,7 @@ export function createLiveDocuments(
 			});
 		return {
 			ready,
+			prepareEditor: () => (entry ? prepareEditor(entry).then(current) : ready),
 			current,
 			unsubscribe,
 			get editorSlot() {
@@ -552,8 +553,13 @@ export function createLiveDocuments(
 
 	return {
 		subscribe,
-		subscribePassive: (noteId: string, onChange: Listener) =>
-			subscribe({ noteId }, onChange, undefined, true),
+		subscribePassive: (target: string | DocumentTarget, onChange: Listener) =>
+			subscribe(
+				typeof target === "string" ? { noteId: target } : target,
+				onChange,
+				undefined,
+				true,
+			),
 		setNotes(notes: readonly DocumentRow[]) {
 			indexedPaths = indexDocumentIds(notes);
 		},

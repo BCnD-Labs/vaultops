@@ -21,7 +21,7 @@ let scheduled = false;
 const projected = new WeakMap<JSONContent, Block[]>();
 type Binding = ReturnType<LiveDocuments["subscribe"]>;
 
-function snapshot(document: LiveDocument | null) {
+export function liveNoteSnapshot(document: LiveDocument | null) {
 	if (!document?.draft || document.kind !== "note") return null;
 	const edit = document.editorDraft;
 	if (!edit) return { blocks: document.draft.blocks };
@@ -124,7 +124,7 @@ export function CanvasEmbed({
 			if (
 				event.target instanceof Element &&
 				event.target.closest(
-					'.slash-menu, .db-peek-layer, [data-slot="context-menu-content"][aria-label="Table"]',
+					'.slash-menu, .db-peek-layer, .floating-editor, [data-slot="context-menu-content"][aria-label="Table"]',
 				)
 			)
 				return;
@@ -141,13 +141,13 @@ export function CanvasEmbed({
 	}, [ref, requested, documents, noteId, canEdit]);
 	const activeEditor =
 		canEdit && editing?.binding.ownsEditor() ? editing : null;
-	const [shown, setShown] = useState<ReturnType<typeof snapshot>>();
+	const [shown, setShown] = useState<ReturnType<typeof liveNoteSnapshot>>();
 	useEffect(() => {
 		setShown(readOnly ? null : undefined);
 		if (!visible || !noteId || !path || !documents || readOnly) return;
 		let active = true;
 		const show = () => {
-			const next = snapshot(subscription.current());
+			const next = liveNoteSnapshot(subscription.current());
 			setShown((previous) =>
 				previous &&
 				next &&
@@ -227,7 +227,7 @@ export function CanvasEmbed({
 			</header>
 			<div className="canvas-embed-body nowheel">
 				{activeEditor && host ? (
-					<EmbedEditor host={host} links={links} {...activeEditor} />
+					<SharedNoteEditor host={host} links={links} {...activeEditor} />
 				) : !row ? (
 					<p className="canvas-embed-note">{WHY[target.status]}</p>
 				) : current ? (
@@ -240,7 +240,7 @@ export function CanvasEmbed({
 	);
 }
 
-function EmbedEditor({
+export function SharedNoteEditor({
 	host,
 	links,
 	binding,

@@ -141,6 +141,7 @@ function LinkView({ node, editor, getPos }: NodeViewProps) {
 	const current = source ? source.describe(kind, target) : saved;
 	const missing = source !== null && current === null;
 	const Icon = ICONS[kind];
+	const preview = kind === "note" && source && !missing;
 	const place = () => {
 		const pos = getPos();
 		return typeof pos === "number" ? pos : null;
@@ -160,6 +161,8 @@ function LinkView({ node, editor, getPos }: NodeViewProps) {
 				variant="outline"
 				className="note-link-chip h-auto"
 				data-kind={kind}
+				data-preview-note={preview ? target : undefined}
+				aria-keyshortcuts={preview ? "Alt+Enter Enter" : undefined}
 				data-missing={missing ? "true" : undefined}
 				title={missing ? "This is gone. Click for what you can do." : undefined}
 				onClick={() => {

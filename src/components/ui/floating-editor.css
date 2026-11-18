@@ -1,0 +1,29 @@
+.floating-editor {
+	width: min(380px, calc(100vw - 16px));
+	height: min(270px, calc(100vh - 16px));
+	max-width: calc(100vw - 16px);
+	max-height: calc(100vh - 16px);
+	min-width: 180px;
+	min-height: 120px;
+	resize: both;
+}
+@media (prefers-reduced-motion: no-preference) {
+	:root:not([data-reduce-motion]) .floating-editor[data-state="open"] {
+		animation: floating-editor-in var(--motion-fast, 140ms) ease-out both;
+	}
+	:root:not([data-reduce-motion]) .floating-editor[data-state="closed"] {
+		animation: floating-editor-out var(--motion-fast, 140ms) ease-out both;
+	}
+}
+@keyframes floating-editor-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+@keyframes floating-editor-out {
+	to {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}

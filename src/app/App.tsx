@@ -56,6 +56,7 @@ import { AppearanceProvider } from "./AppearanceContext";
 import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { lastCanvas } from "./canvas-layout";
+import { FloatingNotes } from "./FloatingNotes";
 import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
 import { linkedFrom } from "./LinkedFromPanel";
 import { browserLastNote, pickInitialNote } from "./last-note";
@@ -1735,6 +1736,16 @@ export function App({ host }: { host: Host }) {
 								/>
 							)}
 						</AppShell>
+						{view && ws.documents && (
+							<FloatingNotes
+								key={vaultGeneration}
+								documents={ws.documents}
+								notes={view.notes}
+								host={vaultHost}
+								links={links}
+								locked={ws.moving}
+							/>
+						)}
 						<NotePickerDialog
 							open={cardMove !== null}
 							onOpenChange={(next) => {

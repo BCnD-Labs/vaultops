@@ -51,9 +51,8 @@ describe("slash menu items", () => {
 			"link",
 			"mention",
 			"template",
-			"toc",
 		]);
-		expect(ids("Plan")).toEqual(["task", "table", "database", "date"]);
+		expect(ids("Plan")).toEqual(["task", "table", "database", "date", "toc"]);
 		expect(ids("Visual")).toEqual([
 			"mermaid-flowchart",
 			"mermaid-sequence",
@@ -276,4 +275,8 @@ describe("slash menu items", () => {
 		// Items with no feature are unaffected.
 		expect(ids("heading")).toContain("heading1");
 	});
+});
+
+it("keeps Table ahead of Table of contents for a short prefix", () => {
+	expect(filterSlashItems("tab")[0]?.id).toBe("table");
 });

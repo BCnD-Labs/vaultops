@@ -420,7 +420,8 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "toc",
-		section: "Organise",
+		// In Plan after Table, so typing "tab" and Enter still makes a table.
+		section: "Plan",
 		icon: TableOfContents,
 		label: "Table of contents",
 		keywords: ["toc", "contents", "outline"],

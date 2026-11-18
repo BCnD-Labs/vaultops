@@ -40,7 +40,7 @@ it("opens a canvas beside the editor, creates and renames a canvas, and remember
 	expect(container.querySelector(".note-editor")).toBeNull();
 	expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
 	expect(
-		within(canvas).getByText("Drag a block here from a note."),
+		await within(canvas).findByText("Drag a block here from a note."),
 	).toBeTruthy();
 	await user.click(screen.getByRole("button", { name: "New canvas" }));
 	await waitFor(() =>

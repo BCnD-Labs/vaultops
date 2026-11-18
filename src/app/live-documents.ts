@@ -5,6 +5,13 @@ import {
 	serializeNote,
 } from "../core/note-format";
 import {
+	CanvasConflict,
+	type CanvasHost,
+	inOrder,
+	prepareCanvasEdit,
+	writeCanvasTextLocked,
+} from "../core/notes/canvas-edit";
+import {
 	type DocumentRow,
 	indexDocumentIds,
 } from "../core/notes/document-identity";
@@ -21,6 +28,9 @@ import { type Host, HostError } from "../host/host";
 import { READ_ONLY_VAULT_MESSAGE } from "../host/read-only-host";
 
 export type DocumentTarget = { path: string } | { noteId: string };
+type CanvasHistory = Readonly<Record<"undo" | "redo", readonly string[]>>;
+const emptyHistory: CanvasHistory = { undo: [], redo: [] };
+type CanvasWrite = { text: string; action: string; history: CanvasHistory };
 
 export interface LiveDocument {
 	readonly noteId: string | null;
@@ -38,6 +48,7 @@ export interface LiveDocument {
 	readonly opened?: OpenedNote;
 	readonly editorDraft?: Draft;
 	readonly lastSave?: SavedInfo;
+	readonly canvasHistory?: CanvasHistory;
 }
 
 type Listener = (document: LiveDocument, reloaded: boolean) => void;
@@ -49,6 +60,8 @@ interface Entry {
 	autosave?: Autosave<Draft>;
 	editorSlot: NoteEditorSlot;
 	transfer?: AbortController;
+	canvasTask?: Promise<boolean>;
+	canvasPending?: CanvasWrite;
 	subscribers: Map<symbol, Listener | undefined>;
 }
 
@@ -92,7 +105,7 @@ function openedDocument(
 
 /** One registry per vault generation. Dispose it before the host switches vaults. */
 export function createLiveDocuments(
-	host: Pick<Host, "readText">,
+	host: CanvasHost,
 	{ notes, writable }: { notes: readonly DocumentRow[]; writable: boolean },
 	editor?: {
 		open(path: string, diskText?: string): Promise<OpenedNote>;
@@ -215,7 +228,7 @@ export function createLiveDocuments(
 	}
 
 	function evictCleanEntry(entry: Entry) {
-		if (isDirty(entry)) return;
+		if (entry.canvasTask || isDirty(entry)) return;
 		const evict = () => {
 			const key = entry.path;
 			if (
@@ -232,6 +245,90 @@ export function createLiveDocuments(
 		// Leave the queue in the registry until that write has settled.
 		if (entry.autosave) void entry.autosave.flush().then(evict);
 		else evict();
+	}
+
+	// The registry orders canvas actions with other workspace writes. The file
+	// lock also covers legacy writers such as block moves and title changes.
+	function runCanvas(
+		entry: Entry,
+		prepare?: (document: LiveDocument) => CanvasWrite | undefined,
+	) {
+		const result = run(() => {
+			const path = entry.path;
+			return inOrder(host, path, async () => {
+				const document = entry.document;
+				if (
+					disposed ||
+					entries.get(path) !== entry ||
+					path !== entry.path ||
+					document?.kind !== "canvas" ||
+					document.readOnly
+				)
+					return false;
+				const pending = prepare ? prepare(document) : entry.canvasPending;
+				if (!pending) return false;
+				const { note: draft, problems } = parseNote(pending.text);
+				if (
+					draft?.header.kind !== "canvas" ||
+					draft.header.noteId !== document.noteId ||
+					problems.length
+				)
+					throw new Error("The canvas did not pass the save check.");
+				entry.canvasPending = pending;
+				const next = { ...document, draft, revision: document.revision + 1 };
+				if (
+					document.saveStatus.kind === "failed" &&
+					document.saveStatus.conflict
+				) {
+					publish(entry, next);
+					return false;
+				}
+				publish(entry, { ...next, saveStatus: { kind: "saving" } });
+				try {
+					if (!document.noteId || indexedPaths.get(document.noteId) !== path)
+						throw new CanvasConflict("This canvas changed on disk.");
+					await writeCanvasTextLocked(
+						host,
+						path,
+						document.diskText,
+						pending.text,
+						pending.action,
+					);
+					entry.canvasPending = undefined;
+					if (!disposed && entry.document)
+						publish(entry, {
+							...entry.document,
+							base: draft,
+							diskText: pending.text,
+							saveStatus: { kind: "saved" },
+							canvasHistory: pending.history,
+						});
+					return true;
+				} catch (error) {
+					const conflict =
+						error instanceof CanvasConflict ||
+						(error instanceof HostError && error.code === "not-found");
+					if (!disposed && entry.document)
+						publish(entry, {
+							...entry.document,
+							saveStatus: {
+								kind: "failed",
+								reason: error instanceof Error ? error.message : String(error),
+								conflict,
+							},
+							canvasHistory: conflict ? emptyHistory : document.canvasHistory,
+						});
+					return false;
+				}
+			});
+		}).finally(() => {
+			if (entry.canvasTask === result) {
+				entry.canvasTask = undefined;
+				if (!entry.subscribers.size) evictCleanEntry(entry);
+			}
+		});
+		entry.canvasTask = result;
+		return result;
 	}
 
 	/** `ready` supplies the initial snapshot. The listener receives later changes. */
@@ -370,6 +467,70 @@ export function createLiveDocuments(
 			ownsEditor: () => current()?.editorOwner === subscriber,
 			autosave,
 			write,
+			editCanvas(
+				mutate: Parameters<typeof prepareCanvasEdit>[1],
+				action: string,
+				mutateHeader?: Parameters<typeof prepareCanvasEdit>[2],
+			) {
+				if (!entry || !current()) return Promise.resolve(false);
+				return runCanvas(entry, (document) => {
+					const pending = entry.canvasPending;
+					const text = prepareCanvasEdit(
+						pending?.text ?? document.diskText,
+						mutate,
+						mutateHeader,
+					);
+					const history = document.canvasHistory ?? emptyHistory;
+					return {
+						text,
+						action,
+						history:
+							text === document.diskText
+								? history
+								: {
+										undo: [...history.undo, document.diskText].slice(-50),
+										redo: [],
+									},
+					};
+				});
+			},
+			stepCanvas(direction: "undo" | "redo") {
+				if (!entry || !current()) return Promise.resolve(false);
+				return runCanvas(entry, (document) => {
+					if (document.saveStatus.kind !== "saved") return;
+					const history = document.canvasHistory ?? emptyHistory;
+					const text = history[direction].at(-1);
+					if (text === undefined) return;
+					const other = direction === "undo" ? "redo" : "undo";
+					return {
+						text,
+						action: "undoing or redoing",
+						history: {
+							...history,
+							[direction]: history[direction].slice(0, -1),
+							[other]: [...history[other], document.diskText],
+						},
+					};
+				});
+			},
+			// Adopt bytes read under the legacy title writer's file lock.
+			acceptCanvasText(from: string, path: string, text: string) {
+				const document = entry?.document;
+				if (
+					!entry ||
+					entry.path !== from ||
+					document?.kind !== "canvas" ||
+					entries.get(entry.path) !== entry ||
+					isDirty(entry)
+				)
+					return;
+				if (path === document.path && text === document.diskText) return;
+				rekey(document.path, path);
+				publish(entry, {
+					...openedDocument(path, text, indexedPaths, writable),
+					revision: document.revision + 1,
+				});
+			},
 			unlock() {
 				const document = current();
 				if (!writable || !entry || !document?.opened) return null;
@@ -517,8 +678,8 @@ export function createLiveDocuments(
 						if (isDirty(entry)) {
 							const reason =
 								text === null
-									? "This note was moved or deleted outside the app."
-									: "This note changed on disk since you opened it.";
+									? `This ${latest.kind} was moved or deleted outside the app.`
+									: `This ${latest.kind} changed on disk since you opened it.`;
 							if (entry.autosave) entry.autosave.reportConflict(reason);
 							else
 								publish(entry, {
@@ -591,13 +752,24 @@ export function createLiveDocuments(
 			do {
 				const results = await Promise.all(
 					[...entries.values()].map(async (entry) => {
+						while (entry.canvasTask) await entry.canvasTask.catch(() => {});
+						if (
+							entry.canvasPending &&
+							entry.document?.saveStatus.kind === "failed" &&
+							!entry.document.saveStatus.conflict
+						)
+							await runCanvas(entry);
 						const saved = await entry.autosave?.flush();
 						return saved !== false && !isDirty(entry);
 					}),
 				);
 				if (!results.every(Boolean)) return false;
 				// Another entry may have received an edit while a slower one saved.
-			} while ([...entries.values()].some(isDirty));
+			} while (
+				[...entries.values()].some(
+					(entry) => entry.canvasTask || isDirty(entry),
+				)
+			);
 			return true;
 		},
 		recoveryTexts(now: Date) {

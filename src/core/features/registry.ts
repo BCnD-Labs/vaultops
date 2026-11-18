@@ -60,6 +60,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "pinned-notes",
+		name: "Pinned notes",
+		description: "Keep selected notes at the top of the sidebar.",
+		group: "Organising",
+		defaultOn: true,
+	},
+	{
 		id: "templates",
 		name: "Templates",
 		description: "The Template manager and starting a note from a template.",

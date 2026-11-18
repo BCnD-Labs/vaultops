@@ -33,10 +33,11 @@ import { matchesNote, sortNotes } from "../core/notes/list";
 import { filterTree, type TreeNode } from "../core/notes/tree";
 import { ShellNavigation } from "./AppShell";
 import { NoteList } from "./NoteList";
-import { NoteTree, type TreeActions } from "./NoteTree";
+import { NoteTree, readDrag, type TreeActions } from "./NoteTree";
 import { noteSort } from "./note-sort";
+import { PinnedNotes } from "./PinnedNotes";
 import { SearchButton } from "./SearchButton";
-import type { VaultView } from "./session";
+import type { NoteRow, VaultView } from "./session";
 import {
 	type Selection,
 	selectedNotes,
@@ -54,6 +55,8 @@ interface SidebarProps {
 	livePath: string | null;
 	tree: TreeNode[];
 	treeActions: TreeActions;
+	pinned?: NoteRow[];
+	onPlacePin?: (id: string, index: number | null) => void;
 	treeNotice: string | null;
 	onStartNote: (folder: string) => void;
 	onStartCanvas?: (folder: string) => void;
@@ -105,6 +108,8 @@ export function Sidebar({
 	selection,
 	livePath,
 	tree,
+	pinned,
+	onPlacePin,
 	treeActions,
 	treeNotice,
 	onStartNote,
@@ -121,6 +126,7 @@ export function Sidebar({
 	const { newFolder } = useContext(ShellNavigation);
 	const [preferences, setPreferences] = useState(() => sidebarPreferences());
 	const [mode, setMode] = useState(() => sidebarMode());
+	const [draggingNote, setDraggingNote] = useState(false);
 	const sizesRef = useRef(preferences.sizes);
 	const locked = busy || !view?.writable;
 	const [query, setQuery] = useState("");
@@ -185,7 +191,13 @@ export function Sidebar({
 				: null;
 		const folder = selection.kind === "folder" ? selection.value : "";
 		return (
-			<aside className="sidebar" aria-label="Vault navigation">
+			<aside
+				className="sidebar"
+				aria-label="Vault navigation"
+				onDragStart={(e) => setDraggingNote(readDrag(e)?.kind === "note")}
+				onDragEnd={() => setDraggingNote(false)}
+				onDropCapture={() => setDraggingNote(false)}
+			>
 				<section className="sidebar-pane" aria-label="Folders and notes">
 					<NoteTree
 						newFolderRequest={newFolder}
@@ -229,6 +241,18 @@ export function Sidebar({
 									</IconAction>
 									{modeToggle}
 								</header>
+								{pinned &&
+									onPlacePin &&
+									(pinned.length > 0 || draggingNote) && (
+										<PinnedNotes
+											rows={pinned}
+											notes={view?.notes ?? []}
+											livePath={livePath}
+											locked={locked}
+											onOpen={onOpen}
+											place={onPlacePin}
+										/>
+									)}
 								<div className="section-label">Notes</div>
 								{selection.kind === "tag" && (
 									<Button

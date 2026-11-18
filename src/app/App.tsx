@@ -11,6 +11,7 @@ import {
 	renameFolder,
 	within,
 } from "../core/notes/folders";
+import { prunePins, savePin } from "../core/notes/pins";
 import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
 import { createNote, loadNote } from "../core/notes/repository";
 import { noteTitleFor, syncRowTitles } from "../core/notes/row-notes";
@@ -986,7 +987,55 @@ export function App({ host }: { host: Host }) {
 		return message || null;
 	};
 
+	const byPath = useMemo(
+		() => new Map(view?.notes.map((n) => [n.path, n])),
+		[view?.notes],
+	);
+	const byId = useMemo(
+		() =>
+			new Map(
+				view?.notes.flatMap((note) =>
+					note.id ? [[note.id, note] as const] : [],
+				),
+			),
+		[view?.notes],
+	);
+	const pins = prunePins(view?.pins ?? [], new Set(byId.keys()));
+	const pinEnabled = features.isEnabled("pinned-notes") && !!view?.pins;
+	const savingPin = useRef(false);
+	const place = async (id: string, index: number | null) => {
+		if (busy || !view?.writable || !pinEnabled || savingPin.current) return;
+		savingPin.current = true;
+		setBusy(true);
+		try {
+			const { pins: saved, recoveryPath } = await savePin(
+				vaultHost,
+				new Set(byId.keys()),
+				id,
+				index,
+			);
+			if (recoveryPath)
+				setTreeNotice(`Recovered damaged pins at ${recoveryPath}.`);
+			changeView((current) =>
+				current && current.name === view.name
+					? { ...current, pins: saved }
+					: current,
+			);
+		} catch (error) {
+			setError(String(error));
+		} finally {
+			savingPin.current = false;
+			setBusy(false);
+		}
+	};
 	const treeActions: TreeActions = {
+		pinAction: (path) => {
+			const note = byPath.get(path);
+			if (!pinEnabled || !note?.id || note.readOnly) return undefined;
+			const id = note.id;
+			const pinned = pins.includes(id);
+			return { pinned, run: () => void place(id, pinned ? null : pins.length) };
+		},
 		createFolder: (parent, name) =>
 			void changeTree(async () => ({
 				notice: (await createFolder(vaultHost, parent, name)).notice,
@@ -1594,6 +1643,11 @@ export function App({ host }: { host: Host }) {
 									? () => setReading((on) => !on)
 									: undefined
 							}
+							pinAction={
+								screen === "note" && shownPath
+									? treeActions.pinAction?.(shownPath)
+									: undefined
+							}
 							onMoveNote={
 								screen === "note" &&
 								focusedPane.kind === "note" &&
@@ -1632,6 +1686,12 @@ export function App({ host }: { host: Host }) {
 									livePath={shownPath}
 									tree={tree}
 									treeActions={treeActions}
+									pinned={
+										pinEnabled
+											? pins.flatMap((id) => byId.get(id) ?? [])
+											: undefined
+									}
+									onPlacePin={place}
 									treeNotice={treeNotice}
 									onStartNote={(folder) =>
 										void startNote(newNoteFolder(folder, view?.folders ?? []))

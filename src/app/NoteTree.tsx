@@ -9,6 +9,7 @@ import {
 	LayoutDashboard,
 	Palette,
 	Pencil,
+	Pin,
 	Trash2,
 } from "lucide-react";
 import {
@@ -43,7 +44,12 @@ export interface DragItem {
 }
 
 /** What the tree can ask the app to do. The app saves, applies and reloads. */
+export interface PinAction {
+	pinned: boolean;
+	run: () => void;
+}
 export interface TreeActions {
+	pinAction?: (path: string) => PinAction | undefined;
 	createFolder: (parent: string, name: string) => void;
 	renameFolder: (path: string, name: string) => void;
 	deleteFolder: (path: string) => void;
@@ -88,7 +94,7 @@ type Editing =
 
 export const DRAG_TYPE = "application/x-vaultops-item";
 
-function readDrag(event: React.DragEvent): DragItem | null {
+export function readDrag(event: React.DragEvent): DragItem | null {
 	try {
 		const raw = JSON.parse(event.dataTransfer.getData(DRAG_TYPE)) as DragItem;
 		const kind = raw.kind === "note" || raw.kind === "folder" ? raw.kind : null;
@@ -425,6 +431,13 @@ function noteEntries(node: NoteNode, ctx: Ctx): TreeMenuEntry[] {
 	if (node.readOnly) return [open, "separator", trash];
 	const item: DragItem = { kind: "note", path: node.path, readOnly: false };
 	const entries: TreeMenuEntry[] = [open];
+	const pin = a.pinAction?.(node.path);
+	if (pin)
+		entries.push({
+			label: pin.pinned ? "Unpin note" : "Pin note",
+			icon: Pin,
+			run: pin.run,
+		});
 	if (a.renameNote)
 		entries.push({
 			label: "Rename",

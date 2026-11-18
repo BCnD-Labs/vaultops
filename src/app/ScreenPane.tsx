@@ -3,14 +3,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { TrashedNote } from "../core/notes/trash";
 import { HealthScreen } from "./HealthScreen";
+import { type JournalOptions, JournalSpace } from "./journal/JournalSpace";
 import { PlannerScreen } from "./planner/PlannerScreen";
-import type { VaultView } from "./session";
+import type { Screen, VaultView } from "./session";
 import { loadTrashView, saveTrashView, TrashScreen } from "./TrashScreen";
 import "./pane.css";
 
 interface ScreenPaneProps {
 	view: VaultView | null;
-	screen: "trash" | "health" | "planner";
+	screen: Exclude<Screen, "note">;
+	journal?: JournalOptions;
 	error: string | null;
 	busy: boolean;
 	writable: boolean;
@@ -34,6 +36,7 @@ interface ScreenPaneProps {
 export function ScreenPane({
 	view,
 	screen,
+	journal,
 	error,
 	busy,
 	writable,
@@ -61,7 +64,7 @@ export function ScreenPane({
 		);
 	}
 	return (
-		<main className="pane">
+		<main className={screen === "journal" ? "pane planner-pane" : "pane"}>
 			{error && (
 				<p role="alert" className="notice">
 					Something went wrong: {error}
@@ -76,6 +79,9 @@ export function ScreenPane({
 			>
 				<ArrowLeft aria-hidden="true" /> Back to notes
 			</Button>
+			{screen === "journal" && view && journal && (
+				<JournalSpace view={view} locked={busy} {...journal} />
+			)}
 			{screenNotice && (
 				<p role="status" className="notice">
 					{screenNotice}

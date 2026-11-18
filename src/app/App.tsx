@@ -90,6 +90,7 @@ import {
 	createAndLoad,
 	createCanvasAndLoad,
 	loadVault,
+	type Screen,
 	type VaultView,
 } from "./session";
 import { newNoteFolder, templateFormats, templateWeekStart } from "./settings";
@@ -145,9 +146,8 @@ export function App({ host }: { host: Host }) {
 		cards: ResourceCard[];
 		types: ResourceType[];
 	}>({ cards: [], types: [] });
-	const [screen, setScreen] = useState<"note" | "trash" | "health" | "planner">(
-		"note",
-	);
+	const [screen, setScreen] = useState<Screen>("note");
+	const journalOpening = useRef(false);
 	const [trash, setTrash] = useState<TrashedNote[]>([]);
 	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 	const [screenNotice, setScreenNotice] = useState<string | null>(null);
@@ -252,8 +252,13 @@ export function App({ host }: { host: Host }) {
 			),
 		}));
 	}, []);
+	const refreshAfterCreate = useRef<() => void>(() => {});
 	const onSaved = useCallback(
 		(info: SavedInfo) => {
+			if (info.created) {
+				refreshAfterCreate.current();
+				return;
+			}
 			if (info.oldPath !== info.path) followHistory(info.oldPath, info.path);
 			changeView((v) => {
 				const row = v?.notes.find((n) => n.path === info.oldPath);
@@ -349,6 +354,8 @@ export function App({ host }: { host: Host }) {
 		() => wsRef.current.withDocuments(scan),
 		[scan],
 	);
+	refreshAfterCreate.current = () =>
+		void refreshVault()?.catch((error: unknown) => setError(String(error)));
 	useEffect(() => {
 		const onFocus = () => {
 			if (viewRef.current?.name)
@@ -418,6 +425,8 @@ export function App({ host }: { host: Host }) {
 		) => {
 			const { follow = true, record = true, pane } = options;
 			setError(null);
+			if (screen === "journal" && !(await wsRef.current.settleAll()))
+				return false;
 			if (!(await wsRef.current.open(path, pane))) return false;
 			setScreen("note");
 			if (isCanvas(path)) selectCanvas(path);
@@ -432,7 +441,7 @@ export function App({ host }: { host: Host }) {
 			}
 			return true;
 		},
-		[isCanvas, selectCanvas, vaultName],
+		[isCanvas, screen, selectCanvas, vaultName],
 	);
 
 	// Put a pane's note back on screen from the disk (after "load the disk
@@ -636,9 +645,7 @@ export function App({ host }: { host: Host }) {
 		}
 	});
 
-	const navigate = async (
-		next: "trash" | "health" | "settings" | "planner" | "note",
-	) => {
+	const navigate = async (next: Screen | "settings") => {
 		// Settings is a window over the workspace, not a screen: nothing to settle.
 		if (next === "settings") {
 			setSettingsOpen(true);
@@ -648,7 +655,8 @@ export function App({ host }: { host: Host }) {
 		setBusy(true);
 		try {
 			if (next === "trash") setTrash(await listTrash(host));
-			if (next === "health") await refreshVault();
+			if (next === "journal") journalOpening.current = true;
+			if (next === "health" || next === "journal") await refreshVault();
 			if (next === "note") {
 				// Notes the planner wrote while it was on screen: read them again so a
 				// later edit in the pane can't write the old text over the change.
@@ -665,6 +673,7 @@ export function App({ host }: { host: Host }) {
 			}
 			if (
 				next === "note" &&
+				screen !== "journal" &&
 				focusedPane.kind === "note" &&
 				view?.report.some(
 					(e) => e.path === focusedPane.session.livePathRef.current,
@@ -679,6 +688,7 @@ export function App({ host }: { host: Host }) {
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
+			if (next === "journal") journalOpening.current = false;
 			setBusy(false);
 		}
 	};
@@ -1589,8 +1599,13 @@ export function App({ host }: { host: Host }) {
 					<PlannerProvider
 						notes={view?.notes ?? []}
 						host={vaultHost}
-						writable={writable}
+						writable={writable && screen !== "journal"}
 						onChanged={plannerChanged}
+						writeLog={async (work) => {
+							if (!writable || screen === "journal" || journalOpening.current)
+								throw new Error("The planner log is read-only.");
+							return ws.withDocuments(work);
+						}}
 						onOpenNote={(path) => void open(path)}
 						onOpenScreen={() => void navigate("planner")}
 					>
@@ -1712,6 +1727,7 @@ export function App({ host }: { host: Host }) {
 									}
 									onShowMaintainer={() => setShowMaintainer(true)}
 									onNavigate={navigate}
+									journalActive={screen === "journal"}
 									onOpenSettings={() => void navigate("settings")}
 									onOpenTemplates={
 										templatesOn ? () => setTemplatesOpen(true) : undefined
@@ -1782,6 +1798,11 @@ export function App({ host }: { host: Host }) {
 								<ScreenPane
 									view={view}
 									screen={screen}
+									journal={
+										ws.documents
+											? { documents: ws.documents, host: vaultHost, links }
+											: undefined
+									}
 									error={error}
 									busy={busy}
 									writable={writable}

@@ -9,7 +9,6 @@ import {
 import {
 	addEntry,
 	addSection,
-	dayOfLogPath,
 	logPath,
 	newLogNote,
 } from "../../core/planner/log";
@@ -80,10 +79,7 @@ async function dayNote(
 	if ((await host.kindOf(path)) !== null)
 		return { path, note: await readForEdit(host, path) };
 	await host.makeFolder(JOURNAL_FOLDER);
-	const made = await createNote(host, JOURNAL_FOLDER, day, newLogNote(day));
-	if (dayOfLogPath(made.path) !== day)
-		throw new Error("A different file already uses that day's name.");
-	return made;
+	return createNote(host, JOURNAL_FOLDER, day, newLogNote(day), path);
 }
 
 export async function loadLog(host: Host, day: string): Promise<Note | null> {

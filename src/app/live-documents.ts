@@ -51,6 +51,7 @@ export interface LiveDocument {
 	readonly canvasHistory?: CanvasHistory;
 }
 
+type Seed = OpenedNote | (() => Promise<OpenedNote>);
 type Listener = (document: LiveDocument, reloaded: boolean) => void;
 interface Entry {
 	path: string;
@@ -73,11 +74,11 @@ const canvasTypes = new Set<string>([...BLOCK_TYPES, ...CANVAS_ONLY_TYPES]);
 
 function openedDocument(
 	path: string,
-	diskText: string,
+	diskText: string | null,
 	indexedPaths: ReadonlyMap<string, string>,
 	writable: boolean,
 ): LiveDocument {
-	const { note, problems } = parseNote(diskText);
+	const { note, problems } = parseNote(diskText ?? "");
 	const kind = note?.header.kind === "canvas" ? "canvas" : "note";
 	const base =
 		note &&
@@ -93,9 +94,9 @@ function openedDocument(
 		noteId,
 		path,
 		kind,
-		readOnly: !writable || noteId === null,
+		readOnly: !writable || (diskText !== null && noteId === null),
 		base,
-		diskText,
+		diskText: diskText ?? "",
 		draft: note,
 		revision: 0,
 		saveStatus: { kind: "saved" },
@@ -158,12 +159,13 @@ export function createLiveDocuments(
 		if (id && opened.editable) indexedPaths.set(id, path);
 		else if (id && indexedPaths.get(id) === path) indexedPaths.delete(id);
 		return {
-			...openedDocument(path, baseText ?? "", indexedPaths, writable),
+			...openedDocument(path, baseText, indexedPaths, writable),
 			opened,
 		};
 	}
 
-	function load(path: string, opened?: OpenedNote, passive = false): Entry {
+	function load(path: string, seed?: Seed, passive = false): Entry {
+		const opened = typeof seed === "function" ? undefined : seed;
 		const entry: Entry = {
 			path,
 			document: opened ? fromOpened(opened) : null,
@@ -176,9 +178,11 @@ export function createLiveDocuments(
 			entry.ready = run(async () => {
 				const path = entry.path;
 				if (entries.get(path) !== entry) return;
-				const value = await (!passive && editor
-					? editor.open(path)
-					: host.readText(path));
+				const value = await (typeof seed === "function"
+					? seed()
+					: !passive && editor
+						? editor.open(path)
+						: host.readText(path));
 				if (entries.get(path) !== entry) return;
 				entry.document =
 					typeof value === "string"
@@ -335,7 +339,7 @@ export function createLiveDocuments(
 	function subscribe(
 		target: DocumentTarget,
 		onChange?: Listener,
-		opened?: OpenedNote,
+		seed?: Seed,
 		passive = false,
 	) {
 		const id = "noteId" in target ? target.noteId : null;
@@ -344,7 +348,7 @@ export function createLiveDocuments(
 		const entry =
 			disposed || path === undefined
 				? null
-				: (entries.get(path) ?? load(path, opened, passive));
+				: (entries.get(path) ?? load(path, seed, passive));
 		const subscriber = Symbol();
 		entry?.subscribers.set(subscriber, undefined);
 
@@ -652,6 +656,7 @@ export function createLiveDocuments(
 				const { path, noteId, diskText } = document;
 				try {
 					const text = await read(path);
+					if (text === null && document.opened?.baseText === null) return;
 					const candidate = noteId && index.get(noteId);
 					if (
 						candidate &&
@@ -744,7 +749,9 @@ export function createLiveDocuments(
 				if (document)
 					publish(entry, {
 						...document,
-						readOnly: !writable || document.noteId === null,
+						readOnly:
+							!writable ||
+							(document.noteId === null && document.opened?.baseText !== null),
 					});
 			}
 		},
@@ -778,8 +785,8 @@ export function createLiveDocuments(
 				if (!document || document.saveStatus.kind === "saved") continue;
 				const { path, editorDraft, base, draft, opened, kind } = document;
 				const header = (base ?? opened?.note ?? draft)?.header;
-				const id = document.noteId ?? header?.noteId;
-				if (id === undefined || texts.has(id)) continue;
+				const id = document.noteId ?? header?.noteId ?? path;
+				if (texts.has(id)) continue;
 				if (!editorDraft && !draft) continue;
 				const title = editorDraft?.title ?? draft?.header.title;
 				const body = editorDraft

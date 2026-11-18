@@ -17,16 +17,18 @@ const creating = new WeakMap<Host, Promise<unknown>>();
 /**
  * Create a note whose initial blocks are new, uncommitted changes. Creations
  * run one at a time, so two quick ones cannot both pick the same free name.
+ * A caller can require an exact path, so collisions never create a variation.
  */
 export function createNote(
 	host: Host,
 	folder = "",
 	title = "Untitled",
 	initial?: Partial<Note>,
+	expectedPath?: string,
 ): Promise<{ path: string; note: Note }> {
 	const run = (creating.get(host) ?? Promise.resolve()).then(
-		() => createNoteNow(host, folder, title, initial),
-		() => createNoteNow(host, folder, title, initial),
+		() => createNoteNow(host, folder, title, initial, expectedPath),
+		() => createNoteNow(host, folder, title, initial, expectedPath),
 	);
 	creating.set(
 		host,
@@ -43,6 +45,7 @@ async function createNoteNow(
 	folder: string,
 	title: string,
 	initial?: Partial<Note>,
+	expectedPath?: string,
 ): Promise<{ path: string; note: Note }> {
 	if (isInsideVaultOps(folder)) {
 		throw new Error("Notes can't be created inside the .vaultops folder.");
@@ -53,6 +56,8 @@ async function createNoteNow(
 		entries.map((entry) => entry.name),
 	);
 	const path = folder === "" ? name : `${folder}/${name}`;
+	if (expectedPath !== undefined && path !== expectedPath)
+		throw new Error("A different file already uses this note's name.");
 	const note: Note = {
 		header: {
 			format: NOTE_FORMAT,

@@ -7,7 +7,7 @@ import {
 	parseNote,
 } from "../core/note-format";
 import { scanVault } from "../core/notes/scan";
-import type { Host } from "../host/host";
+import { type Host, HostError } from "../host/host";
 import {
 	blocksToDoc,
 	checkBlocks,
@@ -62,8 +62,21 @@ export async function openNote(
 	host: Host,
 	path: string,
 	diskText?: string,
+	known?: { duplicate: boolean; allowMissing: boolean },
 ): Promise<OpenedNote> {
-	const baseText = diskText ?? (await host.readText(path));
+	const baseText =
+		diskText ??
+		(await host.readText(path).catch((error: unknown) => {
+			if (
+				known?.allowMissing &&
+				error instanceof HostError &&
+				error.code === "not-found"
+			)
+				return null;
+			throw error;
+		}));
+	if (baseText === null)
+		return { path, note: null, doc: EMPTY, editable: true, baseText };
 	const parsed = parseNote(baseText);
 	if (!parsed.note) {
 		return {
@@ -100,8 +113,10 @@ export async function openNote(
 		};
 	}
 	const doc = ensureUniqueIds(blocksToDoc(note.blocks));
-	const duplicate = (await scanVault(host)).report.find((e) => e.path === path)
-		?.duplicateOf.length;
+	const duplicate =
+		known?.duplicate ??
+		!!(await scanVault(host)).report.find((e) => e.path === path)?.duplicateOf
+			.length;
 	const readOnly = duplicate
 		? "This note has the same note id as another file, so it is read-only."
 		: whyReadOnly(parsed);

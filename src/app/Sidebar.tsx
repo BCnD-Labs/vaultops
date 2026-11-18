@@ -1,5 +1,6 @@
 import {
 	ArrowDownUp,
+	BookOpen,
 	Columns2,
 	FilePlus,
 	Files,
@@ -44,6 +45,7 @@ import {
 	sidebarMode,
 	sidebarPreferences,
 } from "./sidebar-selection";
+import { useFeature } from "./useFeature";
 import { VaultMenu } from "./VaultMenu";
 import "./sidebar.css";
 
@@ -62,7 +64,8 @@ interface SidebarProps {
 	onStartCanvas?: (folder: string) => void;
 	onChooseVault: () => void;
 	onShowMaintainer: () => void;
-	onNavigate: (screen: "trash") => void;
+	onNavigate: (screen: "trash" | "journal") => void;
+	journalActive?: boolean;
 	/** Opens the settings window (the gear beside the vault menu). */
 	onOpenSettings?: () => void;
 	/** Opens the template manager. */
@@ -117,6 +120,7 @@ export function Sidebar({
 	onChooseVault,
 	onShowMaintainer,
 	onNavigate,
+	journalActive,
 	onOpenSettings = () => {},
 	onOpenTemplates,
 	onOpenResources,
@@ -124,6 +128,7 @@ export function Sidebar({
 	onOpen,
 }: SidebarProps) {
 	const { newFolder } = useContext(ShellNavigation);
+	const plannerOn = useFeature("planner");
 	const [preferences, setPreferences] = useState(() => sidebarPreferences());
 	const [mode, setMode] = useState(() => sidebarMode());
 	const [draggingNote, setDraggingNote] = useState(false);
@@ -182,6 +187,19 @@ export function Sidebar({
 			{mode === "tree" ? <PanelsTopLeft /> : <ListTree />}
 		</IconAction>
 	);
+	const journal = plannerOn &&
+		(view?.writable || view?.status === "read-only") && (
+			<button
+				type="button"
+				className="sidebar-row"
+				aria-current={journalActive}
+				disabled={busy}
+				onClick={() => onNavigate("journal")}
+			>
+				<BookOpen className="tree-icon" aria-hidden="true" />
+				Journal
+			</button>
+		);
 	if (mode === "tree") {
 		const picked =
 			selection.kind === "tag"
@@ -241,6 +259,7 @@ export function Sidebar({
 									</IconAction>
 									{modeToggle}
 								</header>
+								{journal}
 								{pinned &&
 									onPlacePin &&
 									(pinned.length > 0 || draggingNote) && (
@@ -336,6 +355,7 @@ export function Sidebar({
 										</IconAction>
 										{modeToggle}
 									</header>
+									{journal}
 									<div className="section-label">Notes</div>
 									<button
 										type="button"

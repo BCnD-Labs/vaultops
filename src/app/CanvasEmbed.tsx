@@ -32,7 +32,11 @@ export function liveNoteSnapshot(document: LiveDocument | null) {
 		blocks = docToBlocks(edit.doc);
 		projected.set(edit.doc, blocks);
 	}
-	return { blocks, title: edit.title.trim() || "Untitled" };
+	return {
+		blocks,
+		title:
+			edit.title === undefined ? undefined : edit.title.trim() || "Untitled",
+	};
 }
 
 const WHY: { [status: string]: string } = {
@@ -246,12 +250,14 @@ export function SharedNoteEditor({
 	binding,
 	opened,
 	readOnly,
+	focusOnAttach = true,
 }: {
 	host: Host;
 	links?: LinkSource;
 	binding: Binding;
 	opened: OpenedNote;
 	readOnly: boolean;
+	focusOnAttach?: boolean;
 }) {
 	const { change } = useAutosave(host, opened, undefined, binding);
 	const draft = binding.current()?.editorDraft;
@@ -263,16 +269,12 @@ export function SharedNoteEditor({
 			editable={!readOnly}
 			links={links}
 			featureOn={featureEnabled}
-			focusOnAttach
+			focusOnAttach={focusOnAttach}
 			onChange={(doc) => {
 				const latest = binding.current();
-				if (!latest || latest.readOnly || !binding.ownsEditor()) return;
-				const title = latest.opened?.note?.header.title;
-				change({
-					title: typeof title === "string" ? title : latest.path,
-					...latest.editorDraft,
-					doc,
-				});
+				if (readOnly || !latest || latest.readOnly || !binding.ownsEditor())
+					return;
+				change({ ...latest.editorDraft, doc });
 			}}
 		/>
 	);

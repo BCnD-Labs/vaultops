@@ -3,12 +3,15 @@ import {
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
 	type Note,
+	serializeNote,
 } from "../core/note-format";
 import { withCover } from "../core/notes/cover";
 import { withIcon } from "../core/notes/icon";
 import { type Props, withProps } from "../core/notes/properties";
 import { renameNote } from "../core/notes/rename";
 import { createNote } from "../core/notes/repository";
+import { dayOfLogPath, newLogNote } from "../core/planner/log";
+import { JOURNAL_FOLDER } from "../core/planner/task-note";
 import { type Host, HostError } from "../host/host";
 import { docToBlocks } from "./doc-blocks";
 import { type OpenedNote, saveDoc } from "./note-io";
@@ -16,7 +19,7 @@ import { type OpenedNote, saveDoc } from "./note-io";
 /** Everything the person can edit in an open note. */
 export interface Draft {
 	doc: JSONContent;
-	title: string;
+	title?: string;
 	/** The note's properties; left out means "leave the header's props as they are". */
 	props?: Props;
 	/** Null removes the icon. Omitted keeps the saved value. */
@@ -56,6 +59,25 @@ export async function saveDraft(
 	current: OpenedNote,
 	draft: Draft,
 ): Promise<DraftOutcome> {
+	const day = current.baseText === null && dayOfLogPath(current.path);
+	if (day && current.editable && !current.note) {
+		await host.makeFolder(JOURNAL_FOLDER);
+		const initial = { ...newLogNote(day), blocks: docToBlocks(draft.doc) };
+		const { path, note } = await createNote(
+			host,
+			JOURNAL_FOLDER,
+			day,
+			initial,
+			current.path,
+		);
+		return {
+			ok: true,
+			path,
+			note,
+			text: serializeNote(note),
+			titleChanged: false,
+		};
+	}
 	if (!current.editable || !current.note) {
 		return {
 			ok: false,
@@ -89,9 +111,11 @@ export async function saveDraft(
 			};
 		}
 	}
-	const titleChanged = draft.title !== current.note.header.title;
+	const title = draft.title;
+	const titleChanged =
+		title !== undefined && title !== current.note.header.title;
 	let header = current.note.header;
-	if (titleChanged) header = { ...header, title: draft.title };
+	if (titleChanged) header = { ...header, title };
 	header = withDraftMetadata(header, draft);
 	const target: OpenedNote =
 		header === current.note.header
@@ -108,7 +132,7 @@ export async function saveDraft(
 			titleChanged,
 		};
 	}
-	const renamed = await renameNote(host, current.path, saved.note, draft.title);
+	const renamed = await renameNote(host, current.path, saved.note, title);
 	return {
 		ok: true,
 		path: renamed.path,

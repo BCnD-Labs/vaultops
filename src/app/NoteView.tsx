@@ -107,7 +107,7 @@ export interface NoteViewProps {
 	locked?: boolean;
 }
 
-function NotePreview({
+export function NotePreview({
 	doc,
 	onResumeEditing,
 }: {
@@ -567,6 +567,12 @@ function PaneNote({
 	const [confirmEditing, setConfirmEditing] = useState(false);
 	const [focusEditor, setFocusEditor] = useState(false);
 	const { binding, editorElsewhere } = session;
+	useLayoutEffect(
+		() => () => {
+			if (binding?.ownsEditor()) binding.setEditorOwner(false);
+		},
+		[binding],
+	);
 	useLayoutEffect(() => {
 		if (opened.editable && !editorElsewhere) binding?.setEditorOwner(true);
 		else setFocusEditor(false);

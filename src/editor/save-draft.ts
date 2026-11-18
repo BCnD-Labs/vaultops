@@ -3,7 +3,6 @@ import {
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
 	type Note,
-	serializeNote,
 } from "../core/note-format";
 import { withCover } from "../core/notes/cover";
 import { withIcon } from "../core/notes/icon";
@@ -74,7 +73,8 @@ export async function saveDraft(
 			ok: true,
 			path,
 			note,
-			text: serializeNote(note),
+			// Exactly what was written, so the next save's on-disk check matches.
+			text: await host.readText(path),
 			titleChanged: false,
 		};
 	}

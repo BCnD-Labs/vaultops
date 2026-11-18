@@ -27,6 +27,7 @@ import {
 	type LucideIcon,
 	MessagesSquare,
 	Milestone,
+	Music,
 	Pilcrow,
 	Quote,
 	Sigma,
@@ -110,6 +111,10 @@ const TAB_STARTER = [
 	"A|-0-------------|-3-------------|---------------|",
 	"E|---------------|---------------|-3---------3/5-|",
 ].join("\n");
+
+/** A short valid ABC tune for a new sheet music block. */
+const ABC_STARTER =
+	'X:1\nT:Simple melody\nM:4/4\nL:1/4\nK:C\n"C" C D E G | "F" A2 "G" G2 | "C" E D C2 |]';
 
 /** Asked of the note's own editor, which opens the template picker beside the caret. */
 export const TEMPLATE_EVENT = "vaultops:template";
@@ -478,6 +483,22 @@ const ITEMS: SlashItem[] = [
 		keywords: ["tab", "guitar", "bass", "music", "riff"],
 		feature: "music",
 		run: (e, r) => insertCode(e, r, "tab", TAB_STARTER),
+	},
+	{
+		id: "sheet-music",
+		section: "Media",
+		icon: Music,
+		label: "Sheet music",
+		keywords: ["abc", "music", "notation", "score", "staff", "tune"],
+		feature: "music",
+		run: (e, r) =>
+			start(e, r)
+				.insertContent({
+					type: "codeBlock",
+					attrs: { language: "abc" },
+					content: [{ type: "text", text: ABC_STARTER }],
+				})
+				.run(),
 	},
 ];
 

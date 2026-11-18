@@ -62,8 +62,8 @@ describe("slash menu items", () => {
 			"mermaid-pie",
 			"chart",
 		]);
-		expect(ids("Media")).toEqual(["image", "guitar-tab"]);
-		expect(SLASH_ITEMS).toHaveLength(44);
+		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
+		expect(SLASH_ITEMS).toHaveLength(45);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {
@@ -257,6 +257,7 @@ describe("slash menu items", () => {
 			]),
 			["image", "images"],
 			["guitar-tab", "music"],
+			["sheet-music", "music"],
 		]);
 	});
 

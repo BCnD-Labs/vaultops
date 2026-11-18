@@ -3,6 +3,7 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { common, createLowlight } from "lowlight";
+import { abcNodeView } from "./abc-block";
 import {
 	addRange,
 	clipLines,
@@ -18,6 +19,7 @@ import { tabNodeView } from "./tab-block";
 /** The languages the picker offers: [stored name, label]. "" means plain text. */
 export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
 	["", "Plain text"],
+	["abc", "Sheet music (ABC)"],
 	["bash", "Bash"],
 	["c", "C"],
 	["cpp", "C++"],
@@ -87,13 +89,15 @@ export const CodeBlock = CodeBlockLowlight.extend({
 			},
 		};
 	},
-	// A `mermaid` block draws its diagram and a `tab` block its guitar tab;
+	// A `mermaid` block draws its diagram, a `tab` block its guitar tab and an
+	// `abc` block its sheet music;
 	// every other block keeps the default view (ProseMirror falls back to it
 	// when the view is null).
 	addNodeView() {
 		return ((props: Parameters<typeof mermaidNodeView>[0]) =>
 			mermaidNodeView(props) ??
-			tabNodeView(props)) as unknown as NodeViewRenderer;
+			tabNodeView(props) ??
+			abcNodeView(props)) as unknown as NodeViewRenderer;
 	},
 }).configure({
 	lowlight: highlighter,

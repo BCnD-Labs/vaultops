@@ -215,7 +215,7 @@ it.each(BLOCK_TYPES)(
 		const firstLine = setBlockDragData(transfer, "note-1", node);
 		expect(firstLine).toBe(transfer.getData("text/plain"));
 		expect(firstLine).toBeTruthy();
-		expect(transfer.effectAllowed).toBe("move");
+		expect(transfer.effectAllowed).toBe("copyMove");
 		expect(JSON.parse(transfer.getData(BLOCK_DRAG_TYPE))).toEqual({
 			noteId: "note-1",
 			blockId: node.attrs.id,
@@ -291,7 +291,7 @@ it("does not change a same-note document when the custom payload is dropped insi
 	expect(() => schema.nodeFromJSON(doc).check()).not.toThrow();
 });
 
-it("sets effectAllowed to move and lifts the card on canvas card dragstart, and puts it down on dragend", async () => {
+it("sets effectAllowed to copy or move and lifts the card on canvas card dragstart, and puts it down on dragend", async () => {
 	const root = {
 		id: "card-1",
 		type: "paragraph" as const,
@@ -317,7 +317,7 @@ it("sets effectAllowed to move and lifts the card on canvas card dragstart, and 
 
 	dispatchDrag("dragStart", card, dataTransfer);
 
-	expect(dataTransfer.effectAllowed).toBe("move");
+	expect(dataTransfer.effectAllowed).toBe("copyMove");
 	expect(JSON.parse(dataTransfer.getData(BLOCK_DRAG_TYPE))).toEqual({
 		noteId: "canvas-1",
 		blockId: "card-1",

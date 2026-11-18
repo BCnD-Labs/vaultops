@@ -251,10 +251,13 @@ it("accepts a VaultOps block and explains invalid or read-only drops", async () 
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Drop VaultOps block" }));
 	await waitFor(() =>
-		expect(onDropBlock).toHaveBeenCalledWith("block", "source", {
-			x: 14,
-			y: 28,
-		}),
+		expect(onDropBlock).toHaveBeenCalledWith(
+			made.note.header.noteId,
+			"block",
+			"source",
+			{ x: 14, y: 28 },
+			undefined,
+		),
 	);
 	first.unmount();
 	render(<CanvasPane {...props} writable={false} />);
@@ -264,7 +267,7 @@ it("accepts a VaultOps block and explains invalid or read-only drops", async () 
 	expect(onDropBlock).toHaveBeenCalledTimes(1);
 });
 
-it("ignores a card dropped back on its own canvas", async () => {
+it("routes a card dropped back on its own canvas for repositioning", async () => {
 	const host = new MemoryHost();
 	const made = await createCanvas(host, "", "Board");
 	ownCanvasId =
@@ -292,7 +295,13 @@ it("ignores a card dropped back on its own canvas", async () => {
 	await screen.findByText("Drag a block here from a note.");
 	fireEvent.click(screen.getByRole("button", { name: "Drop own card" }));
 	await new Promise((resolve) => setTimeout(resolve, 20));
-	expect(onDropBlock).not.toHaveBeenCalled();
+	expect(onDropBlock).toHaveBeenCalledWith(
+		ownCanvasId,
+		"block",
+		ownCanvasId,
+		{ x: 3, y: 4 },
+		undefined,
+	);
 	expect(screen.queryByRole("alert")).toBeNull();
 });
 

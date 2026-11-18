@@ -34,7 +34,7 @@ import type { OpenedNote } from "../editor/note-io";
 import type { LinkSource } from "../editor/note-link";
 import { SaveStatus } from "../editor/SaveStatus";
 import type { Host } from "../host/host";
-import { NoteBlocks } from "./CanvasCard";
+import { DroppableNoteBlocks } from "./CanvasCard";
 import { imageSource } from "./display-image";
 import { NoteCover } from "./NoteCover";
 import { NoteIconPicker } from "./NoteIconPicker";
@@ -107,8 +107,10 @@ export interface NoteViewProps {
 export function NotePreview({
 	doc,
 	onResumeEditing,
+	onDropBlock,
 }: {
 	doc: JSONContent;
+	onDropBlock?: NoteViewProps["onDropBlock"];
 	onResumeEditing?: NoteViewProps["onResumeEditing"];
 }) {
 	return (
@@ -119,7 +121,10 @@ export function NotePreview({
 			onFocus={() => onResumeEditing?.()}
 			onPointerDown={() => onResumeEditing?.()}
 		>
-			<NoteBlocks blocks={docToBlocks(doc)} />
+			<DroppableNoteBlocks
+				blocks={docToBlocks(doc)}
+				onDropBlock={onDropBlock}
+			/>
 		</section>
 	);
 }

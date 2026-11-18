@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/tooltip";
 import { CANVAS_ONLY_TYPES, type NoteHeader } from "../core/note-format";
 import { arrangeItems } from "../core/notes/canvas-arrange";
-import { inOrder } from "../core/notes/canvas-edit";
 import {
 	EMBED_SIZE,
 	embedBlock,
@@ -69,7 +68,11 @@ import { reorderItems } from "../core/notes/canvas-order";
 import { blockPosition, moveCanvasCard } from "../core/notes/canvas-position";
 import { setShapeKind, setTextSize } from "../core/notes/canvas-style";
 import { headerIcon, withIcon } from "../core/notes/icon";
-import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
+import {
+	BLOCK_DRAG_TYPE,
+	blockDragData,
+	type DocumentDrop,
+} from "../editor/block-drag";
 import { BLOCK_TYPES } from "../editor/blocks";
 import type { LinkSource } from "../editor/note-link";
 import type { Host } from "../host/host";
@@ -129,12 +132,7 @@ export function CanvasPane({
 	focusName?: boolean;
 	onFocusedName?: () => void;
 	onIconSaved?: (path: string, icon: string | undefined) => void;
-	onDropBlock: (
-		blockId: string,
-		noteId: string,
-		position: { x: number; y: number },
-		copy?: boolean,
-	) => Promise<void>;
+	onDropBlock: DocumentDrop;
 	onMoveToNote?: (blockId: string) => Promise<void>;
 	/** Starts "Move to…" for a card: the app asks where, then moves it. */
 	onMoveTo?: (blockId: string) => void;
@@ -325,6 +323,7 @@ export function CanvasPane({
 					links={links}
 					locked={locked}
 					onOpen={onOpenNote}
+					onDropBlock={onDropBlock}
 				/>
 			) : canvasOnly ? (
 				<CanvasItem
@@ -637,41 +636,23 @@ export function CanvasPane({
 										throw new Error(
 											"Only a VaultOps block can be dropped here.",
 										);
-									const data = JSON.parse(
-										event.dataTransfer.getData(BLOCK_DRAG_TYPE),
-									);
-									if (
-										typeof data?.blockId !== "string" ||
-										!data.blockId ||
-										typeof data.noteId !== "string" ||
-										!data.noteId
-									)
-										throw new Error("This is not a valid VaultOps block drag.");
-									if (data.local === true)
+									const data = blockDragData(event.dataTransfer);
+									if (!data || !document?.noteId)
 										throw new Error(
-											"A list item moves only within its note. Drag the whole list to bring it here.",
+											"Only a whole VaultOps block can be dropped here.",
 										);
-									// A card dropped back on its own canvas has nowhere to move to.
-									if (data.noteId === canvasHeader?.noteId) return;
-									await (event.altKey
-										? onDropBlock(data.blockId, data.noteId, position, true)
-										: onDropBlock(data.blockId, data.noteId, position));
+									await onDropBlock(
+										document.noteId,
+										data.blockId,
+										data.noteId,
+										position,
+										event.altKey || undefined,
+									);
 									setError(null);
 								} catch (reason) {
 									setError(
 										reason instanceof Error ? reason.message : String(reason),
 									);
-									try {
-										await inOrder(host, activePath, async () =>
-											binding?.acceptCanvasText(
-												activePath,
-												activePath,
-												await host.readText(activePath),
-											),
-										);
-									} catch {
-										/* Keep the last readable canvas. */
-									}
 								}
 							}}
 						/>

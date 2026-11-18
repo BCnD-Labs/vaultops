@@ -87,12 +87,14 @@ async function setup(writable = true) {
 	const onSaved = vi.fn();
 	const onUnsaved = vi.fn();
 	const onError = vi.fn();
+	const { notes } = await loadVault(host);
 	const hook = renderHook(
 		({ writable }) =>
 			useWorkspaceHost({
 				host,
 				writable,
 				isCanvas: (path) => path === board,
+				notes,
 				onSaved,
 				onUnsaved,
 				onError,
@@ -107,6 +109,7 @@ async function setup(writable = true) {
 		waitFor(() => expect(hook.result.current.panes[pane]?.ready).toBe(true));
 	return {
 		host,
+		id: (path: string) => notes.find((note) => note.path === path)?.id ?? "",
 		a,
 		b,
 		c,
@@ -405,9 +408,6 @@ async function seed(host: MemoryHost, path: string, ids: string[]) {
 const blockIds = async (host: MemoryHost, path: string) =>
 	(parseNote(await host.readText(path)).note?.blocks ?? []).map((b) => b.id);
 
-const idOf = async (host: MemoryHost, path: string) =>
-	parseNote(await host.readText(path)).note?.header.noteId as string;
-
 /** Alpha on the left, Beta on the right, both read in. */
 async function side(s: Awaited<ReturnType<typeof setup>>) {
 	await seed(s.host, s.a, ["x", "y"]);
@@ -423,7 +423,7 @@ it("moves a block from one note into the note beside it, and shows both", async 
 	const s = await setup();
 	await side(s);
 	const outcome = await act(async () =>
-		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+		s.result.current.dropBlock(s.id(s.b), "x", s.id(s.a), {
 			after: "z",
 		}),
 	);
@@ -449,7 +449,7 @@ it("saves unsaved text in both notes before the move", async () => {
 	};
 	act(() => s.result.current.panes.left.session.editDoc(keep));
 	const outcome = await act(async () =>
-		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+		s.result.current.dropBlock(s.id(s.b), "x", s.id(s.a), {
 			after: null,
 		}),
 	);
@@ -460,30 +460,59 @@ it("saves unsaved text in both notes before the move", async () => {
 	expect(await s.host.readText(s.b)).toContain("x edited");
 });
 
-it("moves a block from a note onto a canvas and back into a note", async () => {
+it("moves an unsaved block through the canvas and a detached embedded note", async () => {
 	const s = await setup();
-	await seed(s.host, s.a, ["x", "y"]);
+	await seed(s.host, s.a, ["x"]);
+	await seed(s.host, s.b, ["z"]);
 	await s.run(() => s.result.current.open(s.a));
 	await s.run(() => s.result.current.open(s.board));
 	await s.run(() => s.result.current.moveTab(s.board, "right"));
 	await s.ready("left");
-	let outcome = await act(async () =>
-		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
-			x: 40,
-			y: 50,
-		}),
-	);
-	expect(outcome).toMatchObject({ ok: true });
-	expect(await blockIds(s.host, s.a)).toEqual(["y"]);
-	expect(
-		parseNote(await s.host.readText(s.board)).note?.blocks[0],
-	).toMatchObject({ id: "x", attrs: { x: 40, y: 50 } });
-	// And the canvas card's "move to note" sends it back into the left note.
-	outcome = await act(() => s.result.current.blockToNote("right", "x"));
-	expect(outcome).toMatchObject({ ok: true });
-	// "After nothing" means the end of the note.
-	expect(await blockIds(s.host, s.a)).toEqual(["y", "x"]);
-	expect(parseNote(await s.host.readText(s.board)).note?.blocks).toEqual([]);
+	const a = s.id(s.a),
+		b = s.id(s.b),
+		board = s.id(s.board);
+	const embed = s.result.current.documents?.subscribePassive(b, vi.fn());
+	const shown = s.result.current.documents?.subscribePassive(board, vi.fn());
+	await Promise.all([embed?.ready, shown?.ready]);
+	const draft = {
+		type: "doc",
+		content: [{ ...doc("Unsaved x").content[0], attrs: { id: "x" } }],
+	};
+	act(() => {
+		const session = s.result.current.panes.left.session;
+		session.editDoc(draft);
+		session.editTitle("Renamed Alpha");
+	});
+	const drop = (
+		target: string,
+		source: string,
+		placement: Parameters<typeof s.result.current.dropBlock>[3],
+	) =>
+		act(async () =>
+			expect(
+				await s.result.current.dropBlock(target, "x", source, placement),
+			).toMatchObject({ ok: true }),
+		);
+	await drop(board, a, { x: 40, y: 50 });
+	expect(shown?.current()?.draft?.blocks[0]).toMatchObject({
+		id: "x",
+		attrs: { x: 40, y: 50 },
+	});
+	const reposition = vi.spyOn(s.host, "writeTextAtomic");
+	await drop(board, board, { x: 80, y: 90 });
+	expect(reposition).toHaveBeenCalledTimes(1);
+	reposition.mockRestore();
+	await drop(b, board, { after: null, start: true });
+	expect(shown?.current()?.draft?.blocks).toEqual([]);
+	expect(embed?.current()?.draft?.blocks.map((block) => block.id)).toEqual([
+		"x",
+		"z",
+	]);
+	await drop(a, b, { after: null });
+	expect(await s.host.readText("Renamed Alpha.vnote")).toContain("Unsaved x");
+	expect(embed?.current()?.draft?.blocks.map((block) => block.id)).toEqual([
+		"z",
+	]);
 });
 
 it("works with the canvas on the left and the note on the right", async () => {
@@ -494,7 +523,7 @@ it("works with the canvas on the left and the note on the right", async () => {
 	await s.run(() => s.result.current.moveTab(s.b, "right"));
 	await s.ready("right");
 	const outcome = await act(async () =>
-		s.result.current.dropBlock("left", "z", await idOf(s.host, s.b), {
+		s.result.current.dropBlock(s.id(s.board), "z", s.id(s.b), {
 			x: 1,
 			y: 2,
 		}),
@@ -509,14 +538,15 @@ it("works with the canvas on the left and the note on the right", async () => {
 it("refuses when the source document is not one of the shown documents", async () => {
 	const s = await setup();
 	await side(s);
-	const outcome = await act(() =>
-		s.result.current.dropBlock("right", "x", "some-other-note", {
+	const outcome = await act(async () =>
+		s.result.current.dropBlock(s.id(s.b), "x", "some-other-note", {
 			after: null,
 		}),
 	);
 	expect(outcome).toEqual({
 		ok: false,
-		message: "Open the source note before moving this block.",
+		message:
+			"Open the source note before moving this block. It may be missing or read-only.",
 	});
 	expect(await blockIds(s.host, s.a)).toEqual(["x", "y"]);
 });
@@ -540,7 +570,7 @@ it("refuses to move a block when an unsaved note cannot be saved", async () => {
 		.spyOn(s.host, "writeTextAtomic")
 		.mockRejectedValue(new Error("disk full"));
 	const outcome = await act(async () =>
-		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
+		s.result.current.dropBlock(s.id(s.b), "x", s.id(s.a), {
 			after: null,
 		}),
 	);
@@ -552,28 +582,35 @@ it("refuses to move a block when an unsaved note cannot be saved", async () => {
 	expect(await blockIds(s.host, s.b)).toEqual(["z"]);
 });
 
-it("a failed move puts everything back and shows what is on disk", async () => {
-	const s = await setup();
-	await side(s);
-	const real = s.host.writeTextAtomic.bind(s.host);
-	const write = vi.spyOn(s.host, "writeTextAtomic");
-	write.mockImplementationOnce(real);
-	write.mockRejectedValueOnce(new Error("disk full"));
-	const outcome = await act(async () =>
-		s.result.current.dropBlock("right", "x", await idOf(s.host, s.a), {
-			after: null,
-		}),
-	);
-	write.mockRestore();
-	expect(outcome.ok).toBe(false);
-	expect(outcome.ok === false && outcome.message).toContain("was not moved");
-	expect(await blockIds(s.host, s.a)).toEqual(["x", "y"]);
-	expect(await blockIds(s.host, s.b)).toEqual(["z"]);
-	// The screen follows the disk, not the move that did not finish.
-	expect(
-		s.result.current.panes.right?.session.opened?.note?.blocks.map((b) => b.id),
-	).toEqual(["z"]);
-});
+it.each([false, true])(
+	"reconciles both views after a failed move (rollback fails: %s)",
+	async (partial) => {
+		const s = await setup();
+		await side(s);
+		const real = s.host.writeTextAtomic.bind(s.host);
+		const write = vi
+			.spyOn(s.host, "writeTextAtomic")
+			.mockImplementationOnce(real)
+			.mockRejectedValueOnce(new Error("disk full"));
+		if (partial) write.mockRejectedValueOnce(new Error("rollback failed"));
+		const outcome = await act(() =>
+			s.result.current.dropBlock(s.id(s.b), "x", s.id(s.a), { after: null }),
+		);
+		write.mockRestore();
+		expect(outcome.ok).toBe(false);
+		expect(outcome.ok === false && outcome.message).toContain(
+			partial ? "duplicate block" : "was not moved",
+		);
+		const target = partial ? ["z", "x"] : ["z"];
+		expect(await blockIds(s.host, s.a)).toEqual(["x", "y"]);
+		expect(await blockIds(s.host, s.b)).toEqual(target);
+		expect(
+			s.result.current.panes.right?.session.opened?.note?.blocks.map(
+				(b) => b.id,
+			),
+		).toEqual(target);
+	},
+);
 
 it("refuses every block move in a read-only vault", async () => {
 	const s = await setup(false);
@@ -603,10 +640,10 @@ it("copies on Option-drag and resolves a source tab after a mid-drag tab switch"
 	await s.run(() => s.result.current.open(s.a));
 	await s.run(() => s.result.current.open(s.b));
 	const alphaBefore = await s.host.readText(s.a);
-	const alphaId = await idOf(s.host, s.a);
+	const alphaId = s.id(s.a);
 	// Beta is active in the same pane after a spring-loaded tab switch; Option-drag copies x into Beta.
 	const copied = await act(async () =>
-		s.result.current.dropBlock("left", "x", alphaId, { after: "z" }, true),
+		s.result.current.dropBlock(s.id(s.b), "x", alphaId, { after: "z" }, true),
 	);
 	expect(copied).toEqual({ ok: true });
 	expect(await s.host.readText(s.a)).toBe(alphaBefore);
@@ -615,7 +652,9 @@ it("copies on Option-drag and resolves a source tab after a mid-drag tab switch"
 	expect(betaIds[1]).not.toBe("x");
 	// Normal drag without Option still moves x out of Alpha into Beta.
 	const moved = await act(async () =>
-		s.result.current.dropBlock("left", "x", alphaId, { after: "z" }),
+		s.result.current.dropBlock(s.id(s.b), "x", alphaId, {
+			after: "z",
+		}),
 	);
 	expect(moved).toMatchObject({ ok: true });
 	expect(await blockIds(s.host, s.a)).toEqual(["y"]);

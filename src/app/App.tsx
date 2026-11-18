@@ -1267,21 +1267,22 @@ export function App({ host }: { host: Host }) {
 	};
 
 	const dropBlock = async (
-		pane: PaneView,
+		destinationId: string,
 		blockId: string,
 		sourceId: string,
 		placement: Placement,
 		copy = false,
 	) => {
 		const result = await wsRef.current.dropBlock(
-			pane.id,
+			destinationId,
 			blockId,
 			sourceId,
 			placement,
 			copy,
 		);
-		if (!result.ok) throw new Error(result.message);
-		announceMove(result);
+		if (result.ok) announceMove(result);
+		else setError(result.message);
+		await refreshVault()?.catch((reason: unknown) => setError(String(reason)));
 	};
 
 	const reloadResources = useCallback(async () => {
@@ -1474,15 +1475,11 @@ export function App({ host }: { host: Host }) {
 			templates={{ host: vaultHost, onManage: () => setTemplatesOpen(true) }}
 			links={links}
 			locked={ws.moving}
-			onDropBlock={async (blockId, sourceId, slot, copy) => {
-				try {
-					await dropBlock(pane, blockId, sourceId, slot, copy);
-				} catch (reason) {
-					setError(reason instanceof Error ? reason.message : String(reason));
-				}
-				// The block may have left a canvas, whatever came of the move.
-				setCanvasKey((count) => count + 1);
-			}}
+			onDropBlock={
+				pane.session.opened?.note?.header.noteId
+					? dropBlock.bind(null, pane.session.opened.note.header.noteId)
+					: undefined
+			}
 		/>
 	);
 
@@ -1523,12 +1520,7 @@ export function App({ host }: { host: Host }) {
 				focusName={focusCanvas}
 				onFocusedName={() => setFocusCanvas(false)}
 				onIconSaved={onCanvasIconSaved}
-				onDropBlock={async (blockId, noteId, position, copy) => {
-					await dropBlock(pane, blockId, noteId, position, copy);
-					// Show the new card. A refused move throws first, and the canvas
-					// reloads itself and says why.
-					setCanvasKey((count) => count + 1);
-				}}
+				onDropBlock={dropBlock}
 				onMoveTo={(blockId) =>
 					setCardMove({ pane: pane.id, blockId, from: pane.active ?? "" })
 				}
@@ -1851,6 +1843,7 @@ export function App({ host }: { host: Host }) {
 								host={vaultHost}
 								links={links}
 								locked={ws.moving}
+								onDropBlock={dropBlock}
 							/>
 						)}
 						<NotePickerDialog

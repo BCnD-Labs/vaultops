@@ -2,6 +2,7 @@
 import {
 	act,
 	cleanup,
+	createEvent,
 	fireEvent,
 	render,
 	renderHook,
@@ -10,10 +11,12 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { Canvas } from "@/components/ui/canvas";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { type Note, serializeNote } from "../core/note-format";
 import type { EmbedTarget } from "../core/notes/canvas-embed";
 import { previewOf } from "../core/notes/scan";
+import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { blocksToDoc } from "../editor/doc-blocks";
 import { NoteEditor } from "../editor/NoteEditor";
 import { openNote } from "../editor/note-io";
@@ -99,6 +102,80 @@ it("shows the embedded note read-only, with its title", async () => {
 	expect(screen.queryByRole("textbox")).toBeNull();
 	expect(write).not.toHaveBeenCalled();
 });
+
+it.each([false, true])(
+	"routes a drop between embedded blocks ahead of the canvas (editing: %s)",
+	async (editing) => {
+		const host = await hostWithMeeting();
+		const route = vi.fn().mockResolvedValue(undefined);
+		const canvasDrop = vi.fn();
+		const label = (
+			<CanvasEmbed
+				documents={registry(host)}
+				host={host}
+				target={target}
+				onDropBlock={route}
+			/>
+		);
+		render(
+			<TooltipProvider>
+				<Canvas
+					nodes={[
+						{
+							id: "embed",
+							type: "item",
+							position: { x: 0, y: 0 },
+							data: { label },
+						},
+					]}
+					editable
+					onMove={vi.fn()}
+					onDropBlock={canvasDrop}
+				/>
+			</TooltipProvider>,
+		);
+		await screen.findByText("Ship the canvas");
+		const embed = screen.getByLabelText("Embedded note");
+		if (editing) {
+			fireEvent.doubleClick(embed);
+			await within(embed).findByLabelText("Note editor drop area");
+		}
+		const root = embed.querySelector(
+			editing ? ".ProseMirror > p" : ".canvas-embed-body > p",
+		);
+		if (!root) throw new Error("Missing rendered paragraph.");
+		vi.spyOn(root, "getBoundingClientRect").mockReturnValue(
+			new DOMRect(0, 100, 100, 40),
+		);
+		const dataTransfer = new DataTransfer();
+		dataTransfer.setData(
+			BLOCK_DRAG_TYPE,
+			JSON.stringify({ noteId: "board", blockId: "card" }),
+		);
+		for (const type of ["dragOver", "drop"] as const) {
+			const event = createEvent[type](root);
+			Object.defineProperties(event, {
+				clientY: { value: 105 },
+				altKey: { value: true },
+				dataTransfer: { value: dataTransfer },
+			});
+			fireEvent(root, event);
+			if (type === "dragOver") {
+				expect(within(embed).getByTestId("block-drop-indicator")).toBeTruthy();
+				expect(screen.queryByTestId("canvas-drop-placeholder")).toBeNull();
+			}
+		}
+		expect(route).toHaveBeenCalledWith(
+			row.id,
+			"card",
+			"board",
+			{ after: "p1", near: [], start: false },
+			true,
+		);
+		expect(canvasDrop).not.toHaveBeenCalled();
+		expect(within(embed).queryByTestId("block-drop-indicator")).toBeNull();
+	},
+);
 
 it.each(["note", "vault"])(
 	"cannot activate an embed with a read-only %s",

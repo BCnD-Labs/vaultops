@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { useInViewport } from "@/components/ui/use-in-viewport";
 import type { Block } from "../core/note-format";
 import type { EmbedTarget } from "../core/notes/canvas-embed";
+import type { DocumentDrop } from "../editor/block-drag";
 import { docToBlocks } from "../editor/doc-blocks";
-import { NoteEditor } from "../editor/NoteEditor";
+import { NoteEditor, type NoteEditorProps } from "../editor/NoteEditor";
 import type { OpenedNote } from "../editor/note-io";
 import type { LinkSource } from "../editor/note-link";
 import { useAutosave } from "../editor/useAutosave";
 import type { Host } from "../host/host";
-import { NoteBlocks } from "./CanvasCard";
+import { NoteBlocks, useNoteDrop } from "./CanvasCard";
 import type { LiveDocument, LiveDocuments } from "./live-documents";
 import type { NoteRow } from "./session";
 import { featureEnabled } from "./useFeature";
@@ -59,6 +60,7 @@ export function CanvasEmbed({
 	links,
 	locked = false,
 	onOpen,
+	onDropBlock,
 }: {
 	documents: LiveDocuments | null;
 	target: EmbedTarget<NoteRow>;
@@ -66,6 +68,7 @@ export function CanvasEmbed({
 	links?: LinkSource;
 	locked?: boolean;
 	onOpen?: (path: string) => void;
+	onDropBlock?: DocumentDrop;
 }) {
 	const row = target.status === "found" ? target.row : null;
 	const { ref, visible } = useInViewport();
@@ -99,9 +102,9 @@ export function CanvasEmbed({
 		if (!requested || !documents || !noteId || !canEdit) return;
 		let active = true;
 		let readOnly: boolean | undefined;
-		const binding = documents.subscribe({ noteId }, (document) => {
+		const binding = documents.subscribe({ noteId }, (document, reloaded) => {
 			if (binding.ownsEditor() && document.opened?.editable) {
-				if (readOnly !== document.readOnly)
+				if (reloaded || readOnly !== document.readOnly)
 					setEditing({
 						binding,
 						opened: document.opened,
@@ -182,12 +185,19 @@ export function CanvasEmbed({
 		};
 	}, [documents, noteId, path, readOnly, visible]);
 	const current = visible ? shown : undefined;
+	const drop =
+		noteId && canEdit && onDropBlock
+			? onDropBlock.bind(null, noteId)
+			: undefined;
+	const dropArea = useNoteDrop(current?.blocks ?? [], drop);
 	const title = current?.title ?? row?.title ?? "Embedded note";
 	const state = current ? "ready" : current === null ? "unreadable" : "loading";
 	return (
 		<article
 			ref={ref}
 			aria-label="Embedded note"
+			data-note-drop=""
+			{...dropArea.events}
 			className={`canvas-item canvas-embed${locked ? " canvas-item-pinned" : ""}${canEdit ? " nopan" : ""}${activeEditor ? " nodrag" : ""}`}
 			data-state={row ? state : target.status}
 			data-editing={!!activeEditor || undefined}
@@ -229,9 +239,14 @@ export function CanvasEmbed({
 					</Button>
 				)}
 			</header>
-			<div className="canvas-embed-body nowheel">
+			<div ref={dropArea.ref} className="canvas-embed-body relative nowheel">
 				{activeEditor && host ? (
-					<SharedNoteEditor host={host} links={links} {...activeEditor} />
+					<SharedNoteEditor
+						host={host}
+						links={links}
+						{...activeEditor}
+						onDropBlock={drop}
+					/>
 				) : !row ? (
 					<p className="canvas-embed-note">{WHY[target.status]}</p>
 				) : current ? (
@@ -239,6 +254,7 @@ export function CanvasEmbed({
 				) : current === null ? (
 					<p className="canvas-embed-note">This note could not be read.</p>
 				) : null}
+				{dropArea.indicator}
 			</div>
 		</article>
 	);
@@ -251,6 +267,7 @@ export function SharedNoteEditor({
 	opened,
 	readOnly,
 	focusOnAttach = true,
+	onDropBlock,
 }: {
 	host: Host;
 	links?: LinkSource;
@@ -258,6 +275,7 @@ export function SharedNoteEditor({
 	opened: OpenedNote;
 	readOnly: boolean;
 	focusOnAttach?: boolean;
+	onDropBlock?: NoteEditorProps["onDropBlock"];
 }) {
 	const { change } = useAutosave(host, opened, undefined, binding);
 	const draft = binding.current()?.editorDraft;
@@ -270,6 +288,7 @@ export function SharedNoteEditor({
 			links={links}
 			featureOn={featureEnabled}
 			focusOnAttach={focusOnAttach}
+			onDropBlock={!readOnly ? onDropBlock : undefined}
 			onChange={(doc) => {
 				const latest = binding.current();
 				if (readOnly || !latest || latest.readOnly || !binding.ownsEditor())

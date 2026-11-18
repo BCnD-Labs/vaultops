@@ -111,10 +111,12 @@ async function finishMove(
 	}
 }
 
+type ExpectedText = { source: string; destination: string };
+
 /**
  * Copy a block (and its descendants) from `source` into `destination` with
  * fresh, unique IDs. Only `destination` is written (atomically); `source` is
- * never written and stays byte-identical.
+ * never written and stays byte-identical. Returns the saved destination text.
  */
 export async function copyBlock(
 	host: Host,
@@ -123,8 +125,9 @@ export async function copyBlock(
 	blockId: string,
 	placement: Placement,
 	generateId: () => string = newBlockId,
-): Promise<void> {
-	await withMoveLocks(host, source, destination, () =>
+	expected?: ExpectedText,
+): Promise<string> {
+	return withMoveLocks(host, source, destination, () =>
 		moveNow(
 			host,
 			source,
@@ -132,6 +135,7 @@ export async function copyBlock(
 			blockId,
 			placement,
 			new Date(),
+			expected,
 			generateId,
 		),
 	);
@@ -150,9 +154,10 @@ export function moveBlock(
 	blockId: string,
 	placement: Placement,
 	now: Date = new Date(),
+	expected?: ExpectedText,
 ): Promise<MoveReceipt> {
 	return withMoveLocks(host, source, destination, () =>
-		moveNow(host, source, destination, blockId, placement, now),
+		moveNow(host, source, destination, blockId, placement, now, expected),
 	);
 }
 
@@ -164,8 +169,9 @@ async function moveNow(
 	blockId: string,
 	placement: Placement,
 	now: Date,
+	expected: ExpectedText | undefined,
 	copyId: () => string,
-): Promise<null>;
+): Promise<string>;
 async function moveNow(
 	host: Host,
 	source: string,
@@ -173,6 +179,7 @@ async function moveNow(
 	blockId: string,
 	placement: Placement,
 	now: Date,
+	expected?: ExpectedText,
 ): Promise<MoveReceipt>;
 async function moveNow(
 	host: Host,
@@ -181,8 +188,9 @@ async function moveNow(
 	blockId: string,
 	placement: Placement,
 	now: Date,
+	expected?: ExpectedText,
 	copyId?: () => string,
-): Promise<MoveReceipt | null> {
+): Promise<MoveReceipt | string> {
 	for (const path of [source, destination]) {
 		if (
 			!checkVaultPath(path).ok ||
@@ -193,6 +201,11 @@ async function moveNow(
 	}
 	const sourceText = await host.readText(source);
 	const destinationText = await host.readText(destination);
+	if (
+		expected &&
+		(sourceText !== expected.source || destinationText !== expected.destination)
+	)
+		throw new Error("A note changed on disk before the block could be moved.");
 	const from = parseNote(sourceText);
 	const to = parseNote(destinationText);
 	if (!from.note || !to.note || from.problems.length || to.problems.length)
@@ -243,7 +256,7 @@ async function moveNow(
 	)
 		throw new Error("A note changed while the block was being moved.");
 	await host.writeTextAtomic(destination, destinationSave.text);
-	if (copyId) return null;
+	if (copyId) return destinationSave.text;
 	await finishMove(
 		host,
 		{ path: destination, before: destinationText, after: destinationSave.text },

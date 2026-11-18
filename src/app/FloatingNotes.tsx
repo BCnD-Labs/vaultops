@@ -2,9 +2,10 @@ import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FloatingEditor } from "@/components/ui/floating-editor";
 import { resolveEmbed } from "../core/notes/canvas-embed";
+import type { DocumentDrop } from "../editor/block-drag";
 import type { LinkSource } from "../editor/note-link";
 import type { Host } from "../host/host";
-import { NoteBlocks } from "./CanvasCard";
+import { DroppableNoteBlocks } from "./CanvasCard";
 import { liveNoteSnapshot, SharedNoteEditor } from "./CanvasEmbed";
 import type { LiveDocuments } from "./live-documents";
 import type { NoteRow } from "./session";
@@ -21,6 +22,7 @@ type Vault = {
 	host: Host;
 	links: LinkSource;
 	locked: boolean;
+	onDropBlock?: DocumentDrop;
 };
 const chip = (target: EventTarget | null) =>
 	target instanceof Element
@@ -122,6 +124,7 @@ function FloatingNote({
 	host,
 	links,
 	locked,
+	onDropBlock,
 }: Vault & {
 	entry: Entry;
 	row?: NoteRow;
@@ -176,6 +179,7 @@ function FloatingNote({
 	}, [binding, canEdit, edit, id]);
 
 	const snapshot = liveNoteSnapshot(doc);
+	const drop = canEdit ? onDropBlock?.bind(null, id) : undefined;
 
 	return (
 		<FloatingEditor
@@ -214,9 +218,14 @@ function FloatingNote({
 						binding={binding}
 						opened={active.opened}
 						readOnly={active.readOnly}
+						onDropBlock={drop}
 					/>
 				) : snapshot ? (
-					<NoteBlocks blocks={snapshot.blocks} noteLinks />
+					<DroppableNoteBlocks
+						blocks={snapshot.blocks}
+						noteLinks
+						onDropBlock={drop}
+					/>
 				) : (
 					<p className="canvas-embed-note">
 						{found && !binding ? "Loading note…" : "This note is unavailable."}

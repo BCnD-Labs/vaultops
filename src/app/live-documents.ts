@@ -291,7 +291,10 @@ export function createLiveDocuments(
 		dispose() {
 			disposed = true;
 			for (const entry of entries.values()) {
-				entry.autosave?.dispose();
+				// Save anything still unsaved before stopping, as a pane switch
+				// always did, so replacing the registry never discards an edit.
+				const auto = entry.autosave;
+				if (auto) void auto.flush().finally(() => auto.dispose());
 				entry.subscribers.clear();
 			}
 			entries.clear();

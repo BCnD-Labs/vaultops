@@ -176,3 +176,23 @@ it("tracks canvases and respects a read-only vault", async () => {
 	});
 	expect(subscription.updateDraft(canvas)).toBe(false);
 });
+
+it("saves a pending draft when the registry is disposed instead of dropping it", async () => {
+	const host = new MemoryHost();
+	await host.writeTextAtomic(path, diskText);
+	const { openNote } = await import("../editor/note-io");
+	const { createAutosave } = await import("../editor/autosave");
+	const live = createLiveDocuments(
+		host,
+		{ notes, writable: true },
+		{ open: (p) => openNote(host, p), onSaved: () => {} },
+	);
+	const sub = live.subscribe({ path });
+	await sub.ready;
+	const save = vi.fn(async () => ({ ok: true as const }));
+	const auto = sub.autosave(() => createAutosave({ save, delayMs: 60_000 }));
+	expect(auto).not.toBeNull();
+	auto?.change({ doc: { type: "doc", content: [] }, title: "First" });
+	live.dispose();
+	await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+});

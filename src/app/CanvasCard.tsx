@@ -23,35 +23,38 @@ import { abandonLift, liftBlock } from "../editor/lift";
 import { MathField } from "../editor/MathField";
 import { latexOf } from "../editor/math-block";
 
-function inline(value: JsonValue | undefined): ReactNode {
+function inline(value: JsonValue | undefined, noteLinks?: boolean): ReactNode {
 	if (!Array.isArray(value)) return null;
 	return value.map((part) => {
 		if (!part || typeof part !== "object" || Array.isArray(part)) return null;
 		const text = typeof part.text === "string" ? part.text : "";
 		const marks = Array.isArray(part.marks) ? part.marks : [];
+		const raw = part.attrs;
+		const attrs =
+			raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
 		const date =
-			part.type === "date" &&
-			part.attrs &&
-			typeof part.attrs === "object" &&
-			!Array.isArray(part.attrs) &&
-			typeof part.attrs.date === "string"
-				? part.attrs.date
-				: "";
-		// A link on a canvas shows the name it was saved with; opening it is for notes.
+			part.type === "date" && typeof attrs?.date === "string" ? attrs.date : "";
 		const linkLabel =
-			part.type === "noteLink" &&
-			part.attrs &&
-			typeof part.attrs === "object" &&
-			!Array.isArray(part.attrs) &&
-			typeof part.attrs.label === "string"
-				? part.attrs.label
+			part.type === "noteLink" && typeof attrs?.label === "string"
+				? attrs.label
 				: "";
+		const previewId =
+			noteLinks && attrs?.kind === "note" && typeof attrs.target === "string"
+				? attrs.target
+				: undefined;
+		const Chip = previewId ? "button" : "span";
 		let content: ReactNode =
 			text ||
 			(part.type === "hardBreak" ? (
 				<br />
 			) : linkLabel ? (
-				<span className="note-link-chip">{linkLabel}</span>
+				<Chip
+					className="note-link-chip"
+					type={previewId ? "button" : undefined}
+					data-preview-note={previewId}
+				>
+					{linkLabel}
+				</Chip>
 			) : date ? (
 				<time className="date-chip" dateTime={date}>
 					{date}
@@ -88,11 +91,17 @@ function codeText(value: JsonValue | undefined): string {
 		.join("");
 }
 
-function renderBlock(block: Block, children: Map<string, Block[]>): ReactNode {
+function renderBlock(
+	block: Block,
+	children: Map<string, Block[]>,
+	noteLinks?: boolean,
+): ReactNode {
 	const nested = (children.get(block.id ?? "") ?? []).map((child) => (
-		<Fragment key={child.id}>{renderBlock(child, children)}</Fragment>
+		<Fragment key={child.id}>
+			{renderBlock(child, children, noteLinks)}
+		</Fragment>
 	));
-	const content = inline(block.content);
+	const content = inline(block.content, noteLinks);
 	switch (block.type) {
 		case "heading":
 			return <strong className="canvas-heading">{content}</strong>;
@@ -307,7 +316,13 @@ function childrenOf(blocks: Block[]): Map<string, Block[]> {
 }
 
 /** The root blocks of a note, drawn read-only, in file order. */
-export function NoteBlocks({ blocks }: { blocks: Block[] }) {
+export function NoteBlocks({
+	blocks,
+	noteLinks,
+}: {
+	blocks: Block[];
+	noteLinks?: boolean;
+}) {
 	const children = childrenOf(blocks);
 	return (
 		<>
@@ -315,7 +330,7 @@ export function NoteBlocks({ blocks }: { blocks: Block[] }) {
 				.filter((block) => block.parent === null)
 				.map((block, index) => (
 					<Fragment key={block.id ?? index}>
-						{renderBlock(block, children)}
+						{renderBlock(block, children, noteLinks)}
 					</Fragment>
 				))}
 		</>

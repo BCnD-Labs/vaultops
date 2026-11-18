@@ -6,16 +6,20 @@ import {
 	render,
 	renderHook,
 	screen,
+	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { type Note, serializeNote } from "../core/note-format";
 import type { EmbedTarget } from "../core/notes/canvas-embed";
 import { previewOf } from "../core/notes/scan";
 import { blocksToDoc } from "../editor/doc-blocks";
+import { NoteEditor } from "../editor/NoteEditor";
 import { openNote } from "../editor/note-io";
 import { MemoryHost } from "../host/memory-host";
 import { CanvasEmbed } from "./CanvasEmbed";
+import { FloatingNotes } from "./FloatingNotes";
 import { createLiveDocuments } from "./live-documents";
 import type { NoteRow } from "./session";
 import { useNoteSession } from "./useNoteSession";
@@ -24,6 +28,7 @@ beforeEach(() => vi.stubGlobal("IntersectionObserver", undefined));
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	vi.useRealTimers();
 });
 
 const meeting: Note = {
@@ -72,10 +77,10 @@ async function hostWithMeeting() {
 	return host;
 }
 
-function registry(host: MemoryHost) {
+function registry(host: MemoryHost, writable = true) {
 	return createLiveDocuments(
 		host,
-		{ notes: [target.row], writable: true },
+		{ notes: [target.row], writable },
 		{
 			open: (path, text) => openNote(host, path, text),
 			onSaved: vi.fn(),
@@ -279,4 +284,123 @@ it("shares one read across fifty visible copies and shows unsaved pane edits pas
 	);
 	view.unmount();
 	expect(subscriptions.every((sub) => sub.current() === null)).toBe(true);
+});
+
+const link = {
+	type: "noteLink",
+	attrs: { kind: "note", target: row.id ?? "", label: "Meeting link" },
+};
+const tick = (ms = 0) =>
+	act(async () => {
+		await vi.advanceTimersByTimeAsync(ms);
+	});
+const floating = () => screen.getByRole("dialog");
+async function floatSetup(writable: boolean) {
+	const host = await hostWithMeeting();
+	if (!writable)
+		await host.writeTextAtomic(
+			row.path,
+			serializeNote({
+				...meeting,
+				blocks: [
+					{ id: "p3", type: "paragraph", parent: null, content: [link] },
+				],
+			}),
+		);
+	const documents = registry(host, writable);
+	const links = {
+		describe: () => "Meeting link",
+		search: () => [],
+		open: vi.fn(),
+	};
+	vi.useFakeTimers();
+	render(
+		<TooltipProvider>
+			<NoteEditor
+				editable
+				doc={{ type: "doc", content: [{ type: "paragraph", content: [link] }] }}
+				links={links}
+				onChange={vi.fn()}
+			/>
+			<FloatingNotes
+				documents={documents}
+				host={host}
+				links={links}
+				locked={false}
+				notes={[row]}
+			/>
+			<CanvasEmbed documents={documents} target={target} host={host} />
+		</TooltipProvider>,
+	);
+	await tick(10);
+	return {
+		host,
+		documents,
+		chip: screen.getByRole("button", { name: "Meeting link" }),
+	};
+}
+
+it("transfers the editor out of an embed and keeps the draft after closing the floating note", async () => {
+	const { chip, documents, host } = await floatSetup(true);
+	const embed = screen.getByLabelText("Embedded note");
+	fireEvent.doubleClick(embed);
+	await tick(20);
+	const original = embed.querySelector(".tiptap");
+	expect(original).toBeTruthy();
+	fireEvent.pointerOver(chip);
+	await tick(399);
+	expect(screen.queryByRole("dialog")).toBeNull();
+	await tick(1);
+	expect(floating().querySelector(".tiptap")).toBeNull();
+
+	chip.focus();
+	fireEvent.keyDown(chip, { key: "Enter", altKey: true });
+	const pin = within(floating()).getByRole("button", { name: "Pin window" });
+	expect(document.activeElement).toBe(pin);
+	fireEvent.keyDown(pin, { key: "Tab", shiftKey: true });
+	expect(document.activeElement?.textContent).toBe("Edit note");
+	fireEvent.pointerOut(chip, { relatedTarget: document.body });
+	await tick(300);
+	expect(floating()).toBeTruthy();
+
+	chip.focus();
+	fireEvent.keyDown(chip, { key: "Enter" });
+	await tick(20);
+	const entry = documents.subscribe({ path: row.path });
+	await entry.ready;
+	const editor = entry.editorSlot?.editor;
+	if (!editor) throw new Error("The floating editor did not attach.");
+	expect(editor.view.dom).toBe(original);
+	expect(editor.view.dom).toBe(document.activeElement);
+	expect(embed.querySelector(".tiptap")).toBeNull();
+	act(() => {
+		editor.commands.insertContent("Keep this draft ");
+	});
+	editor.view.dom.blur();
+	await tick(300);
+	expect(floating().contains(editor.view.dom)).toBe(true);
+	fireEvent.keyDown(floating(), { key: "Escape" });
+	await tick(20);
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(document.activeElement).toBe(chip);
+	await documents.flushAll();
+	expect(await host.readText(row.path)).toContain("Keep this draft");
+	entry.unsubscribe();
+	documents.dispose();
+});
+
+it("keeps a read-only preview passive and limits nested windows to three", async () => {
+	const { chip, documents } = await floatSetup(false);
+	fireEvent.keyDown(chip, { key: "Enter" });
+	await tick(20);
+	for (let i = 0; i < 3; i++) {
+		const panel = screen.getAllByRole("dialog").at(-1) as HTMLElement;
+		fireEvent.pointerOver(
+			within(panel).getByRole("button", { name: "Meeting link" }),
+		);
+		await tick(410);
+	}
+	expect(screen.getAllByRole("dialog")).toHaveLength(3);
+	expect(document.querySelector(".floating-editor .tiptap")).toBeNull();
+	documents.dispose();
 });

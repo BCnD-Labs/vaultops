@@ -44,7 +44,7 @@ import type { Host } from "../host/host";
 import { notify } from "../ui/notify";
 import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import type { NoteRow } from "./session";
-import { templateFormats } from "./settings";
+import { templateFormats, templateWeekStart } from "./settings";
 import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
 import { featureEnabled } from "./useFeature";
 import { useRovingList } from "./useRovingList";
@@ -198,6 +198,7 @@ export function TemplateManager({
 			context?.title ?? "Untitled",
 			new Date(),
 			templateFormats(),
+			templateWeekStart(),
 		);
 		setPreview(blocksToDoc(filled));
 		setPreviewKey((n) => n + 1);

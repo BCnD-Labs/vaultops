@@ -97,7 +97,7 @@ export function AddTypeDialog({
 								key={s.label}
 								type="button"
 								size="sm"
-								variant="outline"
+								variant="secondary"
 								aria-pressed={picked.has(s.label)}
 								onClick={() => {
 									const next = new Set(picked);

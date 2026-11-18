@@ -1782,7 +1782,7 @@ span.note-link-chip:hover {
 	font-size: var(--font-size-small);
 }
 .image-viewer img {
-	max-width: 88vw;
+	max-width: min(88vw, 100%);
 	max-height: 86vh;
 	margin: auto;
 	object-fit: contain;

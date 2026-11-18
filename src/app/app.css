@@ -83,8 +83,10 @@ body {
 
 .debug-panel-bar {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 12px;
 	align-items: center;
+	padding-inline-end: var(--control-height-sm);
 }
 
 .debug-panel-summary {
@@ -114,11 +116,13 @@ body {
 }
 
 .crash-report-box {
+	position: relative;
+	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	width: min(720px, calc(100vw - 48px));
-	max-height: calc(100vh - 48px);
+	width: min(720px, calc(100% - 48px));
+	max-height: calc(100% - 48px);
 	padding: 16px;
 	overflow: auto;
 	background: var(--panel);
@@ -127,6 +131,11 @@ body {
 	border-radius: var(--radius-container);
 	box-shadow: var(--elevation-3);
 	font-size: var(--font-size-ui);
+	overflow-wrap: anywhere;
+}
+
+.crash-report-box h2 {
+	padding-inline-end: var(--control-height-sm);
 }
 
 .crash-report-box h2,
@@ -188,7 +197,6 @@ body {
 }
 
 [data-slot="button"] {
-	position: relative;
 	overflow: hidden;
 }
 [data-slot="button"]::after {
@@ -749,8 +757,12 @@ select {
 
 /* The dim behind a dialog is a dark veil, not the theme's text color (which is
    white in dark themes and made the whole window flash light). */
-[data-slot="dialog-overlay"] {
+:is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"]) {
 	background: color-mix(in srgb, black 50%, transparent);
+}
+
+[data-slot="dialog-content"]:has(> .dialog-close) [data-slot="dialog-header"] {
+	padding-inline-end: var(--control-height-sm);
 }
 
 /* After a block moves: a quiet line with Undo, not a warning. */

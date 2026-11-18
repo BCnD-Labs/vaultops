@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { type Backlink, backlinks } from "../core/links/links";
 import {
@@ -389,18 +390,18 @@ export function ResourceManager({
 				<div className="res-toolbar">
 					<Input
 						aria-label="Search resources"
-						placeholder="Search names, emails, authors, extra properties"
+						placeholder="Search resources"
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
 					/>
 					<Button
-						size="sm"
+						variant="outline"
 						disabled={!canWrite}
 						onClick={() => guard(() => setMode("pick"))}
 					>
 						<Plus aria-hidden="true" /> New resource
 					</Button>
-					<span className="res-hint">Cards are not notes.</span>
+					<Chip>Cards are not notes.</Chip>
 				</div>
 				{!writable && (
 					<p className="res-note">
@@ -457,15 +458,17 @@ export function ResourceManager({
 								{...typeList.itemProps("none")}
 							/>
 						)}
-						<button
+						<Button
 							type="button"
-							className="res-row res-add"
+							variant="ghost"
+							size="sm"
+							className="self-start"
 							disabled={!canWrite}
 							onClick={() => setTypeDialog(true)}
 							{...(canWrite ? typeList.itemProps("+add") : {})}
 						>
-							+ Add type
-						</button>
+							<Plus aria-hidden="true" /> Add type
+						</Button>
 					</nav>
 					<CardList
 						rows={rows}

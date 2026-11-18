@@ -286,6 +286,7 @@
 .plan-dialog-head {
 	display: flex;
 	flex-direction: row;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-2);
@@ -303,6 +304,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--space-2);
+	min-width: 0;
 	margin: 0;
 	padding: 0;
 	border: 0;
@@ -315,6 +317,7 @@
 .plan-priority-radios {
 	display: inline-flex;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: var(--space-1);
 	padding: 2px;
 	border: var(--border-width) solid var(--line);
@@ -345,10 +348,16 @@
 .plan-date-preview {
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);
-	white-space: nowrap;
 }
 .plan-date-preview.is-invalid {
 	color: var(--destructive);
+}
+
+@media (max-width: 30rem) {
+	.plan-date-row,
+	.plan-date-input-wrap {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 
 /* Calendar */
@@ -704,6 +713,14 @@
 .planner-stack .plan-card-head h2 {
 	display: none;
 }
+.planner-stack .plan-log .plan-card-head {
+	flex-wrap: wrap;
+	padding-block: var(--space-1);
+}
+.planner-stack .plan-log .plan-sub {
+	flex: 1 0 max-content;
+	max-width: 100%;
+}
 .planner-side .plan-list {
 	max-height: 18rem;
 }
@@ -847,7 +864,7 @@
 	cursor: pointer;
 }
 .plan-event-row:hover {
-	background: var(--hover-layer);
+	background: var(--muted);
 }
 /* Selected: the same soft tint and primary edge as a pressed button. */
 .plan-event-row.is-selected {
@@ -1093,16 +1110,14 @@
 	flex-direction: column;
 	gap: var(--space-2);
 }
-/* Three slots on one row: empty until done, then green with a check. */
+/* Keep the slot names visible even when the sidebar is narrow. */
 .plan-checkin-slots {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+	display: flex;
+	flex-wrap: wrap;
 	gap: var(--space-1);
 }
 .plan-checkin-slot {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	flex: 1 0 auto;
 }
 .plan-checkin-slot svg {
 	width: 12px;

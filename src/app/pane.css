@@ -1352,10 +1352,9 @@ input.canvas-item-field {
 /* Settings window, like another window over the app: a section list on the
    left, the chosen section on the right, each scrolling on its own. */
 .settings-dialog {
-	box-sizing: border-box;
-	width: min(1040px, calc(100vw - 64px));
-	max-width: none;
-	height: min(760px, calc(100vh - 64px));
+	width: 1040px;
+	max-width: calc(100% - var(--space-8));
+	height: 760px;
 	padding: 0;
 	gap: 0;
 	overflow: hidden;
@@ -1383,12 +1382,10 @@ input.canvas-item-field {
 	font-weight: 500;
 	color: var(--muted-foreground);
 }
-/* The title bar's close button: only its place here, the look is the shared
-   Button (ghost, icon-sm). The selector is strong enough to win over the
-   settings window's outlined button rule below. */
+/* The managers and Settings place the shared close button in their title bars. */
 .settings-titlebar [data-slot="button"].settings-close {
 	position: absolute;
-	left: 10px;
+	right: 10px;
 	top: 50%;
 	translate: 0 -50%;
 	height: var(--control-height-sm);

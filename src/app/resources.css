@@ -1,6 +1,6 @@
 /* The resource manager: a compact index in a modal, like the template manager.
    The window itself (size, title bar, padding) is `.manager-dialog` in
-   templates.css, shared by both managers. */
+   manager.css, shared by both managers. */
 .res-toolbar {
 	display: flex;
 	flex-wrap: wrap;
@@ -8,14 +8,14 @@
 	gap: var(--space-2);
 }
 .res-toolbar input {
-	flex: 1 1 14rem;
+	flex: 1 1 12rem;
 	max-width: 24rem;
-	height: var(--control-height);
 }
 .res-body {
 	display: grid;
-	grid-template-columns: 10.5rem 17.5rem minmax(0, 1fr);
+	grid-template-columns: minmax(0, 10.5rem) minmax(0, 17.5rem) minmax(0, 1fr);
 	min-height: 0;
+	overflow-wrap: anywhere;
 	border: var(--border-width) solid var(--border);
 	border-radius: var(--radius-container);
 	overflow: hidden;
@@ -70,15 +70,6 @@
 .res-row:focus-visible {
 	outline: var(--focus-ring-width) solid var(--ring, currentColor);
 	outline-offset: 1px;
-}
-.res-add {
-	margin-top: var(--space-2);
-	color: var(--accent-foreground, inherit);
-	font-weight: 600;
-}
-.res-add:disabled {
-	opacity: 0.5;
-	cursor: default;
 }
 .res-list-head {
 	display: flex;
@@ -255,6 +246,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--space-2);
+	min-width: 0;
 	margin: 0;
 	padding: 0;
 	border: 0;
@@ -284,6 +276,35 @@
 .res-choice-text {
 	display: flex;
 	flex-direction: column;
+}
+
+@media (max-width: 48rem) {
+	.res-body {
+		grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+		grid-template-rows: auto minmax(0, 1fr);
+	}
+	.res-types {
+		grid-column: 1 / -1;
+		flex-flow: row wrap;
+		align-items: flex-start;
+		max-height: min(8rem, 25vh);
+		border-right: 0;
+		border-bottom: var(--border-width) solid var(--border);
+	}
+	.res-types .res-row {
+		width: auto;
+	}
+}
+
+@media (max-width: 34rem) {
+	.res-body {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto minmax(0, 1fr) minmax(0, 2fr);
+	}
+	.res-list {
+		border-right: 0;
+		border-bottom: var(--border-width) solid var(--border);
+	}
 }
 
 .res-mentions {

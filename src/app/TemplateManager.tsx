@@ -617,7 +617,7 @@ export function TemplateManager({
 					<div className="tpl-side">
 						<Input
 							aria-label="Search templates by name or path"
-							placeholder="Search templates by name or path"
+							placeholder="Search templates"
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 						/>

@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { serializeNote } from "../core/note-format";
 import { createNote, loadNote } from "../core/notes/repository";
 import { MemoryHost } from "../host/memory-host";
 import { App } from "./App";
@@ -66,7 +67,48 @@ it("renames the open note through its own title: it saves and its tab follows", 
 	expect(
 		(screen.getByRole("textbox", { name: "Title" }) as HTMLInputElement).value,
 	).toBe("Final essay");
+	expect(screen.getByRole("tab", { name: "Final essay" })).toBeTruthy();
 });
+
+it.each(["clean", "dirty", "renamed"] as const)(
+	"revalidates a %s note on refocus",
+	async (state) => {
+		const { host, essay, title } = await setup();
+		if (state === "dirty")
+			fireEvent.change(title, { target: { value: "Draft" } });
+		if (state === "renamed") await host.move(essay.path, "Moved.vnote");
+		else {
+			essay.note.header.title = "Disk version";
+			await host.writeTextAtomic(essay.path, serializeNote(essay.note));
+		}
+		fireEvent.focus(window);
+		if (state === "dirty") {
+			expect(await screen.findByText(/changed on disk/)).toBeTruthy();
+			expect(title.value).toBe("Draft");
+			expect(await host.readText(essay.path)).toContain("Disk version");
+		} else if (state === "renamed") {
+			await waitFor(() =>
+				expect(
+					screen.getByRole("tab", { name: "Essay" }).getAttribute("data-path"),
+				).toBe("Moved.vnote"),
+			);
+			fireEvent.change(screen.getByRole("textbox", { name: "Title" }), {
+				target: { value: "Next title" },
+			});
+			fireEvent.blur(window);
+			await waitFor(async () =>
+				expect(await host.kindOf("Next title.vnote")).toBe("file"),
+			);
+		} else {
+			await waitFor(() =>
+				expect(screen.getByRole("textbox", { name: "Title" })).toHaveProperty(
+					"value",
+					"Disk version",
+				),
+			);
+		}
+	},
+);
 
 it("renames a note that is not open on disk", async () => {
 	const user = userEvent.setup();

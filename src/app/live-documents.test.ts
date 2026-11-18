@@ -149,10 +149,12 @@ it("retains a detached draft and clears its editor owner when the owner leaves",
 			saveStatus: { kind: "dirty" },
 			editorOwner: expect.any(Symbol),
 		}),
+		false,
 	);
 	editing.unsubscribe();
 	expect(observe).toHaveBeenLastCalledWith(
 		expect.objectContaining({ editorOwner: null }),
+		false,
 	);
 	watching.unsubscribe();
 	expect(await live.subscribe({ path }).ready).toMatchObject({

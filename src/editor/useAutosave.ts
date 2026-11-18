@@ -13,12 +13,12 @@ import { tagsOf } from "../core/notes/tags";
 import { searchFieldsOf } from "../core/search/fields";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
-import { READ_ONLY_VAULT_MESSAGE } from "../host/read-only-host";
 import {
 	type Autosave,
 	type AutosaveOptions,
 	type AutosaveState,
 	createAutosave,
+	type SaveResult,
 } from "./autosave";
 import type { OpenedNote } from "./note-io";
 import { type Draft, saveDraft } from "./save-draft";
@@ -46,7 +46,10 @@ export interface SavedInfo {
 
 type Written = (note: OpenedNote, draft: Draft, info: SavedInfo) => void;
 export interface DraftAutosaveOwner {
-	canWrite(): boolean;
+	write(
+		host: Host,
+		save: (host: Host, base: OpenedNote) => Promise<SaveResult>,
+	): Promise<SaveResult>;
 	autosave(
 		create: (written: Written) => Autosave<Draft>,
 	): Autosave<Draft> | null;
@@ -100,16 +103,10 @@ export function useAutosave(
 		}
 		let note: OpenedNote = opened;
 		let written: Written = (_, _draft, info) => savedRef.current?.(info);
-		const options: AutosaveOptions<Draft> = {
-			save: async (draft) => {
-				if (owner && !owner.canWrite())
-					return {
-						ok: false,
-						message: READ_ONLY_VAULT_MESSAGE,
-						conflict: true,
-					};
+		function write(host: Host, base: OpenedNote) {
+			return async (draft: Draft): Promise<SaveResult> => {
 				const started = performance.now();
-				const result = await saveDraft(host, note, draft);
+				const result = await saveDraft(host, base, draft);
 				const logger = getLogger();
 				const ms = Math.round(performance.now() - started);
 				if (!result.ok) {
@@ -133,11 +130,12 @@ export function useAutosave(
 					detail: { renamed: result.titleChanged },
 				});
 				// Build the next save on what was just written, at its new path.
-				const oldPath = note.path;
+				const oldPath = base.path;
 				note = {
-					...note,
+					...base,
 					path: result.path,
 					note: result.note,
+					doc: draft.doc,
 					baseText: result.text,
 				};
 				written(note, draft, {
@@ -157,7 +155,13 @@ export function useAutosave(
 					...(result.notice ? { notice: result.notice } : {}),
 				});
 				return { ok: true };
-			},
+			};
+		}
+		const options: AutosaveOptions<Draft> = {
+			save: (draft) =>
+				owner
+					? owner.write(host, (host, base) => write(host, base)(draft))
+					: write(host, note)(draft),
 		};
 		const auto = owner
 			? owner.autosave((publish) => {

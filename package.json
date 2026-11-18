@@ -80,6 +80,7 @@
 		"lowlight": "^3.3.0",
 		"lucide-react": "^1.72.0",
 		"mathlive": "^0.111.4",
+		"mermaid": "^11.17.2",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",
 		"react-resizable-panels": "^4.22.0",

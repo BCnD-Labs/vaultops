@@ -5,7 +5,6 @@ import { headerIcon } from "../core/notes/icon";
 import { type OutlineItem, outlineOf } from "../core/notes/outline";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { type TextStats, textStats } from "../core/notes/text-stats";
-import { buildRecoveryText } from "../core/session/recovery";
 import { getLogger } from "../debug/index";
 import {
 	lockedForReadOnlyVault,
@@ -25,6 +24,8 @@ type Binding = ReturnType<LiveDocuments["subscribe"]>;
 
 // How long writing must pause before the status bar recounts.
 const STATS_DELAY_MS = 300;
+export const UNSAVED_NOTE_MESSAGE =
+	"This note is not saved yet. Retry saving before leaving it.";
 
 export interface NoteSessionOptions {
 	/** The host saves go through (the vault host, which refuses writes when read-only). */
@@ -32,15 +33,13 @@ export interface NoteSessionOptions {
 	/** False when the vault is read-only: the note is shown locked. */
 	writable: boolean;
 	documents: () => LiveDocuments | null;
-	/** Called with a message when leaving the note was refused because it is unsaved. */
+	/** Called when this note's session could not settle. */
 	onUnsaved: (message: string) => void;
 }
 
 /**
  * Everything about one live note: the note itself, its title, properties and
- * document, the counts the status bar shows, autosave, and what the quit guard
- * needs to keep unsaved text. The window owns one today; the workspace will own
- * one per note that is shown, so nothing here may reach for window state.
+ * document, the counts the status bar shows, and controls for its autosave.
  */
 export function useNoteSession({
 	host,
@@ -75,8 +74,6 @@ export function useNoteSession({
 			openedNote && !writable ? lockedForReadOnlyVault(openedNote) : openedNote,
 		[openedNote, writable],
 	);
-	const openedRef = useRef(opened);
-	openedRef.current = opened;
 
 	// Typing only schedules a recount, so a long note is counted once the
 	// writing pauses, never on every key.
@@ -99,13 +96,10 @@ export function useNoteSession({
 	const autosave = useAutosave(host, opened, undefined, binding);
 	const { flush } = autosave;
 
-	// Leaving a note (open another, change vault) first saves it; if that
-	// fails the note stays open so nothing typed is lost.
+	/** Save just this note before changing tabs. */
 	const settle = useCallback(async () => {
 		if (await flush()) return true;
-		unsavedCallback.current(
-			"This note is not saved yet. Retry saving before leaving it.",
-		);
+		unsavedCallback.current(UNSAVED_NOTE_MESSAGE);
 		return false;
 	}, [flush]);
 
@@ -223,6 +217,7 @@ export function useNoteSession({
 	};
 
 	const editProps = (next: NoteProps) => {
+		if (!opened?.editable) return;
 		propsRef.current = next;
 		setProps(next);
 		if (docRef.current)
@@ -230,32 +225,19 @@ export function useNoteSession({
 	};
 
 	const editTitle = (next: string) => {
+		if (!opened?.editable) return;
 		titleRef.current = next;
 		setTitle(next);
 		if (docRef.current) autosave.change(draftOf(docRef.current, next), opened);
 	};
 
 	const editDoc = (doc: JSONContent) => {
+		if (!opened?.editable) return;
 		docRef.current = doc;
 		refreshStats();
 		getLogger().count("edits");
 		autosave.change(draftOf(doc, titleRef.current), opened);
 	};
-
-	/**
-	 * The unsaved text as recovery-file text, or null when no note is on screen
-	 * (a note that was put away was saved first, and its old text is not kept).
-	 */
-	const recoveryText = useCallback((now: Date) => {
-		const doc = docRef.current;
-		if (!doc || openedRef.current === null) return null;
-		return buildRecoveryText({
-			path: livePathRef.current,
-			title: titleRef.current,
-			doc,
-			now,
-		});
-	}, []);
 
 	return {
 		/** The note on screen, locked when the vault is read-only. */
@@ -298,7 +280,6 @@ export function useNoteSession({
 		editProps,
 		editTitle,
 		editDoc,
-		recoveryText,
 	};
 }
 

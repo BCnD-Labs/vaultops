@@ -4,6 +4,7 @@ import { expect, it, vi } from "vitest";
 import { parseNote, serializeNote } from "../core/note-format";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { NEW_TAB } from "../core/workspace";
+import { createQuitGuard } from "../editor/quit";
 import { MemoryHost } from "../host/memory-host";
 import { loadVault } from "./session";
 import { useWorkspaceHost } from "./useWorkspaceHost";
@@ -29,15 +30,17 @@ async function setup(writable = true) {
 	const onSaved = vi.fn();
 	const onUnsaved = vi.fn();
 	const onError = vi.fn();
-	const hook = renderHook(() =>
-		useWorkspaceHost({
-			host,
-			writable,
-			isCanvas: (path) => path === board,
-			onSaved,
-			onUnsaved,
-			onError,
-		}),
+	const hook = renderHook(
+		({ writable }) =>
+			useWorkspaceHost({
+				host,
+				writable,
+				isCanvas: (path) => path === board,
+				onSaved,
+				onUnsaved,
+				onError,
+			}),
+		{ initialProps: { writable } },
 	);
 	const run = (command: () => Promise<boolean>) =>
 		act(async () => {
@@ -176,7 +179,7 @@ it("saves the latest edits after a note changes panes during a write", async () 
 		left.editTitle("First title");
 		left.editCover("attachments/cover.png");
 	});
-	const firstSave = left.flush();
+	const firstSave = result.current.flushAll();
 	try {
 		await waitFor(() =>
 			expect(host.writeTextAtomic).toHaveBeenCalledWith(a, expect.any(String)),
@@ -259,7 +262,7 @@ it("restores each pane's tabs, showing the first of each", async () => {
 	expect(result.current.workspace.left.tabs).toEqual([a, c]);
 });
 
-it("an empty tab shows no note; recovery text covers only open notes", async () => {
+it("an empty tab shows no note and adds nothing to recovery", async () => {
 	const { result, a, run, ready } = await setup();
 	expect(result.current.recoveryTexts(new Date())).toEqual([]);
 	await run(() => result.current.open(a));
@@ -273,6 +276,53 @@ it("an empty tab shows no note; recovery text covers only open notes", async () 
 		expect(result.current.panes.left.session.opened).toBeNull(),
 	);
 	expect(result.current.recoveryTexts(new Date())).toEqual([]);
+});
+
+it("blocks quit on a detached failed write and recovers it once", async () => {
+	const { result, host, a, b, ready, run, rerender } = await setup();
+	await run(() => result.current.open(a));
+	await ready("left");
+	const write = vi
+		.spyOn(host, "writeTextAtomic")
+		.mockRejectedValue(new Error("disk full"));
+	const session = result.current.panes.left.session;
+	act(() => {
+		session.editTitle("Unsaved title");
+		session.editProps({ owner: "Draft owner" });
+		session.editDoc(doc("Detached body"));
+	});
+	await act(async () => expect(await session.flush()).toBe(false));
+	act(() => result.current.restoreFrom({ left: [b], right: [] }));
+	await ready("left");
+	let recovery = "";
+	const close = createQuitGuard(result.current.flushAll, async () => {
+		recovery = result.current.recoveryText(new Date());
+		return true;
+	});
+	await act(async () => {
+		expect(await close()).toBe(false);
+		const pick = vi.fn(async () => "Another vault");
+		expect(await result.current.chooseVault(pick)).toBe(false);
+		expect(pick).not.toHaveBeenCalled();
+		expect(await close()).toBe(true);
+	});
+	expect(recovery.match(/note: Alpha\.vnote/g)).toHaveLength(1);
+	expect(recovery).toContain("title: Unsaved title");
+	expect(recovery).toContain('properties: {"owner":"Draft owner"}');
+	expect(recovery).toContain("Detached body");
+	expect(recovery).not.toContain("Beta.vnote");
+
+	write.mockRestore();
+	rerender({ writable: false });
+	expect(result.current.panes.left.session.opened?.editable).toBe(false);
+	await act(async () => expect(await result.current.flushAll()).toBe(false));
+	expect(result.current.recoveryText(new Date())).toContain("Detached body");
+	rerender({ writable: true });
+	act(() => window.dispatchEvent(new Event("blur")));
+	await waitFor(() =>
+		expect(result.current.recoveryTexts(new Date())).toEqual([]),
+	);
+	expect(await host.readText("Unsaved title.vnote")).toContain("Detached body");
 });
 
 // Block moves between any two shown documents.

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { parseNote } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import {
@@ -28,8 +35,13 @@ import {
 import { openNote } from "../editor/note-io";
 import type { SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
+import { READ_ONLY_VAULT_MESSAGE, readOnlyHost } from "../host/read-only-host";
 import { createLiveDocuments, type LiveDocuments } from "./live-documents";
-import { type NoteSession, useNoteSession } from "./useNoteSession";
+import {
+	type NoteSession,
+	UNSAVED_NOTE_MESSAGE,
+	useNoteSession,
+} from "./useNoteSession";
 
 export type PaneKind = "note" | "canvas" | "empty" | "none";
 
@@ -49,7 +61,7 @@ export interface PaneView {
 }
 
 export interface WorkspaceHostOptions {
-	/** The vault host (it refuses writes when the vault is read-only). */
+	/** The host for the current vault. */
 	host: Host;
 	writable: boolean;
 	vaultGeneration?: number;
@@ -92,7 +104,7 @@ const DIVIDER = "\n----------------\n\n";
  * then read again in the other slot.
  */
 export function useWorkspaceHost({
-	host,
+	host: nativeHost,
 	writable,
 	vaultGeneration,
 	isCanvas,
@@ -100,6 +112,10 @@ export function useWorkspaceHost({
 	onUnsaved,
 	onError,
 }: WorkspaceHostOptions) {
+	const host = useMemo(
+		() => (writable ? nativeHost : readOnlyHost(nativeHost)),
+		[nativeHost, writable],
+	);
 	const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
 	// True while a block is being moved on disk. The notes cannot be typed in
 	// meanwhile: text typed then would be gone when they are read again.
@@ -110,8 +126,8 @@ export function useWorkspaceHost({
 		current.current = next(current.current);
 		setWorkspace(current.current);
 	}, []);
-	const latest = useRef({ isCanvas, onSaved, onError });
-	latest.current = { isCanvas, onSaved, onError };
+	const latest = useRef({ isCanvas, onSaved, onError, onUnsaved, writable });
+	latest.current = { isCanvas, onSaved, onError, onUnsaved, writable };
 	const canvas = useCallback(
 		(path: string) => latest.current.isCanvas(path),
 		[],
@@ -127,6 +143,9 @@ export function useWorkspaceHost({
 		[change],
 	);
 	const documents = useRef<LiveDocuments | null>(null);
+	useLayoutEffect(() => {
+		documents.current?.setWritable(writable);
+	}, [writable]);
 	const sessionOptions = {
 		host,
 		writable,
@@ -149,10 +168,10 @@ export function useWorkspaceHost({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Each selected vault gets its own registry.
 	useEffect(() => {
 		const registry = createLiveDocuments(
-			host,
-			{ notes: [], writable },
+			nativeHost,
+			{ notes: [], writable: latest.current.writable },
 			{
-				open: (path) => openNote(host, path),
+				open: (path) => openNote(nativeHost, path),
 				onSaved: handleSaved,
 			},
 		);
@@ -162,7 +181,7 @@ export function useWorkspaceHost({
 			sessions.current[id].clear();
 		}
 		return () => registry.dispose();
-	}, [host, writable, vaultGeneration, handleSaved]);
+	}, [nativeHost, vaultGeneration, handleSaved]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Reattach after replacing the registry.
 	useEffect(() => {
 		for (const id of SLOTS) {
@@ -199,15 +218,53 @@ export function useWorkspaceHost({
 				},
 			);
 		}
-	}, [workspace, host, writable, vaultGeneration, canvas, change]);
+	}, [workspace, nativeHost, vaultGeneration, canvas, change]);
 
-	/** Save every open note. False (after saying why) if any could not be saved. */
-	const settleAll = useCallback(async () => {
+	const settlePanes = useCallback(async () => {
 		const results = await Promise.all(
 			SLOTS.map((id) => sessions.current[id].settle()),
 		);
 		return results.every(Boolean);
 	}, []);
+
+	const flushAll = useCallback(
+		() => documents.current?.flushAll() ?? Promise.resolve(true),
+		[],
+	);
+	useEffect(() => {
+		const onBlur = () => void flushAll();
+		const onVisibility = () => {
+			if (document.visibilityState === "hidden") onBlur();
+		};
+		window.addEventListener("blur", onBlur);
+		document.addEventListener("visibilitychange", onVisibility);
+		return () => {
+			window.removeEventListener("blur", onBlur);
+			document.removeEventListener("visibilitychange", onVisibility);
+		};
+	}, [flushAll]);
+
+	/** Save all drafts. False (after saying why) if any could not be saved. */
+	const settleAll = useCallback(async () => {
+		if (await flushAll()) return true;
+		latest.current.onUnsaved(UNSAVED_NOTE_MESSAGE);
+		return false;
+	}, [flushAll]);
+
+	const chooseVault = async (pick: Host["chooseVault"]) => {
+		const registry = documents.current;
+		if (!(await settleAll())) return false;
+		// The native picker changes the host's vault before it returns.
+		registry?.setWritable(false);
+		try {
+			if (!(await settleAll())) return false;
+			if ((await pick()) === null) return false;
+			registry?.dispose();
+			return true;
+		} finally {
+			registry?.setWritable(latest.current.writable);
+		}
+	};
 
 	const paneOf = useCallback((id: PaneId) => {
 		const pane = id === "left" ? current.current.left : current.current.right;
@@ -326,6 +383,8 @@ export function useWorkspaceHost({
 									ok: false as const,
 									message: "Save the open notes before undoing the move.",
 								};
+							if (!latest.current.writable)
+								return { ok: false as const, message: READ_ONLY_VAULT_MESSAGE };
 							try {
 								await undoMove(host, made);
 							} catch (reason) {
@@ -461,14 +520,15 @@ export function useWorkspaceHost({
 		[moveBetween, paneOf],
 	);
 
-	// Every command saves first, so closing or moving a tab never drops text.
+	// Tab commands still save the panes first. A detached draft can be reopened
+	// to retry, discard it, or save a copy.
 	const run = useCallback(
 		async (next: (ws: Workspace) => Workspace) => {
-			if (!(await settleAll())) return false;
+			if (!(await settlePanes())) return false;
 			change(next);
 			return true;
 		},
-		[settleAll, change],
+		[settlePanes, change],
 	);
 
 	const restoreFrom = useCallback(
@@ -510,6 +570,8 @@ export function useWorkspaceHost({
 	};
 	const panes = { left: view("left") as PaneView, right: view("right") };
 	const focusedPane = panes[workspace.focused] ?? panes.left;
+	const recoveryTexts = (now: Date) =>
+		documents.current?.recoveryTexts(now) ?? [];
 
 	return {
 		workspace,
@@ -541,7 +603,7 @@ export function useWorkspaceHost({
 		rename: (from: string, to: string) =>
 			change((ws) => renameDoc(ws, from, to)),
 		restoreFrom,
-		endVault: () => documents.current?.dispose(),
+		chooseVault,
 		settleAll,
 		/** True while a block is being moved; notes are not editable then. */
 		moving,
@@ -550,22 +612,10 @@ export function useWorkspaceHost({
 		/** Move a block from the canvas in `from` into the note in the other pane. */
 		blockToNote,
 		blockToPath,
-		/** Save every open note now (quit, window hidden). */
-		flushAll: async () => {
-			const results = await Promise.all(
-				SLOTS.map((id) => sessions.current[id].flush()),
-			);
-			return results.every(Boolean);
-		},
-		/** Unsaved text of every open note, for the recovery file at quit. */
-		recoveryTexts: (now: Date) =>
-			SLOTS.map((id) => sessions.current[id].recoveryText(now)).filter(
-				(text): text is string => text !== null,
-			),
+		flushAll,
+		/** Unsaved text for the recovery file at quit. */
+		recoveryTexts,
 		/** `recoveryTexts` as one block, in the recovery file's format. */
-		recoveryText: (now: Date) =>
-			SLOTS.map((id) => sessions.current[id].recoveryText(now))
-				.filter((text): text is string => text !== null)
-				.join(DIVIDER),
+		recoveryText: (now: Date) => recoveryTexts(now).join(DIVIDER),
 	};
 }

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { linksIn } from "../core/links/links";
 import { headerIcon } from "../core/notes/icon";
 import { headerProps } from "../core/notes/properties";
@@ -7,6 +13,7 @@ import { tagsOf } from "../core/notes/tags";
 import { searchFieldsOf } from "../core/search/fields";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
+import { READ_ONLY_VAULT_MESSAGE } from "../host/read-only-host";
 import {
 	type Autosave,
 	type AutosaveOptions,
@@ -39,6 +46,7 @@ export interface SavedInfo {
 
 type Written = (note: OpenedNote, draft: Draft, info: SavedInfo) => void;
 export interface DraftAutosaveOwner {
+	canWrite(): boolean;
 	autosave(
 		create: (written: Written) => Autosave<Draft>,
 	): Autosave<Draft> | null;
@@ -58,8 +66,8 @@ export function isSaveForOpenNote(
 
 /**
  * Autosave for the open note. Edits are saved after a short pause, and also
- * when the window loses focus or is hidden. `flush` saves right now and says
- * whether everything is on disk. A new autosave starts for each `opened` value.
+ * when requested by the workspace (or by the window when used on its own).
+ * `flush` saves right now and says whether everything is on disk.
  */
 export function useAutosave(
 	host: Host,
@@ -82,7 +90,7 @@ export function useAutosave(
 	// it to that note's autosave, so it is not lost or sent to another note.
 	const early = useRef<{ note?: OpenedNote | null; draft: Draft } | null>(null);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (!opened?.editable) {
 			current.current = null;
 			currentFor.current = null;
@@ -94,6 +102,12 @@ export function useAutosave(
 		let written: Written = (_, _draft, info) => savedRef.current?.(info);
 		const options: AutosaveOptions<Draft> = {
 			save: async (draft) => {
+				if (owner && !owner.canWrite())
+					return {
+						ok: false,
+						message: READ_ONLY_VAULT_MESSAGE,
+						conflict: true,
+					};
 				const started = performance.now();
 				const result = await saveDraft(host, note, draft);
 				const logger = getLogger();
@@ -222,6 +236,7 @@ export function useAutosave(
 	}, []);
 
 	useEffect(() => {
+		if (owner !== undefined) return;
 		const onHidden = () => void flush();
 		const onVisibility = () => {
 			if (document.visibilityState === "hidden") onHidden();
@@ -232,7 +247,7 @@ export function useAutosave(
 			window.removeEventListener("blur", onHidden);
 			document.removeEventListener("visibilitychange", onVisibility);
 		};
-	}, [flush]);
+	}, [flush, owner]);
 
 	return { state, change, flush, retry, peek, discard, failureReason };
 }

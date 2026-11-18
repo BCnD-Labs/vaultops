@@ -311,11 +311,9 @@ export function App({ host }: { host: Host }) {
 		[changeView],
 	);
 
-	// The workspace: the tabs of each pane and one live note per pane (text,
-	// title, properties, autosave and recovery). Every command saves all open
-	// notes first; if a save fails, nothing changes and nothing typed is lost.
+	// The workspace owns the tabs, note sessions and draft recovery.
 	const ws = useWorkspaceHost({
-		host: vaultHost,
+		host,
 		vaultGeneration,
 		writable,
 		isCanvas,
@@ -460,7 +458,7 @@ export function App({ host }: { host: Host }) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, []);
 
-	// Saving on quit: the window waits for every open note to save, and stays
+	// Saving on quit: the window waits for every draft to save, and stays
 	// open if any save fails.
 	useEffect(() => {
 		let remove: (() => void) | undefined;
@@ -1615,18 +1613,19 @@ export function App({ host }: { host: Host }) {
 										void startNote(newNoteFolder(folder, view?.folders ?? []))
 									}
 									onStartCanvas={canvasOn ? startCanvas : undefined}
-									onChooseVault={async () => {
-										if (!(await ws.settleAll())) return;
-										setScreen("note");
-										setSelection({ kind: "all" });
+									onChooseVault={() =>
 										run(async () => {
-											if ((await host.chooseVault()) === null) return null;
-											wsRef.current.endVault();
+											const chosen = await ws.chooseVault(() => {
+												setScreen("note");
+												setSelection({ kind: "all" });
+												return host.chooseVault();
+											});
+											if (!chosen) return null;
 											const next = await loadVault(host);
 											nextVaultGeneration((generation) => generation + 1);
 											return next;
-										});
-									}}
+										})
+									}
 									onShowMaintainer={() => setShowMaintainer(true)}
 									onNavigate={navigate}
 									onOpenSettings={() => void navigate("settings")}

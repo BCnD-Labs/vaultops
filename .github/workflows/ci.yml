@@ -30,8 +30,37 @@ jobs:
       - run: npx biome ci .
       - run: npm test
 
+  changes:
+    name: Which parts changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.diff.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      # On a pull request HEAD is GitHub's test merge, so HEAD^1 is the base
+      # branch; on a push to main HEAD^1 is the commit before the merge. Either
+      # way the diff is exactly what this run brings in.
+      - id: diff
+        run: |
+          # If the comparison itself fails, run the Rust checks anyway.
+          if ! files=$(git diff --name-only HEAD^1 HEAD); then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s\n' "$files" | grep -qE '^(src-tauri/|test-fixtures/|\.github/workflows/ci\.yml$)'; then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rust=false" >> "$GITHUB_OUTPUT"
+          fi
+
   rust:
     name: Rust (format, lint, test)
+    # Skipped when nothing the Rust side reads changed; a skipped job counts
+    # as passing. Rust changes are also checked on the maintainer's Mac.
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     # Linux runners are always available; macOS runners can queue for hours.
     # The Mac-only behavior (case-insensitive names) is checked by running
     # the same commands on the maintainer's Mac (see AGENTS.md).

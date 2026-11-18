@@ -60,6 +60,7 @@ export function NoteTools({
 	noteId,
 	noteTitle,
 	onOpenNote = () => {},
+	onRenameTag,
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & {
 	hasNote: boolean;
@@ -73,6 +74,8 @@ export function NoteTools({
 	noteId?: string;
 	noteTitle?: string;
 	onOpenNote?: (path: string) => void;
+	/** Rename or merge a tag across the vault; resolves with a message to show. */
+	onRenameTag?: (from: string, to: string) => Promise<string | null>;
 }) {
 	const features = useFeatures();
 	const shown = TOOLS.filter(
@@ -197,6 +200,7 @@ export function NoteTools({
 					rows={notes}
 					active={activeTag}
 					onPick={properties.onOpenTag}
+					onRename={onRenameTag}
 				/>
 				{notes.every((note) => note.tags.length === 0) && <p>No tags yet.</p>}
 			</TabsContent>

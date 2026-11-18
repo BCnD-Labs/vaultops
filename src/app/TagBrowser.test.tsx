@@ -60,3 +60,19 @@ it("opens with the arrow keys and starts open down to the picked tag", async () 
 	await user.keyboard("{ArrowRight}");
 	expect(screen.getByRole("button", { name: /#clients/ })).toBeTruthy();
 });
+
+it("renames after a confirmation that counts the notes that will change", async () => {
+	const user = userEvent.setup();
+	const onRename = vi.fn(async () => "2 notes updated.");
+	show("work/clients", { onRename });
+	await user.click(screen.getByRole("button", { name: /Rename or merge/ }));
+	const name = screen.getByRole("textbox", { name: "New tag name" });
+	await user.clear(name);
+	await user.type(name, "clients");
+	await user.click(screen.getByRole("button", { name: "Continue" }));
+	expect(await screen.findByText("2 notes will change.")).toBeTruthy();
+	expect(onRename).not.toHaveBeenCalled();
+	await user.click(screen.getByRole("button", { name: "Rename" }));
+	expect(onRename).toHaveBeenCalledWith("work/clients", "clients");
+	expect(await screen.findByText("2 notes updated.")).toBeTruthy();
+});

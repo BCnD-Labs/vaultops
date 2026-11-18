@@ -15,6 +15,11 @@ import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
 import { createNote, loadNote } from "../core/notes/repository";
 import { noteTitleFor, syncRowTitles } from "../core/notes/row-notes";
 import {
+	planTagRename,
+	renameTagInProps,
+	renameTagOnDisk,
+} from "../core/notes/tag-rename";
+import {
 	blocksFromTemplate,
 	type TemplateEntry,
 } from "../core/notes/templates";
@@ -894,6 +899,68 @@ export function App({ host }: { host: Host }) {
 			pane?.kind === "note" ? (pane.session.livePathRef.current ?? path) : path;
 	};
 
+	// Renames or merges a tag (and the tags below it) in every note. A note that
+	// is open changes through its own session, so its autosave stays in charge;
+	// the others are rewritten on disk. Nothing changes if an open note can't be
+	// edited that way. Resolves with the message to show.
+	const renameTag = async (
+		from: string,
+		to: string,
+	): Promise<string | null> => {
+		if (!(await ws.settleAll()))
+			return "Some notes are unsaved, so nothing was renamed.";
+		const plan = planTagRename(viewRef.current?.notes ?? [], from, to);
+		const open = new Map<string, PaneView[]>();
+		for (const pane of [left, right]) {
+			const path =
+				pane?.kind === "note"
+					? (pane.session.livePathRef.current ?? pane.active)
+					: pane?.kind === "canvas"
+						? pane.active
+						: null;
+			if (!pane || !path || !plan.paths.includes(path)) continue;
+			open.set(path, [...(open.get(path) ?? []), pane]);
+		}
+		for (const [path, panes] of open) {
+			const pane = panes[0];
+			const why =
+				panes.length > 1
+					? "is open in both panes"
+					: pane?.kind === "canvas"
+						? "is open as a canvas"
+						: !pane?.session.opened?.editable || pane.session.props === null
+							? "is open but can't be edited here"
+							: null;
+			if (why)
+				return `Nothing was renamed: ${path} ${why}. Close it and try again.`;
+		}
+		for (const [, [pane]] of open) {
+			const next =
+				pane && pane.session.props
+					? renameTagInProps(pane.session.props, from, to)
+					: null;
+			if (next) pane?.session.editProps(next);
+		}
+		if (!(await ws.settleAll()))
+			return "An open note could not be saved, so the rename stopped.";
+		const disk = plan.paths.filter((path) => !open.has(path));
+		let message = "";
+		await changeTree(null, async () => {
+			const done = await renameTagOnDisk(vaultHost, disk, from, to);
+			const count = done.changed + open.size;
+			message = `${count === 1 ? "1 note" : `${count} notes`} updated.`;
+			if (done.problems.length > 0)
+				message += ` Not changed:\n${done.problems.join("\n")}`;
+			return {};
+		});
+		setSelection((now) =>
+			now.kind === "tag" && now.value.toLowerCase() === from.toLowerCase()
+				? { kind: "tag", value: to }
+				: now,
+		);
+		return message || null;
+	};
+
 	const treeActions: TreeActions = {
 		createFolder: (parent, name) =>
 			void changeTree(null, async () => ({
@@ -1530,6 +1597,7 @@ export function App({ host }: { host: Host }) {
 									editable={!!session?.opened?.editable}
 									onChange={(next) => session?.editProps(next)}
 									onOpenTag={(tag) => setSelection({ kind: "tag", value: tag })}
+									onRenameTag={writable ? renameTag : undefined}
 								/>
 							}
 							sidebar={

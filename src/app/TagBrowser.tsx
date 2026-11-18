@@ -1,6 +1,7 @@
 import { ChevronRight, FileText } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { checkTagRename, planTagRename } from "../core/notes/tag-rename";
 import {
 	buildTagTree,
 	type TagNode,
@@ -10,6 +11,7 @@ import { notesWithTag } from "../core/notes/tags";
 import { useAppearance } from "./AppearanceContext";
 import { tagTone } from "./appearance";
 import { TagColourPicker } from "./StylePopover";
+import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
 import { useRovingList } from "./useRovingList";
 
 interface Row {
@@ -45,6 +47,8 @@ export function TagIndex(props: {
 	rows: Row[];
 	active: string | null;
 	onPick: (tag: string) => void;
+	/** Rename or merge the open tag across the vault; resolves with a message to show. */
+	onRename?: (from: string, to: string) => Promise<string | null>;
 }) {
 	const tree = useMemo(() => buildTagTree(props.rows), [props.rows]);
 	const { appearance, setTag } = useAppearance();
@@ -95,63 +99,136 @@ export function TagIndex(props: {
 	);
 	if (tree.length === 0) return null;
 	return (
-		<nav
-			className="tag-index"
-			aria-label="Tags"
-			ref={roving.rootRef}
-			onKeyDown={roving.onKeyDown}
-		>
-			{shown.map(({ node, depth }) => (
-				<TagColourPicker
-					key={node.path.toLowerCase()}
-					tone={appearance.tags[node.path.toLowerCase()]}
-					onChange={(tone) => setTag(node.path, tone)}
-				>
-					<div
-						className="tree-row tag-row"
-						style={{ paddingInlineStart: `${depth * 14}px` }}
+		<>
+			<nav
+				className="tag-index"
+				aria-label="Tags"
+				ref={roving.rootRef}
+				onKeyDown={roving.onKeyDown}
+			>
+				{shown.map(({ node, depth }) => (
+					<TagColourPicker
+						key={node.path.toLowerCase()}
+						tone={appearance.tags[node.path.toLowerCase()]}
+						onChange={(tone) => setTag(node.path, tone)}
 					>
-						{node.children.length > 0 ? (
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon-sm"
-								aria-label={`Toggle tag ${node.path}`}
-								aria-expanded={isOpen(node.path)}
-								tabIndex={-1}
-								onClick={() => setOpen(node.path, !isOpen(node.path))}
-							>
-								<ChevronRight
-									className={`tree-icon tree-chevron${isOpen(node.path) ? " is-open" : ""}`}
-								/>
-							</Button>
-						) : (
-							<span className="tree-icon tag-spacer" aria-hidden="true" />
-						)}
-						<button
-							type="button"
-							className="sidebar-row tag-button"
-							title={`#${node.path}`}
-							aria-pressed={
-								props.active?.toLowerCase() === node.path.toLowerCase()
-							}
-							onClick={() => props.onPick(node.path)}
-							{...roving.itemProps(node.path)}
+						<div
+							className="tree-row tag-row"
+							style={{ paddingInlineStart: `${depth * 14}px` }}
 						>
-							<span className="tree-name">
-								<span
-									className="tag-pill"
-									data-tone={tagTone(node.path, appearance)}
+							{node.children.length > 0 ? (
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									aria-label={`Toggle tag ${node.path}`}
+									aria-expanded={isOpen(node.path)}
+									tabIndex={-1}
+									onClick={() => setOpen(node.path, !isOpen(node.path))}
 								>
-									#{node.name}
-								</span>
-							</span>{" "}
-							<span className="sidebar-count">{node.count}</span>
-						</button>
-					</div>
-				</TagColourPicker>
-			))}
-		</nav>
+									<ChevronRight
+										className={`tree-icon tree-chevron${isOpen(node.path) ? " is-open" : ""}`}
+									/>
+								</Button>
+							) : (
+								<span className="tree-icon tag-spacer" aria-hidden="true" />
+							)}
+							<button
+								type="button"
+								className="sidebar-row tag-button"
+								title={`#${node.path}`}
+								aria-pressed={
+									props.active?.toLowerCase() === node.path.toLowerCase()
+								}
+								onClick={() => props.onPick(node.path)}
+								{...roving.itemProps(node.path)}
+							>
+								<span className="tree-name">
+									<span
+										className="tag-pill"
+										data-tone={tagTone(node.path, appearance)}
+									>
+										#{node.name}
+									</span>
+								</span>{" "}
+								<span className="sidebar-count">{node.count}</span>
+							</button>
+						</div>
+					</TagColourPicker>
+				))}
+			</nav>
+			{props.active && props.onRename && (
+				<RenameTag
+					rows={props.rows}
+					tag={props.active}
+					onRename={props.onRename}
+				/>
+			)}
+		</>
+	);
+}
+
+/** "Rename or merge…" for the picked tag: ask the new name, then confirm with the note count. */
+function RenameTag(props: {
+	rows: Row[];
+	tag: string;
+	onRename: (from: string, to: string) => Promise<string | null>;
+}) {
+	const [asking, setAsking] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [target, setTarget] = useState<string | null>(null);
+	const [result, setResult] = useState<string | null>(null);
+	const plan = target ? planTagRename(props.rows, props.tag, target) : null;
+	const merging =
+		target !== null &&
+		props.rows.some((r) =>
+			r.tags.some((t) => t.toLowerCase() === target.toLowerCase()),
+		);
+	const count = plan?.paths.length ?? 0;
+	return (
+		<>
+			<Button size="sm" variant="secondary" onClick={() => setAsking(true)}>
+				Rename or merge #{props.tag}…
+			</Button>
+			{result && <p role="status">{result}</p>}
+			<NameDialog
+				open={asking}
+				title="Rename or merge tag"
+				description={`New name for #${props.tag} and every tag below it. Use an existing tag's name to merge into it.`}
+				label="New tag name"
+				initial={props.tag}
+				confirmLabel="Continue"
+				error={error}
+				onCancel={() => {
+					setAsking(false);
+					setError(null);
+				}}
+				onSubmit={(name) => {
+					const checked = checkTagRename(props.tag, name);
+					if (!checked.ok) return setError(checked.message);
+					setError(null);
+					setAsking(false);
+					setTarget(checked.to);
+				}}
+			/>
+			<ConfirmDialog
+				open={target !== null}
+				title={`${merging ? "Merge" : "Rename"} #${props.tag} into #${target}?`}
+				description={`${count === 1 ? "1 note will change." : `${count} notes will change.`}${
+					plan && plan.readOnly.length > 0
+						? ` ${plan.readOnly.length} read-only note(s) will be left as they are.`
+						: ""
+				}`}
+				confirmLabel={merging ? "Merge" : "Rename"}
+				onCancel={() => setTarget(null)}
+				onConfirm={() => {
+					const to = target;
+					setTarget(null);
+					if (to && count > 0)
+						void props.onRename(props.tag, to).then(setResult);
+				}}
+			/>
+		</>
 	);
 }
 

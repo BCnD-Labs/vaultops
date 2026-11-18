@@ -1,4 +1,13 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { Placement } from "../core/notes/block-move";
+
+export type DocumentDrop = (
+	destinationId: string,
+	blockId: string,
+	sourceId: string,
+	placement: Placement,
+	copy?: boolean,
+) => Promise<void>;
 
 export const BLOCK_DRAG_TYPE = "application/x-vaultops-block";
 
@@ -40,10 +49,11 @@ export function blockDragData(transfer: DataTransfer): {
 export function setDragEffect(
 	transfer: DataTransfer,
 	field: "effectAllowed" | "dropEffect",
-	value: "move" | "copy" | "none",
+	value: "move" | "copy" | "none" | "copyMove",
 ) {
 	try {
-		transfer[field] = value;
+		if (field === "effectAllowed") transfer.effectAllowed = value;
+		else if (value !== "copyMove") transfer.dropEffect = value;
 	} catch {
 		/* Synthetic test events may define read-only DataTransfer properties. */
 	}
@@ -99,13 +109,13 @@ export function setBlockDragData(
 		JSON.stringify({ noteId, blockId, ...(local ? { local } : {}) }),
 	);
 	transfer.setData("text/plain", firstLine);
-	setDragEffect(transfer, "effectAllowed", "move");
+	setDragEffect(transfer, "effectAllowed", local ? "move" : "copyMove");
 	return firstLine;
 }
 
 export function findBlockDropTarget(
 	editorDom: Element,
-	doc: ProseMirrorNode,
+	doc: ProseMirrorNode | readonly (string | undefined)[],
 	clientY: number,
 	container?: Element | null,
 ): {
@@ -119,16 +129,17 @@ export function findBlockDropTarget(
 } {
 	// The open gap is not a block, and it must not count as one.
 	const children = Array.from(editorDom.children).filter(
-		(child) => !child.classList.contains("block-drop-slot"),
+		(child) => !child.matches(".block-drop-slot, .block-drop-indicator"),
 	);
 	let index = 0;
 	const above: string[] = [];
 	// Anywhere in a block's top half is the slot above it, the bottom half the
 	// slot below it, so the whole height of the page is a target.
-	for (; index < doc.childCount; index++) {
+	const count = "childCount" in doc ? doc.childCount : doc.length;
+	for (; index < count; index++) {
 		const bounds = children[index]?.getBoundingClientRect();
 		if (bounds && clientY < bounds.top + bounds.height / 2) break;
-		const id = doc.child(index).attrs.id;
+		const id = "childCount" in doc ? doc.child(index).attrs.id : doc[index];
 		if (typeof id === "string") above.unshift(id);
 	}
 	const after = above[0] ?? null;

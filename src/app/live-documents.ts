@@ -53,6 +53,13 @@ export interface LiveDocument {
 }
 
 type Seed = OpenedNote | (() => Promise<OpenedNote>);
+type SavedDocument = LiveDocument & { base: Note };
+
+export type BlockWrite<T> = (
+	source: SavedDocument,
+	destination: SavedDocument,
+	publish: (source: string, destination: string) => void,
+) => Promise<T>;
 type Listener = (document: LiveDocument, reloaded: boolean) => void;
 interface Entry {
 	path: string;
@@ -62,6 +69,7 @@ interface Entry {
 	autosave?: Autosave<Draft>;
 	editorSlot: NoteEditorSlot;
 	transfer?: AbortController;
+	gated?: boolean;
 	canvasTask?: Promise<boolean>;
 	canvasPending?: CanvasWrite;
 	subscribers: Map<symbol, Listener | undefined>;
@@ -126,6 +134,8 @@ export function createLiveDocuments(
 	const entries = new Map<string, Entry>();
 	let disposed = false;
 	let tail: Promise<unknown> | null = null;
+	let writingBlock: Promise<unknown> | null = null;
+	let dropping = false;
 
 	function run<T>(task: () => Promise<T>) {
 		const result = tail ? tail.then(task) : task();
@@ -223,8 +233,13 @@ export function createLiveDocuments(
 		return ready;
 	}
 
-	function publish(entry: Entry, document: LiveDocument, reloaded = false) {
-		if (reloaded) {
+	function publish(
+		entry: Entry,
+		document: LiveDocument,
+		reloaded = false,
+		keepEditor = false,
+	) {
+		if (reloaded && !keepEditor) {
 			disposeEditor(entry);
 			entry.editorSlot = {};
 		}
@@ -241,7 +256,7 @@ export function createLiveDocuments(
 	}
 
 	function evictCleanEntry(entry: Entry) {
-		if (entry.canvasTask || isDirty(entry)) return;
+		if (entry.gated || entry.canvasTask || isDirty(entry)) return;
 		const evict = () => {
 			const key = entry.path;
 			if (
@@ -266,6 +281,7 @@ export function createLiveDocuments(
 		entry: Entry,
 		prepare?: (document: LiveDocument) => CanvasWrite | undefined,
 	) {
+		if (entry.gated && prepare) return Promise.resolve(false);
 		const result = run(() => {
 			const path = entry.path;
 			return inOrder(host, path, async () => {
@@ -447,7 +463,7 @@ export function createLiveDocuments(
 			const change = auto.change;
 			auto.change = (editorDraft) => {
 				const latest = entry.document;
-				if (disposed || !writable || !latest) return;
+				if (disposed || !writable || !latest || entry.gated) return;
 				entry.document = {
 					...latest,
 					editorDraft,
@@ -539,24 +555,6 @@ export function createLiveDocuments(
 					};
 				});
 			},
-			// Adopt bytes read under the block move's file lock.
-			acceptCanvasText(from: string, path: string, text: string) {
-				const document = entry?.document;
-				if (
-					!entry ||
-					entry.path !== from ||
-					document?.kind !== "canvas" ||
-					entries.get(entry.path) !== entry ||
-					isDirty(entry)
-				)
-					return;
-				if (path === document.path && text === document.diskText) return;
-				rekey(document.path, path);
-				publish(entry, {
-					...openedDocument(path, text, indexedPaths, writable),
-					revision: document.revision + 1,
-				});
-			},
 			unlock() {
 				const document = current();
 				if (!writable || !entry || !document?.opened) return null;
@@ -602,7 +600,8 @@ export function createLiveDocuments(
 					if (!document) return null;
 					const owner = document.editorOwner;
 					const allowed = owns
-						? !document.readOnly &&
+						? !entry?.gated &&
+							!document.readOnly &&
 							(owner === null || owner === subscriber || transfer)
 						: owner === subscriber;
 					return allowed ? document : null;
@@ -739,6 +738,164 @@ export function createLiveDocuments(
 		return true;
 	}
 
+	async function flushEntry(entry: Entry) {
+		while (entry.canvasTask) await entry.canvasTask.catch(() => {});
+		if (
+			entry.canvasPending &&
+			!entry.document?.readOnly &&
+			entry.document?.saveStatus.kind === "failed" &&
+			!entry.document.saveStatus.conflict
+		)
+			await runCanvas(entry);
+		return (await entry.autosave?.flush()) !== false && !isDirty(entry);
+	}
+
+	function accept(entry: Entry, text: string, local: boolean) {
+		const previous = entry.document;
+		if (!previous || previous.diskText === text) return;
+		const next = openedDocument(entry.path, text, indexedPaths, writable);
+		const opened = previous.opened && {
+			path: next.path,
+			note: next.draft,
+			doc: blocksToDoc(next.kind === "note" ? (next.base?.blocks ?? []) : []),
+			baseText: text,
+			editable: !next.readOnly && next.kind === "note",
+		};
+		const keepEditor = local && !!opened?.editable;
+		if (keepEditor)
+			entry.editorSlot.editor?.commands.setContent(opened.doc, {
+				emitUpdate: false,
+			});
+		entry.autosave?.dispose();
+		entry.autosave = undefined;
+		publish(
+			entry,
+			{
+				...next,
+				opened,
+				editorOwner: opened?.editable ? previous.editorOwner : null,
+				revision: previous.revision + 1,
+				canvasHistory:
+					local && next.kind === "canvas"
+						? {
+								undo: [
+									...(previous.canvasHistory?.undo ?? []),
+									previous.diskText,
+								].slice(-50),
+								redo: [],
+							}
+						: undefined,
+			},
+			true,
+			keepEditor,
+		);
+	}
+
+	async function withSavedDocuments<T>(
+		from: string,
+		to: string,
+		task: BlockWrite<T>,
+		onGate: (gated: boolean) => void,
+	) {
+		const source = subscribe({ noteId: from }, undefined, undefined, true);
+		const destination = subscribe({ noteId: to }, undefined, undefined, true);
+		const checked = (document: LiveDocument | null) => {
+			if (
+				!document?.base ||
+				document.readOnly ||
+				disposed ||
+				!document.noteId ||
+				indexedPaths.get(document.noteId) !== document.path
+			)
+				throw new Error(
+					"A document is missing or read-only, so the block was not moved.",
+				);
+			return { ...document, base: document.base };
+		};
+		try {
+			const [first, second] = await Promise.all([
+				source.ready,
+				destination.ready,
+			]);
+			if (!first)
+				throw new Error(
+					"Open the source note before moving this block. It may be missing or read-only.",
+				);
+			const a = entries.get(checked(first).path) as Entry;
+			const b = entries.get(checked(second).path) as Entry;
+			const pair = [...new Set([a, b])];
+			await Promise.all(
+				pair.map(async ({ editorSlot }) => {
+					const editor = editorSlot.editor;
+					if (!editor?.view.composing) return;
+					await new Promise<void>((resolve) => {
+						const dom = editor.view.dom;
+						const finish = () => {
+							dom.removeEventListener("compositionend", finish);
+							editor.off("destroy", finish);
+							setTimeout(resolve);
+						};
+						dom.addEventListener("compositionend", finish, { once: true });
+						editor.on("destroy", finish);
+					});
+				}),
+			);
+			if (dropping) throw new Error("A block move is already in progress.");
+			const focused = globalThis.document?.activeElement;
+			if (typeof HTMLElement !== "undefined" && focused instanceof HTMLElement)
+				focused.blur();
+			const editors = pair.map((entry) => {
+				entry.gated = true;
+				const editor = entry.editorSlot.editor;
+				const editable = editor?.isEditable;
+				editor?.setEditable(false, false);
+				return () => {
+					entry.gated = false;
+					if (editable && !editor?.isDestroyed)
+						editor?.setEditable(writable, false);
+				};
+			});
+			dropping = true;
+			onGate(true);
+			try {
+				if (!(await Promise.all(pair.map(flushEntry))).every(Boolean)) {
+					const status = pair.find(isDirty)?.document?.saveStatus;
+					throw new Error(
+						`Save the note before moving a block: ${status?.kind === "failed" ? status.reason : "the save did not finish"}.`,
+					);
+				}
+				const commit = run(async () => {
+					const first = checked(source.current());
+					const second = checked(destination.current());
+					const publish = (left: string, right: string, local = a === b) => {
+						accept(a, left, local);
+						if (a !== b) accept(b, right, false);
+					};
+					try {
+						return await task(first, second, publish);
+					} catch (reason) {
+						const [left, right] = await Promise.all([
+							host.readText(first.path).catch(() => first.diskText),
+							host.readText(second.path).catch(() => second.diskText),
+						]);
+						publish(left, right, false);
+						throw reason;
+					}
+				});
+				writingBlock = commit;
+				return await commit;
+			} finally {
+				for (const restore of editors) restore();
+				dropping = false;
+				writingBlock = null;
+				onGate(false);
+			}
+		} finally {
+			source.unsubscribe();
+			destination.unsubscribe();
+		}
+	}
+
 	return {
 		subscribe,
 		subscribePassive: (target: string | DocumentTarget, onChange: Listener) =>
@@ -753,6 +910,7 @@ export function createLiveDocuments(
 		},
 		run,
 		guardMoves,
+		withSavedDocuments,
 		hasDrafts: () => [...entries.values()].some(isDirty),
 		rekey,
 		refresh,
@@ -778,19 +936,10 @@ export function createLiveDocuments(
 			}
 		},
 		async flushAll() {
+			await writingBlock?.catch(() => {});
 			do {
 				const results = await Promise.all(
-					[...entries.values()].map(async (entry) => {
-						while (entry.canvasTask) await entry.canvasTask.catch(() => {});
-						if (
-							entry.canvasPending &&
-							entry.document?.saveStatus.kind === "failed" &&
-							!entry.document.saveStatus.conflict
-						)
-							await runCanvas(entry);
-						const saved = await entry.autosave?.flush();
-						return saved !== false && !isDirty(entry);
-					}),
+					[...entries.values()].map(flushEntry),
 				);
 				if (!results.every(Boolean)) return false;
 				// Another entry may have received an edit while a slower one saved.

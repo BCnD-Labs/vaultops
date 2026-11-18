@@ -5,6 +5,8 @@ import {
 	Fragment,
 	type ReactNode,
 	useEffect,
+	useRef,
+	useState,
 } from "react";
 import {
 	DropdownMenu,
@@ -14,7 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Block, JsonValue } from "../core/note-format";
 import type { ItemTone } from "../core/notes/canvas-ops";
-import { BLOCK_DRAG_TYPE, setDragEffect } from "../editor/block-drag";
+import {
+	BLOCK_DRAG_TYPE,
+	blockDragData,
+	findBlockDropTarget,
+	setDragEffect,
+} from "../editor/block-drag";
 import { quoteColorOf } from "../editor/blockquote";
 import { calloutColorOf, calloutIconOf, toneOf } from "../editor/callout";
 import { clipLines, isHighlighted, parseLines } from "../editor/code-highlight";
@@ -22,6 +29,7 @@ import { codeLines, lineDigits, wrapOf } from "../editor/code-language";
 import { abandonLift, liftBlock } from "../editor/lift";
 import { MathField } from "../editor/MathField";
 import { latexOf } from "../editor/math-block";
+import type { NoteEditorProps } from "../editor/NoteEditor";
 
 function inline(value: JsonValue | undefined, noteLinks?: boolean): ReactNode {
 	if (!Array.isArray(value)) return null;
@@ -337,6 +345,105 @@ export function NoteBlocks({
 	);
 }
 
+export function useNoteDrop<T extends HTMLElement = HTMLDivElement>(
+	blocks: Block[],
+	drop?: NoteEditorProps["onDropBlock"],
+) {
+	const ref = useRef<T>(null);
+	const [top, setTop] = useState<number | null>(null);
+	const slot = (y: number) => {
+		const body = ref.current;
+		if (!body) return null;
+		const editor = body.querySelector(".ProseMirror");
+		const ids = blocks
+			.filter((block) => block.parent === null)
+			.map((block) => block.id);
+		return findBlockDropTarget(editor ?? body, ids, y, body);
+	};
+	const clear = () => setTop(null);
+	return {
+		ref,
+		indicator:
+			top === null ? null : (
+				<div
+					className="block-drop-indicator"
+					data-testid="block-drop-indicator"
+					style={{ top }}
+				/>
+			),
+		events: {
+			onDragOver(event: DragEvent<HTMLElement>) {
+				if (
+					event.defaultPrevented ||
+					!drop ||
+					!event.dataTransfer.types.includes(BLOCK_DRAG_TYPE)
+				)
+					return clear();
+				event.preventDefault();
+				setDragEffect(
+					event.dataTransfer,
+					"dropEffect",
+					event.altKey ? "copy" : "move",
+				);
+				const body = ref.current;
+				const scale =
+					body && body.getBoundingClientRect().height / body.offsetHeight;
+				const at = slot(event.clientY);
+				setTop(at && body ? at.top / (scale || 1) + body.scrollTop : null);
+			},
+			onDragLeave(event: DragEvent<HTMLElement>) {
+				if (
+					!(
+						event.relatedTarget instanceof Node &&
+						event.currentTarget.contains(event.relatedTarget)
+					)
+				)
+					clear();
+			},
+			onDragEnd: clear,
+			onDrop(event: DragEvent<HTMLElement>) {
+				clear();
+				if (event.defaultPrevented || !drop) return;
+				const data = blockDragData(event.dataTransfer);
+				const at = data && slot(event.clientY);
+				if (!data || !at) return;
+				event.preventDefault();
+				const { after, near, start } = at;
+				void drop(
+					data.blockId,
+					data.noteId,
+					{ after, near, start },
+					event.altKey,
+				);
+			},
+		},
+	};
+}
+
+export function DroppableNoteBlocks({
+	blocks,
+	noteLinks,
+	onDropBlock,
+}: Parameters<typeof NoteBlocks>[0] & {
+	onDropBlock?: NoteEditorProps["onDropBlock"];
+}) {
+	const { ref, indicator, events } = useNoteDrop<HTMLElement>(
+		blocks,
+		onDropBlock,
+	);
+	return (
+		<section
+			ref={ref}
+			className="relative min-h-full"
+			aria-label="Note blocks"
+			{...events}
+		>
+			<NoteBlocks blocks={blocks} noteLinks={noteLinks} />
+			{indicator}
+		</section>
+	);
+}
+
 export function CanvasCard({
 	root,
 	blocks,
@@ -369,7 +476,7 @@ export function CanvasCard({
 					BLOCK_DRAG_TYPE,
 					JSON.stringify({ noteId: canvasId, blockId: root.id }),
 				);
-				setDragEffect(event.dataTransfer, "effectAllowed", "move");
+				setDragEffect(event.dataTransfer, "effectAllowed", "copyMove");
 				liftBlock(event.nativeEvent, event.currentTarget, {
 					kind: "card",
 					omit: ".canvas-menu",

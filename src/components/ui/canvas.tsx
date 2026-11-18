@@ -391,6 +391,13 @@ function Surface({
 			}}
 			onDragOver={(event) => {
 				event.preventDefault();
+				if (
+					event.target instanceof Element &&
+					event.target.closest("[data-note-drop]")
+				) {
+					setDropSpot(null);
+					return;
+				}
 				const valid = event.dataTransfer.types.includes(
 					"application/x-vaultops-block",
 				);
@@ -421,6 +428,11 @@ function Surface({
 			onDrop={(event) => {
 				event.preventDefault();
 				setDropSpot(null);
+				if (
+					event.target instanceof Element &&
+					event.target.closest("[data-note-drop]")
+				)
+					return;
 				onDropBlock?.(
 					event,
 					flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }),

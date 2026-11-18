@@ -326,13 +326,9 @@ it("refuses the move when unsaved edits cannot be saved", async () => {
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
 	fireEvent.click(screen.getByRole("button", { name: "Drop block" }));
-	await waitFor(() =>
-		expect(
-			within(screen.getByRole("region", { name: "Canvas view" })).getByRole(
-				"alert",
-			).textContent,
-		).toContain("Save the note before moving a block"),
-	);
+	expect(
+		await screen.findByText(/Save the note before moving a block/),
+	).toBeTruthy();
 	expect(parseNote(await host.readText(note.path)).note?.blocks[0]?.id).toBe(
 		"block",
 	);

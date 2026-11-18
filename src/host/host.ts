@@ -94,6 +94,10 @@ export interface Host {
 
 	/** Read a UTF-8 text file. */
 	readText(path: string): Promise<string>;
+	/** Read an image under attachments/ as bytes. */
+	readCover(path: string): Promise<ArrayBuffer>;
+	/** Pick and import an image, or return null when cancelled. */
+	chooseCover(): Promise<string | null>;
 
 	/**
 	 * Replace or create a file atomically: readers see the old content or the

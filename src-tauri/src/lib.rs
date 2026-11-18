@@ -58,6 +58,41 @@ fn read_text(state: tauri::State<'_, VaultState>, path: String) -> Result<String
     with_vault(&state, |v| file_ops::read_text(v, &path))
 }
 
+#[tauri::command(async)]
+fn read_cover(
+    state: tauri::State<'_, VaultState>,
+    path: String,
+) -> Result<tauri::ipc::Response, HostError> {
+    with_vault(&state, |v| file_ops::read_cover(v, &path)).map(tauri::ipc::Response::new)
+}
+
+#[tauri::command(async)]
+fn choose_cover(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VaultState>,
+) -> Result<Option<String>, HostError> {
+    use tauri_plugin_dialog::DialogExt;
+    let root = with_vault(&state, |v| Ok(v.root().to_owned()))?;
+    let Some(picked) = app
+        .dialog()
+        .file()
+        .set_title("Choose a note cover")
+        .add_filter("Images", file_ops::COVER_EXTENSIONS)
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let source = picked
+        .into_path()
+        .map_err(|_| HostError::invalid("expected a local image"))?;
+    with_vault(&state, |v| {
+        if v.root() != root {
+            return Err(HostError::invalid("the open vault changed"));
+        }
+        file_ops::import_cover(v, &source).map(Some)
+    })
+}
+
 /// Runs off the main thread so a large file never freezes the window.
 #[tauri::command(async)]
 fn write_text_atomic(
@@ -419,6 +454,8 @@ pub fn run() {
             choose_vault,
             current_vault,
             read_text,
+            read_cover,
+            choose_cover,
             write_text_atomic,
             list,
             make_folder,

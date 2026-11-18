@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use cap_std::fs::{Dir, MetadataExt, OpenOptions};
 
 use crate::host_error::{ErrorCode, HostError};
-use crate::vault::Vault;
+use crate::vault::{Vault, check_relative};
 
 /// Prefix of temporary files; anything left by a crash can be cleaned up by name.
 pub const TEMP_PREFIX: &str = ".vaultops-tmp-";
@@ -31,6 +31,90 @@ pub fn read_text(vault: &Vault, path: &str) -> Result<String, HostError> {
     }
     let bytes = vault.dir().read(&target.rel).map_err(io)?;
     String::from_utf8(bytes).map_err(|_| HostError::new(ErrorCode::Io, "file is not UTF-8 text"))
+}
+
+/// Covers are read whole into memory, so a very large file is refused.
+pub const MAX_COVER_BYTES: u64 = 25 * 1024 * 1024;
+
+pub const COVER_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
+
+fn cover_extension(path: &Path) -> Result<&str, HostError> {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .filter(|ext| COVER_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+        .ok_or_else(|| HostError::invalid("expected a PNG, JPEG, GIF or WebP image"))
+}
+
+pub fn read_cover(vault: &Vault, path: &str) -> Result<Vec<u8>, HostError> {
+    let parts = check_relative(path, false)?;
+    if parts.len() < 2 || parts[0] != "attachments" {
+        return Err(HostError::invalid("expected an image under attachments"));
+    }
+    cover_extension(Path::new(path))?;
+    let mut rel = PathBuf::new();
+    for part in parts {
+        rel.push(part);
+        if vault.dir().symlink_metadata(&rel).map_err(io)?.is_symlink() {
+            return Err(HostError::invalid("cover paths cannot use symlinks"));
+        }
+    }
+    if !vault.dir().metadata(&rel).map_err(io)?.is_file() {
+        return Err(HostError::invalid("cover is not a regular file"));
+    }
+    vault.dir().read(rel).map_err(io)
+}
+
+/// The source comes from the native picker and stays on the Rust side.
+pub fn import_cover(vault: &Vault, source: &Path) -> Result<String, HostError> {
+    let ext = cover_extension(source)?;
+    let name = source
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| HostError::invalid("invalid image filename"))?;
+    check_relative(name, false)?;
+    let meta = std::fs::metadata(source).map_err(io)?;
+    if !meta.is_file() {
+        return Err(HostError::invalid("cover is not a regular file"));
+    }
+    if meta.len() > MAX_COVER_BYTES {
+        return Err(HostError::invalid("the image is larger than 25 MB"));
+    }
+    let bytes = std::fs::read(source).map_err(io)?;
+    let dir = vault.dir();
+    match dir.create_dir("attachments") {
+        Ok(()) => (),
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => (),
+        Err(e) => return Err(io(e)),
+    }
+    if dir
+        .symlink_metadata("attachments")
+        .map_err(io)?
+        .is_symlink()
+    {
+        return Err(HostError::invalid("attachments cannot be a symlink"));
+    }
+    let parent = open_folder(dir, Path::new("attachments"))?;
+    let temp = write_temp(&parent, &bytes)?;
+    let stem = &name[..name.len() - ext.len() - 1];
+    let stem = if stem.len() > 230 { "cover" } else { stem };
+    let mut candidate = name.to_owned();
+    let mut suffix = 2;
+    // Publish the complete file atomically, without replacing any existing entry.
+    let result = loop {
+        match parent.hard_link(&temp, &parent, &candidate) {
+            Ok(()) => break Ok(format!("attachments/{candidate}")),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                candidate = format!("{stem}-{suffix}.{ext}");
+                suffix += 1;
+            }
+            Err(e) => break Err(io(e)),
+        }
+    };
+    let _ = parent.remove_file(&temp);
+    if let Ok(handle) = parent.open(".") {
+        let _ = handle.sync_all();
+    }
+    result
 }
 
 pub fn write_text_atomic(vault: &Vault, path: &str, text: &str) -> Result<(), HostError> {
@@ -147,6 +231,48 @@ mod tests {
 
     fn code<T: std::fmt::Debug>(r: Result<T, HostError>) -> ErrorCode {
         r.expect_err("expected an error").code
+    }
+
+    #[test]
+    fn imports_covers_without_overwriting_and_refuses_traversal() {
+        let (tmp, vault) = setup();
+        let source = tmp.path().join("photo.png");
+        fs::write(&source, b"first").unwrap();
+        let first = import_cover(&vault, &source).unwrap();
+        fs::write(&source, b"second").unwrap();
+        let second = import_cover(&vault, &source).unwrap();
+        assert_eq!(first, "attachments/photo.png");
+        assert_eq!(second, "attachments/photo-2.png");
+        assert_eq!(read_cover(&vault, &first).unwrap(), b"first");
+        assert_eq!(read_cover(&vault, &second).unwrap(), b"second");
+        assert_eq!(leftover_temps(&vault.root().join("attachments")), 0);
+        assert_eq!(
+            code(read_cover(&vault, "attachments/../photo.png")),
+            ErrorCode::InvalidPath
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_symlinked_cover_paths() {
+        use std::os::unix::fs::symlink;
+        let (tmp, vault) = setup();
+        let source = tmp.path().join("photo.png");
+        fs::write(&source, b"image").unwrap();
+        let attachments = vault.root().join("attachments");
+        symlink(tmp.path(), &attachments).unwrap();
+        assert_eq!(code(import_cover(&vault, &source)), ErrorCode::InvalidPath);
+        fs::remove_file(&attachments).unwrap();
+        fs::create_dir(&attachments).unwrap();
+        symlink(&source, attachments.join("photo.png")).unwrap();
+        assert_eq!(
+            code(read_cover(&vault, "attachments/photo.png")),
+            ErrorCode::InvalidPath
+        );
+        assert_eq!(
+            import_cover(&vault, &source).unwrap(),
+            "attachments/photo-2.png"
+        );
     }
 
     fn leftover_temps(dir: &Path) -> usize {

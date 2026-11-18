@@ -49,6 +49,11 @@ export const tauriHost: Host = {
 	chooseVault: () => call<string | null>("choose_vault"),
 	currentVault: () => call<string | null>("current_vault"),
 	readText: (path) => call<string>("read_text", { path }),
+	readCover: async (path) => {
+		const bytes = await call<ArrayBuffer | number[]>("read_cover", { path });
+		return Array.isArray(bytes) ? Uint8Array.from(bytes).buffer : bytes;
+	},
+	chooseCover: () => call<string | null>("choose_cover"),
 	writeTextAtomic: (path, text) =>
 		call<void>("write_text_atomic", { path, text }),
 	move: (from, to) => call<void>("move_entry", { from, to }),

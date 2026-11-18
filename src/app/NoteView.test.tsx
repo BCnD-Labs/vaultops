@@ -262,3 +262,34 @@ it("adds and removes a title icon through the picker and saves both changes", as
 	);
 	expect(screen.getByRole("button", { name: "Add icon" })).toBeTruthy();
 });
+
+it("imports a cover and removes its header without deleting the image", async () => {
+	const { run, host, a } = await setup();
+	await run(() => api.open(a));
+	host.nextCover = { name: "photo.png", bytes: new Uint8Array([1, 2]) };
+
+	fireEvent.click(screen.getByRole("button", { name: "Add cover" }));
+	const remove = await screen.findByRole("button", { name: "Remove cover" });
+	await run(() => api.flushAll());
+	const path = "attachments/photo.png";
+	expect(parseNote(await host.readText(a)).note?.header.cover).toBe(path);
+	const image = await waitFor(() => {
+		const img = document.querySelector(".note-cover img");
+		expect(img?.getAttribute("src")).toMatch(/^blob:/);
+		return img as HTMLImageElement;
+	});
+	fireEvent.load(image);
+	expect(image.dataset.loaded).toBe("true");
+	fireEvent.error(image);
+	expect(screen.getByText("Cover unavailable")).toBeTruthy();
+
+	fireEvent.click(remove);
+	await run(() => api.flushAll());
+	expect(parseNote(await host.readText(a)).note?.header).not.toHaveProperty(
+		"cover",
+	);
+	expect(new Uint8Array(await host.readCover(path))).toEqual(
+		new Uint8Array([1, 2]),
+	);
+	expect(screen.queryByRole("button", { name: "Remove cover" })).toBeNull();
+});

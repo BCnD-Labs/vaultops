@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { BookOpen, Ellipsis, Pencil } from "lucide-react";
-import { type Ref, useEffect, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -29,6 +29,7 @@ import type { OpenedNote } from "../editor/note-io";
 import type { LinkSource } from "../editor/note-link";
 import { SaveStatus } from "../editor/SaveStatus";
 import type { Host } from "../host/host";
+import { NoteCover } from "./NoteCover";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
 import { PropertiesBlock } from "./PropertiesBlock";
@@ -51,6 +52,9 @@ export interface NoteViewProps {
 	title: string;
 	icon?: string;
 	onIconChange?: (icon: string | null) => void;
+	coverHost?: Host;
+	cover?: string;
+	onCoverChange?: (cover: string | null) => void;
 	props: Props | null;
 	path: string | null;
 	onPropsChange: (next: Props) => void;
@@ -99,6 +103,9 @@ export function NoteView({
 	title,
 	icon,
 	onIconChange,
+	coverHost,
+	cover,
+	onCoverChange,
 	props,
 	path,
 	onPropsChange,
@@ -130,6 +137,49 @@ export function NoteView({
 	const [picker, setPicker] = useState<TemplateRequest | null>(null);
 	const [saveAsOpen, setSaveAsOpen] = useState(false);
 	const [templateNotice, setTemplateNotice] = useState<string | null>(null);
+	const [coverStatus, setCoverStatus] = useState<"picking" | "error" | null>(
+		null,
+	);
+	const coverChange = useRef(onCoverChange);
+	const canEditCover =
+		writable && opened.editable && !reading && !locked && !busy;
+	coverChange.current = canEditCover ? onCoverChange : undefined;
+	const coverRequest = useRef<object | null>(null);
+	useEffect(
+		() => () => {
+			coverRequest.current = null;
+		},
+		[],
+	);
+	const chooseCover = async () => {
+		if (!coverHost || coverRequest.current) return;
+		const request = {};
+		coverRequest.current = request;
+		setCoverStatus("picking");
+		try {
+			const next = await coverHost.chooseCover();
+			if (coverRequest.current !== request) return;
+			setCoverStatus(null);
+			if (next) coverChange.current?.(next);
+		} catch {
+			if (coverRequest.current === request) setCoverStatus("error");
+		} finally {
+			if (coverRequest.current === request) coverRequest.current = null;
+		}
+	};
+
+	const pickCover = coverHost && canEditCover && onCoverChange && (
+		<Button
+			className={cover ? undefined : "note-add-cover"}
+			size="sm"
+			variant={cover ? "outline" : "ghost"}
+			disabled={coverStatus === "picking"}
+			onClick={() => void chooseCover()}
+		>
+			{cover ? "Change cover" : "Add cover"}
+		</Button>
+	);
+
 	const canTemplate = !!templates && opened.editable && !reading;
 	const insertTemplate = (entry: TemplateEntry, request: TemplateRequest) => {
 		if (!entry.note) return;
@@ -152,6 +202,26 @@ export function NoteView({
 	};
 	return (
 		<>
+			{coverHost && cover && (
+				<NoteCover key={cover} host={coverHost} path={cover}>
+					{canEditCover && (
+						<div className="note-cover-controls">
+							{pickCover}
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={coverStatus === "picking"}
+								onClick={() => {
+									setCoverStatus(null);
+									onCoverChange?.(null);
+								}}
+							>
+								Remove cover
+							</Button>
+						</div>
+					)}
+				</NoteCover>
+			)}
 			<div className="note-title">
 				<NoteIconPicker
 					icon={icon}
@@ -161,6 +231,7 @@ export function NoteView({
 							: undefined
 					}
 				/>
+				{!cover && pickCover}
 				<input
 					ref={titleInput}
 					className="title-field"
@@ -181,6 +252,11 @@ export function NoteView({
 					}}
 				/>
 			</div>
+			{coverStatus === "error" && (
+				<p role="status" className="notice">
+					Could not import the cover image.
+				</p>
+			)}
 			<PropertiesBlock
 				props={props}
 				editable={opened.editable && !reading && !locked}
@@ -443,6 +519,9 @@ function PaneNote({
 			title={session.title}
 			icon={session.icon}
 			onIconChange={session.editIcon}
+			coverHost={session.host}
+			cover={session.cover}
+			onCoverChange={session.editCover}
 			props={session.props}
 			path={session.livePath}
 			onPropsChange={session.editProps}

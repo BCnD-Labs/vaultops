@@ -1262,17 +1262,18 @@ input.canvas-item-field {
 	color: var(--muted-foreground);
 }
 .canvas-group {
-	border: var(--border-width) dashed var(--border);
+	border: var(--border-width) solid
+		color-mix(in srgb, var(--item-accent) 30%, var(--line));
 	border-radius: var(--radius-container);
-	background: var(--surface-container-low);
-	opacity: 0.9;
+	background: color-mix(in srgb, var(--item-fill) 75%, transparent);
 }
 .canvas-pane .react-flow__node.canvas-node-group {
 	pointer-events: none;
 }
 .canvas-group-title {
 	display: inline-block;
-	margin: var(--space-2);
+	margin-left: var(--space-2);
+	transform: translateY(-50%);
 	padding: 0 var(--space-2);
 	border-radius: var(--radius-control);
 	background: var(--surface-container);
@@ -1282,9 +1283,15 @@ input.canvas-item-field {
 	cursor: grab;
 }
 .canvas-group .canvas-item-field {
-	width: auto;
-	margin: var(--space-2);
+	width: min(240px, 95%);
+	margin-left: var(--space-2);
+	transform: translateY(-50%);
 	pointer-events: all;
+}
+.canvas-slide-number {
+	width: 5em;
+	padding-inline: var(--space-1);
+	color: inherit;
 }
 .canvas-item-pinned {
 	outline: var(--border-width) dashed var(--destructive);

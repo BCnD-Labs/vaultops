@@ -103,7 +103,7 @@ it("deleting a member takes its id out of the group's list", () => {
 	]);
 });
 
-it("a block is in one group at a time, and groups need two members", () => {
+it("a block is in one frame at a time, and a frame can contain another frame", () => {
 	const frame = { x: 0, y: 0, w: 10, h: 10 };
 	const first = createGroup(
 		[card("a"), card("b"), card("c")],
@@ -116,8 +116,9 @@ it("a block is in one group at a time, and groups need two members", () => {
 	expect(groupMembers(second.find((b) => b.id === "g1") as Block)).toEqual([
 		"a",
 	]);
-	expect(() => createGroup(second, ["a"], frame)).toThrow("at least two");
-	expect(() => createGroup(second, ["a", "g2"], frame)).toThrow("at least two");
+	const nested = createGroup(second, ["b", "g2"], frame, "g3");
+	expect(groupOf(nested, "b")?.id).toBe("g2");
+	expect(groupOf(nested, "g2")?.id).toBe("g3");
 });
 
 it("sets and clears attributes and text without touching other fields", () => {
@@ -253,7 +254,7 @@ it("colors sticky notes and shapes, and leaves the default color out of the file
 	expect(blocks[1] && attrsOf(blocks[1]).tone).toBe("danger");
 });
 
-it("refuses to color a label, a group or a connector, and changes nothing when one id is wrong", () => {
+it("colors frames and refuses labels, connectors or missing items", () => {
 	const blocks = [
 		toned("s", "sticky"),
 		toned("l", "label"),
@@ -261,10 +262,9 @@ it("refuses to color a label, a group or a connector, and changes nothing when o
 		{ id: "k", type: "connector", parent: null, attrs: { from: "s", to: "c" } },
 		card("c"),
 	];
-	for (const id of ["l", "g", "k", "missing"])
-		expect(() => setTone(blocks, ["s", id], "info")).toThrow(
-			/cards, sticky notes and shapes/,
-		);
+	expect(attrsOf(setTone(blocks, ["g"], "tip")[2] as Block).color).toBe("tip");
+	for (const id of ["l", "k", "missing"])
+		expect(() => setTone(blocks, ["s", id], "info")).toThrow(/have a color/);
 	expect(() => setTone(blocks, ["s"], "purple" as never)).toThrow(
 		/not a color/,
 	);

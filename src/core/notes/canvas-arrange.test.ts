@@ -5,11 +5,12 @@ import {
 	arrangeItems,
 	arrangeRects,
 	distributeRects,
+	dragFrameItems,
 	SNAP_DISTANCE,
 	snapToObjects,
 	withGroupMembers,
 } from "./canvas-arrange";
-import { canvasNodes, groupMembers } from "./canvas-ops";
+import { canvasNodes, groupMembers, groupOf } from "./canvas-ops";
 
 const rects = {
 	a: { x: 0, y: 10, w: 100, h: 40 },
@@ -144,6 +145,31 @@ it("keeps a member that was arranged itself where the arrangement put it", () =>
 		m: { x: 50, y: 60 },
 	});
 	expect(out.m).toEqual({ x: 50, y: 60 });
+});
+
+it("uses the innermost frame at the dragged centre, and an outer frame carries both levels", () => {
+	const outer = { x: 0, y: 0, w: 400, h: 400 };
+	const inner = { x: 100, y: 100, w: 200, h: 200 };
+	const frames: Block[] = [
+		{
+			id: "outer",
+			type: "group",
+			parent: null,
+			attrs: { ...outer, members: ["inner"] },
+		},
+		{ id: "inner", type: "group", parent: null, attrs: inner },
+		item("a", 500, 500),
+	];
+	const into = dragFrameItems(frames, { a: { x: 60, y: 80, w: 100, h: 50 } });
+	expect(groupOf(into, "a")?.id).toBe("inner");
+	const carried = dragFrameItems(into, { outer: { ...outer, x: 50 } });
+	expect(carried[1]?.attrs).toMatchObject({ x: 150 });
+	expect(carried[2]?.attrs).toMatchObject({ x: 110 });
+	const out = dragFrameItems(carried, { a: { x: 350, y: 80, w: 100, h: 50 } });
+	expect(groupOf(out, "a")?.id).toBe("outer");
+	expect(
+		groupOf(dragFrameItems(out, { a: { x: 500, y: 500, w: 100, h: 50 } }), "a"),
+	).toBeUndefined();
 });
 
 it("snaps a box edge or centre to the nearest edge within range, per axis", () => {

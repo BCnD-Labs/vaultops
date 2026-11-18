@@ -98,6 +98,7 @@ export interface CanvasApi {
 	zoomOut: () => void;
 	/** Fit everything on the canvas into view. */
 	fit: () => void;
+	selectedBoxes: () => Record<string, Rect>;
 	/** A screen point (e.g. a right-click) in canvas coordinates. */
 	at: (clientX: number, clientY: number) => { x: number; y: number };
 }
@@ -205,7 +206,7 @@ function Surface({
 	locked = false,
 	editable = false,
 	onMove,
-	onMoveMany,
+	onDragItems,
 	onConnect,
 	onDeleteConnectors,
 	onDropBlock,
@@ -218,8 +219,8 @@ function Surface({
 	edges?: CanvasEdge[];
 	locked?: boolean;
 	editable?: boolean;
-	onMove: (id: string, position: { x: number; y: number }) => void;
-	onMoveMany?: (positions: { [id: string]: { x: number; y: number } }) => void;
+	onMove?: (id: string, position: { x: number; y: number }) => void;
+	onDragItems?: (boxes: Record<string, Rect>) => void;
 	onConnect?: (from: string, to: string) => void;
 	onDeleteConnectors?: (ids: string[]) => void;
 	onDropBlock?: (
@@ -273,6 +274,13 @@ function Surface({
 			zoomOut: () => void flow.zoomOut({ duration: 150 }),
 			fit: () =>
 				void flow.fitView({ duration: 200, padding: 0.35, maxZoom: 1 }),
+			selectedBoxes: () =>
+				Object.fromEntries(
+					flow
+						.getNodes()
+						.filter((node) => node.selected)
+						.map((node) => [node.id, boxOf(node)]),
+				),
 			at: (clientX, clientY) =>
 				flow.screenToFlowPosition({ x: clientX, y: clientY }),
 		});
@@ -303,6 +311,7 @@ function Surface({
 			nodes={nodes}
 			edges={edgeState}
 			nodeTypes={nodeTypes}
+			tabIndex={onDragItems ? 0 : undefined}
 			onNodesChange={(changes: NodeChange<CanvasNode>[]) =>
 				setNodes((current) => {
 					const kept = changes.filter((change) => change.type !== "remove");
@@ -351,25 +360,20 @@ function Surface({
 				);
 			}}
 			onNodeDragStop={(_, __, dragged) => {
-				const moved: { [id: string]: { x: number; y: number } } = {};
-				for (const node of dragged) {
-					moved[node.id] = { ...node.position };
-					const members = node.data.members;
-					const from = dragStart.current.get(node.id);
-					if (!members || !from) continue;
-					const dx = node.position.x - from.x;
-					const dy = node.position.y - from.y;
-					for (const id of members) {
-						const origin = dragStart.current.get(id);
-						if (origin && !dragged.some((d) => d.id === id))
-							moved[id] = { x: origin.x + dx, y: origin.y + dy };
-					}
-				}
-				const ids = Object.keys(moved);
-				const only = ids[0];
-				if (ids.length === 1 && only !== undefined && moved[only])
-					onMove(only, moved[only]);
-				else if (ids.length > 1) onMoveMany?.(moved);
+				const changes = dragged.map(({ id, position }) => ({
+					type: "position" as const,
+					id,
+					position,
+					dragging: true,
+				}));
+				const final = snapObjects
+					? applyNodeChanges(snapDragChanges(changes, flow.getNodes()), dragged)
+					: dragged;
+				onDragItems?.(
+					Object.fromEntries(final.map((node) => [node.id, boxOf(node)])),
+				);
+				if (final.length === 1 && final[0])
+					onMove?.(final[0].id, final[0].position);
 			}}
 			onConnect={(connection) => {
 				if (connection.source && connection.target)
@@ -454,6 +458,7 @@ function Surface({
 			// nor selected "pointer-events: none", and a locked canvas still has to
 			// let a card be grabbed and dragged out to a note.
 			elementsSelectable
+			elevateNodesOnSelect={false}
 			proOptions={{ hideAttribution: true }}
 		>
 			<Background color="var(--canvas-dot)" gap={20} size={1.5} />

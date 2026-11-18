@@ -1,5 +1,14 @@
 import type { Block } from "../note-format";
-import { groupMembers, numberAttr, setPositions } from "./canvas-ops";
+import {
+	attrsOf,
+	canvasNodes,
+	createGroup,
+	frameDescendants,
+	groupMembers,
+	newBlockId,
+	numberAttr,
+	setPositions,
+} from "./canvas-ops";
 
 /** An item's box in canvas coordinates. */
 export interface Rect {
@@ -110,24 +119,28 @@ export function withGroupMembers(
 	blocks: Block[],
 	positions: Positions,
 ): Positions {
-	const out: Positions = { ...positions };
+	const out = new Map(Object.entries(positions));
 	for (const [id, to] of Object.entries(positions)) {
 		const group = blocks.find((b) => b.id === id && b.type === "group");
 		if (!group) continue;
-		const dx = to.x - numberAttr(group, "x", to.x);
-		const dy = to.y - numberAttr(group, "y", to.y);
+		const dx = to.x - numberAttr(group, "x", 0);
+		const dy = to.y - numberAttr(group, "y", 0);
 		if (dx === 0 && dy === 0) continue;
-		for (const member of groupMembers(group)) {
-			if (member in positions) continue;
-			const block = blocks.find((b) => b.id === member);
-			if (!block) continue;
-			out[member] = {
-				x: numberAttr(block, "x", 0) + dx,
-				y: numberAttr(block, "y", 0) + dy,
-			};
-		}
+		const carry = (members: string[]) => {
+			for (const member of members) {
+				if (out.has(member)) continue;
+				const block = blocks.find((b) => b.id === member && b.parent === null);
+				if (!block) continue;
+				out.set(member, {
+					x: numberAttr(block, "x", 0) + dx,
+					y: numberAttr(block, "y", 0) + dy,
+				});
+				if (block.type === "group") carry(groupMembers(block));
+			}
+		};
+		carry(groupMembers(group));
 	}
-	return out;
+	return Object.fromEntries(out);
 }
 
 /** Align or distribute the items and write the result: one change, one undo step. */
@@ -138,6 +151,83 @@ export function arrangeItems(
 ): Block[] {
 	const moves = arrangeRects(rects, how);
 	return setPositions(blocks, withGroupMembers(blocks, moves));
+}
+
+export const FRAME_SIZE = { w: 320, h: 220 };
+
+export function framesBySize(blocks: Block[]) {
+	return canvasNodes(blocks)
+		.filter((block) => block.type === "group")
+		.map((block) => ({
+			id: block.id as string,
+			x: numberAttr(block, "x", 0),
+			y: numberAttr(block, "y", 0),
+			w: numberAttr(block, "w", FRAME_SIZE.w),
+			h: numberAttr(block, "h", FRAME_SIZE.h),
+		}))
+		.sort((a, b) => a.w * a.h - b.w * b.h);
+}
+
+function assignMembers(blocks: Block[], dragged: Record<string, Rect>) {
+	const frames = framesBySize(blocks);
+	let next = blocks;
+	for (const [id, { x, y, w, h }] of Object.entries(dragged)) {
+		const frame = next.find((b) => b.id === id && b.type === "group");
+		const descendants = frame ? frameDescendants(next, frame) : [];
+		// Items join by centre. A nested frame must fit entirely inside its parent.
+		const left = frame ? x : x + w / 2;
+		const top = frame ? y : y + h / 2;
+		const parent = frames.find(
+			(candidate) =>
+				candidate.id !== id &&
+				!descendants.includes(candidate.id) &&
+				left >= candidate.x &&
+				top >= candidate.y &&
+				left + (frame ? w : 0) <= candidate.x + candidate.w &&
+				top + (frame ? h : 0) <= candidate.y + candidate.h,
+		);
+		next = next.map((candidate) => {
+			if (candidate.type !== "group" || candidate.parent !== null)
+				return candidate;
+			const members = groupMembers(candidate);
+			const joins = candidate.id === parent?.id;
+			if (members.includes(id) === joins) return candidate;
+			return {
+				...candidate,
+				attrs: {
+					...attrsOf(candidate),
+					members: joins
+						? [...members, id]
+						: members.filter((member) => member !== id),
+				},
+			};
+		});
+	}
+	return next;
+}
+
+export function dragFrameItems(blocks: Block[], dragged: Record<string, Rect>) {
+	return assignMembers(
+		setPositions(blocks, withGroupMembers(blocks, dragged)),
+		dragged,
+	);
+}
+
+export function frameSelection(blocks: Block[], boxes: Record<string, Rect>) {
+	const picked = Object.values(boxes);
+	const pad = 24;
+	const x = Math.floor(Math.min(...picked.map((b) => b.x))) - pad;
+	const y = Math.floor(Math.min(...picked.map((b) => b.y))) - pad;
+	const box = {
+		x,
+		y,
+		w: Math.ceil(Math.max(...picked.map((b) => b.x + b.w))) + pad - x,
+		h: Math.ceil(Math.max(...picked.map((b) => b.y + b.h))) + pad - y,
+	};
+	const id = newBlockId();
+	return assignMembers(createGroup(blocks, Object.keys(boxes), box, id), {
+		[id]: box,
+	});
 }
 
 /** How far a dragged box may be from another item's edge and still catch on it. */

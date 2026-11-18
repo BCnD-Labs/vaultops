@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Block } from "../core/note-format";
-import { attrsOf, ITEM_TONES, textOf } from "../core/notes/canvas-ops";
-
-export function itemTone(block: Block): string {
-	const tone = attrsOf(block).tone;
-	return ITEM_TONES.find((t) => t === tone) ?? "note";
-}
+import { attrsOf, blockTone, textOf } from "../core/notes/canvas-ops";
 
 function attrString(block: Block, name: string, fallback: string): string {
 	const value = attrsOf(block)[name];
@@ -33,6 +28,7 @@ export function CanvasItem({
 	onTitle: (title: string) => void;
 }) {
 	const isGroup = block.type === "group";
+	const name = isGroup ? "Frame" : block.type;
 	const saved = isGroup ? attrString(block, "title", "") : textOf(block);
 	const [draft, setDraft] = useState<string | null>(
 		startEditing ? saved : null,
@@ -52,7 +48,7 @@ export function CanvasItem({
 			isGroup ? (
 				<input
 					className="canvas-item-field nodrag nowheel nopan"
-					aria-label="Group title"
+					aria-label="Frame title"
 					// biome-ignore lint/a11y/noAutofocus: the field exists to be typed in.
 					autoFocus
 					value={draft}
@@ -81,19 +77,19 @@ export function CanvasItem({
 			)
 		) : (
 			<span className={isGroup ? "canvas-group-title" : "canvas-item-text"}>
-				{saved || (isGroup ? "Group" : "")}
+				{saved || (isGroup ? "Frame" : "")}
 			</span>
 		);
 	const edit = () => editable && !locked && setDraft(saved);
 	const className = `canvas-item canvas-${block.type}${locked ? " canvas-item-pinned" : ""}`;
 	const pinned = locked
-		? "Shapes, sticky notes, labels, groups and connectors stay on the canvas."
+		? "Shapes, sticky notes, labels, frames and connectors stay on the canvas."
 		: undefined;
 	return (
 		<article
-			aria-label={block.type === "sticky" ? "Sticky note" : block.type}
+			aria-label={block.type === "sticky" ? "Sticky note" : name}
 			className={className}
-			data-tone={itemTone(block)}
+			data-tone={blockTone(block)}
 			data-shape={attrString(block, "shape", "rectangle")}
 			data-size={attrString(block, "size", "m")}
 			title={pinned}

@@ -77,7 +77,7 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 			locked = false,
 			snapObjects = false,
 			selectionToolbar,
-			onMove,
+			onDragItems,
 			onDropBlock,
 		}: {
 			snapObjects?: boolean;
@@ -94,7 +94,7 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 				data: { label: React.ReactNode };
 			}[];
 			locked?: boolean;
-			onMove: (id: string, position: { x: number; y: number }) => void;
+			onDragItems: (boxes: typeof mockBoxes) => void;
 			onDropBlock: (
 				event: DragEvent,
 				position: { x: number; y: number },
@@ -142,11 +142,17 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 				>
 					Drop other data
 				</button>
-				{mockSelection.length > 0 &&
+				{nodes.length > 0 &&
+					mockSelection.length > 0 &&
 					selectionToolbar?.({
 						ids: mockSelection,
 						bounds: () => null,
-						boxes: () => mockBoxes,
+						boxes: () =>
+							Object.fromEntries(
+								Object.entries(mockBoxes).filter(([id]) =>
+									mockSelection.includes(id),
+								),
+							),
 						allBoxes: () => mockBoxes,
 					})}
 				{nodes.map((node) => (
@@ -159,7 +165,17 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 						{node.data.label}
 						<button
 							type="button"
-							onClick={() => onMove(node.id, { x: 88, y: 99 })}
+							onClick={() =>
+								onDragItems({
+									[node.id]: {
+										w: 0,
+										h: 0,
+										...mockBoxes[node.id],
+										x: 88,
+										y: 99,
+									},
+								})
+							}
 						>
 							Drag card
 						</button>
@@ -1013,6 +1029,39 @@ it("aligns the selected items in one checked write, and one undo puts them all b
 	);
 	await user.click(screen.getByRole("button", { name: "Redo" }));
 	await waitFor(async () => expect((await places()).b).toEqual([0, 80]));
+});
+
+it("undoes frame title, drag membership and frame creation through the live canvas", async () => {
+	const { host, path, props, places } = await boardWithThreeStickies();
+	mockSelection = ["b"];
+	const frame = async () =>
+		parseNote(await host.readText(path)).note?.blocks[3]?.attrs;
+	render(<CanvasPane {...props} />);
+	const drag = within(await screen.findByTestId("flow-node-a")).getByRole(
+		"button",
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Frame selection" }));
+	const created = { x: 126, y: 56, w: 108, h: 68, members: ["b"] };
+	await waitFor(async () => expect(await frame()).toEqual(created));
+	fireEvent.click(drag);
+	await waitFor(async () =>
+		expect(await frame()).toMatchObject({ members: ["b", "a"] }),
+	);
+	fireEvent.doubleClick(screen.getByText("Frame"));
+	const title = screen.getByRole("textbox", { name: "Frame title" });
+	fireEvent.change(title, { target: { value: "Ideas" } });
+	fireEvent.blur(title);
+	await waitFor(async () =>
+		expect(await frame()).toMatchObject({ title: "Ideas" }),
+	);
+	const undo = screen.getByRole("button", { name: "Undo" });
+	fireEvent.click(undo);
+	await waitFor(async () => expect(await frame()).not.toHaveProperty("title"));
+	fireEvent.click(undo);
+	await waitFor(async () => expect(await frame()).toEqual(created));
+	expect((await places()).a).toEqual([0, 10]);
+	fireEvent.click(undo);
+	await waitFor(async () => expect(await frame()).toBeUndefined());
 });
 
 it("distributes three items evenly and offers it only for three or more", async () => {

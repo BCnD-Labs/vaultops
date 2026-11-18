@@ -26,10 +26,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { Block } from "../core/note-format";
 import type { Arrange } from "../core/notes/canvas-arrange";
-import { deleteRoots, type ItemTone } from "../core/notes/canvas-ops";
+import {
+	deleteRoots,
+	type ItemTone,
+	numberAttr,
+} from "../core/notes/canvas-ops";
 import type { Order } from "../core/notes/canvas-order";
 import type { ShapeKind, TextSize } from "../core/notes/canvas-style";
 import { CanvasStylePanel } from "./CanvasStylePanel";
+import { commandHint } from "./shortcuts";
 
 const ORDER: readonly (readonly [Order, string, typeof Group])[] = [
 	["front", "Bring to front", BringToFront],
@@ -75,6 +80,7 @@ export function CanvasSelectionBar({
 	onShape,
 	onTextSize,
 	onOrder,
+	onSlide,
 }: {
 	ids: string[];
 	blocks: Block[];
@@ -91,19 +97,19 @@ export function CanvasSelectionBar({
 	onTextSize?: (ids: string[], size: TextSize) => void;
 	/** Without it the order menu is not shown. Gets only what can be stacked. */
 	onOrder?: (ids: string[], how: Order) => void;
+	onSlide?: (id: string, slide: number | undefined) => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
 	const picked = blocks.filter((b) => b.id && ids.includes(b.id));
 	const groups = picked.filter((b) => b.type === "group");
-	const groupable = picked.filter(
-		(b) => b.type !== "group" && b.type !== "connector",
-	);
 	// Groups are frames behind everything and connectors are lines: neither stacks.
 	const stackable = picked.filter(
 		(b) => b.type !== "group" && b.type !== "connector",
 	);
 	// Connectors are not boxes on the canvas, so they are not arranged.
 	const arrangeable = picked.filter((b) => b.type !== "connector");
+	const frame = ids.length === 1 ? groups[0] : undefined;
+	const slide = frame ? numberAttr(frame, "slide", 0) || undefined : undefined;
 	let connectors = 0;
 	try {
 		connectors = deleteRoots(blocks, ids).connectorsRemoved;
@@ -123,7 +129,7 @@ export function CanvasSelectionBar({
 					{connectors > 0
 						? ` and ${connectors} ${connectors === 1 ? "connector" : "connectors"}`
 						: ""}
-					{groups.length > 0 ? " (a group's items stay)" : ""}?
+					{groups.length > 0 ? " (each frame's items stay)" : ""}?
 				</span>
 				<Button
 					size="sm"
@@ -194,25 +200,46 @@ export function CanvasSelectionBar({
 			<Button
 				size="sm"
 				variant="ghost"
-				disabled={groupable.length < 2 || groups.length > 0}
-				title={
-					groups.length > 0
-						? "Ungroup first"
-						: groupable.length < 2
-							? "Select at least two items"
-							: "Group these items"
-				}
-				onClick={() => onGroup(groupable.map((b) => b.id as string))}
+				disabled={arrangeable.length === 0}
+				title={commandHint("frame-selection")}
+				onClick={() => onGroup(arrangeable.map((b) => b.id as string))}
 			>
-				<Group aria-hidden="true" /> Group
+				<Group aria-hidden="true" /> Frame selection
 			</Button>
-			{groups.length === 1 && ids.length === 1 && (
+			{frame && onSlide && (
+				<input
+					key={`${frame.id}:${slide}`}
+					className="canvas-slide-number"
+					aria-label="Slide number"
+					placeholder="Slide"
+					type="number"
+					min={1}
+					defaultValue={slide}
+					onBlur={({ currentTarget: input }) => {
+						const next = input.value === "" ? undefined : input.valueAsNumber;
+						if (
+							input.validity.badInput ||
+							(next !== undefined && (!Number.isSafeInteger(next) || next <= 0))
+						)
+							input.value = String(slide ?? "");
+						else if (next !== slide) onSlide(frame.id as string, next);
+					}}
+					onKeyDown={(event) => {
+						if (event.key === "Enter") event.currentTarget.blur();
+						if (event.key === "Escape") {
+							event.currentTarget.value = String(slide ?? "");
+							event.currentTarget.blur();
+						}
+					}}
+				/>
+			)}
+			{frame && (
 				<Button
 					size="sm"
 					variant="ghost"
-					onClick={() => onUngroup(groups[0]?.id as string)}
+					onClick={() => onUngroup(frame.id as string)}
 				>
-					<Ungroup aria-hidden="true" /> Ungroup
+					<Ungroup aria-hidden="true" /> Remove frame
 				</Button>
 			)}
 			<Button size="sm" variant="ghost" onClick={() => setConfirming(true)}>

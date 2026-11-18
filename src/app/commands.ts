@@ -9,6 +9,7 @@ import {
 	PanelLeft,
 	PanelRight,
 	Pin,
+	Settings,
 	Trash2,
 } from "lucide-react";
 import { type FeatureState, isEnabled } from "../core/features/registry";
@@ -21,7 +22,7 @@ export type CommandGroup = (typeof COMMAND_GROUPS)[number];
 export interface CommandContext {
 	onNewFolder: () => void;
 	onToggle: (side: "left" | "right") => void;
-	onNavigate: (screen: "trash" | "health") => void;
+	onNavigate: (screen: "trash" | "health" | "settings") => void;
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
 	onOpenResources?: () => void;
@@ -132,6 +133,14 @@ export const COMMANDS: Command[] = [
 		feature: "resources",
 		available: (c) => c.onOpenResources !== undefined,
 		run: (c) => c.onOpenResources?.(),
+	},
+	{
+		id: "focus-settings",
+		label: "Focus Settings window",
+		group: "Go to",
+		icon: Settings,
+		keywords: ["preferences", "appearance"],
+		run: (c) => c.onNavigate("settings"),
 	},
 	{
 		id: "open-health",

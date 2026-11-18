@@ -16,14 +16,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useReducer, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CloseButton } from "@/components/ui/close-button";
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogTitle,
-} from "@/components/ui/dialog";
+import { FloatingWindow } from "@/components/ui/floating-editor";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -254,15 +247,12 @@ function modeOfDef(def: SettingDef): "light" | "dark" | null {
 export function SettingsScreen({
 	host,
 	updatePollMs,
-	modal = false,
 	initialSection = "appearance",
 }: {
 	host: UpdateHost;
 	updatePollMs?: number;
 	/** The section shown first. */
 	initialSection?: string;
-	/** Shown inside a dialog: the heading is the dialog's title. */
-	modal?: boolean;
 }) {
 	const root = document.documentElement;
 	const [, rerender] = useReducer((n: number) => n + 1, 0);
@@ -540,27 +530,8 @@ export function SettingsScreen({
 		</div>
 	);
 
-	if (modal) {
-		return (
-			<section className="settings-window">
-				<header className="settings-titlebar">
-					<DialogClose asChild>
-						<CloseButton className="settings-close" />
-					</DialogClose>
-					<DialogTitle className="settings-window-title">Settings</DialogTitle>
-					<DialogDescription className="sr-only">
-						Search and change the app's settings, by section.
-					</DialogDescription>
-				</header>
-				{body}
-			</section>
-		);
-	}
 	return (
-		<section className="settings-window settings-window-inline">
-			<h2 className="sr-only">Settings</h2>
-			{body}
-		</section>
+		<section className="settings-window settings-window-inline">{body}</section>
 	);
 }
 
@@ -653,25 +624,27 @@ function SettingsTransfer() {
 	);
 }
 
-/**
- * Settings as a window over the workspace: the panes, tabs and notes behind it
- * stay exactly as they were, and closing it (Esc, the X, or a click outside)
- * puts you right back.
- */
 export function SettingsDialog({
 	open,
 	onOpenChange,
 	host,
+	focusRequest,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	host: UpdateHost;
+	focusRequest?: object;
 }) {
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="settings-dialog" showClose={false}>
-				<SettingsScreen host={host} modal />
-			</DialogContent>
-		</Dialog>
+		<FloatingWindow
+			open={open}
+			title="Settings"
+			kind="settings"
+			initial={{ left: innerWidth - 652, top: 56, width: 620, height: 660 }}
+			focusRequest={focusRequest}
+			onClose={() => onOpenChange(false)}
+		>
+			<SettingsScreen host={host} />
+		</FloatingWindow>
 	);
 }

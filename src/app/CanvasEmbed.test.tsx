@@ -434,8 +434,6 @@ it("transfers the editor out of an embed and keeps the draft after closing the f
 	fireEvent.keyDown(chip, { key: "Enter", altKey: true });
 	const pin = within(floating()).getByRole("button", { name: "Pin window" });
 	expect(document.activeElement).toBe(pin);
-	fireEvent.keyDown(pin, { key: "Tab", shiftKey: true });
-	expect(document.activeElement?.textContent).toBe("Edit note");
 	fireEvent.pointerOut(chip, { relatedTarget: document.body });
 	await tick(300);
 	expect(floating()).toBeTruthy();

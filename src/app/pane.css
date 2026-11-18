@@ -1351,14 +1351,6 @@ input.canvas-item-field {
 
 /* Settings window, like another window over the app: a section list on the
    left, the chosen section on the right, each scrolling on its own. */
-.settings-dialog {
-	width: 1040px;
-	max-width: calc(100% - var(--space-8));
-	height: 760px;
-	padding: 0;
-	gap: 0;
-	overflow: hidden;
-}
 .settings-window {
 	display: flex;
 	flex-direction: column;
@@ -1400,7 +1392,8 @@ input.canvas-item-field {
 }
 .settings-nav {
 	flex: none;
-	width: 200px;
+	width: min(200px, 38%);
+	overflow: auto;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;

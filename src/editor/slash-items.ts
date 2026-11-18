@@ -30,6 +30,7 @@ import {
 	Quote,
 	Sigma,
 	Table2,
+	TableOfContents,
 	ToggleRight,
 	Workflow,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import { todayIso } from "./date-chip";
 import { DIVIDER_ICONS } from "./divider-icons";
 import { chooseImage } from "./image-block";
 import { insertMathBlock } from "./math-block";
+import { insertTableOfContents } from "./table-of-contents";
 
 /** The groups the menu is divided into, in the order they appear. */
 export const SLASH_SECTIONS = [
@@ -416,6 +418,15 @@ const ITEMS: SlashItem[] = [
 			);
 		},
 	},
+	{
+		id: "toc",
+		// In Plan after Table, so typing "tab" and Enter still makes a table.
+		section: "Plan",
+		icon: TableOfContents,
+		label: "Table of contents",
+		keywords: ["toc", "contents", "outline"],
+		run: (e, r) => void insertTableOfContents(e, r),
+	},
 ];
 
 /** The same items grouped by section, in the order of `SLASH_SECTIONS`. */
@@ -485,12 +496,14 @@ export function filterSlashItems(
 		return [...rows, ...all];
 	}
 	if (!q) return all;
-	// Best match first, so Enter picks what was typed: the label itself, then a
-	// word in the label, then a keyword. Ties keep the menu's own order.
+	// Best match first, so Enter picks what was typed: the label exactly, then the
+	// label's start, then a word in the label, then a keyword. Ties keep the
+	// menu's own order.
 	const rank = (item: SlashItem): number => {
 		const label = fold(item.label);
-		if (label.startsWith(q)) return 0;
-		if (label.split(" ").some((w) => w.startsWith(q))) return 1;
+		if (label === q) return 0;
+		if (label.startsWith(q)) return 1;
+		if (label.split(" ").some((w) => w.startsWith(q))) return 2;
 		const keywords = item.keywords.map(fold);
 		if (
 			keywords.some(
@@ -498,8 +511,8 @@ export function filterSlashItems(
 					k.startsWith(q) || k.split(" ").some((word) => word.startsWith(q)),
 			)
 		)
-			return 2;
-		if ([label, ...keywords].some((text) => isSubsequence(q, text))) return 3;
+			return 3;
+		if ([label, ...keywords].some((text) => isSubsequence(q, text))) return 4;
 		return -1;
 	};
 	return all

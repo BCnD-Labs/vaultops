@@ -52,7 +52,7 @@ describe("slash menu items", () => {
 			"mention",
 			"template",
 		]);
-		expect(ids("Plan")).toEqual(["task", "table", "database", "date"]);
+		expect(ids("Plan")).toEqual(["task", "table", "database", "date", "toc"]);
 		expect(ids("Visual")).toEqual([
 			"mermaid-flowchart",
 			"mermaid-sequence",
@@ -62,7 +62,7 @@ describe("slash menu items", () => {
 			"mermaid-pie",
 		]);
 		expect(ids("Media")).toEqual(["image"]);
-		expect(SLASH_ITEMS).toHaveLength(41);
+		expect(SLASH_ITEMS).toHaveLength(42);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 
@@ -115,6 +115,11 @@ describe("slash menu items", () => {
 		// The label's start beats a later word in another label.
 		expect(ids("call")[0]).toBe("Callout");
 		expect(ids("data")[0]).toBe("Database");
+		// A label that is exactly what was typed beats a longer one that starts the same way.
+		expect(filterSlashItems("table").map((i) => i.id)).toEqual([
+			"table",
+			"toc",
+		]);
 	});
 
 	it("shows everything for a bare slash", () => {
@@ -270,4 +275,8 @@ describe("slash menu items", () => {
 		// Items with no feature are unaffected.
 		expect(ids("heading")).toContain("heading1");
 	});
+});
+
+it("keeps Table ahead of Table of contents for a short prefix", () => {
+	expect(filterSlashItems("tab")[0]?.id).toBe("table");
 });

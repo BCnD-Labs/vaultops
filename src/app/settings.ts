@@ -571,6 +571,10 @@ export function checkInConfig(
 	return resolveConfig({ enabled, starts });
 }
 
+/** The week start used when expanding template dates. */
+export const templateWeekStart = (): 0 | 1 =>
+	weekStartsOnValue(settings.get("planner.weekStartsOn"));
+
 /** The `{{date}}` and `{{time}}` formats picked under Templates. */
 export function templateFormats(): PlaceholderFormats {
 	return {

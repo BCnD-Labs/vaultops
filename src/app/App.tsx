@@ -91,7 +91,7 @@ import {
 	loadVault,
 	type VaultView,
 } from "./session";
-import { newNoteFolder, templateFormats } from "./settings";
+import { newNoteFolder, templateFormats, templateWeekStart } from "./settings";
 import { commandMatches } from "./shortcuts";
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import { TemplateManager } from "./TemplateManager";
@@ -762,6 +762,7 @@ export function App({ host }: { host: Host }) {
 			title,
 			new Date(),
 			templateFormats(),
+			templateWeekStart(),
 		);
 		const understood = checkBlocks(blocks);
 		if (!understood.ok) {

@@ -10,6 +10,11 @@ import {
 } from "../note-format";
 import { nameKey } from "../vault-path/vault-path";
 import { previewOf } from "./scan";
+import {
+	formatTemplateDate,
+	templateDateKey,
+	templateTime,
+} from "./template-dates";
 import { moveToRecovery } from "./trash";
 
 /** Where templates live: ordinary note files, hidden from the tree and search. */
@@ -389,18 +394,38 @@ export function placeholderValues(
 	};
 }
 
-function fill(value: JsonValue, values: Record<string, string>): JsonValue {
-	if (Array.isArray(value)) return value.map((item) => fill(item, values));
+function fill(
+	value: JsonValue,
+	values: Record<string, string>,
+	now: Date,
+	formats: PlaceholderFormats,
+	weekStartsOn: 0 | 1,
+): JsonValue {
+	if (Array.isArray(value))
+		return value.map((item) => fill(item, values, now, formats, weekStartsOn));
 	if (value && typeof value === "object") {
 		const out: { [k: string]: JsonValue } = {};
 		for (const [key, inner] of Object.entries(value)) {
 			out[key] =
 				key === "text" && typeof inner === "string"
-					? inner.replace(
-							/\{\{(title|date|time)\}\}/g,
-							(_, k: string) => values[k] ?? "",
-						)
-					: fill(inner, values);
+					? inner.replace(/\{\{([^{}]*)\}\}/g, (whole, inner: string) => {
+							if (Object.hasOwn(values, inner)) return values[inner] ?? whole;
+							const date = /^date(?::([^|]+))?(?:\|([^|]+))?$/.exec(inner);
+							if (date && (date[1] || date[2])) {
+								const key = templateDateKey(
+									date[1] ?? "today",
+									now,
+									weekStartsOn,
+								);
+								return key
+									? (formatTemplateDate(key, date[2] ?? formats.date) ?? whole)
+									: whole;
+							}
+							const time = /^time:(.+)$/.exec(inner);
+							const resolved = time ? templateTime(time[1] ?? "", now) : null;
+							return resolved ? formatTime(resolved, formats.time) : whole;
+						})
+					: fill(inner, values, now, formats, weekStartsOn);
 		}
 		return out;
 	}
@@ -416,7 +441,8 @@ export function blocksFromTemplate(
 	template: Note,
 	title: string,
 	now: Date = new Date(),
-	formats?: PlaceholderFormats,
+	formats: PlaceholderFormats = DEFAULT_FORMATS,
+	weekStartsOn: 0 | 1 = 0,
 ): Block[] {
 	const values = placeholderValues(title, now, formats);
 	const ids = new Map<string, string>();
@@ -424,7 +450,13 @@ export function blocksFromTemplate(
 		if (block.id) ids.set(block.id, crypto.randomUUID());
 	}
 	return template.blocks.map((block) => {
-		const copy = fill(block as JsonValue, values) as Block;
+		const copy = fill(
+			block as JsonValue,
+			values,
+			now,
+			formats,
+			weekStartsOn,
+		) as Block;
 		const next: Block = { ...copy };
 		if (block.id) next.id = ids.get(block.id);
 		else delete next.id;

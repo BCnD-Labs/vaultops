@@ -44,7 +44,7 @@ import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
 import { PropertiesBlock } from "./PropertiesBlock";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
-import { templateFormats } from "./settings";
+import { templateFormats, templateWeekStart } from "./settings";
 import { TemplatePicker } from "./TemplatePicker";
 import { featureEnabled } from "./useFeature";
 import type { NoteSession } from "./useNoteSession";
@@ -233,6 +233,7 @@ export function NoteView({
 			title,
 			new Date(),
 			templateFormats(),
+			templateWeekStart(),
 		);
 		const understood = checkBlocks(blocks);
 		if (!understood.ok) {

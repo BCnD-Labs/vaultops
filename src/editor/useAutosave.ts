@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { linksIn } from "../core/links/links";
+import { headerIcon } from "../core/notes/icon";
 import { headerProps } from "../core/notes/properties";
 import { previewOf, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
@@ -17,6 +18,7 @@ export interface SavedInfo {
 	path: string;
 	title: string;
 	preview: string;
+	icon?: string;
 	/** The body text (capped) and the `noteId`s linked, kept so search and "Linked from" stay current. */
 	text?: string;
 	links?: string[];
@@ -111,6 +113,7 @@ export function useAutosave(
 					path: result.path,
 					title: draft.title,
 					preview: previewOf(result.note.blocks),
+					icon: headerIcon(result.note.header),
 					text: searchTextOf(result.note.blocks),
 					links: [
 						...new Set(linksIn(result.note.blocks).map((link) => link.target)),

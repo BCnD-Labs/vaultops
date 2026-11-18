@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { headerIcon } from "../core/notes/icon";
 import { type OutlineItem, outlineOf } from "../core/notes/outline";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
 import { type TextStats, textStats } from "../core/notes/text-stats";
@@ -50,6 +51,8 @@ export function useNoteSession({
 	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
 	const [editorRevision, setEditorRevision] = useState(0);
 	const [livePath, setLivePath] = useState<string | null>(null);
+	const [iconEdit, setIconEdit] = useState<string | null>();
+	const iconRef = useRef<string | null>(undefined);
 	const [title, setTitle] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
 	const [props, setProps] = useState<NoteProps | null>({});
@@ -108,6 +111,8 @@ export function useNoteSession({
 	/** Put a note that was just read from disk on screen. */
 	const load = useCallback((next: OpenedNote, path: string) => {
 		docRef.current = next.doc;
+		iconRef.current = undefined;
+		setIconEdit(undefined);
 		setStats(textStats(next.doc));
 		setOutline(outlineOf(next.doc));
 		const text =
@@ -148,8 +153,16 @@ export function useNoteSession({
 	const draftOf = (doc: JSONContent, nextTitle: string): Draft => ({
 		doc,
 		title: nextTitle,
+		icon: iconRef.current,
 		...(propsRef.current ? { props: propsRef.current } : {}),
 	});
+
+	const editIcon = (next: string | null) => {
+		if (!opened?.editable || !docRef.current) return;
+		iconRef.current = next;
+		setIconEdit(next);
+		autosave.change(draftOf(docRef.current, titleRef.current), opened);
+	};
 
 	const editProps = (next: NoteProps) => {
 		propsRef.current = next;
@@ -211,6 +224,11 @@ export function useNoteSession({
 		peek: autosave.peek,
 		discard: autosave.discard,
 		failureReason: autosave.failureReason,
+		icon:
+			iconEdit === undefined
+				? headerIcon(opened?.note?.header)
+				: (iconEdit ?? undefined),
+		editIcon,
 		editProps,
 		editTitle,
 		editDoc,

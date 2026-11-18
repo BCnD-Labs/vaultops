@@ -549,7 +549,8 @@ it("opens a canvas with an unknown block type read-only and says why", async () 
 		"hologram",
 	);
 	expect(
-		(screen.getByRole("button", { name: /Add/ }) as HTMLButtonElement).disabled,
+		(screen.getByRole("button", { name: "Add to canvas" }) as HTMLButtonElement)
+			.disabled,
 	).toBe(true);
 	fireEvent.click(screen.getByRole("button", { name: "Drag card" }));
 	await Promise.resolve();
@@ -571,7 +572,7 @@ it("adds a sticky note from the Add menu and saves it on the canvas", async () =
 		/>,
 	);
 	await screen.findByText("Drag a block here from a note.");
-	await user.click(screen.getByRole("button", { name: /Add/ }));
+	await user.click(screen.getByRole("button", { name: "Add to canvas" }));
 	await user.click(
 		await screen.findByRole("menuitem", { name: "Sticky note" }),
 	);
@@ -586,7 +587,7 @@ it("adds a sticky note from the Add menu and saves it on the canvas", async () =
 	).toBeTruthy();
 });
 
-it("keeps only the canvas name in the header and puts Add in the canvas toolbar", async () => {
+it("puts the canvas icon in the title area and keeps Add in the canvas toolbar", async () => {
 	const host = new MemoryHost();
 	const made = await createCanvas(host, "", "Board");
 	render(
@@ -601,7 +602,16 @@ it("keeps only the canvas name in the header and puts Add in the canvas toolbar"
 	);
 	await screen.findByText("Drag a block here from a note.");
 	const header = document.querySelector(".canvas-bar") as HTMLElement;
-	expect(within(header).queryAllByRole("button")).toHaveLength(0);
+	fireEvent.click(within(header).getByRole("button", { name: "Add icon" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Icon star" }));
+	await waitFor(async () => {
+		expect(parseNote(await host.readText(made.path)).note?.header.icon).toBe(
+			"star",
+		);
+	});
+	expect(
+		within(header).getByRole("button", { name: "Change icon" }),
+	).toBeTruthy();
 	expect(screen.queryByRole("button", { name: "New canvas" })).toBeNull();
 	expect(screen.queryByRole("button", { name: "Close canvas" })).toBeNull();
 	const toolbar = screen.getByRole("toolbar", { name: "Canvas controls" });
@@ -719,7 +729,7 @@ it("two Ctrl+Z presses in one tick undo two steps and leave a coherent history",
 			(block) => block.type === "sticky",
 		).length;
 	for (const count of [1, 2]) {
-		await user.click(screen.getByRole("button", { name: /Add/ }));
+		await user.click(screen.getByRole("button", { name: "Add to canvas" }));
 		await user.click(
 			await screen.findByRole("menuitem", { name: "Sticky note" }),
 		);
@@ -1093,7 +1103,7 @@ it("embeds a note from the Add menu: pick it by title, it is saved with the note
 	const write = vi.spyOn(host, "writeTextAtomic");
 	render(<CanvasPane {...props} />);
 	await screen.findByText("Drag a block here from a note.");
-	await user.click(screen.getByRole("button", { name: /Add/ }));
+	await user.click(screen.getByRole("button", { name: "Add to canvas" }));
 	await user.click(
 		await screen.findByRole("menuitem", { name: "Embed a note..." }),
 	);
@@ -1132,7 +1142,9 @@ it("cannot embed when the vault has no other notes, and never lists canvases", a
 			]}
 		/>,
 	);
-	await user.click(await screen.findByRole("button", { name: /Add/ }));
+	await user.click(
+		await screen.findByRole("button", { name: "Add to canvas" }),
+	);
 	expect(
 		(
 			await screen.findByRole("menuitem", { name: "Embed a note..." })

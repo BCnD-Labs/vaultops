@@ -5,6 +5,7 @@ export interface TreeNote {
 	path: string;
 	title: string;
 	readOnly: boolean;
+	icon?: string;
 	/** "canvas" rows get their own icon; anything else is a note. */
 	kind?: "note" | "canvas";
 }
@@ -23,6 +24,7 @@ export interface NoteNode {
 	name: string;
 	path: string;
 	readOnly: boolean;
+	icon?: string;
 	/** True for a canvas (set only then). */
 	canvas?: boolean;
 }
@@ -80,6 +82,7 @@ export function buildTree(folders: string[], notes: TreeNote[]): TreeNode[] {
 			name: note.title,
 			path: note.path,
 			readOnly: note.readOnly,
+			...(note.icon ? { icon: note.icon } : {}),
 			...(note.kind === "canvas" ? { canvas: true } : {}),
 		});
 	}

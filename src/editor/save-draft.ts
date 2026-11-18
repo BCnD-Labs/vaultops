@@ -4,6 +4,7 @@ import {
 	NOTE_FORMAT_VERSION,
 	type Note,
 } from "../core/note-format";
+import { withIcon } from "../core/notes/icon";
 import { type Props, withProps } from "../core/notes/properties";
 import { renameNote } from "../core/notes/rename";
 import { createNote } from "../core/notes/repository";
@@ -17,6 +18,8 @@ export interface Draft {
 	title: string;
 	/** The note's properties; left out means "leave the header's props as they are". */
 	props?: Props;
+	/** Null removes the icon. Omitted keeps the saved value. */
+	icon?: string | null;
 }
 
 export type DraftOutcome =
@@ -80,6 +83,7 @@ export async function saveDraft(
 	let header = current.note.header;
 	if (titleChanged) header = { ...header, title: draft.title };
 	if (draft.props !== undefined) header = withProps(header, draft.props);
+	if (draft.icon !== undefined) header = withIcon(header, draft.icon);
 	const target: OpenedNote =
 		header === current.note.header
 			? current
@@ -129,6 +133,7 @@ export async function saveAsCopy(
 			title,
 		};
 		if (draft.props !== undefined) header = withProps(header, draft.props);
+		if (draft.icon !== undefined) header = withIcon(header, draft.icon);
 		const note: Note = { header, blocks: docToBlocks(draft.doc) };
 		const { path } = await createNote(host, folder, title, note);
 		return { ok: true, path };

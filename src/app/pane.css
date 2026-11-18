@@ -28,13 +28,16 @@
 	position: relative;
 	z-index: 6;
 	height: 0;
+	display: flex;
+	align-items: flex-start;
+	padding-inline: 10px;
+}
+.canvas-bar > * {
+	margin-top: 10px;
 }
 .canvas-name {
-	position: absolute;
-	top: 10px;
-	left: 10px;
 	box-sizing: border-box;
-	width: min(240px, calc(100% - 20px));
+	width: 240px;
 	min-width: 0;
 	font: inherit;
 	font-weight: 600;
@@ -258,7 +261,52 @@
 	border-color: var(--line);
 }
 
+.note-title {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+.note-add-icon {
+	pointer-events: none;
+	opacity: 0;
+	color: var(--muted-foreground);
+}
+.note-title .note-add-icon {
+	position: absolute;
+	right: 0;
+	top: 0;
+	transform: translateY(-60%);
+}
+.canvas-bar .note-add-icon {
+	order: 1;
+	flex-shrink: 0;
+}
+.note-title:hover .note-add-icon,
+.note-title:focus-within .note-add-icon,
+.canvas-bar:hover .note-add-icon,
+.canvas-bar:focus-within .note-add-icon,
+.note-add-icon[data-state="open"] {
+	opacity: 1;
+	pointer-events: auto;
+}
+.note-title .note-title-icon-button {
+	height: auto;
+	padding: var(--space-1);
+}
+.note-title-icon,
+.note-title-icon-button .note-title-icon {
+	width: 36px;
+	height: 36px;
+}
+.canvas-bar .note-title-icon,
+.canvas-bar .note-title-icon-button .note-title-icon {
+	width: 24px;
+	height: 24px;
+}
 .title-field {
+	width: 100%;
+	box-sizing: border-box;
 	font: inherit;
 	font-size: var(--font-size-title);
 	font-weight: 600;
@@ -508,8 +556,8 @@
 	color: var(--muted-foreground);
 }
 
-/* Match the title and metadata to the editor column without changing markup. */
-.pane > .title-field,
+/* Match the title and metadata to the editor column. */
+.pane > .note-title,
 .pane > .status-line {
 	width: 100%;
 	max-width: var(--editor-width);

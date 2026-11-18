@@ -29,6 +29,7 @@ import type { OpenedNote } from "../editor/note-io";
 import type { LinkSource } from "../editor/note-link";
 import { SaveStatus } from "../editor/SaveStatus";
 import type { Host } from "../host/host";
+import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
 import { PropertiesBlock } from "./PropertiesBlock";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
@@ -48,6 +49,8 @@ export interface NoteViewProps {
 	editorRevision: number;
 	liveDoc?: JSONContent | null;
 	title: string;
+	icon?: string;
+	onIconChange?: (icon: string | null) => void;
 	props: Props | null;
 	path: string | null;
 	onPropsChange: (next: Props) => void;
@@ -94,6 +97,8 @@ export function NoteView({
 	editorRevision,
 	liveDoc,
 	title,
+	icon,
+	onIconChange,
 	props,
 	path,
 	onPropsChange,
@@ -147,25 +152,35 @@ export function NoteView({
 	};
 	return (
 		<>
-			<input
-				ref={titleInput}
-				className="title-field"
-				aria-label="Title"
-				value={title}
-				readOnly={!opened.editable || reading}
-				onChange={(event) => onTitleChange(event.target.value)}
-				onKeyDown={(event) => {
-					// Enter ends the title and starts the note, like every writing app.
-					if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-					event.preventDefault();
-					event.currentTarget
-						.closest("main")
-						?.querySelector<HTMLElement>(
-							'.note-editor [contenteditable="true"]',
-						)
-						?.focus();
-				}}
-			/>
+			<div className="note-title">
+				<NoteIconPicker
+					icon={icon}
+					onChange={
+						writable && opened.editable && !reading && !locked
+							? onIconChange
+							: undefined
+					}
+				/>
+				<input
+					ref={titleInput}
+					className="title-field"
+					aria-label="Title"
+					value={title}
+					readOnly={!opened.editable || reading}
+					onChange={(event) => onTitleChange(event.target.value)}
+					onKeyDown={(event) => {
+						// Enter ends the title and starts the note, like every writing app.
+						if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+						event.preventDefault();
+						event.currentTarget
+							.closest("main")
+							?.querySelector<HTMLElement>(
+								'.note-editor [contenteditable="true"]',
+							)
+							?.focus();
+					}}
+				/>
+			</div>
 			<PropertiesBlock
 				props={props}
 				editable={opened.editable && !reading && !locked}
@@ -426,6 +441,8 @@ function PaneNote({
 			editorRevision={session.editorRevision}
 			liveDoc={session.docRef.current}
 			title={session.title}
+			icon={session.icon}
+			onIconChange={session.editIcon}
 			props={session.props}
 			path={session.livePath}
 			onPropsChange={session.editProps}

@@ -99,8 +99,7 @@ it("draws the canvas name as a small label on the canvas, not a full-width bar",
 	const css = read("src/app/pane.css");
 	expect(rule(css, ".canvas-bar")).toMatch(/height:\s*0/);
 	const name = rule(css, ".canvas-name");
-	expect(name).toMatch(/position:\s*absolute/);
-	expect(name).toMatch(/width:\s*min\(240px/);
+	expect(name).toMatch(/width:\s*240px/);
 	expect(css).not.toMatch(/\.canvas-bar\s*\{[^}]*border-bottom/);
 });
 

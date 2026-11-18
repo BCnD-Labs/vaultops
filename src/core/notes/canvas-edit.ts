@@ -1,5 +1,10 @@
 import type { Host } from "../../host/host";
-import { type Block, parseNote, prepareSave } from "../note-format";
+import {
+	type Block,
+	type NoteHeader,
+	parseNote,
+	prepareSave,
+} from "../note-format";
 
 const queues = new WeakMap<Host, Map<string, Promise<unknown>>>();
 
@@ -39,9 +44,10 @@ export function saveCanvasEdit(
 	baseText: string,
 	mutate: (blocks: Block[]) => Block[],
 	action = "editing it",
+	mutateHeader?: (header: NoteHeader) => NoteHeader,
 ): Promise<string> {
 	return inOrder(host, path, () =>
-		saveCanvasEditNow(host, path, baseText, mutate, action),
+		saveCanvasEditNow(host, path, baseText, mutate, action, mutateHeader),
 	);
 }
 
@@ -51,12 +57,14 @@ async function saveCanvasEditNow(
 	baseText: string,
 	mutate: (blocks: Block[]) => Block[],
 	action: string,
+	mutateHeader?: (header: NoteHeader) => NoteHeader,
 ): Promise<string> {
 	const parsed = parseNote(baseText);
 	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
 		throw new Error("This canvas cannot be edited safely.");
 	const saved = prepareSave({
 		...parsed.note,
+		header: mutateHeader?.(parsed.note.header) ?? parsed.note.header,
 		blocks: mutate(parsed.note.blocks),
 	});
 	if (!saved.ok) throw new Error("The canvas did not pass the save check.");

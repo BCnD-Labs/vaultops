@@ -1688,3 +1688,14 @@ input.canvas-item-field {
 .journal-day:not(:has(.note-editor)) {
 	min-height: var(--measured-height, 7rem);
 }
+
+.canvas-presentation[data-slot="dialog-content"] {
+	inset: 0;
+	max-width: none;
+	translate: none;
+	display: flex;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: var(--panel);
+}

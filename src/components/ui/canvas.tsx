@@ -17,7 +17,9 @@ import {
 	ReactFlowProvider,
 	SelectionMode,
 	useReactFlow,
+	useStore,
 	useStoreApi,
+	type Viewport,
 } from "@xyflow/react";
 import {
 	type ReactNode,
@@ -92,6 +94,8 @@ export interface SelectionContext {
 
 /** What the surface offers the screen around it. */
 export interface CanvasApi {
+	viewport: () => Viewport;
+	restoreViewport: (viewport: Viewport) => void;
 	/** The middle of what is on screen, in canvas coordinates. */
 	center: () => { x: number; y: number };
 	zoomIn: () => void;
@@ -200,6 +204,30 @@ const nodeTypes = { item: ItemNode };
 
 const NO_EDGES: CanvasEdge[] = [];
 
+export interface CanvasPresentationView {
+	bounds: { x: number; y: number; width: number; height: number };
+	from?: Viewport;
+}
+
+function PresentationViewport({ bounds }: CanvasPresentationView) {
+	const flow = useReactFlow();
+	const width = useStore((state) => state.width);
+	const height = useStore((state) => state.height);
+	const ready = useStore((state) => Boolean(state.panZoom));
+	useEffect(() => {
+		if (!ready || !width || !height) return;
+		const reduced =
+			document.documentElement.hasAttribute("data-reduce-motion") ||
+			window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+		void flow.fitBounds(bounds, {
+			padding: 0.16,
+			duration: reduced ? 0 : 220,
+			ease: (t) => 1 - (1 - t) ** 3,
+		});
+	}, [bounds, flow, height, ready, width]);
+	return null;
+}
+
 function Surface({
 	nodes: initial,
 	edges: initialEdges = NO_EDGES,
@@ -212,6 +240,7 @@ function Surface({
 	onDropBlock,
 	selectionToolbar,
 	onReady,
+	presentation,
 	snap = false,
 	snapObjects = false,
 }: {
@@ -229,6 +258,7 @@ function Surface({
 	) => void;
 	selectionToolbar?: (context: SelectionContext) => ReactNode;
 	onReady?: (api: CanvasApi) => void;
+	presentation?: CanvasPresentationView;
 	/** Moved items land on the 20px grid. */
 	snap?: boolean;
 	/** Moved items catch on the edges and centres of the others. */
@@ -265,6 +295,8 @@ function Surface({
 	);
 	useEffect(() => {
 		onReady?.({
+			viewport: flow.getViewport,
+			restoreViewport: (viewport) => void flow.setViewport(viewport),
 			center: () => {
 				const { width, height, transform } = store.getState();
 				const [x, y, zoom] = transform;
@@ -308,6 +340,7 @@ function Surface({
 	const arrange = locked || !editable;
 	return (
 		<ReactFlow<CanvasNode>
+			id={presentation ? "canvas-presentation-flow" : undefined}
 			nodes={nodes}
 			edges={edgeState}
 			nodeTypes={nodeTypes}
@@ -442,8 +475,11 @@ function Surface({
 					flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }),
 				);
 			}}
-			fitView
+			fitView={!presentation}
 			fitViewOptions={{ padding: 0.35, maxZoom: 1 }}
+			defaultViewport={presentation?.from}
+			minZoom={presentation ? 0 : undefined}
+			maxZoom={presentation ? 8 : undefined}
 			snapToGrid={snap}
 			snapGrid={[20, 20]}
 			{...canvasFlowProps(locked)}
@@ -461,6 +497,7 @@ function Surface({
 			elevateNodesOnSelect={false}
 			proOptions={{ hideAttribution: true }}
 		>
+			{presentation && <PresentationViewport bounds={presentation.bounds} />}
 			<Background color="var(--canvas-dot)" gap={20} size={1.5} />
 			{selectionToolbar && !locked && editable && selectedIds.length > 0 && (
 				<NodeToolbar

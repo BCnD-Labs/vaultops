@@ -4,6 +4,7 @@ import {
 	LockOpen,
 	Magnet,
 	Maximize,
+	Play,
 	Plus,
 	Redo2,
 	Undo2,
@@ -37,7 +38,11 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CANVAS_ONLY_TYPES, type NoteHeader } from "../core/note-format";
+import {
+	type Block,
+	CANVAS_ONLY_TYPES,
+	type NoteHeader,
+} from "../core/note-format";
 import {
 	arrangeItems,
 	dragFrameItems,
@@ -71,6 +76,7 @@ import {
 } from "../core/notes/canvas-ops";
 import { reorderItems } from "../core/notes/canvas-order";
 import { blockPosition } from "../core/notes/canvas-position";
+import { presentationFrames } from "../core/notes/canvas-present";
 import { setShapeKind, setTextSize } from "../core/notes/canvas-style";
 import { headerIcon, withIcon } from "../core/notes/icon";
 import {
@@ -84,6 +90,7 @@ import type { Host } from "../host/host";
 import { CanvasCard } from "./CanvasCard";
 import { CanvasEmbed } from "./CanvasEmbed";
 import { CanvasItem } from "./CanvasItem";
+import { CanvasPresentation } from "./CanvasPresentation";
 import { CanvasSelectionBar } from "./CanvasSelectionBar";
 import {
 	canvasLocked,
@@ -95,7 +102,7 @@ import type { LiveDocument, LiveDocuments } from "./live-documents";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NotePickerDialog } from "./NotePickerDialog";
 import type { NoteRow } from "./session";
-import { commandMatches } from "./shortcuts";
+import { commandHint, commandMatches } from "./shortcuts";
 
 const lockLabel = "Lock canvas: drag cards out to the note";
 type Binding = ReturnType<LiveDocuments["subscribe"]>;
@@ -171,6 +178,12 @@ export function CanvasPane({
 	const menuPoint = useRef<{ x: number; y: number } | null>(null);
 	const rightDown = useRef<{ x: number; y: number } | null>(null);
 	const canvasApi = useRef<CanvasApi | null>(null);
+	const [presentation, setPresentation] = useState<{
+		path: string;
+		slides: ReturnType<typeof presentationFrames>;
+		from: ReturnType<CanvasApi["viewport"]> | undefined;
+		opener: HTMLElement;
+	} | null>(null);
 	const nameInput = useRef<HTMLInputElement>(null);
 	const shouldFocus = useRef(focusName);
 	useEffect(() => {
@@ -318,7 +331,8 @@ export function CanvasPane({
 		});
 	const embedTarget = useMemo(() => indexEmbedTargets(notes), [notes]);
 	const frameLayers = framesBySize(blocks).map((frame) => frame.id);
-	const nodes: CanvasNode[] = roots.map((block) => {
+	const nodeFor = (block: Block, readOnly = false): CanvasNode => {
+		const interactive = editable && !readOnly;
 		const id = block.id as string;
 		const canvasOnly = (CANVAS_ONLY_TYPES as readonly string[]).includes(
 			block.type,
@@ -330,19 +344,19 @@ export function CanvasPane({
 					key={id}
 					documents={documents}
 					target={embedTarget(embedNoteId(block))}
-					host={editable ? host : undefined}
+					host={interactive ? host : undefined}
 					links={links}
-					locked={locked}
-					onOpen={onOpenNote}
-					onDropBlock={onDropBlock}
+					locked={locked && !readOnly}
+					onOpen={readOnly ? undefined : onOpenNote}
+					onDropBlock={readOnly ? undefined : onDropBlock}
 				/>
 			) : canvasOnly ? (
 				<CanvasItem
 					key={id}
 					block={block}
-					editable={!!editable}
-					locked={locked}
-					startEditing={editingId === id}
+					editable={interactive}
+					locked={locked && !readOnly}
+					startEditing={interactive && editingId === id}
 					onText={(text) => {
 						setEditingId(null);
 						void commit((all) => setText(all, id, text), "editing the text");
@@ -361,10 +375,10 @@ export function CanvasPane({
 					root={block}
 					blocks={blocks}
 					canvasId={canvasHeader?.noteId ?? ""}
-					draggable={!!editable}
+					draggable={interactive}
 					tone={blockTone(block)}
 					onMoveToNote={
-						editable && onMoveToNote
+						interactive && onMoveToNote
 							? async () => {
 									try {
 										await onMoveToNote(id);
@@ -377,7 +391,7 @@ export function CanvasPane({
 								}
 							: undefined
 					}
-					onMoveTo={editable && onMoveTo ? () => onMoveTo(id) : undefined}
+					onMoveTo={interactive && onMoveTo ? () => onMoveTo(id) : undefined}
 				/>
 			);
 		const isGroup = block.type === "group";
@@ -389,8 +403,8 @@ export function CanvasPane({
 			position: blockPosition(block),
 			data: {
 				label,
-				resizable: Boolean(editable && !locked && size),
-				connectable: Boolean(editable && !locked && !isGroup),
+				resizable: Boolean(interactive && !locked && size),
+				connectable: Boolean(interactive && !locked && !isGroup),
 				...(isGroup ? { members: frameDescendants(blocks, block) } : {}),
 				onResizeEnd: (
 					itemId: string,
@@ -410,7 +424,7 @@ export function CanvasPane({
 			className: canvasOnly
 				? `canvas-item-node canvas-node-${block.type}`
 				: "canvas-node",
-			draggable: Boolean(editable && !locked),
+			draggable: Boolean(interactive && !locked),
 			...(width > 0 && height > 0 ? { style: { height, width } } : {}),
 			...(isGroup
 				? {
@@ -419,7 +433,7 @@ export function CanvasPane({
 					}
 				: {}),
 		};
-	});
+	};
 	const present = new Set(roots.map((block) => block.id));
 	const edges = canvasConnectors(blocks).flatMap((block) => {
 		const ends = connectorEnds(block);
@@ -436,6 +450,15 @@ export function CanvasPane({
 			: [];
 	});
 	const pickable = embeddable(notes);
+	const startPresentation = (opener: HTMLElement) => {
+		if (!document || !isCanvas || presentation?.path === path) return;
+		setPresentation({
+			path,
+			slides: presentationFrames(blocks),
+			from: canvasApi.current?.viewport(),
+			opener,
+		});
+	};
 	const LockIcon = locked ? Lock : LockOpen;
 	return (
 		<section
@@ -447,6 +470,12 @@ export function CanvasPane({
 				const target = event.target as HTMLElement;
 				if (target.closest("input, textarea, select, [contenteditable='true']"))
 					return;
+				if (commandMatches(event.nativeEvent, "present-canvas")) {
+					event.preventDefault();
+					event.stopPropagation();
+					startPresentation(target);
+					return;
+				}
 				if (commandMatches(event.nativeEvent, "frame-selection")) {
 					event.preventDefault();
 					framePicked(canvasApi.current?.selectedBoxes());
@@ -543,7 +572,7 @@ export function CanvasPane({
 							snap={snapModes.grid}
 							snapObjects={snapModes.objects}
 							key={surfaceRevision}
-							nodes={nodes}
+							nodes={roots.map((block) => nodeFor(block))}
 							edges={edges}
 							locked={locked}
 							editable={!!editable}
@@ -731,6 +760,7 @@ export function CanvasPane({
 								</DropdownMenu>
 								{(
 									[
+										["Present", Play, startPresentation, !isCanvas, undefined],
 										[
 											"Zoom in",
 											ZoomIn,
@@ -790,12 +820,15 @@ export function CanvasPane({
 												aria-label={label}
 												aria-pressed={pressed}
 												disabled={disabled}
-												onClick={run}
+												onClick={(event) => run(event.currentTarget)}
 											>
 												<Icon size={16} aria-hidden="true" />
 											</Button>
 										</TooltipTrigger>
-										<TooltipContent side="left">{label}</TooltipContent>
+										<TooltipContent side="left">
+											{label}{" "}
+											{label === "Present" && commandHint("present-canvas")}
+										</TooltipContent>
 									</Tooltip>
 								))}
 							</div>
@@ -890,6 +923,18 @@ export function CanvasPane({
 					</ContextMenuItem>
 				</ContextMenuContent>
 			</ContextMenu>
+			{presentation?.path === path && (
+				<CanvasPresentation
+					{...presentation}
+					nodes={roots.map((block) => nodeFor(block, true))}
+					edges={edges}
+					onClose={() => {
+						if (presentation.from)
+							canvasApi.current?.restoreViewport(presentation.from);
+						setPresentation(null);
+					}}
+				/>
+			)}
 			<NotePickerDialog
 				open={picking !== null}
 				onOpenChange={(next) => {

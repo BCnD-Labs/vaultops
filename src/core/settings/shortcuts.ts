@@ -73,6 +73,13 @@ export const SHORTCUT_COMMANDS: readonly ShortcutCommand[] = [
 		where: "In a canvas with items selected",
 	},
 	{
+		id: "present-canvas",
+		label: "Present canvas frames",
+		section: "Canvas",
+		keys: "Mod+Shift+P",
+		where: "In a canvas",
+	},
+	{
 		id: "debug",
 		label: "Open the maintainer panel",
 		section: "Maintainer",

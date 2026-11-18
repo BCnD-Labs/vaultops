@@ -8,6 +8,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { getViewportForBounds } from "@xyflow/react";
 import {
 	type ComponentProps,
 	type DragEvent,
@@ -63,6 +64,7 @@ function CanvasPane({
 let ownCanvasId = "";
 /** What the mocked surface reports as selected, and the boxes it says they fill. */
 let mockSelection: string[] = [];
+let useRealCanvas = false;
 let mockBoxes: {
 	[id: string]: { x: number; y: number; w: number; h: number };
 } = {};
@@ -70,7 +72,7 @@ let mockBoxes: {
 vi.mock("@/components/ui/canvas", async (importOriginal) => {
 	const actual =
 		await importOriginal<typeof import("@/components/ui/canvas")>();
-	return {
+	const mocked = {
 		...actual,
 		Canvas: ({
 			nodes,
@@ -184,10 +186,21 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 			</div>
 		),
 	};
+	return {
+		...mocked,
+		Canvas: (props: ComponentProps<typeof actual.Canvas>) =>
+			useRealCanvas ? (
+				<actual.Canvas {...props} />
+			) : (
+				<mocked.Canvas {...(props as ComponentProps<typeof mocked.Canvas>)} />
+			),
+	};
 });
 
 afterEach(() => {
 	cleanup();
+	useRealCanvas = false;
+	document.documentElement.removeAttribute("data-reduce-motion");
 	vi.unstubAllGlobals();
 	localStorage.clear();
 	mockSelection = [];
@@ -1441,4 +1454,107 @@ it("keeps an embed whose note is gone, and deleting the embed leaves the note al
 		expect(parseNote(await host.readText(path)).note?.blocks).toEqual([]),
 	);
 	expect(await host.readText("Meeting.vnote")).toBe(meetingBefore);
+});
+
+it("presents frames in order, then returns to the exact canvas view without saving", async () => {
+	const { host, path, props } = await boardWithMeetingNote();
+	const note = parseNote(await host.readText(path)).note;
+	if (!note) throw new Error("Canvas fixture did not load");
+	const frames = [
+		{ x: -400, y: 500, slide: 0 },
+		{ x: 400, y: 0, slide: 0 },
+		{ x: -400, y: 0, slide: 2 },
+		{ x: 0, y: 0, slide: 0 },
+		{ x: 0, y: -400, slide: 1 },
+	];
+	const before = serializeNote({
+		...note,
+		blocks: frames.map(({ slide, ...position }, i) => ({
+			id: `frame-${i}`,
+			type: "group",
+			parent: null,
+			attrs: slide ? { ...position, slide } : position,
+		})),
+	});
+	await host.writeTextAtomic(path, before);
+	const writes = vi.spyOn(host, "writeTextAtomic");
+	useRealCanvas = true;
+	vi.stubGlobal(
+		"DOMMatrixReadOnly",
+		class {
+			m22 = 1;
+		},
+	);
+	document.documentElement.setAttribute("data-reduce-motion", "");
+	const { container } = render(<CanvasPane {...props} />);
+	const viewport = (root: ParentNode) =>
+		root.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform;
+	const editor = await screen.findByRole("application");
+	const picked = await waitFor(() => {
+		const node = editor.querySelector<HTMLElement>('[data-id="frame-0"]');
+		expect(node).toBeTruthy();
+		return node as HTMLElement;
+	});
+	fireEvent.click(picked);
+	expect(picked.classList.contains("selected")).toBe(true);
+	const zoom = () => Number(viewport(editor)?.match(/scale\(([^)]+)/)?.[1]);
+	const zoomed = Math.min(2, zoom() * 1.2);
+	fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+	await waitFor(() => expect(zoom()).toBeCloseTo(zoomed, 10));
+	const previous = viewport(editor);
+	fireEvent.keyDown(editor, { key: "P", shiftKey: true, ctrlKey: true });
+	const dialog = await screen.findByRole("dialog", {
+		name: "Canvas presentation",
+	});
+	const checkSlide = (count: number) => {
+		expect(within(dialog).getByText(`${count} / 5`)).toBeTruthy();
+		const frame = frames[[4, 2, 3, 1, 0][count - 1] ?? -1];
+		if (!frame) throw new Error("Missing test frame");
+		const { x, y, zoom } = getViewportForBounds(
+			{ ...frame, width: 320, height: 220 },
+			500,
+			500,
+			0,
+			8,
+			0.16,
+		);
+		expect(viewport(dialog)).toBe(`translate(${x}px,${y}px) scale(${zoom})`);
+	};
+	checkSlide(1);
+	for (const [key, shiftKey, count] of [
+		["ArrowRight", false, 2],
+		[" ", false, 3],
+		[" ", true, 2],
+		["ArrowLeft", false, 1],
+		["ArrowDown", false, 2],
+		["ArrowUp", false, 1],
+	] as const) {
+		fireEvent.keyDown(dialog, { key, shiftKey });
+		checkSlide(count);
+	}
+	document.documentElement.removeAttribute("data-reduce-motion");
+	vi.stubGlobal("matchMedia", () => ({ matches: true }));
+	for (const count of [2, 3, 4, 5, 5]) {
+		fireEvent.click(
+			within(dialog).getByRole("button", { name: "Advance presentation" }),
+		);
+		checkSlide(count);
+	}
+	fireEvent.keyDown(dialog, { key: "Escape" });
+	expect(screen.queryByRole("dialog")).toBeNull();
+	expect(container.querySelector(".react-flow")).toBe(editor);
+	expect(viewport(editor)).toBe(previous);
+	expect(picked.classList.contains("selected")).toBe(true);
+	expect(writes).not.toHaveBeenCalled();
+	expect(await host.readText(path)).toBe(before);
+});
+
+it("offers a dismissible message when there are no frames", async () => {
+	const { props } = await boardWithMeetingNote();
+	render(<CanvasPane {...props} />);
+	await screen.findByText("Drag a block here from a note.");
+	fireEvent.click(screen.getByRole("button", { name: "Present" }));
+	expect(screen.getByText("There are no frames to present yet.")).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "Close" }));
+	expect(screen.queryByRole("dialog")).toBeNull();
 });

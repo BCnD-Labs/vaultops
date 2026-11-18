@@ -10,6 +10,7 @@ import {
 	PanelRight,
 	Trash2,
 } from "lucide-react";
+import { type FeatureState, isEnabled } from "../core/features/registry";
 
 /** The groups the command list is divided into, in the order they appear. */
 export const COMMAND_GROUPS = ["Create", "View", "Go to"] as const;
@@ -36,6 +37,8 @@ export interface Command {
 	keywords: string[];
 	/** Needs a vault that can be written to. */
 	needsWrite?: boolean;
+	/** The feature (core/features/registry.ts) this command belongs to; hidden while it is off. */
+	feature?: string;
 	/** Only offered when the context can do it. */
 	available?: (context: CommandContext) => boolean;
 	run: (context: CommandContext) => void;
@@ -101,6 +104,7 @@ export const COMMANDS: Command[] = [
 		group: "Go to",
 		icon: LayoutTemplate,
 		keywords: ["templates", "starter", "snippet"],
+		feature: "templates",
 		available: (c) => c.onOpenTemplates !== undefined,
 		run: (c) => c.onOpenTemplates?.(),
 	},
@@ -110,6 +114,7 @@ export const COMMANDS: Command[] = [
 		group: "Go to",
 		icon: Contact,
 		keywords: ["resources", "contacts", "books", "articles", "people", "cards"],
+		feature: "resources",
 		available: (c) => c.onOpenResources !== undefined,
 		run: (c) => c.onOpenResources?.(),
 	},
@@ -127,9 +132,11 @@ export const COMMANDS: Command[] = [
 export function filterCommands(
 	query: string,
 	context: CommandContext,
+	features: FeatureState = {},
 ): Command[] {
 	const q = query.trim().toLowerCase();
 	return COMMANDS.filter((command) => {
+		if (command.feature && !isEnabled(command.feature, features)) return false;
 		if (command.available && !command.available(context)) return false;
 		if (q === "") return true;
 		return (

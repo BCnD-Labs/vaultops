@@ -23,14 +23,16 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { PlannerPanel } from "./planner/PlannerPanel";
 import type { NoteRow } from "./session";
 import { TagIndex } from "./TagBrowser";
+import { useFeatures } from "./useFeature";
 
-const TOOLS: [string, string, LucideIcon][] = [
-	["properties", "Properties", SlidersHorizontal],
-	["outline", "Outline", ListTree],
-	["links", "Linked from", Link2],
+/** Each tab, with the feature (core/features/registry.ts) that can switch it off. */
+const TOOLS: [string, string, LucideIcon, string?][] = [
+	["properties", "Properties", SlidersHorizontal, "tab-properties"],
+	["outline", "Outline", ListTree, "tab-outline"],
+	["links", "Linked from", Link2, "tab-links"],
 	["tags", "Tags", Tags],
 	["changes", "Changes", GitCompareArrows],
-	["planner", "Planner", PencilLine],
+	["planner", "Planner", PencilLine, "planner"],
 ];
 
 const TAB_KEY = "vaultops:note-tools-tab";
@@ -68,7 +70,15 @@ export function NoteTools({
 	linkedFrom?: NoteRow[];
 	onOpenNote?: (path: string) => void;
 }) {
-	const [tab, setTab] = useState(loadTab);
+	const features = useFeatures();
+	const shown = TOOLS.filter(
+		([, , , feature]) => !feature || features.isEnabled(feature),
+	);
+	// A remembered tab that is switched off falls back to the first one shown.
+	const [chosen, setTab] = useState(loadTab);
+	const tab = shown.some(([id]) => id === chosen)
+		? chosen
+		: (shown[0]?.[0] ?? chosen);
 	const panel = useRef<HTMLElement>(null);
 	const { changes, planner, propertyRequest, tags, toolsVisible } =
 		useContext(ShellNavigation);
@@ -139,10 +149,10 @@ export function NoteTools({
 			    and room at the end for the floating toggle. */}
 			<header className="sidebar-header sidebar-header-last">
 				<strong className="sidebar-title">
-					{TOOLS.find(([id]) => id === tab)?.[1] ?? "Details"}
+					{shown.find(([id]) => id === tab)?.[1] ?? "Details"}
 				</strong>
 				<TabsList aria-label="Note details" className="sidebar-tabs">
-					{TOOLS.map(([id, label, Icon]) => (
+					{shown.map(([id, label, Icon]) => (
 						<TabsTrigger key={id} value={id} aria-label={label} title={label}>
 							<Icon aria-hidden="true" />
 						</TabsTrigger>

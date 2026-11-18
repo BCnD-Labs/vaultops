@@ -211,13 +211,15 @@ export function Sidebar({
 									>
 										<FolderPlus />
 									</IconAction>
-									<IconAction
-										label="New canvas"
-										disabled={locked}
-										onClick={() => onStartCanvas?.(folder)}
-									>
-										<LayoutDashboard />
-									</IconAction>
+									{onStartCanvas && (
+										<IconAction
+											label="New canvas"
+											disabled={locked}
+											onClick={() => onStartCanvas(folder)}
+										>
+											<LayoutDashboard />
+										</IconAction>
+									)}
 									<IconAction
 										label="New note"
 										disabled={locked}
@@ -368,17 +370,19 @@ export function Sidebar({
 									</DropdownMenuRadioGroup>
 								</DropdownMenuContent>
 							</DropdownMenu>
-							<IconAction
-								label="New canvas"
-								disabled={locked}
-								onClick={() =>
-									onStartCanvas?.(
-										selection.kind === "folder" ? selection.value : "",
-									)
-								}
-							>
-								<LayoutDashboard />
-							</IconAction>
+							{onStartCanvas && (
+								<IconAction
+									label="New canvas"
+									disabled={locked}
+									onClick={() =>
+										onStartCanvas(
+											selection.kind === "folder" ? selection.value : "",
+										)
+									}
+								>
+									<LayoutDashboard />
+								</IconAction>
+							)}
 							<IconAction
 								label="New note"
 								disabled={locked}

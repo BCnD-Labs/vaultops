@@ -22,6 +22,7 @@ import { type KeyEventLike, matchesBinding } from "../core/settings/shortcuts";
 import { type CommandContext, filterCommands, groupCommands } from "./commands";
 import type { NoteRow } from "./session";
 import { commandMatches, isMacPlatform } from "./shortcuts";
+import { useFeatures } from "./useFeature";
 
 /** The commands the bar always has, by name (the reading command needs a note). */
 export const COMMAND_ACTIONS = [
@@ -81,6 +82,7 @@ export function CommandBar({
 	resourceTypes?: ResourceType[];
 	onOpenResource?: (noteId: string) => void;
 }) {
+	const features = useFeatures();
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const returnFocus = useRef<HTMLElement | null>(null);
@@ -238,20 +240,22 @@ export function CommandBar({
 							))}
 						</CommandGroup>
 					)}
-					{groupCommands(filterCommands(query, context)).map((entry) => (
-						<CommandGroup key={entry.group} heading={entry.group}>
-							{entry.commands.map((command) => (
-								<CommandItem
-									key={command.id}
-									value={command.label}
-									disabled={command.needsWrite === true && !writable}
-									onSelect={() => closeAnd(() => command.run(context))}
-								>
-									<command.icon aria-hidden="true" /> {command.label}
-								</CommandItem>
-							))}
-						</CommandGroup>
-					))}
+					{groupCommands(filterCommands(query, context, features.state)).map(
+						(entry) => (
+							<CommandGroup key={entry.group} heading={entry.group}>
+								{entry.commands.map((command) => (
+									<CommandItem
+										key={command.id}
+										value={command.label}
+										disabled={command.needsWrite === true && !writable}
+										onSelect={() => closeAnd(() => command.run(context))}
+									>
+										<command.icon aria-hidden="true" /> {command.label}
+									</CommandItem>
+								))}
+							</CommandGroup>
+						),
+					)}
 				</CommandList>
 			</CommandDialog>
 		</>

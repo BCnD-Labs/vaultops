@@ -215,4 +215,44 @@ describe("slash menu items", () => {
 			),
 		).toBe(false);
 	});
+
+	it("tags the math, database and template items with their feature", () => {
+		const tagged = SLASH_ITEMS.filter((i) => i.feature).map((i) => [
+			i.id,
+			i.feature,
+		]);
+		expect(tagged).toEqual([
+			["math", "math"],
+			["template", "templates"],
+			["database", "database-blocks"],
+		]);
+	});
+
+	it("shows every item when no feature check is given, so features are on by default", () => {
+		expect(filterSlashItems("math").map((i) => i.id)).toEqual(["math"]);
+		expect(
+			filterSlashItems("", { columns: true, enabled: () => true }),
+		).toEqual(SLASH_ITEMS);
+	});
+
+	it("leaves out the items of a feature that is switched off, from the list and from Recent", () => {
+		const off = new Set(["math", "database-blocks"]);
+		const where = {
+			columns: true,
+			enabled: (featureId: string) => !off.has(featureId),
+		};
+		const ids = (q: string, recent: string[] = []) =>
+			filterSlashItems(q, where, recent).map((i) => i.id);
+		expect(ids("")).not.toContain("math");
+		expect(ids("")).not.toContain("database");
+		expect(ids("math")).toEqual([]);
+		expect(ids("data")).toEqual([]);
+		// A recent choice whose feature is off is not offered either; the others are.
+		const recentRows = filterSlashItems("", where, ["math", "database", "task"])
+			.filter((i) => i.section === "Recent")
+			.map((i) => i.id);
+		expect(recentRows).toEqual(["task"]);
+		// Items with no feature are unaffected.
+		expect(ids("heading")).toContain("heading1");
+	});
 });

@@ -1,4 +1,4 @@
-import { Extension } from "@tiptap/core";
+import { type Editor, Extension } from "@tiptap/core";
 import Suggestion, {
 	type SuggestionKeyDownProps,
 	type SuggestionProps,
@@ -14,6 +14,24 @@ import {
 } from "./slash-items";
 
 const RECENT_KEY = "vaultops:slash-recent";
+
+/** Whether a feature is on, asked each time the menu lists its items. */
+type FeatureCheck = (featureId: string) => boolean;
+
+interface SlashStorage {
+	featureOn: FeatureCheck;
+}
+
+declare module "@tiptap/core" {
+	interface Storage {
+		slashMenu: SlashStorage;
+	}
+}
+
+/** Give the editor the app's feature check; the menu hides items whose feature is off. */
+export function setSlashFeatureCheck(editor: Editor, featureOn: FeatureCheck) {
+	editor.storage.slashMenu.featureOn = featureOn;
+}
 
 function readRecent(): string[] {
 	try {
@@ -197,6 +215,11 @@ export const SlashMenu = Extension.create({
 	// open gets the key first.
 	priority: 10000,
 
+	addStorage() {
+		// Until the app says otherwise, every feature is on.
+		return { featureOn: () => true } as SlashStorage;
+	},
+
 	addProseMirrorPlugins() {
 		return [
 			Suggestion<SlashItem, SlashItem>({
@@ -212,6 +235,8 @@ export const SlashMenu = Extension.create({
 							templates: editor.view.dom.dataset.templates === "on",
 							// Links need the app to say what there is to link to.
 							links: editor.storage.noteLink?.source != null,
+							// Read now, not at startup, so a switch flipped in Settings applies.
+							enabled: editor.storage.slashMenu?.featureOn,
 						},
 						query === "" ? readRecent() : [],
 					),

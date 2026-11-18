@@ -46,6 +46,7 @@ import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
 import type { NoteRow } from "./session";
 import { templateFormats } from "./settings";
 import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
+import { featureEnabled } from "./useFeature";
 import { useRovingList } from "./useRovingList";
 import "./templates.css";
 
@@ -673,6 +674,7 @@ export function TemplateManager({
 												setDirty(true);
 												setProblem(null);
 											}}
+											featureOn={featureEnabled}
 										/>
 									</div>
 								)}

@@ -4,7 +4,6 @@ import {
 	FEATURES,
 	featureSettingKey,
 	isEnabled,
-	slashItemEnabled,
 	switchable,
 	withFeature,
 } from "./registry";
@@ -71,18 +70,4 @@ describe("withFeature", () => {
 
 it("names the settings key by feature id", () => {
 	expect(featureSettingKey("math")).toBe("features.math");
-});
-
-describe("slashItemEnabled", () => {
-	it("hides math and database items when their feature is off", () => {
-		expect(slashItemEnabled("math", { math: false })).toBe(false);
-		expect(slashItemEnabled("database", { "database-blocks": false })).toBe(
-			false,
-		);
-	});
-
-	it("keeps the other items", () => {
-		expect(slashItemEnabled("heading-1", { math: false })).toBe(true);
-		expect(slashItemEnabled("math", {})).toBe(true);
-	});
 });

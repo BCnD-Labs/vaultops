@@ -86,6 +86,8 @@ it("draws the tab beside its text once the language is tab", async () => {
 	expect(frets.map((f) => f.textContent)).toContain("0");
 	const chords = [...(svg()?.querySelectorAll(".tab-chord") ?? [])];
 	expect(chords.map((c) => c.textContent)).toEqual(["Am", "G"]);
+	expect(svg()?.querySelector(".tab-label")?.textContent).toBe("H");
+	expect(svg()?.innerHTML).toContain(">full<");
 	// The line that is not tab stays in the text and is named quietly.
 	expect(document.querySelector(".mermaid-error")?.textContent).toBe(
 		"Not drawn, kept in the text: “Verse riff”",

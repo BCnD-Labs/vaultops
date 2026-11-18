@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	bendLabel,
 	columnX,
 	layoutTab,
 	parseTab,
@@ -69,6 +70,40 @@ describe("reading tab", () => {
 		expect(names(7)).toEqual(["e", "B", "G", "D", "A", "E", "B"]);
 	});
 
+	it("reads hammer-ons, pull-offs, slides, bends, releases and vibrato", () => {
+		const { marks, notes } = first(
+			staff(["|-5h7p5-/7-9\\7-|", "|-7b9r7-12~~~--|", "|-/5-8b-x-<12>-(3)|"]),
+		);
+		expect(marks.filter((m) => m.string === 0)).toEqual([
+			{ kind: "hammer", string: 0, from: 1, to: 3 },
+			{ kind: "pull", string: 0, from: 3, to: 5 },
+			{ kind: "slide", string: 0, from: 5, to: 8, down: false },
+			{ kind: "slide", string: 0, from: 10, to: 12, down: true },
+		]);
+		expect(marks.filter((m) => m.string === 1)).toEqual([
+			{ kind: "bend", string: 1, col: 1, label: "full" },
+			{ kind: "release", string: 1, from: 1, to: 5 },
+			{ kind: "vibrato", string: 1, from: 9, to: 11 },
+		]);
+		expect(marks.filter((m) => m.string === 2)).toEqual([
+			{ kind: "slide", string: 2, from: 0.5, to: 2, down: false },
+			{ kind: "bend", string: 2, col: 4, label: "full" },
+		]);
+		// The bend target is not a note; two-digit frets are one note.
+		expect(notes.filter((n) => n.string === 1).map((n) => n.text)).toEqual([
+			"7",
+			"7",
+			"12",
+		]);
+		expect(notes.filter((n) => n.string === 2).map((n) => n.text)).toEqual([
+			"5",
+			"8",
+			"x",
+			"<12>",
+			"(3)",
+		]);
+	});
+
 	it("reads muted notes, harmonics and ghost notes as drawn text", () => {
 		const { notes } = first(staff(["|-x-<12>-(3)-12-|"]));
 		expect(notes.map((n) => [n.col, n.text])).toEqual([
@@ -77,6 +112,14 @@ describe("reading tab", () => {
 			[8, "(3)"],
 			[12, "12"],
 		]);
+	});
+
+	it("labels bends by how far they go", () => {
+		expect(bendLabel("7", "8")).toBe("½");
+		expect(bendLabel("7", "9")).toBe("full");
+		expect(bendLabel("7", "10")).toBe("1½");
+		expect(bendLabel("7", "11")).toBe("2");
+		expect(bendLabel("7")).toBe("full");
 	});
 
 	it("makes one system per staff and keeps every other line as unread", () => {

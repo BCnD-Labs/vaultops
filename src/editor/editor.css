@@ -1351,6 +1351,19 @@
 	font-size: calc(var(--font-size-small) * 0.84);
 }
 
+.note-editor .tab-arc {
+	fill: none;
+	stroke: var(--foreground);
+	stroke-width: 1.1;
+	stroke-linecap: round;
+}
+
+.note-editor .tab-label {
+	fill: var(--muted-foreground);
+	font-size: calc(var(--font-size-small) * 0.75);
+	text-anchor: middle;
+}
+
 .note-editor .tab-chord {
 	fill: var(--foreground);
 	font-family: var(--font-editor);

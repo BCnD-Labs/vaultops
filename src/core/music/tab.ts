@@ -14,6 +14,18 @@ export interface TabNote {
 	text: string;
 }
 
+/** Columns in marks are centre columns: halfway along a two-digit fret. */
+export type TabMark =
+	| {
+			kind: "hammer" | "pull" | "slide" | "release";
+			string: number;
+			from: number;
+			to: number;
+			down?: boolean;
+	  }
+	| { kind: "bend"; string: number; col: number; label: string }
+	| { kind: "vibrato"; string: number; from: number; to: number };
+
 /** One staff: 4 to 8 string lines with the label line above it. */
 export interface TabSystem {
 	/** String names, top line (the highest string) first. */
@@ -21,6 +33,7 @@ export interface TabSystem {
 	/** Columns of the longest string line. */
 	width: number;
 	notes: TabNote[];
+	marks: TabMark[];
 	/** Columns that hold a bar line, in order. */
 	bars: number[];
 	/** Chord names or other words written on the line just above the staff. */
@@ -55,19 +68,61 @@ export function staffHead(
 	return { name: head[1] ?? "", start: head[0].length };
 }
 
+const centre = (note: TabNote) => note.col + (note.text.length - 1) / 2;
+
+/** "full" for a whole step (two frets), "½" for one fret, "1½" for three. */
+export function bendLabel(fret: string, target?: string): string {
+	const steps = target ? Number(target) - Number(fret) : 2;
+	if (!(steps > 0)) return "";
+	const whole = Math.floor(steps / 2);
+	if (steps === 2) return "full";
+	return `${whole || ""}${steps % 2 ? "½" : ""}`;
+}
+
 const FRET = /^(<\d{1,2}>|\(\d{1,2}\)|\d{1,2}|[xX])/;
 
-/** One string line's notes and bar lines, added to the system. */
+/** One string line's notes and techniques, added to the system. */
 function readString(body: string, string: number, system: TabSystem) {
+	let last: TabNote | null = null;
+	let pending: {
+		kind: "hammer" | "pull" | "slide" | "release";
+		down?: boolean;
+	} | null = null;
 	for (let i = 0; i < body.length; ) {
-		const fret = FRET.exec(body.slice(i));
+		const rest = body.slice(i);
+		const fret = FRET.exec(rest);
 		if (fret) {
-			system.notes.push({ string, col: i, text: fret[0].toLowerCase() });
+			const note = { string, col: i, text: fret[0].toLowerCase() };
+			system.notes.push(note);
+			if (pending?.kind === "slide" || (pending && last)) {
+				// A slide with no note before it slides in from just below.
+				const from = last ? centre(last) : note.col - 1.5;
+				system.marks.push({ ...pending, string, from, to: centre(note) });
+			}
+			pending = null;
+			last = note;
 			i += fret[0].length;
 			continue;
 		}
-		if (body[i] === "|" && !system.bars.includes(i)) system.bars.push(i);
-		i++;
+		const ch = body[i];
+		let step = 1;
+		if (ch === "|" && !system.bars.includes(i)) system.bars.push(i);
+		else if (ch === "h" || ch === "p")
+			pending = { kind: ch === "h" ? "hammer" : "pull" };
+		else if (ch === "/" || ch === "\\")
+			pending = { kind: "slide", down: ch === "\\" };
+		else if (ch === "r") pending = { kind: "release" };
+		else if (ch === "b" && last) {
+			// The bend's target fret ("7b9") is part of the bend, not a new note.
+			const target = /^\d{1,2}/.exec(rest.slice(1))?.[0];
+			const label = bendLabel(last.text, target);
+			system.marks.push({ kind: "bend", string, col: centre(last), label });
+			step += target?.length ?? 0;
+		} else if (ch === "~") {
+			step = (/^~+/.exec(rest) as RegExpExecArray)[0].length;
+			system.marks.push({ kind: "vibrato", string, from: i, to: i + step - 1 });
+		}
+		i += step;
 	}
 }
 
@@ -88,6 +143,7 @@ export function parseTab(text: string): TabSheet {
 				strings: [],
 				width: 0,
 				notes: [],
+				marks: [],
 				bars: [],
 				labels: [],
 			};

@@ -36,6 +36,9 @@ jobs:
     # The Mac-only behavior (case-insensitive names) is checked by running
     # the same commands on the maintainer's Mac (see AGENTS.md).
     runs-on: ubuntu-latest
+    # A normal run takes about 2 minutes; a hung package mirror once held a
+    # runner for 48 minutes.
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: src-tauri
@@ -44,9 +47,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Install Tauri's Linux system libraries
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

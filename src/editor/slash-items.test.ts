@@ -62,7 +62,7 @@ describe("slash menu items", () => {
 			"mermaid-pie",
 		]);
 		expect(ids("Media")).toEqual(["image"]);
-		expect(SLASH_ITEMS).toHaveLength(41);
+		expect(SLASH_ITEMS).toHaveLength(42);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 

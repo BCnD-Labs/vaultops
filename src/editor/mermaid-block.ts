@@ -17,13 +17,29 @@ let loading: Promise<Mermaid> | null = null;
 /** Mermaid is large, so it loads the first time a diagram is on screen. */
 function loadMermaid(): Promise<Mermaid> {
 	loading ??= import("mermaid").then(
-		(module) => module.default,
+		({ default: mermaid }) => {
+			// Register diagram types before the first call to detectType.
+			mermaid.initialize({ startOnLoad: false });
+			return mermaid;
+		},
 		(error) => {
 			loading = null;
 			throw error;
 		},
 	);
 	return loading;
+}
+
+/** Give a responsive SVG an intrinsic width for the drawing-only card. */
+export function setDrawingWidth(svg: SVGSVGElement) {
+	const width = Number(
+		svg
+			.getAttribute("viewBox")
+			?.trim()
+			.split(/[\s,]+/)[2],
+	);
+	if (Number.isFinite(width) && width > 0)
+		svg.setAttribute("width", String(width));
 }
 
 const HIDDEN_KEY = "vaultops:mermaid-source-hidden";
@@ -42,7 +58,7 @@ export function hiddenSources(next?: string[]): string[] {
 }
 
 /** Mermaid settings for the current theme: strict, offline, no auto start. */
-function mermaidConfig(editorDom: HTMLElement) {
+function mermaidConfig(editorDom: HTMLElement, mindmap: boolean) {
 	// Outside the editor: a change inside it would make ProseMirror redraw.
 	const probe = document.body.appendChild(document.createElement("span"));
 	const color = (token: string) => {
@@ -50,7 +66,7 @@ function mermaidConfig(editorDom: HTMLElement) {
 		return mermaidColor(getComputedStyle(probe).color ?? "");
 	};
 	const fontFamily = getComputedStyle(editorDom).fontFamily ?? "";
-	const themeVariables = mermaidThemeVariables(color, fontFamily);
+	const themeVariables = mermaidThemeVariables(color, fontFamily, mindmap);
 	probe.remove();
 	return {
 		startOnLoad: false,
@@ -72,6 +88,24 @@ const element = (tag: string, className: string) => {
 };
 
 let renderCount = 0;
+let renderQueue = Promise.resolve();
+
+/** Mermaid's theme is shared, so each drawing sets it when its turn starts. */
+function renderDrawing(
+	mermaid: Mermaid,
+	config: ReturnType<typeof mermaidConfig>,
+	text: string,
+) {
+	const result = renderQueue.then(() => {
+		mermaid.initialize(config);
+		return mermaid.render(`mermaid-${++renderCount}`, text);
+	});
+	renderQueue = result.then(
+		() => {},
+		() => {},
+	);
+	return result;
+}
 
 /**
  * A code block whose language is `mermaid`: its text on the left and the drawn
@@ -95,7 +129,9 @@ export function mermaidNodeView({
 	const panel = element("div", "mermaid-view");
 	panel.contentEditable = "false";
 	grid.append(pre, panel);
-	const toggle = panel.appendChild(element("button", "mermaid-toggle"));
+	const bar = panel.appendChild(element("div", "mermaid-controls"));
+	const toggle = bar.appendChild(element("button", "mermaid-toggle"));
+	toggle.setAttribute("type", "button");
 	const canvas = panel.appendChild(element("div", "mermaid-svg"));
 	const message = panel.appendChild(element("p", "mermaid-error"));
 	message.setAttribute("aria-live", "polite");
@@ -131,25 +167,31 @@ export function mermaidNodeView({
 
 	const draw = async () => {
 		const text = current.textContent;
-		const config = mermaidConfig(view.dom);
-		const key = `${JSON.stringify(config)}\n${text}`;
-		if (key === drawn) return;
-		drawn = key;
 		const ticket = ++latest;
 		try {
 			if (!text.trim())
 				throw new Error("Type a diagram, such as: graph TD; A-->B");
 			const mermaid = await loadMermaid();
-			mermaid.initialize(config);
-			const { svg } = await mermaid.render(`mermaid-${++renderCount}`, text);
 			if (ticket !== latest) return;
+			const config = mermaidConfig(
+				view.dom,
+				mermaid.detectType(text, mermaid.mermaidAPI.getConfig()) === "mindmap",
+			);
+			const key = `${JSON.stringify(config)}\n${text}`;
+			if (key === drawn) return;
+			const { svg } = await renderDrawing(mermaid, config, text);
+			if (ticket !== latest) return;
+			drawn = key;
 			// Only the first drawing fades in; redraws while typing swap in place.
 			canvas.toggleAttribute("data-fresh", !canvas.firstChild);
 			canvas.innerHTML = svg;
+			const drawing = canvas.querySelector("svg");
+			if (drawing) setDrawingWidth(drawing);
 			canvas.removeAttribute("data-stale");
 			message.textContent = "";
 		} catch (error) {
 			if (ticket !== latest) return;
+			drawn = "";
 			// The last good diagram stays, dimmed, above the reason in plain words.
 			canvas.toggleAttribute("data-stale", canvas.firstChild !== null);
 			message.textContent = describeMermaidError(error);

@@ -80,6 +80,8 @@ it("sets the language of a code block from its picker and highlights tokens", ()
 	const picker = document.querySelector<HTMLSelectElement>(".code-language");
 	if (!picker) throw new Error("no language picker");
 	expect(picker.value).toBe("");
+	for (const language of ["mermaid", "tab", "abc"])
+		expect(picker.querySelector(`option[value="${language}"]`)).toBeNull();
 	expect(document.querySelectorAll(".hljs-keyword").length).toBe(0);
 	act(() => {
 		picker.value = "rust";
@@ -95,6 +97,41 @@ it("sets the language of a code block from its picker and highlights tokens", ()
 	expect(label?.tagName).toBe("SPAN");
 	expect(label?.textContent).toBe("Rust");
 });
+
+it.each([
+	["mermaid", false],
+	["tab", false],
+	["abc", false],
+	["rust", true],
+])(
+	"handles a typed %s fence without creating a visual block",
+	(language, handled) => {
+		const text = `\`\`\`${language}`;
+		const { view } = open({
+			type: "doc",
+			content: [
+				{
+					type: "paragraph",
+					attrs: { id: "fence" },
+					content: [{ type: "text", text }],
+				},
+			],
+		});
+		const at = text.length + 1;
+		let applied = false;
+		act(() => {
+			applied = Boolean(
+				view.someProp("handleTextInput", (handler) =>
+					handler(view, at, at, " ", () => view.state.tr.insertText(" ", at)),
+				),
+			);
+		});
+		expect(applied).toBe(handled);
+		expect(view.state.doc.firstChild?.type.name).toBe(
+			handled ? "codeBlock" : "paragraph",
+		);
+	},
+);
 
 it("copies the code block text from the Copy button", () => {
 	open({

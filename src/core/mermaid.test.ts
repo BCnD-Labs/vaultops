@@ -49,3 +49,24 @@ it("maps theme tokens to base-theme variables Mermaid can read", () => {
 	);
 	expect(mermaidThemeVariables(() => null, "").darkMode).toBe(false);
 });
+
+it("pairs mind map fills with the theme's readable label colors", () => {
+	const tokens: Record<string, string> = {
+		"--editor-code-bg": "rgb(27, 29, 34)",
+		"--accent": "rgb(54, 60, 90)",
+		"--accent-foreground": "rgb(221, 225, 255)",
+		"--border": "rgb(65, 70, 80)",
+		"--surface-container-high": "rgb(50, 54, 61)",
+		"--foreground": "rgb(230, 233, 240)",
+	};
+	expect(
+		mermaidThemeVariables((token) => tokens[token] ?? null, "", true),
+	).toMatchObject({
+		git0: tokens["--accent"],
+		gitBranchLabel0: tokens["--accent-foreground"],
+		cScale1: tokens["--border"],
+		cScaleLabel1: tokens["--foreground"],
+		cScale3: tokens["--surface-container-high"],
+		cScaleLabel3: tokens["--foreground"],
+	});
+});

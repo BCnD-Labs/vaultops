@@ -13,6 +13,8 @@ vi.mock("mermaid", () => {
 	return {
 		default: {
 			initialize: vi.fn(),
+			detectType: () => "flowchart",
+			mermaidAPI: { getConfig: () => ({}) },
 			render: vi.fn(async (_id: string, text: string) => {
 				if (text.includes("oops")) {
 					throw Object.assign(new Error("Parse error on line 2:\n..."), {

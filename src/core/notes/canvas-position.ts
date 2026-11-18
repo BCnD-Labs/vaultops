@@ -1,6 +1,4 @@
-import type { Host } from "../../host/host";
 import type { Block } from "../note-format";
-import { saveCanvasEdit } from "./canvas-edit";
 import { setPositions } from "./canvas-ops";
 
 export function canvasRoots(blocks: Block[]): Block[] {
@@ -17,23 +15,12 @@ export function blockPosition(block: Block): { x: number; y: number } {
 	};
 }
 
-/** The caller supplies the text it displayed. A changed file is never overwritten. */
-export async function saveCanvasPosition(
-	host: Host,
-	path: string,
-	baseText: string,
+export function moveCanvasCard(
+	blocks: Block[],
 	blockId: string,
 	position: { x: number; y: number },
-): Promise<string> {
-	return saveCanvasEdit(
-		host,
-		path,
-		baseText,
-		(blocks) => {
-			if (!blocks.some((b) => b.id === blockId && b.parent === null))
-				throw new Error("This card is no longer on the canvas.");
-			return setPositions(blocks, { [blockId]: position });
-		},
-		"moving a card",
-	);
+): Block[] {
+	if (!blocks.some((block) => block.id === blockId && block.parent === null))
+		throw new Error("This card is no longer on the canvas.");
+	return setPositions(blocks, { [blockId]: position });
 }

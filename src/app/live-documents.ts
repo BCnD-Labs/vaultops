@@ -6,7 +6,6 @@ import {
 } from "../core/note-format";
 import {
 	CanvasConflict,
-	type CanvasHost,
 	inOrder,
 	prepareCanvasEdit,
 	writeCanvasTextLocked,
@@ -16,6 +15,7 @@ import {
 	indexDocumentIds,
 } from "../core/notes/document-identity";
 import { movedPath, within } from "../core/notes/folders";
+import { type RenameResult, renameSavedNote } from "../core/notes/rename";
 import { buildRecoveryText } from "../core/session/recovery";
 import type { Autosave, AutosaveState } from "../editor/autosave";
 import { BLOCK_TYPES } from "../editor/blocks";
@@ -49,6 +49,7 @@ export interface LiveDocument {
 	readonly editorDraft?: Draft;
 	readonly lastSave?: SavedInfo;
 	readonly canvasHistory?: CanvasHistory;
+	readonly canvasRenameNotice?: string;
 }
 
 type Seed = OpenedNote | (() => Promise<OpenedNote>);
@@ -106,8 +107,16 @@ function openedDocument(
 
 /** One registry per vault generation. Dispose it before the host switches vaults. */
 export function createLiveDocuments(
-	host: CanvasHost,
-	{ notes, writable }: { notes: readonly DocumentRow[]; writable: boolean },
+	host: Host,
+	{
+		notes,
+		writable,
+		onCanvasTitleSaved,
+	}: {
+		notes: readonly DocumentRow[];
+		writable: boolean;
+		onCanvasTitleSaved?: (from: string, to: string, title: string) => void;
+	},
 	editor?: {
 		open(path: string, diskText?: string): Promise<OpenedNote>;
 		onSaved(info: SavedInfo): void;
@@ -252,7 +261,7 @@ export function createLiveDocuments(
 	}
 
 	// The registry orders canvas actions with other workspace writes. The file
-	// lock also covers legacy writers such as block moves and title changes.
+	// lock also covers block moves.
 	function runCanvas(
 		entry: Entry,
 		prepare?: (document: LiveDocument) => CanvasWrite | undefined,
@@ -288,6 +297,10 @@ export function createLiveDocuments(
 					return false;
 				}
 				publish(entry, { ...next, saveStatus: { kind: "saving" } });
+				const title = draft.header.title;
+				const titleChanged =
+					typeof title === "string" && title !== document.base?.header.title;
+				let renamed: RenameResult | undefined;
 				try {
 					if (!document.noteId || indexedPaths.get(document.noteId) !== path)
 						throw new CanvasConflict("This canvas changed on disk.");
@@ -298,16 +311,8 @@ export function createLiveDocuments(
 						pending.text,
 						pending.action,
 					);
-					entry.canvasPending = undefined;
-					if (!disposed && entry.document)
-						publish(entry, {
-							...entry.document,
-							base: draft,
-							diskText: pending.text,
-							saveStatus: { kind: "saved" },
-							canvasHistory: pending.history,
-						});
-					return true;
+					if (!disposed && titleChanged)
+						renamed = await renameSavedNote(guardMoves(host), path, title);
 				} catch (error) {
 					const conflict =
 						error instanceof CanvasConflict ||
@@ -324,6 +329,22 @@ export function createLiveDocuments(
 						});
 					return false;
 				}
+				entry.canvasPending = undefined;
+				if (!disposed && entry.document) {
+					const savedPath = renamed?.path ?? path;
+					rekey(path, savedPath);
+					publish(entry, {
+						...entry.document,
+						base: draft,
+						diskText: pending.text,
+						saveStatus: { kind: "saved" },
+						// Canvas undo restores saved text and keeps the current filename.
+						canvasHistory: titleChanged ? emptyHistory : pending.history,
+						canvasRenameNotice: renamed?.notice,
+					});
+					if (titleChanged) onCanvasTitleSaved?.(path, savedPath, title);
+				}
+				return true;
 			});
 		}).finally(() => {
 			if (entry.canvasTask === result) {
@@ -485,6 +506,7 @@ export function createLiveDocuments(
 						mutateHeader,
 					);
 					const history = document.canvasHistory ?? emptyHistory;
+					if (text === document.diskText && !pending) return;
 					return {
 						text,
 						action,
@@ -517,7 +539,7 @@ export function createLiveDocuments(
 					};
 				});
 			},
-			// Adopt bytes read under the legacy title writer's file lock.
+			// Adopt bytes read under the block move's file lock.
 			acceptCanvasText(from: string, path: string, text: string) {
 				const document = entry?.document;
 				if (

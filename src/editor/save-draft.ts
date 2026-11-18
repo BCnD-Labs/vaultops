@@ -47,7 +47,7 @@ export type DraftOutcome =
 export async function saveDraft(
 	host: Host,
 	current: OpenedNote,
-	draft: Draft,
+	draft: Omit<Draft, "title"> & { title?: string },
 ): Promise<DraftOutcome> {
 	if (!current.editable || !current.note) {
 		return {
@@ -82,9 +82,11 @@ export async function saveDraft(
 			};
 		}
 	}
-	const titleChanged = draft.title !== current.note.header.title;
+	const title = draft.title;
+	const titleChanged =
+		title !== undefined && title !== current.note.header.title;
 	let header = current.note.header;
-	if (titleChanged) header = { ...header, title: draft.title };
+	if (titleChanged) header = { ...header, title };
 	if (draft.props !== undefined) header = withProps(header, draft.props);
 	if (draft.icon !== undefined) header = withIcon(header, draft.icon);
 	if (draft.cover !== undefined) header = withCover(header, draft.cover);
@@ -103,7 +105,7 @@ export async function saveDraft(
 			titleChanged,
 		};
 	}
-	const renamed = await renameNote(host, current.path, saved.note, draft.title);
+	const renamed = await renameNote(host, current.path, saved.note, title);
 	return {
 		ok: true,
 		path: renamed.path,

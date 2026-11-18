@@ -53,6 +53,11 @@ import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { lastCanvas } from "./canvas-layout";
 import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
+import {
+	flushJournal,
+	type JournalDrafts,
+	journalRecovery,
+} from "./journal/JournalSpace";
 import { linkedFrom } from "./LinkedFromPanel";
 import { browserLastNote, pickInitialNote } from "./last-note";
 import { buildLinkSource, linkTargets } from "./link-source";
@@ -84,6 +89,7 @@ import {
 	createAndLoad,
 	createCanvasAndLoad,
 	loadVault,
+	type Screen,
 	type VaultView,
 } from "./session";
 import { newNoteFolder, templateFormats } from "./settings";
@@ -138,9 +144,9 @@ export function App({ host }: { host: Host }) {
 		cards: ResourceCard[];
 		types: ResourceType[];
 	}>({ cards: [], types: [] });
-	const [screen, setScreen] = useState<"note" | "trash" | "health" | "planner">(
-		"note",
-	);
+	const [screen, setScreen] = useState<Screen>("note");
+	const journalDrafts = useRef<JournalDrafts>(new Map()).current;
+	const plannerTouched = useRef(new Set<string>());
 	const [trash, setTrash] = useState<TrashedNote[]>([]);
 	const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 	const [screenNotice, setScreenNotice] = useState<string | null>(null);
@@ -317,6 +323,7 @@ export function App({ host }: { host: Host }) {
 		onSaved,
 		onUnsaved: setError,
 		onError: setError,
+		flushExtra: () => flushJournal(journalDrafts),
 	});
 	const wsRef = useRef(ws);
 	wsRef.current = ws;
@@ -381,6 +388,7 @@ export function App({ host }: { host: Host }) {
 			const { follow = true, record = true, pane } = options;
 			setError(null);
 			if (!(await wsRef.current.open(path, pane))) return false;
+			await wsRef.current.reloadChanged(plannerTouched.current);
 			setScreen("note");
 			if (isCanvas(path)) selectCanvas(path);
 			else {
@@ -465,7 +473,13 @@ export function App({ host }: { host: Host }) {
 					() => wsRef.current.flushAll(),
 					// Closing with edits that could not be saved: keep their text.
 					async () => {
-						const fresh = wsRef.current.recoveryText(new Date());
+						const now = new Date();
+						const fresh = [
+							wsRef.current.recoveryText(now),
+							...journalRecovery(journalDrafts, now),
+						]
+							.filter(Boolean)
+							.join("\n----------------\n\n");
 						if (!fresh) return true;
 						try {
 							// Earlier copies stay: closing twice must not replace the first.
@@ -497,7 +511,7 @@ export function App({ host }: { host: Host }) {
 			gone = true;
 			remove?.();
 		};
-	}, [host]);
+	}, [host, journalDrafts]);
 
 	const run = useCallback(
 		async (task: () => Promise<VaultView | null>) => {
@@ -598,9 +612,7 @@ export function App({ host }: { host: Host }) {
 		}
 	});
 
-	const navigate = async (
-		next: "trash" | "health" | "settings" | "planner" | "note",
-	) => {
+	const navigate = async (next: Screen | "settings") => {
 		// Settings is a window over the workspace, not a screen: nothing to settle.
 		if (next === "settings") {
 			setSettingsOpen(true);
@@ -612,18 +624,9 @@ export function App({ host }: { host: Host }) {
 			if (next === "trash") setTrash(await listTrash(host));
 			if (next === "health") changeView(await loadVault(host));
 			if (next === "note") {
-				// Notes the planner wrote while it was on screen: read them again so a
+				// Notes the planner or journal wrote: read them again so a
 				// later edit in the pane can't write the old text over the change.
-				const touched = plannerTouched.current;
-				plannerTouched.current = new Set();
-				for (const pane of [left, right]) {
-					if (
-						pane &&
-						pane.kind === "note" &&
-						touched.has(pane.session.livePathRef.current ?? "")
-					)
-						await reloadPane(pane);
-				}
+				await ws.reloadChanged(plannerTouched.current);
 			}
 			if (
 				next === "note" &&
@@ -645,8 +648,6 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
-	// Notes written by the planner screen (see `navigate`).
-	const plannerTouched = useRef(new Set<string>());
 	const plannerChanged = async (paths: string[]) => {
 		for (const path of paths) plannerTouched.current.add(path);
 		changeView(await loadVault(host));
@@ -1450,7 +1451,7 @@ export function App({ host }: { host: Host }) {
 					<PlannerProvider
 						notes={view?.notes ?? []}
 						host={vaultHost}
-						writable={writable}
+						writable={writable && screen !== "journal"}
 						onChanged={plannerChanged}
 						onOpenNote={(path) => void open(path)}
 						onOpenScreen={() => void navigate("planner")}
@@ -1554,6 +1555,7 @@ export function App({ host }: { host: Host }) {
 									}}
 									onShowMaintainer={() => setShowMaintainer(true)}
 									onNavigate={navigate}
+									journalActive={screen === "journal"}
 									onOpenSettings={() => void navigate("settings")}
 									onOpenTemplates={
 										templatesOn ? () => setTemplatesOpen(true) : undefined
@@ -1624,6 +1626,13 @@ export function App({ host }: { host: Host }) {
 								<ScreenPane
 									view={view}
 									screen={screen}
+									journal={{
+										host: vaultHost,
+										drafts: journalDrafts,
+										onSaved: plannerChanged,
+										links,
+										featureOn: features.isEnabled,
+									}}
 									error={error}
 									busy={busy}
 									writable={writable}

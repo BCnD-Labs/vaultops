@@ -59,6 +59,7 @@ export interface WorkspaceHostOptions {
 	onUnsaved: (message: string) => void;
 	/** A note could not be read into its pane; its tab was closed. */
 	onError: (message: string) => void;
+	flushExtra?: () => Promise<boolean>;
 }
 
 export type WorkspaceHost = ReturnType<typeof useWorkspaceHost>;
@@ -96,6 +97,7 @@ export function useWorkspaceHost({
 	onSaved,
 	onUnsaved,
 	onError,
+	flushExtra,
 }: WorkspaceHostOptions) {
 	const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
 	// True while a block is being moved on disk. The notes cannot be typed in
@@ -107,8 +109,8 @@ export function useWorkspaceHost({
 		current.current = next(current.current);
 		setWorkspace(current.current);
 	}, []);
-	const latest = useRef({ isCanvas, onSaved, onError });
-	latest.current = { isCanvas, onSaved, onError };
+	const latest = useRef({ isCanvas, onSaved, onError, flushExtra, onUnsaved });
+	latest.current = { isCanvas, onSaved, onError, flushExtra, onUnsaved };
 	const canvas = useCallback(
 		(path: string) => latest.current.isCanvas(path),
 		[],
@@ -171,6 +173,10 @@ export function useWorkspaceHost({
 
 	/** Save every open note. False (after saying why) if any could not be saved. */
 	const settleAll = useCallback(async () => {
+		if ((await latest.current.flushExtra?.()) === false) {
+			latest.current.onUnsaved("Save the journal before leaving it.");
+			return false;
+		}
 		const results = await Promise.all(
 			SLOTS.map((id) => sessions.current[id].settle()),
 		);
@@ -510,6 +516,14 @@ export function useWorkspaceHost({
 			change((ws) => renameDoc(ws, from, to)),
 		restoreFrom,
 		settleAll,
+		reloadChanged: async (paths: Set<string>) => {
+			const touched = SLOTS.filter((id) => {
+				const path = sessions.current[id].livePathRef.current;
+				return path && path === paneOf(id) && paths.has(path);
+			});
+			paths.clear();
+			await Promise.all(touched.map(reloadPane));
+		},
 		/** True while a block is being moved; notes are not editable then. */
 		moving,
 		/** Move a block dropped on `to` from whichever pane shows document `sourceId`. */
@@ -519,9 +533,10 @@ export function useWorkspaceHost({
 		blockToPath,
 		/** Save every open note now (quit, window hidden). */
 		flushAll: async () => {
-			const results = await Promise.all(
-				SLOTS.map((id) => sessions.current[id].flush()),
-			);
+			const results = await Promise.all([
+				...SLOTS.map((id) => sessions.current[id].flush()),
+				latest.current.flushExtra?.() ?? true,
+			]);
 			return results.every(Boolean);
 		},
 		/** Unsaved text of every open note, for the recovery file at quit. */

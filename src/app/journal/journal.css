@@ -1,0 +1,34 @@
+.journal-stream {
+	flex: 1;
+	overflow: auto;
+	padding: var(--space-3);
+}
+.journal-day {
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--border);
+}
+.journal-day > h2 {
+	max-width: var(--editor-width);
+	margin-inline: auto;
+	font-weight: 600;
+}
+.journal-day .ProseMirror {
+	min-height: 4rem;
+}
+.journal-day:not(:has(.note-editor)) {
+	min-height: var(--measured-height, 7rem);
+}
+.journal-day .note-editor {
+	animation: journal-enter var(--motion-normal) ease-out;
+}
+@keyframes journal-enter {
+	from {
+		opacity: 0.65;
+		transform: translateY(3px);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.journal-day .note-editor {
+		animation: none;
+	}
+}

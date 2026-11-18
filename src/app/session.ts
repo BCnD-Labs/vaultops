@@ -35,6 +35,8 @@ export interface NoteRow {
 	task?: PlannerTask;
 }
 
+export type Screen = "note" | "trash" | "health" | "planner" | "journal";
+
 /** Everything the window shows about the open vault. */
 export interface VaultView {
 	name: string | null;

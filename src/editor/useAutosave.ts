@@ -9,7 +9,7 @@ import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
 import { type Autosave, type AutosaveState, createAutosave } from "./autosave";
 import type { OpenedNote } from "./note-io";
-import { type Draft, saveDraft } from "./save-draft";
+import { type Draft, type DraftOutcome, saveDraft } from "./save-draft";
 
 const SAVED: AutosaveState = { kind: "saved" };
 
@@ -17,6 +17,7 @@ export interface SavedInfo {
 	/** The note's path before and after this save (they differ after a rename). */
 	oldPath: string;
 	path: string;
+	noteId?: string;
 	title: string;
 	preview: string;
 	icon?: string;
@@ -53,6 +54,11 @@ export function useAutosave(
 	host: Host,
 	opened: OpenedNote | null,
 	onSaved?: (info: SavedInfo) => void,
+	write: (
+		host: Host,
+		opened: OpenedNote,
+		draft: Draft,
+	) => Promise<DraftOutcome> = saveDraft,
 ) {
 	const [state, setState] = useState<AutosaveState>(SAVED);
 	const current = useRef<Autosave<Draft> | null>(null);
@@ -81,7 +87,7 @@ export function useAutosave(
 		const auto = createAutosave<Draft>({
 			save: async (draft) => {
 				const started = performance.now();
-				const result = await saveDraft(host, note, draft);
+				const result = await write(host, note, draft);
 				const logger = getLogger();
 				const ms = Math.round(performance.now() - started);
 				if (!result.ok) {
@@ -113,6 +119,7 @@ export function useAutosave(
 					baseText: result.text,
 				};
 				savedRef.current?.({
+					noteId: result.note.header.noteId,
 					oldPath,
 					path: result.path,
 					title: draft.title,
@@ -167,7 +174,7 @@ export function useAutosave(
 			// discards an edit.
 			void auto.flush().finally(() => auto.dispose());
 		};
-	}, [host, opened]);
+	}, [host, opened, write]);
 
 	const flush = useCallback(
 		() => current.current?.flush() ?? Promise.resolve(true),

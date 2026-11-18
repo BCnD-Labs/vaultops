@@ -58,7 +58,11 @@ function whyReadOnly(parsed: ParseResult): string | null {
  * this version doesn't fully understand opens read-only (or empty, if it can't
  * be shown at all) and is never written.
  */
-export async function openNote(host: Host, path: string): Promise<OpenedNote> {
+export async function openNote(
+	host: Host,
+	path: string,
+	knownDuplicate?: boolean,
+): Promise<OpenedNote> {
 	const baseText = await host.readText(path);
 	const parsed = parseNote(baseText);
 	if (!parsed.note) {
@@ -96,8 +100,10 @@ export async function openNote(host: Host, path: string): Promise<OpenedNote> {
 		};
 	}
 	const doc = ensureUniqueIds(blocksToDoc(note.blocks));
-	const duplicate = (await scanVault(host)).report.find((e) => e.path === path)
-		?.duplicateOf.length;
+	const duplicate =
+		knownDuplicate ??
+		!!(await scanVault(host)).report.find((e) => e.path === path)?.duplicateOf
+			.length;
 	const readOnly = duplicate
 		? "This note has the same note id as another file, so it is read-only."
 		: whyReadOnly(parsed);

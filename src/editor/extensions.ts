@@ -10,6 +10,7 @@ import {
 } from "@tiptap/extension-table";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
+import { BlockRole } from "./block-role";
 import { QuoteColor } from "./blockquote";
 import { BLOCK_TYPES } from "./blocks";
 import { Callout } from "./callout";
@@ -92,6 +93,7 @@ export function createExtensions(): Extensions {
 		CodeLanguage,
 		QuoteColor,
 		InlineExtra,
+		BlockRole,
 		TaskBlock,
 		Divider,
 		MathBlock,

@@ -7,6 +7,7 @@ import {
 	ReactNodeViewRenderer,
 } from "@tiptap/react";
 import { ChevronRight } from "lucide-react";
+import { knownRole } from "./block-role";
 
 /** What the summary line is: "paragraph", or "h1" / "h2" for a toggle heading. */
 function summaryKind(node: NodeViewProps["node"]): string {
@@ -23,6 +24,7 @@ function ToggleView({ node, editor, updateAttributes }: NodeViewProps) {
 			className="toggle"
 			data-open={open}
 			data-summary={summaryKind(node)}
+			data-role={knownRole(node.attrs.role)}
 		>
 			<button
 				type="button"

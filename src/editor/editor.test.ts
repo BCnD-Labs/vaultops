@@ -144,6 +144,9 @@ describe("tasks and marks", () => {
 	it("keeps checked and unchecked tasks and every mark through the schema", () => {
 		const back = Node.fromJSON(schema, doc).toJSON();
 		const expected = structuredClone(doc);
+		// The editor's own document carries the optional block role as null;
+		// `docToBlocks` leaves it out (it is the default).
+		if (expected.content?.[2]?.attrs) expected.content[2].attrs.role = null;
 		for (const inline of expected.content?.[2]?.content ?? []) {
 			for (const mark of inline.marks ?? [])
 				mark.attrs = { [INLINE_EXTRA_ATTR]: null };

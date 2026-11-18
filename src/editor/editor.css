@@ -1470,3 +1470,41 @@ span.note-link-chip:hover {
 		animation: none;
 	}
 }
+
+/* Block roles (note convention `attrs.role`): a small icon, no other UI. The
+   icons are lucide's Inbox and Square Stack as masks, so they follow the text colour. */
+.note-editor :is(h1, h2, h3, h4, h5, h6, p)[data-role="inbox"]::before,
+.note-editor :is(h1, h2, h3, h4, h5, h6, p)[data-role="flashcard"]::before,
+.note-editor :is(li, .callout, .toggle)[data-role="flashcard"]::after {
+	content: "";
+	display: inline-block;
+	width: 0.85em;
+	height: 0.85em;
+	margin-right: 0.4em;
+	vertical-align: -0.08em;
+	opacity: 0.45;
+	background: currentColor;
+	-webkit-mask: var(--role-icon) center / contain no-repeat;
+	mask: var(--role-icon) center / contain no-repeat;
+	pointer-events: none;
+}
+
+.note-editor [data-role="inbox"] {
+	--role-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+}
+
+.note-editor [data-role="flashcard"] {
+	--role-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2'/%3E%3Cpath d='M10 16c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2'/%3E%3Crect width='8' height='8' x='14' y='14' rx='2'/%3E%3C/svg%3E");
+}
+
+/* On a list item, callout or toggle the icon sits in the top right corner. */
+.note-editor :is(li, .callout, .toggle)[data-role="flashcard"] {
+	position: relative;
+}
+
+.note-editor :is(li, .callout, .toggle)[data-role="flashcard"]::after {
+	position: absolute;
+	top: 0.5em;
+	right: 0.4em;
+	margin-right: 0;
+}

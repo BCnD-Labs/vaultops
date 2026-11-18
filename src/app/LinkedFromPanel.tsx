@@ -1,5 +1,5 @@
 import { ChevronRight, FileText, LayoutDashboard } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -36,8 +36,12 @@ export function LinkedFromPanel({
 	onOpen: (path: string) => void;
 }) {
 	const [hovered, setHovered] = useState<string | null>(null);
-	const mentions = mentionsOf(notes, noteId, title);
-	const graph = localGraph(notes, noteId);
+	// Both read every note's text, so only redo them when the notes change.
+	const mentions = useMemo(
+		() => mentionsOf(notes, noteId, title),
+		[notes, noteId, title],
+	);
+	const graph = useMemo(() => localGraph(notes, noteId), [notes, noteId]);
 	const hover = (id: string | null) => () => setHovered(id);
 	const section = (
 		label: string,

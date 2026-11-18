@@ -117,6 +117,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "music",
+		name: "Music",
+		description: "Guitar tab and sheet music blocks.",
+		group: "Visual",
+		defaultOn: true,
+	},
+	{
 		id: "tab-properties",
 		name: "Properties tab",
 		description: "The Properties tab in the right sidebar.",

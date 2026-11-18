@@ -1305,6 +1305,59 @@
 	grid-template-columns: minmax(0, 1fr);
 }
 
+/*
+ * Guitar tab drawing (inside the Mermaid block layout): string lines and bars
+ * in the line colour, fret numbers knocked out of the lines they sit on.
+ */
+.note-editor .tab-svg {
+	max-width: 100%;
+	height: auto;
+	font-family: var(--font-mono);
+	font-size: calc(var(--font-size-small) * 0.92);
+}
+
+.note-editor .tab-string,
+.note-editor .tab-bar {
+	stroke: var(--muted-foreground);
+	stroke-width: 1;
+}
+
+.note-editor .tab-string {
+	opacity: 0.55;
+}
+
+.note-editor .tab-fret,
+.note-editor .tab-clef,
+.note-editor .tab-name {
+	fill: var(--foreground);
+	text-anchor: middle;
+	dominant-baseline: central;
+}
+
+.note-editor .tab-fret,
+.note-editor .tab-clef {
+	paint-order: stroke;
+	stroke: var(--editor-code-bg);
+	stroke-width: 5px;
+	stroke-linejoin: round;
+}
+
+.note-editor .tab-clef {
+	font-weight: 700;
+}
+
+.note-editor .tab-name {
+	fill: var(--muted-foreground);
+	font-size: calc(var(--font-size-small) * 0.84);
+}
+
+.note-editor .tab-chord {
+	fill: var(--foreground);
+	font-family: var(--font-editor);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.note-editor .quote-color-handle,
 	.lift-ghost,

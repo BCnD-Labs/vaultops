@@ -13,6 +13,7 @@ import {
 	TriangleAlert,
 } from "lucide-react";
 import { type CSSProperties, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Popover,
 	PopoverContent,
@@ -82,8 +83,10 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 		>
 			<Popover open={editor.isEditable && open} onOpenChange={setOpen}>
 				<PopoverTrigger asChild>
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="icon-sm"
 						className="callout-icon"
 						contentEditable={false}
 						disabled={!editor.isEditable}
@@ -91,7 +94,7 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 						title={`Callout style (${tone})`}
 					>
 						<Icon aria-hidden="true" />
-					</button>
+					</Button>
 				</PopoverTrigger>
 				<PopoverContent
 					className="style-popover callout-style-popover"
@@ -104,10 +107,11 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 							const PresetIcon = CALLOUT_ICONS[preset];
 							const active = tone === preset && !iconName && !color;
 							return (
-								<button
+								<Button
 									key={preset}
 									type="button"
-									className="style-mode callout-preset"
+									variant="outline"
+									size="sm"
 									aria-label={`Callout preset ${preset}`}
 									aria-pressed={active}
 									onClick={() =>
@@ -120,7 +124,7 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 								>
 									<PresetIcon className="tree-icon" aria-hidden="true" />
 									<span>{CALLOUT_TONE_LABELS[preset]}</span>
-								</button>
+								</Button>
 							);
 						})}
 					</div>
@@ -132,13 +136,14 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 					<div className="style-icon-head">
 						<p className="style-heading">Icon</p>
 						{iconName && (
-							<button
+							<Button
 								type="button"
-								className="style-link"
+								variant="link"
+								size="sm"
 								onClick={() => updateAttributes({ icon: null })}
 							>
 								Default icon
-							</button>
+							</Button>
 						)}
 					</div>
 					<IconPicker

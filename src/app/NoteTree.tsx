@@ -220,15 +220,17 @@ export function NoteTree({
 				header(() => startCreate(""))
 			) : (
 				<div className="tree-toolbar">
-					<button
+					<Button
 						type="button"
-						className="tree-action tree-new"
+						variant="ghost"
+						size="sm"
+						className="text-muted-foreground"
 						disabled={busy}
 						onClick={() => startCreate("")}
 					>
 						<FolderPlus className="tree-icon" aria-hidden="true" />
 						New folder
-					</button>
+					</Button>
 				</div>
 			)}
 			<ScrollArea className="navigation-scroll">
@@ -652,9 +654,10 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 				onDrop={(e) => ctx.drop(e, node.path)}
 			>
 				{ctx.onSelectFolder && (
-					<button
+					<Button
 						type="button"
-						className="tree-action"
+						variant="ghost"
+						size="icon-sm"
 						aria-label={`Toggle folder ${node.name}`}
 						aria-expanded={isOpen}
 						onClick={() => ctx.onToggle(node.path)}
@@ -662,7 +665,7 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 						<ChevronRight
 							className={`tree-icon tree-chevron${isOpen ? " is-open" : ""}`}
 						/>
-					</button>
+					</Button>
 				)}
 				<button
 					type="button"

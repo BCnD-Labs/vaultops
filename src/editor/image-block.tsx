@@ -9,7 +9,11 @@ import { ImageOff } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { attachmentName, imageWidth } from "../core/images/attachments";
+import {
+	attachmentName,
+	imageWidth,
+	snapWidth,
+} from "../core/images/attachments";
 import { displayBox, type Size } from "../core/images/display-copy";
 import { insertBlocksAtCaret } from "./insert-blocks";
 import { useEditable } from "./math-block";
@@ -143,6 +147,7 @@ function ImageBlockView(props: NodeViewProps) {
 	const column = useRef<HTMLElement>(null);
 	const [columnWidth, setColumnWidth] = useState(0);
 	const [box, setBox] = useState<Size | null>(null);
+	const [dragged, setDragged] = useState<number | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [viewing, setViewing] = useState(false);
 
@@ -171,6 +176,30 @@ function ImageBlockView(props: NodeViewProps) {
 
 	const url = useDisplayUrl(source, src, box);
 
+	const resize = (event: React.PointerEvent<HTMLElement>) => {
+		const frame = event.currentTarget.parentElement;
+		if (!frame || !columnWidth) return;
+		// Also keeps the block's own drag from starting on the handle.
+		event.preventDefault();
+		const handle = event.currentTarget;
+		handle.setPointerCapture(event.pointerId);
+		const left = frame.getBoundingClientRect().left;
+		const at = (e: PointerEvent) =>
+			Math.min(1, Math.max(0.1, (e.clientX - left) / columnWidth));
+		const move = (e: PointerEvent) => setDragged(at(e));
+		const end = (e: PointerEvent) => {
+			handle.removeEventListener("pointermove", move);
+			handle.removeEventListener("pointerup", end);
+			handle.removeEventListener("pointercancel", end);
+			setDragged(null);
+			const snapped = snapWidth(at(e));
+			updateAttributes({ width: snapped === 1 ? null : snapped });
+		};
+		handle.addEventListener("pointermove", move);
+		handle.addEventListener("pointerup", end);
+		handle.addEventListener("pointercancel", end);
+	};
+
 	const missing = url === null || failed;
 	return (
 		<NodeViewWrapper
@@ -190,13 +219,25 @@ function ImageBlockView(props: NodeViewProps) {
 					)}
 				</div>
 			) : (
-				<div className="image-block-frame" style={{ width: `${width * 100}%` }}>
+				<div
+					className="image-block-frame"
+					data-resizing={dragged !== null || undefined}
+					style={{ width: `${(dragged ?? width) * 100}%` }}
+				>
 					{url && (
 						<FadeImage
 							url={url}
 							alt={alt}
 							onClick={() => setViewing(true)}
 							onError={() => setFailed(true)}
+						/>
+					)}
+					{editable && (
+						<span
+							className="image-block-handle"
+							role="presentation"
+							title="Drag to resize"
+							onPointerDown={resize}
 						/>
 					)}
 				</div>
@@ -278,11 +319,11 @@ export const ImageBlock = Node.create<ImageOptions>({
 
 	addNodeView() {
 		return ReactNodeViewRenderer(ImageBlockView, {
-			// The caption takes its own keys and pointer (a drag of the block
-			// itself still goes to the editor).
+			// The caption and the resize handle take their own keys and pointer
+			// (a drag of the block itself still goes to the editor).
 			stopEvent: ({ event }) =>
 				event.target instanceof Element &&
-				event.target.closest("input") !== null &&
+				event.target.closest("input, .image-block-handle") !== null &&
 				!event.type.startsWith("drag"),
 			ignoreMutation: () => true,
 		});
@@ -290,8 +331,8 @@ export const ImageBlock = Node.create<ImageOptions>({
 
 	addProseMirrorPlugins() {
 		const { editor, options } = this;
-		// Pasted image files become attachments and image blocks.
-		const take = (event: Event, files?: FileList) => {
+		// Pasted or dropped image files become attachments and image blocks.
+		const take = (event: Event, files?: FileList, at?: number) => {
 			const images = [...(files ?? [])].filter((file) =>
 				attachmentName(file.name, file.type),
 			);
@@ -300,6 +341,7 @@ export const ImageBlock = Node.create<ImageOptions>({
 			const on = editor.storage.slashMenu?.featureOn?.("images") !== false;
 			if (!images.length || !source || !on) return false;
 			event.preventDefault();
+			if (at !== undefined) editor.commands.setTextSelection(at);
 			void importImages(editor, source, images);
 			return true;
 		};
@@ -308,6 +350,13 @@ export const ImageBlock = Node.create<ImageOptions>({
 				props: {
 					handlePaste: (_view, event) =>
 						take(event, event.clipboardData?.files),
+					handleDrop: (view, event) =>
+						take(
+							event,
+							event.dataTransfer?.files,
+							view.posAtCoords({ left: event.clientX, top: event.clientY })
+								?.pos,
+						),
 				},
 			}),
 		];

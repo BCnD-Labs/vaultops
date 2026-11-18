@@ -1315,6 +1315,7 @@
 	.note-editor .mermaid-grid,
 	.note-editor .mermaid-block pre,
 	.note-editor .image-block img,
+	.note-editor .image-block-frame,
 	.image-viewer img {
 		transition: none;
 	}
@@ -1618,7 +1619,8 @@ span.note-link-chip:hover {
 	margin-right: 0;
 }
 
-/* Image blocks: the display copy fades in once it is ready. */
+/* Image blocks: the display copy fades in once it is ready; a corner handle
+   resizes it to a quarter, half, three quarters or the whole column. */
 .note-editor .image-block {
 	margin: var(--space-2) 0;
 }
@@ -1628,6 +1630,10 @@ span.note-link-chip:hover {
 	min-height: var(--space-6);
 	border-radius: var(--radius-control);
 	background: var(--muted);
+	transition: width var(--motion-fast) var(--ease-standard);
+}
+.note-editor .image-block-frame[data-resizing] {
+	transition: none;
 }
 .note-editor .image-block img,
 .image-viewer img {
@@ -1648,6 +1654,23 @@ span.note-link-chip:hover {
 .note-editor .image-block.ProseMirror-selectednode .image-block-frame {
 	outline: 2px solid var(--primary);
 	outline-offset: 2px;
+}
+.note-editor .image-block-handle {
+	position: absolute;
+	right: var(--space-1);
+	bottom: var(--space-1);
+	width: 12px;
+	height: 12px;
+	border: 2px solid var(--background);
+	border-radius: var(--radius-round);
+	background: var(--primary);
+	cursor: nwse-resize;
+	opacity: 0;
+	touch-action: none;
+}
+.note-editor .image-block:hover .image-block-handle,
+.note-editor .image-block-frame[data-resizing] .image-block-handle {
+	opacity: 1;
 }
 .note-editor .image-block-caption {
 	display: block;

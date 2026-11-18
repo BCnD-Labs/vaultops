@@ -167,3 +167,18 @@ it("stores a pasted image as an attachment and adds a block for it", async () =>
 		attrs: { src: "attachments/image.png" },
 	});
 });
+
+it("stores a dropped image file and adds a block for it, ignoring other files", async () => {
+	const source = fakeSource();
+	const { onChange, pm } = renderNote(
+		[{ type: "paragraph", attrs: { id: "p" } }],
+		source,
+	);
+	const text = new File(["hi"], "notes.txt", { type: "text/plain" });
+	// No layout here: the drop point is the empty paragraph.
+	vi.spyOn(document, "elementFromPoint").mockReturnValue(pm.querySelector("p"));
+	fireEvent.drop(pm, { dataTransfer: transfer([text, png()]) });
+	await waitFor(() => expect(onChange).toHaveBeenCalled());
+	expect(source.store).toHaveBeenCalledTimes(1);
+	expect(JSON.stringify(lastDoc(onChange))).toContain("attachments/image.png");
+});

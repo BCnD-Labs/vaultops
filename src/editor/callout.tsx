@@ -23,6 +23,7 @@ import { isTone, normalizeColour, type StyleColour } from "../app/appearance";
 import { IconPicker } from "../app/IconPicker";
 import { canonicalIconName, resolveIcon } from "../app/iconCatalog";
 import { Swatches } from "../app/StylePopover";
+import { knownRole } from "./block-role";
 
 export const CALLOUT_TONES = [
 	"note",
@@ -79,6 +80,7 @@ function CalloutView({ node, editor, updateAttributes }: NodeViewProps) {
 			data-tone={tone}
 			data-icon={iconName ?? undefined}
 			data-color={color ?? undefined}
+			data-role={knownRole(node.attrs.role)}
 			style={customStyle}
 		>
 			<Popover open={editor.isEditable && open} onOpenChange={setOpen}>

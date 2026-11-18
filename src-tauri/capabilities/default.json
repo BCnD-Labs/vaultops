@@ -11,6 +11,8 @@
 		"allow-choose-vault",
 		"allow-current-vault",
 		"allow-read-text",
+		"allow-read-cover",
+		"allow-choose-cover",
 		"allow-write-text-atomic",
 		"allow-list",
 		"allow-make-folder",

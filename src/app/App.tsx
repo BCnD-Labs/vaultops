@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { LinkRef } from "../core/links/links";
+import { NOTE_FORMAT, NOTE_FORMAT_VERSION } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import { duplicateNote } from "../core/notes/duplicate";
 import {
@@ -20,10 +21,8 @@ import {
 	renameTagInProps,
 	renameTagOnDisk,
 } from "../core/notes/tag-rename";
-import {
-	blocksFromTemplate,
-	type TemplateEntry,
-} from "../core/notes/templates";
+import type { fillTemplate } from "../core/notes/template-prompts";
+import type { TemplateEntry } from "../core/notes/templates";
 import {
 	deleteForever,
 	listTrash,
@@ -46,6 +45,7 @@ import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
 import { checkBlocks } from "../editor/doc-blocks";
+import { type TemplateCursor, templateCaret } from "../editor/insert-blocks";
 import type { RowNoteActions } from "../editor/note-link";
 import { createQuitGuard } from "../editor/quit";
 import { saveAsCopy } from "../editor/save-draft";
@@ -93,10 +93,11 @@ import {
 	type Screen,
 	type VaultView,
 } from "./session";
-import { newNoteFolder, templateFormats, templateWeekStart } from "./settings";
+import { newNoteFolder } from "./settings";
 import { commandMatches } from "./shortcuts";
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import { TemplateManager } from "./TemplateManager";
+import { useTemplatePrompt } from "./TemplatePromptDialog";
 import { browserTabs, pruneTabs } from "./tabs";
 import { useFeatures } from "./useFeature";
 import { UNSAVED_NOTE_MESSAGE } from "./useNoteSession";
@@ -123,6 +124,7 @@ export function App({ host }: { host: Host }) {
 	const [reading, setReading] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [templatesOpen, setTemplatesOpen] = useState(false);
+	const templatePrompt = useTemplatePrompt();
 	const [resourcesOpen, setResourcesOpen] = useState(false);
 	// The card a link asked to see; the manager shows it when it opens.
 	const [focusResource, setFocusResource] = useState<string | null>(null);
@@ -185,7 +187,9 @@ export function App({ host }: { host: Host }) {
 	const titleInputs = { left: leftTitle, right: rightTitle };
 	const focusTitle = useRef(false);
 	// A note made from a title that was already typed starts in its body.
-	const focusBody = useRef(false);
+	const focusBody = useRef<
+		boolean | { path: string; cursor: TemplateCursor | null }
+	>(false);
 	// One new note or canvas at a time: a double click makes one, not two.
 	const creating = useRef(false);
 	const lastNotes = useRef(browserLastNote());
@@ -621,6 +625,8 @@ export function App({ host }: { host: Host }) {
 
 	useEffect(() => {
 		if (!session?.opened || !focusBody.current) return;
+		const target = focusBody.current;
+		if (target !== true && target.path !== session.livePath) return;
 		// The editor mounts just after the note is shown: try for a moment.
 		// The flag stays up until it worked, so a re-render can't lose it.
 		let tries = 0;
@@ -628,8 +634,19 @@ export function App({ host }: { host: Host }) {
 			const field = document.querySelector<HTMLElement>(
 				'.note-editor [contenteditable="true"]',
 			);
-			field?.focus();
-			if (field || ++tries >= 20) {
+			const editor = session.binding?.editorSlot?.editor;
+			if (target !== true && editor?.isEditable) {
+				const { state, view } = editor;
+				view.dispatch(
+					state.tr
+						.setSelection(
+							templateCaret(state.doc, target.cursor, state.doc.content.size),
+						)
+						.scrollIntoView(),
+				);
+				view.focus();
+			} else if (target === true) field?.focus();
+			if ((target === true ? field : editor?.isEditable) || ++tries >= 20) {
 				focusBody.current = false;
 				clearInterval(timer);
 			}
@@ -762,19 +779,21 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
-	// "New note from this template" in the template manager: a note in the
-	// folder a plain "New note" would use, named after the template, whose body
-	// is the template with {{title}}, {{date}} and {{time}} filled in.
-	const startNoteFromTemplate = async (entry: TemplateEntry) => {
-		if (!view || !writable || !entry.note || creating.current) return;
-		const title = entry.name;
-		const blocks = blocksFromTemplate(
-			entry.note,
-			title,
-			new Date(),
-			templateFormats(),
-			templateWeekStart(),
-		);
+	const startNoteFromTemplate = (entry: TemplateEntry) => {
+		if (view && writable && entry.note && !creating.current)
+			templatePrompt.ask(entry.note, entry.name, {
+				name: entry.name,
+				onFill: (filled) => void createFromTemplate(filled, entry.name),
+			});
+	};
+
+	const createFromTemplate = async (
+		filled: ReturnType<typeof fillTemplate>,
+		defaultTitle: string,
+	) => {
+		if (!view || !writable || creating.current) return;
+		const { blocks, props, cursor } = filled;
+		const title = filled.title.trim() || defaultTitle;
 		const understood = checkBlocks(blocks);
 		if (!understood.ok) {
 			setTemplatesOpen(false);
@@ -793,10 +812,20 @@ export function App({ host }: { host: Host }) {
 					selection.kind === "folder" ? selection.value : "",
 					view.folders,
 				);
-				const made = await createNote(vaultHost, folder, title, { blocks });
+				const made = await createNote(vaultHost, folder, title, {
+					blocks,
+					...(Object.keys(props).length > 0 && {
+						header: {
+							format: NOTE_FORMAT,
+							v: NOTE_FORMAT_VERSION,
+							noteId: "",
+							props,
+						},
+					}),
+				});
 				changeView(await loadVault(host));
-				focusBody.current = true;
-				await open(made.path);
+				focusBody.current = { path: made.path, cursor };
+				if (!(await open(made.path))) focusBody.current = false;
 				notify(`Created "${title}" from the template.`);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
@@ -1902,11 +1931,10 @@ export function App({ host }: { host: Host }) {
 							notes={(view?.notes ?? []).filter((n) => n.kind !== "canvas")}
 							writable={writable}
 							open={templatesOpen}
-							onNewNoteFromTemplate={(entry) =>
-								void startNoteFromTemplate(entry)
-							}
+							onNewNoteFromTemplate={startNoteFromTemplate}
 							onClose={() => setTemplatesOpen(false)}
 						/>
+						{templatePrompt.dialog}
 						<ResourceManager
 							host={vaultHost}
 							writable={writable}

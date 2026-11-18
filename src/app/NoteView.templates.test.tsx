@@ -128,6 +128,54 @@ it("opens the picker from the slash menu's request, and puts the chosen template
 	).toBeNull();
 });
 
+it.each([false, true])(
+	"wraps the slash-menu selection only on submit (submit=%s)",
+	async (submit) => {
+		const u = userEvent.setup();
+		const { host, editor } = await setup();
+		await saveTemplate(host, "Wrap", {
+			...template(""),
+			blocks: [
+				{
+					id: "p",
+					type: "paragraph",
+					parent: null,
+					content: [
+						{
+							type: "text",
+							text: "{{prompt:Prefix|text|[}}{{selection}}{{cursor}}]",
+						},
+					],
+				},
+			],
+		});
+		await act(async () => {
+			const e = editor();
+			e.commands.insertContent("before chosen after");
+			e.commands.setTextSelection({ from: 8, to: 14 });
+			e.view.someProp("handleTextInput", (handler) =>
+				handler(e.view, 8, 14, "/", () => e.state.tr),
+			);
+			e.commands.insertContent("template");
+		});
+		await u.click(
+			await screen.findByText("Template", { selector: ".slash-menu-label" }),
+		);
+		await u.click(await screen.findByText("/Wrap"));
+		await screen.findByRole("textbox", { name: "Prefix" });
+		await u.keyboard(submit ? "{Enter}" : "{Escape}");
+		expect(screen.queryByRole("dialog", { name: "Wrap" })).toBeNull();
+		expect(editor().state.doc.textContent).toBe(
+			submit ? "before [chosen] after" : "before chosen after",
+		);
+		if (submit) {
+			const { $from } = editor().state.selection;
+			expect($from.parent.textContent).toBe("[chosen]");
+			expect($from.parentOffset).toBe(7);
+		}
+	},
+);
+
 it("inserts after what is already written, not over it", async () => {
 	const u = userEvent.setup();
 	const { dom, editor } = await setup();

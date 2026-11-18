@@ -47,7 +47,7 @@ import { Chips, Control, TYPE_LABEL } from "./PropertiesPanel";
 
 const OPEN_KEY = "vaultops:properties-block-open";
 
-const ICONS = {
+export const PROPERTY_ICONS = {
 	text: Type,
 	number: Hash,
 	date: Calendar,
@@ -195,7 +195,7 @@ export function PropertiesBlock({
 						/>
 					</div>
 					{items.map((item) => {
-						const Icon = item.known ? ICONS[item.type] : Type;
+						const Icon = item.known ? PROPERTY_ICONS[item.type] : Type;
 						return (
 							<div
 								key={item.name}
@@ -221,7 +221,7 @@ export function PropertiesBlock({
 												}
 											>
 												{PROPERTY_TYPES.map((t) => {
-													const TypeIcon = ICONS[t];
+													const TypeIcon = PROPERTY_ICONS[t];
 													return (
 														<DropdownMenuRadioItem key={t} value={t}>
 															<TypeIcon aria-hidden="true" /> {TYPE_LABEL[t]}
@@ -300,7 +300,7 @@ export function PropertiesBlock({
 								/>
 								<ul className="prop-type-list">
 									{PROPERTY_TYPES.map((t) => {
-										const TypeIcon = ICONS[t];
+										const TypeIcon = PROPERTY_ICONS[t];
 										return (
 											<li key={t}>
 												<button

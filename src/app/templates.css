@@ -203,3 +203,20 @@
 	display: grid;
 	gap: var(--space-3);
 }
+
+@media (prefers-reduced-motion: no-preference) {
+	.template-prompt-dialog[data-state="open"] {
+		animation: template-prompt-in 150ms ease-out;
+	}
+}
+
+@keyframes template-prompt-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}

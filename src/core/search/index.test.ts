@@ -15,6 +15,21 @@ describe("in-memory search index", () => {
 		]);
 		expect(index.search("paragraph missing")).toEqual([]);
 	});
+	it("matches query words spread across the title, tags and body", () => {
+		const index = createSearchIndex();
+		index.add({
+			path: "a",
+			title: "March budget",
+			text: "groceries and rent",
+			tags: ["finance"],
+		});
+		expect(index.search("budget rent finance").map((hit) => hit.path)).toEqual([
+			"a",
+		]);
+		const [hit] = index.search("budget rent");
+		expect(hit?.field).toBe("title");
+		expect(index.search("budget missing")).toEqual([]);
+	});
 	it("requires quoted phrases and prefers titles, then headings, tags and body", () => {
 		const index = createSearchIndex();
 		index.add({ path: "body", title: "", text: "alpha beta" });

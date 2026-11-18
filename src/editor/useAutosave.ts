@@ -3,6 +3,7 @@ import { linksIn } from "../core/links/links";
 import { headerProps } from "../core/notes/properties";
 import { previewOf, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
+import { searchFieldsOf } from "../core/search/fields";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
 import { type Autosave, type AutosaveState, createAutosave } from "./autosave";
@@ -115,24 +116,7 @@ export function useAutosave(
 					title: draft.title,
 					preview: previewOf(result.note.blocks),
 					text: searchTextOf(result.note.blocks),
-					headings: result.note.blocks
-						.filter((block) => block.type === "heading")
-						.map((block) => searchTextOf([block]))
-						.filter(Boolean),
-					properties: Object.values(
-						headerProps(result.note.header) ?? {},
-					).flatMap((value) => {
-						if (!value || typeof value !== "object" || Array.isArray(value))
-							return [];
-						const raw = value.value;
-						return typeof raw === "string" ||
-							typeof raw === "number" ||
-							typeof raw === "boolean"
-							? [String(raw)]
-							: Array.isArray(raw)
-								? raw.filter((item): item is string => typeof item === "string")
-								: [];
-					}),
+					...searchFieldsOf(result.note),
 					updatedAt: Date.now(),
 					links: [
 						...new Set(linksIn(result.note.blocks).map((link) => link.target)),

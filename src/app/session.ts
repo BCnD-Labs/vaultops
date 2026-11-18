@@ -6,6 +6,7 @@ import { type HealthEntry, scanVault, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import type { PlannerTask } from "../core/planner/rules";
 import { taskFromNote } from "../core/planner/task-note";
+import { searchFieldsOf } from "../core/search/fields";
 import { openVault, type VaultResult } from "../core/vault/vault";
 import type { Host } from "../host/host";
 
@@ -111,24 +112,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			kind: n.kind,
 			preview: n.preview,
 			text: searchTextOf(n.note.blocks),
-			headings: n.note.blocks
-				.filter((block) => block.type === "heading")
-				.map((block) => searchTextOf([block]))
-				.filter(Boolean),
-			properties: Object.values(headerProps(n.note.header) ?? {}).flatMap(
-				(value) => {
-					if (!value || typeof value !== "object" || Array.isArray(value))
-						return [];
-					const raw = value.value;
-					return typeof raw === "string" ||
-						typeof raw === "number" ||
-						typeof raw === "boolean"
-						? [String(raw)]
-						: Array.isArray(raw)
-							? raw.filter((item): item is string => typeof item === "string")
-							: [];
-				},
-			),
+			...searchFieldsOf(n.note),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
 			rowNotes: rowNoteIds(n.note.blocks),
 			tags: tagsOf(headerProps(n.note.header)),

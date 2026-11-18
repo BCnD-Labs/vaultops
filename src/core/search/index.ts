@@ -55,29 +55,14 @@ function matched(q: string, candidate: string): boolean {
 function tokenize(text: string): Token[] {
 	return words(text).map((word) => ({ ...word, folded: fold(word.text) }));
 }
-function matchText(
-	tokens: Token[],
-	foldedText: string,
-	queryWords: string[],
-	phrase?: string,
-) {
-	if (phrase && !foldedText.includes(fold(phrase))) return null;
-	const found: Token[] = [];
-	for (const q of queryWords) {
-		const hit = tokens.find((w) => matched(q, w.folded));
-		if (!hit) return null;
-		found.push(hit);
-	}
-	return found;
-}
+type IndexedField = {
+	field: SearchField;
+	text: string;
+	folded: string;
+	tokens: Token[];
+	weight: number;
+};
 export function createSearchIndex() {
-	type IndexedField = {
-		field: SearchField;
-		text: string;
-		folded: string;
-		tokens: Token[];
-		weight: number;
-	};
 	const notes = new Map<string, { note: SearchNote; fields: IndexedField[] }>();
 	return {
 		add(note: SearchNote) {
@@ -119,50 +104,76 @@ export function createSearchIndex() {
 			const qs = words(query.replace(/"[^"]*"/g, " ")).map((w) => fold(w.text));
 			if (phrase) qs.push(...words(phrase).map((w) => fold(w.text)));
 			if (!qs.length) return [];
+			const foldedPhrase = phrase ? fold(phrase) : undefined;
 			const hits: (SearchHit & { score: number; updated: number })[] = [];
 			for (const { note: n, fields } of notes.values()) {
-				let best:
-					| {
-							field: SearchField;
-							text: string;
-							weight: number;
-							indexes: ReturnType<typeof matchText>;
-					  }
-					| undefined;
-				for (const { field, text, weight, tokens, folded } of fields) {
-					const indexes = matchText(tokens, folded, qs, phrase);
-					if (indexes && (!best || weight > best.weight))
-						best = { field, text, weight, indexes };
+				if (
+					foldedPhrase &&
+					!fields.some((f) => f.folded.includes(foldedPhrase))
+				)
+					continue;
+				// Every query word must match somewhere in the note, in any field;
+				// each word counts at the weight of the best field it is found in.
+				let score = 0;
+				let missing = false;
+				for (const q of qs) {
+					let weight = 0;
+					for (const f of fields)
+						if (f.weight > weight && f.tokens.some((w) => matched(q, w.folded)))
+							weight = f.weight;
+					if (weight === 0) {
+						missing = true;
+						break;
+					}
+					score += weight;
 				}
-				if (!best?.indexes) continue;
+				if (missing) continue;
+				// The snippet comes from the field holding the most query words
+				// (the phrase first), heavier fields winning ties.
+				let best: { field: IndexedField; found: Token[] } | undefined;
+				for (const f of fields) {
+					if (foldedPhrase && !f.folded.includes(foldedPhrase)) continue;
+					const found = qs.flatMap((q) => {
+						const hit = f.tokens.find((w) => matched(q, w.folded));
+						return hit ? [hit] : [];
+					});
+					if (
+						found.length > 0 &&
+						(!best ||
+							found.length > best.found.length ||
+							(found.length === best.found.length &&
+								f.weight > best.field.weight))
+					)
+						best = { field: f, found };
+				}
+				if (!best) continue;
+				const text = best.field.text;
 				const start = Math.max(
 					0,
-					Math.min(...best.indexes.map((x) => x.start)) - 45,
+					Math.min(...best.found.map((x) => x.start)) - 45,
 				);
-				const snippet = best.text.slice(start, start + 140);
-				const ranges = best.indexes
+				const snippet = text.slice(start, start + 140);
+				const lead = start ? 1 : 0;
+				const ranges = best.found
 					.map(
 						(x) =>
 							[
-								Math.max(0, x.start - start),
-								Math.min(snippet.length, x.end - start),
+								Math.max(0, x.start - start) + lead,
+								Math.min(snippet.length, x.end - start) + lead,
 							] as [number, number],
 					)
 					.filter(([a, b]) => b > a);
 				const spread =
-					Math.max(...best.indexes.map((word) => word.end)) -
-					Math.min(...best.indexes.map((word) => word.start));
+					Math.max(...best.found.map((word) => word.end)) -
+					Math.min(...best.found.map((word) => word.start));
 				hits.push({
 					path: n.path,
 					title: n.title,
-					snippet: `${start ? "…" : ""}${snippet}${start + 140 < best.text.length ? "…" : ""}`,
-					ranges: ranges.map(([a, b]) => [
-						a + (start ? 1 : 0),
-						b + (start ? 1 : 0),
-					]),
+					snippet: `${start ? "…" : ""}${snippet}${start + 140 < text.length ? "…" : ""}`,
+					ranges,
 					...(n.blockId ? { blockId: n.blockId } : {}),
-					field: best.field,
-					score: best.weight * 100 + qs.length * 10 - spread / 1000,
+					field: best.field.field,
+					score: score * 100 + best.found.length * 10 - spread / 1000,
 					updated: n.updatedAt ?? 0,
 				});
 			}

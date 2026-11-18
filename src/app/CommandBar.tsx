@@ -161,9 +161,11 @@ export function CommandBar({
 		seenTitles.add(key);
 	}
 	// Words inside notes, after the titles: what was typed may be in the text.
+	// Notes already listed by title are left out, so none shows twice.
+	const titled = new Set(matches.map((row) => row.path));
 	const inNotes = searchIndex.current
 		.search(query)
-		.filter((hit) => hit.field !== "title")
+		.filter((hit) => !titled.has(hit.path))
 		.slice(0, 8);
 	// Cards show only once something is typed, so the empty bar stays short.
 	const cardMatches =

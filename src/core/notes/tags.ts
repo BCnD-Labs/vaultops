@@ -5,14 +5,23 @@ import {
 	type Props,
 	setValue,
 } from "./properties";
+import { isUnderTag } from "./tag-tree";
 
 /** A tag is one entry of the list property named `tags`. No inline `#tag`. */
 const TAGS = "tags";
 
-/** A tag as stored: trimmed, inner spaces collapsed, no leading `#`. Null if empty. */
+/**
+ * A tag as stored: trimmed, inner spaces collapsed, no leading `#`. A `/`
+ * makes levels (`work/clients`): spaces around it go, and empty levels and a
+ * leading or trailing `/` are dropped. Null if nothing is left.
+ */
 export function cleanTag(raw: string): string | null {
-	const tag = cleanName(raw.replace(/^[#\s]+/, ""));
-	return tag === "" ? null : tag;
+	const levels = raw
+		.replace(/^[#\s]+/, "")
+		.split("/")
+		.map(cleanName)
+		.filter((level) => level !== "");
+	return levels.length === 0 ? null : levels.join("/");
 }
 
 /** The tags of a note (empty when there is no readable list property `tags`). */
@@ -82,24 +91,7 @@ export interface TaggedRow {
 	tags: string[];
 }
 
-/** Every tag in use with how many notes carry it, by name ignoring capitals. */
-export function tagIndex(rows: TaggedRow[]): { tag: string; count: number }[] {
-	const seen = new Map<string, { tag: string; count: number }>();
-	for (const row of rows) {
-		for (const tag of new Set(row.tags.map((t) => t.toLowerCase()))) {
-			const first = row.tags.find((t) => t.toLowerCase() === tag) ?? tag;
-			const known = seen.get(tag);
-			if (known) known.count += 1;
-			else seen.set(tag, { tag: first, count: 1 });
-		}
-	}
-	return [...seen.values()].sort((a, b) =>
-		a.tag.toLowerCase().localeCompare(b.tag.toLowerCase()),
-	);
-}
-
-/** The notes that carry a tag (ignoring capital letters). */
+/** The notes that carry a tag or any tag below it (ignoring capital letters). */
 export function notesWithTag<T extends TaggedRow>(rows: T[], tag: string): T[] {
-	const key = tag.toLowerCase();
-	return rows.filter((r) => r.tags.some((t) => t.toLowerCase() === key));
+	return rows.filter((r) => r.tags.some((t) => isUnderTag(t, tag)));
 }

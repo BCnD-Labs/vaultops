@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Props } from "./properties";
-import {
-	addTag,
-	cleanTag,
-	notesWithTag,
-	removeTag,
-	tagIndex,
-	tagsOf,
-} from "./tags";
+import { addTag, cleanTag, notesWithTag, removeTag, tagsOf } from "./tags";
 
 const must = (r: ReturnType<typeof addTag>): Props => {
 	if (!r.ok) throw new Error(r.message);
@@ -64,9 +57,5 @@ describe("tags", () => {
 			"b.vnote",
 		]);
 		expect(notesWithTag(rows, "nope")).toEqual([]);
-		expect(tagIndex(rows)).toEqual([
-			{ tag: "Idea", count: 2 },
-			{ tag: "Work", count: 1 },
-		]);
 	});
 });

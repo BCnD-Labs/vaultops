@@ -1203,14 +1203,121 @@
 	opacity: 1;
 }
 
+/*
+ * Mermaid diagram block: the code block's text on the left and its diagram on
+ * the right, stacked when the note is narrow. "Diagram only" slides the text
+ * away; a read-only note shows the diagram only.
+ */
+.note-editor .mermaid-block {
+	container-type: inline-size;
+}
+
+.note-editor .mermaid-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: var(--space-2);
+	transition:
+		grid-template-columns var(--motion-normal) var(--ease-standard),
+		gap var(--motion-normal) var(--ease-standard);
+}
+
+.note-editor .mermaid-block pre {
+	margin: 0;
+	transition: opacity var(--motion-normal) var(--ease-standard);
+}
+
+.note-editor .mermaid-block[data-source="hidden"] .mermaid-grid {
+	grid-template-columns: minmax(0, 0fr) minmax(0, 1fr);
+	gap: 0;
+}
+
+.note-editor .mermaid-block[data-source="hidden"] pre {
+	opacity: 0;
+	visibility: hidden;
+	padding-inline: 0;
+	border-width: 0;
+}
+
+@container (max-width: 520px) {
+	.note-editor .mermaid-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.note-editor .mermaid-block[data-source="hidden"] pre {
+		display: none;
+	}
+}
+
+.note-editor .mermaid-view {
+	position: relative;
+	padding: var(--space-6) var(--space-3) var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+	background: var(--editor-code-bg);
+	overflow-x: auto;
+}
+
+.note-editor .mermaid-svg {
+	display: flex;
+	justify-content: center;
+}
+
+.note-editor .mermaid-svg[data-fresh] svg {
+	animation: mermaid-in var(--motion-normal) ease-out;
+}
+
+@keyframes mermaid-in {
+	from {
+		opacity: 0;
+	}
+}
+
+.note-editor .mermaid-svg[data-stale] {
+	opacity: 0.4;
+}
+
+.note-editor .mermaid-error {
+	margin: var(--space-2) 0 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+
+.note-editor .mermaid-toggle {
+	position: absolute;
+	top: var(--space-1);
+	right: var(--space-2);
+	padding: 1px var(--space-2);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: var(--surface-container-low);
+	color: var(--muted-foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	cursor: pointer;
+}
+
+.note-editor .mermaid-error:empty,
+.note-editor .ProseMirror[contenteditable="false"] .mermaid-block pre,
+.note-editor .ProseMirror[contenteditable="false"] .mermaid-toggle {
+	display: none;
+}
+
+.note-editor .ProseMirror[contenteditable="false"] .mermaid-grid {
+	grid-template-columns: minmax(0, 1fr);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.note-editor .quote-color-handle,
 	.lift-ghost,
 	.note-editor .table-edge-bar,
 	.note-editor .fold-toggle::before,
 	.note-editor pre .code-wrap,
-	.note-editor pre .code-copy {
+	.note-editor pre .code-copy,
+	.note-editor .mermaid-grid,
+	.note-editor .mermaid-block pre {
 		transition: none;
+	}
+	.note-editor .mermaid-svg[data-fresh] svg {
+		animation: none;
 	}
 }
 

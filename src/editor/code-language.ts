@@ -1,4 +1,4 @@
-import { Extension } from "@tiptap/core";
+import { Extension, type NodeViewRenderer } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
@@ -12,6 +12,7 @@ import {
 	parseLines,
 	toggleLine,
 } from "./code-highlight";
+import { mermaidNodeView } from "./mermaid-block";
 
 /** The languages the picker offers: [stored name, label]. "" means plain text. */
 export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
@@ -26,6 +27,7 @@ export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
 	["javascript", "JavaScript"],
 	["json", "JSON"],
 	["markdown", "Markdown"],
+	["mermaid", "Mermaid diagram"],
 	["python", "Python"],
 	["rust", "Rust"],
 	["sql", "SQL"],
@@ -82,6 +84,11 @@ export const CodeBlock = CodeBlockLowlight.extend({
 						: {},
 			},
 		};
+	},
+	// A `mermaid` block draws its diagram; every other block keeps the default
+	// view (ProseMirror falls back to it when the view is null).
+	addNodeView() {
+		return mermaidNodeView as unknown as NodeViewRenderer;
 	},
 }).configure({
 	lowlight: highlighter,

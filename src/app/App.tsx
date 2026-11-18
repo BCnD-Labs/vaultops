@@ -967,8 +967,8 @@ export function App({ host }: { host: Host }) {
 			return "An open note could not be saved, so the rename stopped.";
 		const disk = plan.paths.filter((path) => !open.has(path));
 		let message = "";
-		await changeTree(null, async () => {
-			const done = await renameTagOnDisk(vaultHost, disk, from, to);
+		await changeTree(async (host) => {
+			const done = await renameTagOnDisk(host, disk, from, to);
 			const count = done.changed + open.size;
 			message = `${count === 1 ? "1 note" : `${count} notes`} updated.`;
 			if (done.problems.length > 0)

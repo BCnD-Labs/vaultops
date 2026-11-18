@@ -1,7 +1,10 @@
 import type { Editor, Range } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import {
 	AtSign,
 	CalendarDays,
+	ChartNoAxesGantt,
+	ChartPie,
 	ChevronDown,
 	Code,
 	Columns2,
@@ -18,12 +21,16 @@ import {
 	List,
 	ListChecks,
 	ListOrdered,
+	ListTree,
 	type LucideIcon,
+	MessagesSquare,
+	Milestone,
 	Pilcrow,
 	Quote,
 	Sigma,
 	Table2,
 	ToggleRight,
+	Workflow,
 } from "lucide-react";
 import { CALLOUT_ICONS, CALLOUT_TONES } from "./callout";
 import { insertColumns } from "./columns";
@@ -75,6 +82,63 @@ const HEADINGS: {
 	{ level: 5, icon: Heading5, keywords: ["subheading"] },
 	{ level: 6, icon: Heading6, keywords: ["subheading", "smallest"] },
 ];
+
+const DIAGRAM_STARTERS = [
+	[
+		"flowchart",
+		"Flowchart",
+		Workflow,
+		`flowchart LR
+    Idea --> Draft
+    Draft --> Publish`,
+	],
+	[
+		"sequence",
+		"Sequence diagram",
+		MessagesSquare,
+		`sequenceDiagram
+    Sam->>Alex: Meet for lunch?
+    Alex-->>Sam: See you at noon!`,
+	],
+	[
+		"mindmap",
+		"Mind map",
+		ListTree,
+		`mindmap
+  root((Picnic))
+    Sandwiches
+    Lemonade
+    Blanket`,
+	],
+	[
+		"timeline",
+		"Timeline",
+		Milestone,
+		`timeline
+    Morning : Pack a bag
+    Afternoon : Walk the trail
+    Evening : Head home`,
+	],
+	[
+		"gantt",
+		"Gantt chart",
+		ChartNoAxesGantt,
+		`gantt
+    title Garden weekend
+    dateFormat YYYY-MM-DD
+    Prepare soil :soil, 2026-04-04, 1d
+    Plant seeds :after soil, 1d`,
+	],
+	[
+		"pie",
+		"Pie chart",
+		ChartPie,
+		`pie title Favorite snacks
+    "Apples" : 5
+    "Popcorn" : 3
+    "Pretzels" : 2`,
+	],
+] as const;
 
 /**
  * The menu's items, in order. No separate "task list": several tasks in a row
@@ -136,6 +200,36 @@ const ITEMS: SlashItem[] = [
 		keywords: ["snippet", "pre"],
 		run: (e, r) => start(e, r).setCodeBlock().run(),
 	},
+	...DIAGRAM_STARTERS.map(
+		([id, label, icon, text]): SlashItem => ({
+			id: `mermaid-${id}`,
+			label,
+			icon,
+			section: "Visual",
+			feature: "mermaid",
+			keywords: ["mermaid", "diagram", id],
+			run: (editor, range) =>
+				editor
+					.chain()
+					.focus()
+					.command(({ tr, state }) => {
+						const block = state.schema.node(
+							"codeBlock",
+							{ language: "mermaid" },
+							state.schema.text(text),
+						);
+						tr.replaceRangeWith(range.from, range.to, block);
+						// A slash inside a paragraph splits it around the new block.
+						// The inserted block ends before any following paragraph opens.
+						const end = tr.mapping.map(range.to);
+						const $end = tr.doc.resolve(end);
+						const afterBlock = $end.parent.isTextblock ? $end.before() : end;
+						tr.setSelection(TextSelection.create(tr.doc, afterBlock - 1));
+						return true;
+					})
+					.run(),
+		}),
+	),
 	{
 		id: "math",
 		section: "Write",

@@ -31,7 +31,7 @@ it("removes transitions on controls and decorative parts under reduced motion", 
 			".connections-node",
 			".connections-edge",
 		],
-		"src/app/pane.css": [".props-block-header svg"],
+		"src/app/pane.css": [".props-block-header svg", ".canvas-embed"],
 		"src/editor/editor.css": [
 			".note-editor .quote-color-handle",
 			".lift-ghost",

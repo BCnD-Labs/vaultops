@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { BookOpen, Ellipsis, Pencil } from "lucide-react";
-import { type Ref, useEffect, useRef, useState } from "react";
+import { type Ref, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -23,12 +23,14 @@ import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import {
 	type DropSlot,
 	NoteEditor,
+	type NoteEditorSlot,
 	type TemplateRequest,
 } from "../editor/NoteEditor";
 import type { OpenedNote } from "../editor/note-io";
 import type { LinkSource } from "../editor/note-link";
 import { SaveStatus } from "../editor/SaveStatus";
 import type { Host } from "../host/host";
+import { NoteBlocks } from "./CanvasCard";
 import { NoteCover } from "./NoteCover";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
@@ -50,6 +52,10 @@ export interface NoteViewProps {
 	opened: OpenedNote;
 	editorRevision: number;
 	liveDoc?: JSONContent | null;
+	editorSlot?: NoteEditorSlot;
+	focusEditor?: boolean;
+	editorElsewhere?: boolean;
+	onResumeEditing?: (focusBody?: boolean) => void;
 	title: string;
 	icon?: string;
 	onIconChange?: (icon: string | null) => void;
@@ -93,6 +99,26 @@ export interface NoteViewProps {
 	locked?: boolean;
 }
 
+function NotePreview({
+	doc,
+	onResumeEditing,
+}: {
+	doc: JSONContent;
+	onResumeEditing?: NoteViewProps["onResumeEditing"];
+}) {
+	return (
+		<section
+			className="note-editor"
+			aria-label="Note preview"
+			tabIndex={onResumeEditing ? 0 : undefined}
+			onFocus={() => onResumeEditing?.()}
+			onPointerDown={() => onResumeEditing?.()}
+		>
+			<NoteBlocks blocks={docToBlocks(doc)} />
+		</section>
+	);
+}
+
 /**
  * One open note as the person sees it: title, properties, save status, notice,
  * the editor and the details line. Everything comes in as props, so the same
@@ -102,6 +128,10 @@ export function NoteView({
 	opened,
 	editorRevision,
 	liveDoc,
+	editorSlot,
+	focusEditor,
+	editorElsewhere,
+	onResumeEditing,
 	title,
 	icon,
 	onIconChange,
@@ -183,6 +213,7 @@ export function NoteView({
 	);
 
 	const canTemplate = !!templates && opened.editable && !reading;
+	const Body = editorElsewhere ? NotePreview : NoteEditor;
 	const insertTemplate = (entry: TemplateEntry, request: TemplateRequest) => {
 		if (!entry.note) return;
 		const blocks = blocksFromTemplate(
@@ -239,7 +270,10 @@ export function NoteView({
 					className="title-field"
 					aria-label="Title"
 					value={title}
-					readOnly={!opened.editable || reading}
+					readOnly={!opened.editable || reading || !!editorElsewhere}
+					onFocus={() => {
+						if (editorElsewhere) onResumeEditing?.(false);
+					}}
 					onChange={(event) => onTitleChange(event.target.value)}
 					onKeyDown={(event) => {
 						// Enter ends the title and starts the note, like every writing app.
@@ -391,8 +425,11 @@ export function NoteView({
 						Allow editing
 					</Button>
 				))}
-			<NoteEditor
+			<Body
 				key={`${opened.path}:${editorRevision}`}
+				slot={editorSlot}
+				focusOnAttach={focusEditor}
+				onResumeEditing={onResumeEditing}
 				doc={liveDoc ?? opened.doc}
 				noteId={opened.note?.header.noteId}
 				editable={opened.editable && !reading && !locked}
@@ -514,11 +551,28 @@ function PaneNote({
 	locked = false,
 }: SessionNoteViewProps & { opened: OpenedNote }) {
 	const [confirmEditing, setConfirmEditing] = useState(false);
+	const [focusEditor, setFocusEditor] = useState(false);
+	const { binding, editorElsewhere } = session;
+	useLayoutEffect(() => {
+		if (opened.editable && !editorElsewhere) binding?.setEditorOwner(true);
+		else setFocusEditor(false);
+	}, [binding, editorElsewhere, opened.editable]);
 	return (
 		<NoteView
 			opened={opened}
 			editorRevision={session.editorRevision}
 			liveDoc={session.docRef.current}
+			editorSlot={binding?.current()?.noteId ? binding.editorSlot : undefined}
+			editorElsewhere={editorElsewhere}
+			focusEditor={focusEditor}
+			onResumeEditing={
+				writable && opened.editable && !reading && !locked
+					? (focusBody = true) => {
+							if (binding?.setEditorOwner(true, true))
+								setFocusEditor(focusBody);
+						}
+					: undefined
+			}
 			title={session.title}
 			icon={session.icon}
 			onIconChange={session.editIcon}
@@ -541,7 +595,7 @@ function PaneNote({
 			onDropBlock={onDropBlock}
 			templates={templates}
 			links={links}
-			locked={locked}
+			locked={locked || editorElsewhere}
 			onRetry={session.retry}
 			onLoadDisk={onLoadDisk}
 			onSaveCopy={onSaveCopy}

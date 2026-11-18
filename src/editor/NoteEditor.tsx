@@ -2,10 +2,10 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import DragHandle from "@tiptap/extension-drag-handle-react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { dropPoint } from "@tiptap/pm/transform";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, Editor as TiptapEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { CornerLeftUp, GripVertical } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import {
@@ -39,6 +39,11 @@ import { TableEdgeBars, TableMenuContent } from "./TableControls";
 import { WordComplete } from "./word-complete";
 import "./editor.css";
 
+export interface NoteEditorSlot {
+	editor?: Editor;
+	completion?: { completeOn: boolean; links?: LinkSource; noteId?: string };
+}
+
 export interface NoteEditorProps {
 	/** The note's document. Read once when the editor mounts: give the component a new `key` to show another note. */
 	doc: JSONContent;
@@ -46,6 +51,8 @@ export interface NoteEditorProps {
 	onChange: (doc: JSONContent) => void;
 	noteId?: string;
 	editable?: boolean;
+	slot?: NoteEditorSlot;
+	focusOnAttach?: boolean;
 	onDropBlock?: (
 		blockId: string,
 		canvasId: string,
@@ -79,12 +86,18 @@ export function NoteEditor({
 	onChange,
 	noteId,
 	editable = true,
+	slot: sharedSlot,
+	focusOnAttach,
 	onDropBlock,
 	onChooseTemplate,
 	links,
 	featureOn,
 }: NoteEditorProps) {
 	const completeOn = useFeature("word-complete");
+	const localSlot = useRef<NoteEditorSlot>({});
+	const slot = sharedSlot ?? localSlot.current;
+	const initial = useRef({ doc, editable });
+	initial.current = { doc, editable };
 	const completion = useRef({ completeOn, links, noteId });
 	completion.current = { completeOn, links, noteId };
 	const latest = useRef(onChange);
@@ -141,23 +154,50 @@ export function NoteEditor({
 		};
 	}, [noteId]);
 
-	const editor = useEditor({
-		extensions: [
-			...createExtensions(),
-			WordComplete.configure({
-				enabled: () => completion.current.completeOn,
-				rows: () => completion.current.links?.completionRows ?? [],
-				current: () => completion.current.noteId ?? "current",
-			}),
-		],
-		content: ensureUniqueIds(doc),
-		editable,
-		onUpdate: ({ editor }) => {
+	const [editor, setEditor] = useState<Editor | null>(null);
+	useLayoutEffect(() => {
+		// Acquire after the previous surface's EditorContent has unmounted.
+		slot.completion = completion.current;
+		slot.editor ??= new TiptapEditor({
+			extensions: [
+				...createExtensions(),
+				WordComplete.configure({
+					enabled: () => slot.completion?.completeOn ?? false,
+					rows: () => slot.completion?.links?.completionRows ?? [],
+					current: () => slot.completion?.noteId ?? "current",
+				}),
+			],
+			content: ensureUniqueIds(initial.current.doc),
+			editable: initial.current.editable,
+		});
+		const editor = slot.editor;
+		const update = () => {
 			latest.current(editor.getJSON());
 			// Hide on every edit; the extension shows it again on the next hover.
 			editor.view.dispatch(editor.state.tr.setMeta("hideDragHandle", true));
-		},
-	});
+		};
+		editor.on("update", update);
+		setEditor(editor);
+		return () => {
+			editor.off("update", update);
+			if (!sharedSlot) {
+				editor.destroy();
+				slot.editor = undefined;
+			}
+		};
+	}, [slot, sharedSlot]);
+
+	useLayoutEffect(() => {
+		slot.completion = { completeOn, links, noteId };
+	}, [slot, completeOn, links, noteId]);
+
+	useLayoutEffect(() => {
+		if (editor && !editor.isDestroyed) editor.setEditable(editable, false);
+	}, [editor, editable]);
+
+	useLayoutEffect(() => {
+		if (focusOnAttach && editor?.isEditable) editor.view.focus();
+	}, [editor, focusOnAttach]);
 
 	editorRef.current = editor;
 	useEffect(() => {
@@ -207,11 +247,6 @@ export function NoteEditor({
 		if (editor && !editor.isDestroyed)
 			setLinkSource(editor, links ?? null, noteId ?? null);
 	}, [editor, links, noteId]);
-
-	useEffect(() => {
-		// Unlocking is not a content edit and must not start autosave.
-		editor?.setEditable(editable, false);
-	}, [editor, editable]);
 
 	useEffect(() => {
 		if (!editor) return;

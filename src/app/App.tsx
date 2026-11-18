@@ -1406,6 +1406,7 @@ export function App({ host }: { host: Host }) {
 				key={canvasKey}
 				host={vaultHost}
 				documents={ws.documents}
+				links={links}
 				path={path}
 				canvases={(view?.notes ?? []).filter((row) => row.kind === "canvas")}
 				notes={view?.notes ?? []}

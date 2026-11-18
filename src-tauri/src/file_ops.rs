@@ -33,6 +33,9 @@ pub fn read_text(vault: &Vault, path: &str) -> Result<String, HostError> {
     String::from_utf8(bytes).map_err(|_| HostError::new(ErrorCode::Io, "file is not UTF-8 text"))
 }
 
+/// Covers are read whole into memory, so a very large file is refused.
+pub const MAX_COVER_BYTES: u64 = 25 * 1024 * 1024;
+
 pub const COVER_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
 
 fn cover_extension(path: &Path) -> Result<&str, HostError> {
@@ -69,8 +72,12 @@ pub fn import_cover(vault: &Vault, source: &Path) -> Result<String, HostError> {
         .and_then(|name| name.to_str())
         .ok_or_else(|| HostError::invalid("invalid image filename"))?;
     check_relative(name, false)?;
-    if !std::fs::metadata(source).map_err(io)?.is_file() {
+    let meta = std::fs::metadata(source).map_err(io)?;
+    if !meta.is_file() {
         return Err(HostError::invalid("cover is not a regular file"));
+    }
+    if meta.len() > MAX_COVER_BYTES {
+        return Err(HostError::invalid("the image is larger than 25 MB"));
     }
     let bytes = std::fs::read(source).map_err(io)?;
     let dir = vault.dir();

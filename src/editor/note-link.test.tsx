@@ -251,6 +251,15 @@ it("clicking a gone link offers to keep its name as text or remove it", async ()
 	await settle();
 	expect(openLink).not.toHaveBeenCalled();
 	expect(screen.getByText("No longer in this vault.")).toBeTruthy();
+	// The chip and the gone-link actions are shared Button components.
+	expect(
+		document.querySelector(".note-link-chip")?.getAttribute("data-slot"),
+	).toBe("button");
+	for (const name of ["Keep the name as text", "Remove link", "Close"]) {
+		expect(screen.getByRole("button", { name }).getAttribute("data-slot")).toBe(
+			"button",
+		);
+	}
 	screen.getByRole("button", { name: "Keep the name as text" }).click();
 	await settle();
 	expect(editor.getText()).toContain("see Gone name now");

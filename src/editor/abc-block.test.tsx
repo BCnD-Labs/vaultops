@@ -21,7 +21,7 @@ vi.mock("abcjs", () => {
 			(el: HTMLElement, text: string, params: Record<string, unknown> = {}) => {
 				loaded.lastParams = params;
 				const mode = Array.isArray(params.tablature) ? "tab" : "staff";
-				el.innerHTML = `<svg data-text="${text.length}" data-mode="${mode}"></svg>`;
+				el.innerHTML = `<svg viewBox="0 0 410 100" style="position: absolute" data-text="${text.length}" data-mode="${mode}"></svg>`;
 				const warnings = text.includes("oops")
 					? ["Music Line:2:5: Unknown character ignored:  C D <span>o</span>"]
 					: undefined;
@@ -81,6 +81,8 @@ it("draws the sheet music beside the text once the language is abc", async () =>
 	);
 	await vi.waitFor(() => expect(svg()).not.toBeNull());
 	expect(loaded.count).toBe(1);
+	expect(svg()?.getAttribute("width")).toBe("410");
+	expect(svg()?.getAttribute("style") ?? "").not.toContain("position");
 	expect(loaded.lastParams).toMatchObject({
 		responsive: "resize",
 		foregroundColor: "currentColor",
@@ -114,7 +116,7 @@ it("toggles guitar tab and source visibility in UI memory without changing the n
 	const before = JSON.stringify(editor.getJSON());
 	const block = document.querySelector<HTMLElement>(".abc-block");
 	const [tabBtn, sourceBtn] = document.querySelectorAll<HTMLButtonElement>(
-		".abc-controls .mermaid-toggle",
+		".mermaid-controls .mermaid-toggle",
 	);
 
 	fireEvent.click(tabBtn as HTMLButtonElement);
@@ -127,6 +129,35 @@ it("toggles guitar tab and source visibility in UI memory without changing the n
 	expect(block?.dataset.source).toBe("hidden");
 	expect(hiddenSources()).toEqual(["a"]);
 	expect(JSON.stringify(editor.getJSON())).toBe(before);
+
+	cleanup();
+	open([
+		code("X:1\nK:C\nC D E F |", "abc"),
+		{
+			...code("X:1\nK:C\nG A B c |", "abc"),
+			attrs: { id: "b", language: "abc" },
+		},
+	]);
+	const [first, second] = document.querySelectorAll<HTMLElement>(".abc-block");
+	expect(first?.dataset.source).toBe("hidden");
+	expect(second?.dataset.source).toBe("shown");
+	await vi.waitFor(() => {
+		expect(first?.querySelector("svg")?.dataset.mode).toBe("tab");
+		expect(second?.querySelector("svg")?.dataset.mode).toBe("staff");
+	});
+	const show = first?.querySelector<HTMLButtonElement>(
+		'[aria-pressed="true"]:last-child',
+	);
+	const guitar = first?.querySelector<HTMLButtonElement>(".abc-tab-toggle");
+	if (!show || !guitar) throw new Error("missing music controls");
+	fireEvent.click(show);
+	fireEvent.click(guitar);
+	expect(first?.dataset.source).toBe("shown");
+	expect(hiddenSources()).toEqual([]);
+	expect(guitarTabs()).toEqual([]);
+	await vi.waitFor(() =>
+		expect(first?.querySelector("svg")?.dataset.mode).toBe("staff"),
+	);
 });
 
 it("never imports abcjs synth or audio CSS anywhere in src/", () => {

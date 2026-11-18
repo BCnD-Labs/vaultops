@@ -1,4 +1,4 @@
-import { Extension, type NodeViewRenderer } from "@tiptap/core";
+import { Extension, InputRule, type NodeViewRenderer } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
@@ -19,7 +19,6 @@ import { tabNodeView } from "./tab-block";
 /** The languages the picker offers: [stored name, label]. "" means plain text. */
 export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
 	["", "Plain text"],
-	["abc", "Sheet music (ABC)"],
 	["bash", "Bash"],
 	["c", "C"],
 	["cpp", "C++"],
@@ -30,20 +29,24 @@ export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
 	["javascript", "JavaScript"],
 	["json", "JSON"],
 	["markdown", "Markdown"],
-	["mermaid", "Mermaid diagram"],
 	["python", "Python"],
 	["rust", "Rust"],
 	["sql", "SQL"],
-	["tab", "Guitar tab"],
 	["typescript", "TypeScript"],
 	["yaml", "YAML"],
 ];
+
+const VISUAL_LABELS = new Map([
+	["mermaid", "Mermaid diagram"],
+	["tab", "Guitar tab"],
+	["abc", "Sheet music"],
+]);
 
 /** Display label for a stored code block language id. */
 export function languageLabel(id: string | null | undefined): string {
 	const value = typeof id === "string" ? id : "";
 	const match = CODE_LANGUAGES.find(([key]) => key === value);
-	return match ? match[1] : value;
+	return VISUAL_LABELS.get(value) ?? match?.[1] ?? value;
 }
 
 const lowlight = createLowlight(common);
@@ -88,6 +91,20 @@ export const CodeBlock = CodeBlockLowlight.extend({
 						: {},
 			},
 		};
+	},
+	addInputRules() {
+		// A typed Markdown fence can still create ordinary code blocks.
+		return (this.parent?.() ?? []).map(
+			(rule) =>
+				new InputRule({
+					find: rule.find,
+					undoable: rule.undoable,
+					handler: (context) =>
+						VISUAL_LABELS.has(context.match[1] ?? "")
+							? null
+							: rule.handler(context),
+				}),
+		);
 	},
 	// A `mermaid` block draws its diagram, a `tab` block its guitar tab and an
 	// `abc` block its sheet music;
@@ -211,6 +228,7 @@ export const CodeLanguage = Extension.create({
 								typeof node.attrs.language === "string"
 									? node.attrs.language
 									: "";
+							const canChooseLanguage = editable && !VISUAL_LABELS.has(current);
 							decorations.push(
 								Decoration.widget(
 									pos + 1,
@@ -244,7 +262,7 @@ export const CodeLanguage = Extension.create({
 										});
 										bar.append(copy);
 
-										if (editable) {
+										if (canChooseLanguage) {
 											const wrap = document.createElement("button");
 											wrap.type = "button";
 											wrap.className = "code-wrap";
@@ -255,7 +273,7 @@ export const CodeLanguage = Extension.create({
 												const at = getPos();
 												if (at === undefined) return;
 												const target = view.state.doc.nodeAt(at - 1);
-												if (!target || target.type.name !== "codeBlock") return;
+												if (target?.type.name !== "codeBlock") return;
 												view.dispatch(
 													view.state.tr.setNodeMarkup(at - 1, undefined, {
 														...target.attrs,
@@ -266,7 +284,7 @@ export const CodeLanguage = Extension.create({
 											bar.append(wrap);
 										}
 
-										if (editable) {
+										if (canChooseLanguage) {
 											const select = document.createElement("select");
 											select.className = "code-language";
 											select.setAttribute("aria-label", "Code language");
@@ -287,7 +305,7 @@ export const CodeLanguage = Extension.create({
 												const at = getPos();
 												if (at === undefined) return;
 												const target = view.state.doc.nodeAt(at - 1);
-												if (!target || target.type.name !== "codeBlock") return;
+												if (target?.type.name !== "codeBlock") return;
 												view.dispatch(
 													view.state.tr.setNodeMarkup(at - 1, undefined, {
 														...target.attrs,

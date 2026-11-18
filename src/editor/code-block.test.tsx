@@ -51,6 +51,19 @@ const numbers = () =>
 		(n) => n.dataset.line,
 	);
 
+it.each([
+	["mermaid", "Mermaid diagram"],
+	["tab", "Guitar tab"],
+	["abc", "Sheet music"],
+])("shows a fixed label and Copy for %s", (language, label) => {
+	open("example", { language });
+	const bar = document.querySelector(".code-block-bar");
+	expect(bar?.querySelector("span.code-language")?.textContent).toBe(label);
+	expect(bar?.querySelector("select")).toBeNull();
+	expect(bar?.querySelector(".code-wrap")).toBeNull();
+	expect(bar?.querySelector(".code-copy")).not.toBeNull();
+});
+
 it("numbers each real line, including empty ones, and an empty block has one", () => {
 	open("one\n\nthree");
 	expect(numbers()).toEqual(["1", "2", "3"]);

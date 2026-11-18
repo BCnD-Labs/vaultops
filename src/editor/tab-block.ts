@@ -142,7 +142,9 @@ export function tabNodeView({
 	const panel = element("div", "mermaid-view");
 	panel.contentEditable = "false";
 	grid.append(pre, panel);
-	const toggle = panel.appendChild(element("button", "mermaid-toggle"));
+	const bar = panel.appendChild(element("div", "mermaid-controls"));
+	const toggle = bar.appendChild(element("button", "mermaid-toggle"));
+	toggle.setAttribute("type", "button");
 	const canvas = panel.appendChild(element("div", "mermaid-svg"));
 	const message = panel.appendChild(element("p", "mermaid-error"));
 
@@ -175,7 +177,11 @@ export function tabNodeView({
 	const draw = () => {
 		const text = current.textContent;
 		// No layout (tests, hidden panes) falls back to a typical column width.
-		const width = canvas.clientWidth || 640;
+		// The drawing-only card fits the SVG, so wrap against the whole column.
+		const only = dom.dataset.source === "hidden" || !view.editable;
+		const chrome = panel.offsetWidth - canvas.clientWidth;
+		const available = only ? grid.clientWidth - chrome : canvas.clientWidth;
+		const width = available > 0 ? available : 640;
 		const key = `${width}\n${text}`;
 		if (key === drawn) return;
 		drawn = key;
@@ -194,8 +200,11 @@ export function tabNodeView({
 		typeof ResizeObserver === "function"
 			? new ResizeObserver(() => schedule(drawn ? 50 : 0))
 			: null;
-	if (resized) resized.observe(canvas);
-	else draw();
+	if (resized) {
+		resized.observe(canvas);
+		resized.observe(grid);
+	} else draw();
+	toggle.addEventListener("click", () => schedule(0));
 
 	return {
 		dom,

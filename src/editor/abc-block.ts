@@ -2,7 +2,7 @@ import type { NodeViewRendererProps } from "@tiptap/core";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import type { NodeView } from "@tiptap/pm/view";
-import { hiddenSources } from "./mermaid-block";
+import { hiddenSources, setDrawingWidth } from "./mermaid-block";
 
 const DELAY = 350;
 const TAB_KEY = "vaultops:abc-guitar-tab";
@@ -72,7 +72,7 @@ export function abcNodeView({
 	const panel = element("div", "mermaid-view");
 	panel.contentEditable = "false";
 	grid.append(pre, panel);
-	const bar = panel.appendChild(element("div", "abc-controls"));
+	const bar = panel.appendChild(element("div", "mermaid-controls"));
 	const tabToggle = bar.appendChild(
 		element("button", "mermaid-toggle abc-tab-toggle"),
 	);
@@ -87,8 +87,11 @@ export function abcNodeView({
 		if (id()) store(on ? [...rest, id()] : rest);
 	};
 	let showTab = guitarTabs().includes(id());
-	tabToggle.textContent = "Show guitar tab";
-	tabToggle.setAttribute("aria-pressed", String(showTab));
+	const updateTabButton = () => {
+		tabToggle.textContent = showTab ? "Hide guitar tab" : "Show guitar tab";
+		tabToggle.setAttribute("aria-pressed", String(showTab));
+	};
+	updateTabButton();
 
 	const showSource = (hidden: boolean) => {
 		dom.dataset.source = hidden ? "hidden" : "shown";
@@ -97,11 +100,13 @@ export function abcNodeView({
 	};
 	showSource(hiddenSources().includes(id()));
 
-	for (const btn of [tabToggle, toggle])
+	for (const btn of [tabToggle, toggle]) {
+		btn.setAttribute("type", "button");
 		btn.addEventListener("mousedown", (e) => e.preventDefault());
+	}
 	tabToggle.addEventListener("click", () => {
 		showTab = !showTab;
-		tabToggle.setAttribute("aria-pressed", String(showTab));
+		updateTabButton();
 		remember(guitarTabs, showTab);
 		schedule(0);
 	});
@@ -141,7 +146,13 @@ export function abcNodeView({
 				...(tab ? { tablature: [{ instrument: "guitar" }] } : {}),
 			});
 			if (tune?.warnings?.[0]) throw new Error(tune.warnings[0]);
-			if (!scratch.querySelector("svg")) throw new Error("");
+			const drawings = scratch.querySelectorAll<SVGSVGElement>(":scope > svg");
+			if (!drawings.length) throw new Error("");
+			// The card does its own scaling, without abcjs's absolute SVG overlay.
+			for (const drawing of drawings) {
+				setDrawingWidth(drawing);
+				drawing.style.removeProperty("position");
+			}
 			canvas.toggleAttribute("data-fresh", !canvas.firstChild);
 			canvas.innerHTML = scratch.innerHTML;
 			canvas.removeAttribute("data-stale");

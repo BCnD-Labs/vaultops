@@ -127,6 +127,23 @@ it("hides the text without changing the saved block, and remembers it", () => {
 	).toBe("hidden");
 });
 
+it("removes the hidden source from layout and fits the card to the drawing", () => {
+	const style = document.head.appendChild(document.createElement("style"));
+	style.textContent = readFileSync("src/editor/editor.css", "utf8");
+	try {
+		hiddenSources(["t"]);
+		open([code(TAB)]);
+		const pre = document.querySelector("pre");
+		const panel = document.querySelector(".mermaid-view");
+		if (!pre || !panel) throw new Error("missing tab block");
+		expect(getComputedStyle(pre).display).toBe("none");
+		expect(getComputedStyle(panel).width).toBe("fit-content");
+		expect(getComputedStyle(panel).maxWidth).toBe("100%");
+	} finally {
+		style.remove();
+	}
+});
+
 it("shows only the drawing in a read-only note", () => {
 	const style = document.head.appendChild(document.createElement("style"));
 	style.textContent = readFileSync("src/editor/editor.css", "utf8");
@@ -135,7 +152,7 @@ it("shows only the drawing in a read-only note", () => {
 	const hidden = (el: Element | null) =>
 		el && getComputedStyle(el).display === "none";
 	expect(hidden(block.querySelector("pre"))).toBe(true);
-	expect(hidden(block.querySelector(".mermaid-toggle"))).toBe(true);
+	expect(hidden(block.querySelector(".mermaid-controls"))).toBe(true);
 	expect(svg()).not.toBeNull();
 	style.remove();
 });

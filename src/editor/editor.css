@@ -1204,9 +1204,8 @@
 }
 
 /*
- * Mermaid diagram block: the code block's text on the left and its diagram on
- * the right, stacked when the note is narrow. "Diagram only" slides the text
- * away; a read-only note shows the diagram only.
+ * Visual blocks share a split layout, stacked in narrow columns. A drawing-only
+ * card fits its contents within the note column.
  */
 .note-editor .mermaid-block {
 	container-type: inline-size;
@@ -1216,49 +1215,59 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 	gap: var(--space-2);
-	transition:
-		grid-template-columns var(--motion-normal) var(--ease-standard),
-		gap var(--motion-normal) var(--ease-standard);
 }
 
 .note-editor .mermaid-block pre {
 	margin: 0;
-	transition: opacity var(--motion-normal) var(--ease-standard);
-}
-
-.note-editor .mermaid-block[data-source="hidden"] .mermaid-grid {
-	grid-template-columns: minmax(0, 0fr) minmax(0, 1fr);
-	gap: 0;
-}
-
-.note-editor .mermaid-block[data-source="hidden"] pre {
-	opacity: 0;
-	visibility: hidden;
-	padding-inline: 0;
-	border-width: 0;
 }
 
 @container (max-width: 520px) {
 	.note-editor .mermaid-grid {
 		grid-template-columns: minmax(0, 1fr);
 	}
-	.note-editor .mermaid-block[data-source="hidden"] pre {
-		display: none;
-	}
+}
+
+.note-editor .mermaid-block[data-source="hidden"] .mermaid-grid,
+.note-editor .ProseMirror[contenteditable="false"] .mermaid-grid {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.note-editor .mermaid-block[data-source="hidden"] pre {
+	display: none;
 }
 
 .note-editor .mermaid-view {
-	position: relative;
-	padding: var(--space-6) var(--space-3) var(--space-3);
+	padding: var(--space-1) var(--space-3) var(--space-3);
 	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-container);
 	background: var(--editor-code-bg);
 	overflow-x: auto;
 }
 
+.note-editor .mermaid-block[data-source="hidden"] .mermaid-view,
+.note-editor .ProseMirror[contenteditable="false"] .mermaid-view {
+	width: fit-content;
+	max-width: 100%;
+	justify-self: center;
+}
+
+.note-editor .mermaid-controls {
+	display: flex;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	margin-bottom: var(--space-2);
+}
+
 .note-editor .mermaid-svg {
 	display: flex;
 	justify-content: center;
+}
+
+.note-editor .mermaid-svg > svg {
+	min-width: 0;
+	max-width: 100%;
+	height: auto;
 }
 
 .note-editor .mermaid-svg[data-fresh] svg {
@@ -1282,9 +1291,6 @@
 }
 
 .note-editor .mermaid-toggle {
-	position: absolute;
-	top: var(--space-1);
-	right: var(--space-2);
 	padding: 1px var(--space-2);
 	border: var(--border-width) solid var(--line);
 	border-radius: var(--radius-control);
@@ -1297,12 +1303,8 @@
 
 .note-editor .mermaid-error:empty,
 .note-editor .ProseMirror[contenteditable="false"] .mermaid-block pre,
-.note-editor .ProseMirror[contenteditable="false"] .mermaid-toggle {
+.note-editor .ProseMirror[contenteditable="false"] .mermaid-controls {
 	display: none;
-}
-
-.note-editor .ProseMirror[contenteditable="false"] .mermaid-grid {
-	grid-template-columns: minmax(0, 1fr);
 }
 
 /*
@@ -1310,8 +1312,6 @@
  * in the line colour, fret numbers knocked out of the lines they sit on.
  */
 .note-editor .tab-svg {
-	max-width: 100%;
-	height: auto;
 	font-family: var(--font-mono);
 	font-size: calc(var(--font-size-small) * 0.92);
 }
@@ -1371,25 +1371,14 @@
 	font-weight: 600;
 }
 
-.note-editor .abc-controls {
-	position: absolute;
-	top: var(--space-1);
-	right: var(--space-2);
-	display: flex;
-	gap: var(--space-1);
-}
-
-.note-editor .abc-controls .mermaid-toggle {
-	position: static;
-}
-
-.note-editor .abc-controls .mermaid-toggle[aria-pressed="true"] {
+.note-editor .abc-tab-toggle[aria-pressed="true"] {
 	color: var(--foreground);
 	background: var(--accent);
 }
 
 .note-editor .abc-svg {
-	display: block;
+	flex-direction: column;
+	align-items: center;
 	color: var(--foreground);
 }
 
@@ -1400,8 +1389,6 @@
 	.note-editor .fold-toggle::before,
 	.note-editor pre .code-wrap,
 	.note-editor pre .code-copy,
-	.note-editor .mermaid-grid,
-	.note-editor .mermaid-block pre,
 	.note-editor .image-block img,
 	.note-editor .image-block-frame,
 	.image-viewer img {

@@ -74,11 +74,31 @@ export function mermaidColor(value: string): string | null {
 export function mermaidThemeVariables(
 	color: (token: string) => string | null,
 	fontFamily: string,
+	mindmap = false,
 ): Record<string, string | boolean> {
 	const variables: Record<string, string | boolean> = { fontFamily };
 	for (const [name, token] of Object.entries(MERMAID_COLOR_TOKENS)) {
 		const value = color(token);
 		if (value) variables[name] = value;
+	}
+	if (mindmap) {
+		// Mermaid derives these from a darkened palette and inverts some labels.
+		// Pair the root and each branch with a readable foreground from the theme.
+		const root = color("--accent");
+		const rootText = color("--accent-foreground");
+		if (root) variables.git0 = root;
+		if (rootText) variables.gitBranchLabel0 = rootText;
+		const fills = [
+			color("--surface-container-high"),
+			color("--border"),
+			color("--surface-container-low"),
+		];
+		for (let section = 0; section < 12; section++) {
+			const fill = fills[section % fills.length];
+			if (fill) variables[`cScale${section}`] = fill;
+			if (variables.textColor)
+				variables[`cScaleLabel${section}`] = variables.textColor;
+		}
 	}
 	// A dark background (by its brightness) draws a dark-mode diagram.
 	const [r = 255, g = 255, b = 255] =

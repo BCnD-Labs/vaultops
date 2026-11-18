@@ -6,6 +6,7 @@ import { MemoryHost } from "../host/memory-host";
 import { loadColors, toHex } from "../ui/appearance";
 import { loadThemeChoice } from "../ui/themes";
 import { SettingsDialog, SettingsScreen } from "./SettingsScreen";
+import { settings } from "./settings";
 
 // Look literals (hex colors) are not allowed in component files, so build them.
 const red = toHex(204, 0, 0);
@@ -17,6 +18,8 @@ const navy = toHex(0, 17, 34);
 
 afterEach(() => {
 	cleanup();
+	settings.set("appearance.accent", "");
+	settings.set("appearance.mode", "system");
 	localStorage.clear();
 	document.documentElement.removeAttribute("style");
 	document.documentElement.removeAttribute("data-mode");
@@ -133,7 +136,10 @@ it("opens as a dialog titled Settings and closes with its button", async () => {
 		<SettingsDialog open onOpenChange={onOpenChange} host={new MemoryHost()} />,
 	);
 	expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
-	await user.click(screen.getByRole("button", { name: "Close" }));
+	const close = screen.getByRole("button", { name: "Close" });
+	expect(close.getAttribute("data-slot")).toBe("button");
+	expect(close.getAttribute("data-variant")).toBe("ghost");
+	await user.click(close);
 	expect(onOpenChange).toHaveBeenCalledWith(false);
 });
 
@@ -471,4 +477,17 @@ it("tunes the theme by part: presets, switches, per-mode colors and custom CSS",
 	expect(style?.textContent).not.toContain("x.test");
 	style?.remove();
 	root.removeAttribute("data-hide-list-guides");
+});
+
+it("notes an accent that is adjusted for the current mode, and only then", async () => {
+	const root = document.documentElement;
+	root.style.setProperty("--background", toHex(17, 18, 20));
+	settings.set("appearance.mode", "dark");
+	settings.set("appearance.accent", toHex(35, 35, 35));
+	render(<SettingsScreen host={new MemoryHost()} />);
+	expect(screen.getByText(/Too dark to see in dark mode/)).toBeTruthy();
+	fireEvent.change(screen.getByLabelText("Accent color"), {
+		target: { value: toHex(37, 99, 235) },
+	});
+	expect(screen.queryByText(/so a lighter shade is used here/)).toBeNull();
 });

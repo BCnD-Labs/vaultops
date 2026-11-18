@@ -532,8 +532,7 @@
 	min-width: 0;
 	width: auto;
 }
-.tag-pill,
-.chips .chip[data-tone] {
+.tag-pill {
 	display: inline-flex;
 	align-items: center;
 	padding-inline: var(--space-2);
@@ -546,9 +545,6 @@
 		var(--tone) var(--tone-text-mix),
 		var(--foreground)
 	);
-}
-.chips .chip[data-tone] {
-	padding-right: var(--space-1);
 }
 
 .style-popover {

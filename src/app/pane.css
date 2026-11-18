@@ -339,7 +339,8 @@
 	white-space: nowrap;
 }
 
-.props input:not([type="checkbox"]),
+/* The add-tag field keeps the app's Input look (it is a ui/Input). */
+.props input:not([type="checkbox"], .chip-input),
 .prop-add input {
 	font: inherit;
 	padding: 3px 6px;
@@ -349,10 +350,10 @@
 	color: inherit;
 }
 
-.props input:not([type="checkbox"]):hover {
+.props input:not([type="checkbox"], .chip-input):hover {
 	border-color: var(--line);
 }
-.props input:not([type="checkbox"]):focus {
+.props input:not([type="checkbox"], .chip-input):focus {
 	border-color: var(--ring);
 }
 .prop-add-trigger {
@@ -381,15 +382,6 @@
 	min-width: 0;
 }
 
-.chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	padding: 1px 4px 1px 8px;
-	border-radius: var(--radius-control);
-	background: var(--surface-container);
-}
-
 .chip-label {
 	background: none;
 	border: 0;
@@ -401,26 +393,6 @@
 
 .chip-label:hover {
 	background: var(--accent);
-}
-
-.chip-remove {
-	display: inline-flex;
-	background: none;
-	border: 0;
-	padding: 2px;
-	border-radius: var(--radius-control);
-	color: var(--muted-foreground);
-	cursor: pointer;
-}
-
-.chip-remove:hover {
-	background: var(--accent);
-	color: inherit;
-}
-
-.props .chip-input {
-	width: 90px;
-	border-radius: var(--radius-control);
 }
 
 .vault-row {
@@ -947,11 +919,6 @@ button.prop-type-icon:focus-visible {
 	background: var(--surface);
 	border-color: var(--ring);
 }
-.props-block .chip {
-	color: var(--foreground);
-	font-size: var(--font-size-ui);
-	line-height: inherit;
-}
 .props-block .chips .chip-input {
 	width: 6rem;
 	padding: 0 var(--space-1);
@@ -1299,30 +1266,18 @@ input.canvas-item-field {
 	font-weight: 500;
 	color: var(--muted-foreground);
 }
-.settings-close {
+/* The title bar's close button: only its place here, the look is the shared
+   Button (ghost, icon-sm). The selector is strong enough to win over the
+   settings window's outlined button rule below. */
+.settings-titlebar [data-slot="button"].settings-close {
 	position: absolute;
-	left: 14px;
+	left: 10px;
 	top: 50%;
 	translate: 0 -50%;
-	display: grid;
-	place-items: center;
-	width: 14px;
-	height: 14px;
-	padding: 0;
-	border: 0;
-	border-radius: var(--radius-pill, 100vmax);
-	background: var(--destructive);
-	color: transparent;
-	cursor: pointer;
-}
-.settings-close svg {
-	width: 10px;
-	height: 10px;
-	stroke-width: 3;
-}
-.settings-close:hover,
-.settings-close:focus-visible {
-	color: var(--background);
+	height: var(--control-height-sm);
+	padding-inline: 0;
+	border-color: transparent;
+	color: var(--muted-foreground);
 }
 .settings-body {
 	flex: 1;
@@ -1384,16 +1339,7 @@ input.canvas-item-field {
 
 /* Controls in the settings window: simple outlined buttons with room around
    them, in the chosen theme's colors. The chosen choice gets a tinted fill. */
-.settings-window [data-slot="button"] {
-	height: var(--control-height);
-	padding-inline: 14px;
-	border: var(--border-width) solid var(--border);
-	border-radius: var(--radius-control);
-	background: transparent;
-	color: var(--foreground);
-	font-weight: 400;
-	box-shadow: none;
-}
+/* Settings buttons use the shared Button variants (no local look). */
 .settings-window [data-slot="toggle-group"] {
 	flex-wrap: wrap;
 	justify-content: flex-end;

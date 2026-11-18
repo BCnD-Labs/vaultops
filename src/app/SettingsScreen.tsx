@@ -12,10 +12,10 @@ import {
 	Search,
 	SlidersHorizontal,
 	Wrench,
-	X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useReducer, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import {
 	Dialog,
 	DialogClose,
@@ -32,10 +32,12 @@ import {
 } from "../core/settings/registry";
 import { SHORTCUT_COMMANDS } from "../core/settings/shortcuts";
 import {
+	accentNote,
 	type ColorKey,
 	colorPreview,
 	colorTokens,
 	currentColor,
+	loadInterface,
 	refreshAppearance,
 	resolveMode,
 	systemIsDark,
@@ -183,6 +185,15 @@ export function SettingsScreen({
 					)
 				}
 				labelSuffix={searching && defMode ? `${defMode} mode` : undefined}
+				note={
+					def.key === "appearance.accent"
+						? accentNote(
+								loadInterface().accent,
+								mode,
+								currentColor("--background", root),
+							)
+						: undefined
+				}
 				colorFallback={
 					colorKey
 						? currentColor(
@@ -392,8 +403,8 @@ export function SettingsScreen({
 		return (
 			<section className="settings-window">
 				<header className="settings-titlebar">
-					<DialogClose className="settings-close" aria-label="Close">
-						<X aria-hidden="true" />
+					<DialogClose asChild>
+						<CloseButton className="settings-close" />
 					</DialogClose>
 					<DialogTitle className="settings-window-title">Settings</DialogTitle>
 					<DialogDescription className="sr-only">

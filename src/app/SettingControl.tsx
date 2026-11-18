@@ -25,6 +25,7 @@ export function SettingControl({
 	onChange,
 	colorFallback,
 	labelSuffix,
+	note,
 }: {
 	def: SettingDef;
 	value: SettingValue;
@@ -32,6 +33,8 @@ export function SettingControl({
 	colorFallback?: string;
 	/** Added to the label, for example the mode when search lists both modes. */
 	labelSuffix?: string;
+	/** An extra muted line under the description. */
+	note?: string | null;
 }) {
 	const id = `setting-${def.key}`;
 	const label = labelSuffix ? `${def.label} (${labelSuffix})` : def.label;
@@ -152,6 +155,7 @@ export function SettingControl({
 					<span id={`${id}-label`}>{label}</span>
 				)}
 				{def.description && <p className="settings-note">{def.description}</p>}
+				{note && <p className="settings-note">{note}</p>}
 			</div>
 			{control}
 		</div>

@@ -82,7 +82,7 @@ export function AddFieldDialog({
 								key={k}
 								type="button"
 								size="sm"
-								variant={kind === k ? "default" : "outline"}
+								variant="outline"
 								aria-pressed={kind === k}
 								onClick={() => setKind(k)}
 							>
@@ -94,7 +94,7 @@ export function AddFieldDialog({
 						<Button
 							type="button"
 							size="sm"
-							variant={required ? "default" : "outline"}
+							variant="outline"
 							aria-pressed={required}
 							onClick={() => setRequired(!required)}
 						>

@@ -52,7 +52,7 @@ export function TypeSettings({
 					</span>
 					<Button
 						size="sm"
-						variant={f.required ? "default" : "outline"}
+						variant="outline"
 						aria-pressed={f.required}
 						aria-label={`${f.label} is ${f.required ? "required" : "optional"}`}
 						disabled={!canWrite}

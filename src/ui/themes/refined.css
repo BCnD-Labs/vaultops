@@ -503,7 +503,6 @@
 		flex-wrap: nowrap;
 		margin: 0 var(--space-3);
 	}
-	& .plan-checkin-slot,
 	& .plan-task-tabs [data-slot="tabs-trigger"] {
 		height: 28px;
 		border: 0;
@@ -516,41 +515,9 @@
 		padding: 0 6px;
 		font-size: 12px;
 	}
-	& .plan-checkin-slot[data-current],
 	& .plan-task-tabs [data-slot="tabs-trigger"][data-state="active"] {
 		background: var(--row-raised);
 		color: var(--foreground);
 		font-weight: 600;
-	}
-	& .plan-checkin-slot[data-done] {
-		box-shadow: inset 0 0 0 1px var(--tone-green);
-	}
-	/* Quick log prompts: tinted pills. */
-	& .plan-prompts button {
-		border: var(--border-width) solid
-			color-mix(in srgb, var(--prompt-tone, var(--foreground)) 24%, transparent);
-		border-radius: 999px;
-		background: color-mix(
-			in srgb,
-			var(--prompt-tone, var(--foreground)) 10%,
-			transparent
-		);
-		color: color-mix(
-			in srgb,
-			var(--prompt-tone, var(--foreground)) var(--tone-text-mix),
-			var(--foreground)
-		);
-	}
-	& .plan-prompts button:nth-child(1) {
-		--prompt-tone: var(--tone-green);
-	}
-	& .plan-prompts button:nth-child(2) {
-		--prompt-tone: var(--tone-blue);
-	}
-	& .plan-prompts button:nth-child(3) {
-		--prompt-tone: var(--tone-red);
-	}
-	& .plan-prompts button:nth-child(4) {
-		--prompt-tone: var(--tone-yellow);
 	}
 }

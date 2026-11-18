@@ -150,24 +150,6 @@
 	padding: 4px;
 }
 
-.tree-toolbar .tree-action {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	background: none;
-	border: 0;
-	color: var(--muted-foreground);
-	font: inherit;
-	font-size: var(--font-size-ui);
-	cursor: pointer;
-	padding: 4px 8px;
-	border-radius: var(--radius-control);
-}
-
-.tree-toolbar .tree-action:hover:not(:disabled) {
-	background: var(--accent);
-}
-
 .tree-action:disabled {
 	opacity: 0.5;
 	cursor: default;
@@ -594,15 +576,6 @@
 .style-opacity input {
 	flex: 1;
 }
-.style-link {
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--muted-foreground);
-	font-size: var(--font-size-small);
-	text-decoration: underline;
-	cursor: pointer;
-}
 .icon-picker {
 	display: flex;
 	flex-direction: column;
@@ -789,7 +762,7 @@
 	);
 }
 .style-swatch[aria-pressed="true"] {
-	outline: var(--focus-ring-width) solid var(--foreground);
+	outline: var(--focus-ring-width) solid var(--primary);
 	outline-offset: 1px;
 }
 .style-modes {
@@ -813,16 +786,6 @@
 	background: var(--accent);
 	border-color: var(--ring);
 	color: var(--accent-foreground);
-}
-.style-reset {
-	margin-top: var(--space-3);
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--muted-foreground);
-	font-size: var(--font-size-small);
-	text-decoration: underline;
-	cursor: pointer;
 }
 
 /* The hover buttons sit over the row, so they take the row's tint instead of an opaque patch. */

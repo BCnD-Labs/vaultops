@@ -14,6 +14,7 @@ import {
 import Suggestion, { type SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { Contact, FileText, LayoutDashboard } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	isLinkKind,
 	LINK_NODE,
@@ -153,9 +154,10 @@ function LinkView({ node, editor, getPos }: NodeViewProps) {
 	};
 	return (
 		<NodeViewWrapper as="span" className="note-link" contentEditable={false}>
-			<button
+			<Button
 				type="button"
-				className="note-link-chip"
+				variant="outline"
+				className="note-link-chip h-auto"
 				data-kind={kind}
 				data-missing={missing ? "true" : undefined}
 				title={missing ? "This is gone. Click for what you can do." : undefined}
@@ -166,26 +168,38 @@ function LinkView({ node, editor, getPos }: NodeViewProps) {
 			>
 				<Icon aria-hidden="true" />
 				<span>{current ?? saved}</span>
-			</button>
+			</Button>
 			{missing && asking && (
 				<fieldset className="note-link-gone" aria-label="Gone link">
 					<span>No longer in this vault.</span>
 					{editor.isEditable && (
 						<>
-							<button
+							<Button
 								type="button"
+								variant="link"
+								size="sm"
 								onClick={() => replace({ type: "text", text: saved })}
 							>
 								Keep the name as text
-							</button>
-							<button type="button" onClick={() => replace(null)}>
+							</Button>
+							<Button
+								type="button"
+								variant="link"
+								size="sm"
+								onClick={() => replace(null)}
+							>
 								Remove link
-							</button>
+							</Button>
 						</>
 					)}
-					<button type="button" onClick={() => setAsking(false)}>
+					<Button
+						type="button"
+						variant="link"
+						size="sm"
+						onClick={() => setAsking(false)}
+					>
 						Close
-					</button>
+					</Button>
 				</fieldset>
 			)}
 		</NodeViewWrapper>

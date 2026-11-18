@@ -118,6 +118,7 @@ it("opens the callout style picker to change preset, icon and colour, and disabl
 		expect(document.querySelector(".callout-icon")).not.toBeNull(),
 	);
 	const icon = document.querySelector(".callout-icon") as HTMLButtonElement;
+	expect(icon.getAttribute("data-slot")).toBe("button");
 	fireEvent.click(icon);
 
 	const infoPreset = await waitFor(() => {
@@ -127,6 +128,7 @@ it("opens the callout style picker to change preset, icon and colour, and disabl
 		if (!btn) throw new Error("no info preset");
 		return btn;
 	});
+	expect(infoPreset.getAttribute("data-slot")).toBe("button");
 	fireEvent.click(infoPreset);
 	expect(editor.getJSON().content?.[0]?.attrs?.tone).toBe("info");
 

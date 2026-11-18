@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -263,9 +263,12 @@ export function NewItemDialog({
 								<label
 									key={val}
 									className={cn(
-										"plan-priority-pill",
-										priority === val && "is-selected",
+										buttonVariants({ variant: "ghost", size: "sm" }),
+										"plan-priority-pill cursor-pointer",
 									)}
+									data-slot="button"
+									data-variant="ghost"
+									data-state={priority === val ? "on" : "off"}
 									data-priority={val}
 								>
 									<input

@@ -41,6 +41,18 @@ describe("NewItemDialog", () => {
 		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 
+	it("draws the priority choices as buttons and marks the chosen one as on", async () => {
+		setup();
+		const pill = (name: string) =>
+			screen.getByRole("radio", { name }).closest("label") as HTMLElement;
+		for (const n of ["High", "Medium", "Low"])
+			expect(pill(n).getAttribute("data-slot")).toBe("button");
+		expect(pill("High").getAttribute("data-state")).toBe("off");
+		await userEvent.click(screen.getByRole("radio", { name: "High" }));
+		expect(pill("High").getAttribute("data-state")).toBe("on");
+		expect(pill("Low").getAttribute("data-state")).toBe("off");
+	});
+
 	it("keeps Create disabled until there is a description", async () => {
 		setup();
 		expect(create().disabled).toBe(true);

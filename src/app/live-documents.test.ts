@@ -2,7 +2,19 @@ import { expect, it, vi } from "vitest";
 import { type Note, serializeNote } from "../core/note-format";
 import { scanVault } from "../core/notes/scan";
 import { MemoryHost } from "../host/memory-host";
-import { createLiveDocuments } from "./live-documents";
+import { createLiveDocuments as createRegistry } from "./live-documents";
+
+function createLiveDocuments(
+	host: Pick<MemoryHost, "readText">,
+	options: Parameters<typeof createRegistry>[1],
+	editor?: Parameters<typeof createRegistry>[2],
+) {
+	return createRegistry(
+		host instanceof MemoryHost ? host : { ...host, writeTextAtomic: vi.fn() },
+		options,
+		editor,
+	);
+}
 
 const path = "First.vnote";
 const note: Note = {

@@ -6,7 +6,10 @@ import {
 	prepareSave,
 } from "../note-format";
 
-const queues = new WeakMap<Host, Map<string, Promise<unknown>>>();
+export type CanvasHost = Pick<Host, "readText" | "writeTextAtomic">;
+export class CanvasConflict extends Error {}
+
+const queues = new WeakMap<CanvasHost, Map<string, Promise<unknown>>>();
 
 /**
  * Runs writes to one file one at a time. Each write checks the file against the
@@ -14,7 +17,11 @@ const queues = new WeakMap<Host, Map<string, Promise<unknown>>>();
  * result and is refused, instead of both passing the check and the later one
  * silently replacing the earlier.
  */
-export function inOrder<T>(host: Host, path: string, task: () => Promise<T>) {
+export function inOrder<T>(
+	host: CanvasHost,
+	path: string,
+	task: () => Promise<T>,
+) {
 	let byPath = queues.get(host);
 	if (!byPath) {
 		byPath = new Map();
@@ -46,19 +53,18 @@ export function saveCanvasEdit(
 	action = "editing it",
 	mutateHeader?: (header: NoteHeader) => NoteHeader,
 ): Promise<string> {
-	return inOrder(host, path, () =>
-		saveCanvasEditNow(host, path, baseText, mutate, action, mutateHeader),
-	);
+	return inOrder(host, path, async () => {
+		const text = prepareCanvasEdit(baseText, mutate, mutateHeader);
+		await writeCanvasTextLocked(host, path, baseText, text, action);
+		return text;
+	});
 }
 
-async function saveCanvasEditNow(
-	host: Host,
-	path: string,
+export function prepareCanvasEdit(
 	baseText: string,
 	mutate: (blocks: Block[]) => Block[],
-	action: string,
 	mutateHeader?: (header: NoteHeader) => NoteHeader,
-): Promise<string> {
+) {
 	const parsed = parseNote(baseText);
 	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
 		throw new Error("This canvas cannot be edited safely.");
@@ -68,10 +74,22 @@ async function saveCanvasEditNow(
 		blocks: mutate(parsed.note.blocks),
 	});
 	if (!saved.ok) throw new Error("The canvas did not pass the save check.");
-	if ((await host.readText(path)) !== baseText)
-		throw new Error(`The canvas changed on disk. Reload it before ${action}.`);
-	await host.writeTextAtomic(path, saved.text);
 	return saved.text;
+}
+
+/** Call under the file lock with text that has passed the canvas save check. */
+export async function writeCanvasTextLocked(
+	host: CanvasHost,
+	path: string,
+	baseText: string,
+	text: string,
+	action: string,
+) {
+	if ((await host.readText(path)) !== baseText)
+		throw new CanvasConflict(
+			`The canvas changed on disk. Reload it before ${action}.`,
+		);
+	await host.writeTextAtomic(path, text);
 }
 
 /**
@@ -99,9 +117,11 @@ async function restoreCanvasTextNow(
 	const parsed = parseNote(nextText);
 	if (parsed.note?.header.kind !== "canvas" || parsed.problems.length)
 		throw new Error("That earlier version cannot be restored safely.");
-	if ((await host.readText(path)) !== currentText)
-		throw new Error(
-			"The canvas changed on disk, so undo and redo were cleared. Reload it first.",
-		);
-	await host.writeTextAtomic(path, nextText);
+	await writeCanvasTextLocked(
+		host,
+		path,
+		currentText,
+		nextText,
+		"undoing or redoing",
+	);
 }

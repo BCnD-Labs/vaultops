@@ -37,13 +37,9 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-	CANVAS_ONLY_TYPES,
-	type NoteHeader,
-	parseNote,
-} from "../core/note-format";
+import { CANVAS_ONLY_TYPES, type NoteHeader } from "../core/note-format";
 import { arrangeItems } from "../core/notes/canvas-arrange";
-import { restoreCanvasText, saveCanvasEdit } from "../core/notes/canvas-edit";
+import { inOrder } from "../core/notes/canvas-edit";
 import {
 	EMBED_SIZE,
 	embedBlock,
@@ -70,10 +66,7 @@ import {
 	setTone,
 } from "../core/notes/canvas-ops";
 import { reorderItems } from "../core/notes/canvas-order";
-import {
-	blockPosition,
-	saveCanvasPosition,
-} from "../core/notes/canvas-position";
+import { blockPosition } from "../core/notes/canvas-position";
 import { setShapeKind, setTextSize } from "../core/notes/canvas-style";
 import { headerIcon, withIcon } from "../core/notes/icon";
 import { renameNote } from "../core/notes/rename";
@@ -91,13 +84,13 @@ import {
 	saveCanvasLocked,
 	saveCanvasSnapModes,
 } from "./canvas-layout";
-import type { LiveDocuments } from "./live-documents";
+import type { LiveDocument, LiveDocuments } from "./live-documents";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NotePickerDialog } from "./NotePickerDialog";
-import { compareRows, type NoteRow } from "./session";
+import type { NoteRow } from "./session";
 
 const lockLabel = "Lock canvas: drag cards out to the note";
-const HISTORY_LIMIT = 50;
+type Binding = ReturnType<LiveDocuments["subscribe"]>;
 const NO_NOTES: NoteRow[] = [];
 
 /** Block types this build can draw and keep safe on a canvas. */
@@ -115,7 +108,7 @@ const ITEM_SIZE: { [type: string]: { w: number; h: number } } = {
 
 export function CanvasPane({
 	host,
-	documents = null,
+	documents,
 	path,
 	canvases,
 	writable,
@@ -132,7 +125,7 @@ export function CanvasPane({
 	links,
 }: {
 	host: Host;
-	documents?: LiveDocuments | null;
+	documents: LiveDocuments | null;
 	path: string;
 	canvases: NoteRow[];
 	writable: boolean;
@@ -156,20 +149,17 @@ export function CanvasPane({
 	onOpenNote?: (path: string) => void;
 	links?: LinkSource;
 }) {
-	const [activePath, setActivePath] = useState(path);
-	const [prevPathProp, setPrevPathProp] = useState(path);
-	const activePathRef = useRef(path);
-	if (path !== prevPathProp) {
-		setPrevPathProp(path);
-		activePathRef.current = path;
-		setActivePath(path);
-	}
-	const loadedRef = useRef<{ host: Host; path: string } | null>(null);
-	const baseTextRef = useRef<string | null>(null);
-	const [loaded, setLoaded] = useState<{ path: string; text: string } | null>(
-		null,
-	);
-	const [items, setItems] = useState(canvases);
+	const [loaded, setLoaded] = useState<{
+		registry: LiveDocuments;
+		path: string;
+		binding: Binding;
+		document: LiveDocument;
+	} | null>(null);
+	const view =
+		loaded?.registry === documents && loaded.path === path ? loaded : null;
+	const document = view?.document;
+	const binding = view?.binding;
+	const activePath = document?.path ?? path;
 	const [error, setError] = useState<string | null>(null);
 	const [surfaceRevision, setSurfaceRevision] = useState(0);
 	const [locked, setLocked] = useState(canvasLocked);
@@ -179,94 +169,67 @@ export function CanvasPane({
 		at?: { x: number; y: number };
 	} | null>(null);
 	const [snapModes, setSnapModes] = useState(canvasSnapModes);
-	// Undo history: whole earlier file texts, kept only while this canvas is open
-	// and cleared the moment the file changes behind our back.
-	const undoStack = useRef<string[]>([]);
-	const redoStack = useRef<string[]>([]);
-	const [historySize, setHistorySize] = useState({ undo: 0, redo: 0 });
-	const syncHistory = () =>
-		setHistorySize({
-			undo: undoStack.current.length,
-			redo: redoStack.current.length,
-		});
-	const clearHistory = () => {
-		undoStack.current = [];
-		redoStack.current = [];
-		syncHistory();
-	};
-	const remember = (before: string) => {
-		undoStack.current = [...undoStack.current, before].slice(-HISTORY_LIMIT);
-		redoStack.current = [];
-		syncHistory();
-	};
 	const menuPoint = useRef<{ x: number; y: number } | null>(null);
 	const rightDown = useRef<{ x: number; y: number } | null>(null);
 	const canvasApi = useRef<CanvasApi | null>(null);
 	const nameInput = useRef<HTMLInputElement>(null);
 	const shouldFocus = useRef(focusName);
-	const renamingRef = useRef(false);
 	useEffect(() => {
 		if (focusName) shouldFocus.current = true;
 	}, [focusName]);
 	useEffect(() => {
-		setItems(canvases);
-	}, [canvases]);
-	useEffect(() => {
-		if (loadedRef.current?.host === host && loadedRef.current.path === path)
-			return;
-		let active = true;
-		activePathRef.current = path;
-		baseTextRef.current = null;
-		undoStack.current = [];
-		redoStack.current = [];
-		setHistorySize({ undo: 0, redo: 0 });
-		setActivePath(path);
-		setLoaded(null);
 		setError(null);
-		host
-			.readText(path)
-			.then((value) => {
-				if (!active) return;
-				loadedRef.current = { host, path };
-				baseTextRef.current = value;
-				setLoaded({ path, text: value });
-			})
-			.catch((reason) => {
+		if (!documents) return;
+		let active = true;
+		const update = (document: LiveDocument) => {
+			if (active)
+				setLoaded({
+					registry: documents,
+					path,
+					binding: subscription,
+					document,
+				});
+		};
+		const subscription = documents.subscribePassive({ path }, update);
+		void subscription.ready.then(
+			(document) => {
+				if (document) update(subscription.current() ?? document);
+			},
+			(reason) => {
 				if (active)
 					setError(reason instanceof Error ? reason.message : String(reason));
-			});
+			},
+		);
 		return () => {
 			active = false;
+			subscription.unsubscribe();
 		};
-	}, [host, path]);
-	const text = loaded?.path === activePath ? loaded.text : null;
-	const parsed = useMemo(
-		() => (text === null ? null : parseNote(text)),
-		[text],
-	);
-	const canvasHeader = parsed?.note?.header;
+	}, [documents, path]);
+	const canvasHeader = document?.draft?.header;
+	const savedIcon = headerIcon(document?.base?.header);
 	const icon = headerIcon(canvasHeader);
 	const isCanvas = canvasHeader?.kind === "canvas";
+	const hasBase = Boolean(document?.base);
 	useEffect(() => {
-		if (isCanvas) onIconSaved?.(activePath, icon);
-	}, [activePath, icon, isCanvas, onIconSaved]);
+		if (isCanvas && hasBase) onIconSaved?.(activePath, savedIcon);
+	}, [activePath, savedIcon, isCanvas, hasBase, onIconSaved]);
 	const blocks =
-		parsed?.note?.header.kind === "canvas" ? parsed.note.blocks : [];
+		document?.kind === "canvas" ? (document.draft?.blocks ?? []) : [];
 	const roots = canvasNodes(blocks);
 	const unknownType = blocks.find(
 		(block) => !KNOWN_TYPES.has(block.type),
 	)?.type;
-	const row = items.find((item) => item.path === activePath);
-	const editable =
-		writable &&
-		!row?.readOnly &&
-		parsed?.note?.header.kind === "canvas" &&
-		parsed.problems.length === 0 &&
-		unknownType === undefined;
+	const row = canvases.find((item) => item.path === activePath);
+	const failed =
+		document?.saveStatus.kind === "failed" ? document.saveStatus.reason : null;
+	const editable = Boolean(
+		writable && !row?.readOnly && isCanvas && !document?.readOnly && !failed,
+	);
 	const savedTitle =
-		typeof parsed?.note?.header.title === "string"
-			? parsed.note.header.title
+		typeof canvasHeader?.title === "string"
+			? canvasHeader.title
 			: (row?.title ?? activePath);
+	const history = document?.canvasHistory;
 	const [name, setName] = useState(savedTitle);
 	const nameRef = useRef(savedTitle);
 	const [prevKey, setPrevKey] = useState(`${activePath}\n${savedTitle}`);
@@ -283,127 +246,65 @@ export function CanvasPane({
 			onFocusedName?.();
 		}
 	}, [editable, onFocusedName]);
-	const commitName = async () => {
-		const nextTitle = nameRef.current;
-		const currentPath = activePathRef.current;
-		const baseText = baseTextRef.current;
-		const current = baseText === null ? null : parseNote(baseText);
-		if (
-			renamingRef.current ||
-			!editable ||
-			currentPath !== activePath ||
-			current?.note?.header.kind !== "canvas" ||
-			current.problems.length > 0 ||
-			baseText === null ||
-			nextTitle === savedTitle ||
-			nextTitle === current.note.header.title
-		)
-			return;
-		renamingRef.current = true;
-		try {
-			if ((await host.readText(currentPath)) !== baseText)
-				throw new Error(
-					"The canvas changed on disk. Reload it before renaming it.",
+	const commitName = () =>
+		inOrder(host, activePath, async () => {
+			const nextTitle = nameRef.current;
+			const current = binding?.current();
+			if (
+				!editable ||
+				current?.path !== activePath ||
+				current.readOnly ||
+				!current.base ||
+				current.saveStatus.kind !== "saved" ||
+				nextTitle === current.base.header.title
+			)
+				return;
+			try {
+				if ((await host.readText(activePath)) !== current.diskText)
+					throw new Error(
+						"The canvas changed on disk. Reload it before renaming it.",
+					);
+				const result = await renameNote(
+					documents?.guardMoves(host) ?? host,
+					activePath,
+					current.base,
+					nextTitle,
 				);
-			const result = await renameNote(
-				host,
-				currentPath,
-				current.note,
-				nextTitle,
-				{ readOnly: !editable },
-			);
-			if (result.notice) {
-				baseTextRef.current = await host
-					.readText(currentPath)
-					.catch(() => baseText);
+				binding?.acceptCanvasText(
+					activePath,
+					result.path,
+					await host.readText(result.path),
+				);
+				setError(result.notice ?? null);
+				if (!result.notice) {
+					onRename?.(activePath, result.path, nextTitle);
+					if (result.path !== activePath) onSelect(result.path);
+				}
+			} catch (reason) {
 				nameRef.current = savedTitle;
 				setName(savedTitle);
-				setError(result.notice);
-				return;
+				setError(reason instanceof Error ? reason.message : String(reason));
 			}
-			const saved = await host.readText(result.path);
-			loadedRef.current = { host, path: result.path };
-			activePathRef.current = result.path;
-			baseTextRef.current = saved;
-			setActivePath(result.path);
-			setLoaded({ path: result.path, text: saved });
-			setItems((current) =>
-				current
-					.map((item) =>
-						item.path === currentPath
-							? { ...item, path: result.path, title: nextTitle }
-							: item,
-					)
-					.sort(compareRows),
-			);
-			setError(null);
-			onRename?.(currentPath, result.path, nextTitle);
-			if (result.path !== currentPath) onSelect(result.path);
-		} catch (reason) {
-			nameRef.current = savedTitle;
-			setName(savedTitle);
-			setError(reason instanceof Error ? reason.message : String(reason));
-		} finally {
-			renamingRef.current = false;
-		}
-	};
-	/** Changes and undo steps run one after another: a held Ctrl+Z, or two quick
-	 *  edits, must each see the text the one before them saved. */
-	const queue = useRef<Promise<unknown>>(Promise.resolve());
-	const inOrder = <T,>(task: () => Promise<T>): Promise<T> => {
-		const run = queue.current.then(task, task);
-		queue.current = run.then(
-			() => undefined,
-			() => undefined,
-		);
-		return run;
-	};
-	/** Every canvas change goes through here: one atomic, checked write. */
-	const commit = (
-		mutate: (all: typeof blocks) => typeof blocks,
-		action: string,
-		mutateHeader?: (header: NoteHeader) => NoteHeader,
-	): Promise<boolean> => inOrder(() => commitNow(mutate, action, mutateHeader));
-	const commitNow = async (
-		mutate: (all: typeof blocks) => typeof blocks,
-		action: string,
-		mutateHeader?: (header: NoteHeader) => NoteHeader,
-	): Promise<boolean> => {
-		if (
-			!editable ||
-			activePathRef.current !== activePath ||
-			baseTextRef.current === null
-		)
-			return false;
+		});
+	const actOnCanvas = async (work: Promise<boolean> | undefined) => {
 		try {
-			const before = baseTextRef.current;
-			const saved = await saveCanvasEdit(
-				host,
-				activePath,
-				before,
-				mutate,
-				action,
-				mutateHeader,
-			);
-			baseTextRef.current = saved;
-			if (saved !== before) remember(before);
-			setLoaded({ path: activePath, text: saved });
+			const saved = await work;
 			setError(null);
-			return true;
+			return Boolean(saved);
 		} catch (reason) {
-			clearHistory();
 			setError(reason instanceof Error ? reason.message : String(reason));
-			try {
-				const disk = await host.readText(activePath);
-				baseTextRef.current = disk;
-				setLoaded({ path: activePath, text: disk });
-			} catch {
-				/* Keep the last readable canvas. */
-			}
 			setSurfaceRevision((revision) => revision + 1);
 			return false;
 		}
 	};
+	const commit = (
+		mutate: (all: typeof blocks) => typeof blocks,
+		action: string,
+		mutateHeader?: (header: NoteHeader) => NoteHeader,
+	) =>
+		actOnCanvas(
+			editable ? binding?.editCanvas(mutate, action, mutateHeader) : undefined,
+		);
 	const addItem = async (
 		type: "sticky" | "shape" | "label",
 		extra: { [k: string]: string } = {},
@@ -437,34 +338,9 @@ export function CanvasPane({
 		);
 	};
 	const step = (direction: "undo" | "redo") =>
-		inOrder(() => stepNow(direction));
-	const stepNow = async (direction: "undo" | "redo") => {
-		const from = direction === "undo" ? undoStack : redoStack;
-		const to = direction === "undo" ? redoStack : undoStack;
-		const current = baseTextRef.current;
-		const target = from.current[from.current.length - 1];
-		if (!editable || locked || current === null || target === undefined) return;
-		try {
-			await restoreCanvasText(host, activePath, current, target);
-			from.current = from.current.slice(0, -1);
-			to.current = [...to.current, current];
-			baseTextRef.current = target;
-			setLoaded({ path: activePath, text: target });
-			setError(null);
-			syncHistory();
-		} catch (reason) {
-			clearHistory();
-			setError(reason instanceof Error ? reason.message : String(reason));
-			try {
-				const disk = await host.readText(activePath);
-				baseTextRef.current = disk;
-				setLoaded({ path: activePath, text: disk });
-			} catch {
-				/* Keep the last readable canvas. */
-			}
-			setSurfaceRevision((revision) => revision + 1);
-		}
-	};
+		actOnCanvas(
+			editable && !locked ? binding?.stepCanvas(direction) : undefined,
+		);
 	const canEdit = Boolean(editable) && !locked;
 	const toggleSnap = (which: "grid" | "objects") =>
 		setSnapModes((current) => {
@@ -514,7 +390,7 @@ export function CanvasPane({
 					key={id}
 					root={block}
 					blocks={blocks}
-					canvasId={parsed?.note?.header.noteId ?? ""}
+					canvasId={canvasHeader?.noteId ?? ""}
 					draggable={!!editable}
 					tone={blockTone(block)}
 					onMoveToNote={
@@ -590,7 +466,7 @@ export function CanvasPane({
 		<section
 			className={locked ? "canvas-pane canvas-pane-locked" : "canvas-pane"}
 			aria-label="Canvas view"
-			aria-busy={text === null && error === null}
+			aria-busy={!document && error === null}
 			onKeyDown={(event) => {
 				if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
 				const key = event.key.toLowerCase();
@@ -602,9 +478,9 @@ export function CanvasPane({
 				void step(key === "y" || event.shiftKey ? "redo" : "undo");
 			}}
 		>
-			{error && (
+			{(failed || error) && (
 				<p role="alert" className="notice">
-					{error}
+					{failed || error}
 				</p>
 			)}
 			{unknownType !== undefined && (
@@ -613,13 +489,11 @@ export function CanvasPane({
 					not know, so it is read-only.
 				</p>
 			)}
-			{parsed &&
-				(parsed.note?.header.kind !== "canvas" ||
-					parsed.problems.length > 0) && (
-					<p role="alert" className="notice">
-						This canvas has file problems and is read-only.
-					</p>
-				)}
+			{document && (!isCanvas || (!document.base && !unknownType)) && (
+				<p role="alert" className="notice">
+					This canvas has file problems and is read-only.
+				</p>
+			)}
 			<header className="canvas-bar">
 				<NoteIconPicker
 					key={path}
@@ -645,11 +519,11 @@ export function CanvasPane({
 						nameRef.current = event.target.value;
 						setName(event.target.value);
 					}}
-					onBlur={() => void inOrder(commitName)}
+					onBlur={() => void commitName()}
 					onKeyDown={(event) => {
 						if (event.key === "Enter") {
 							event.preventDefault();
-							void inOrder(commitName);
+							void commitName();
 						} else if (event.key === "Escape") {
 							event.preventDefault();
 							nameRef.current = savedTitle;
@@ -785,35 +659,12 @@ export function CanvasPane({
 									}
 								/>
 							)}
-							onMove={async (id, position) => {
-								if (!editable || locked || baseTextRef.current === null) return;
-								try {
-									const before = baseTextRef.current;
-									const saved = await saveCanvasPosition(
-										host,
-										activePath,
-										before,
-										id,
-										position,
+							onMove={(id, position) => {
+								if (!locked)
+									void commit(
+										(all) => setPositions(all, { [id]: position }),
+										"moving a card",
 									);
-									baseTextRef.current = saved;
-									if (saved !== before) remember(before);
-									setLoaded({ path: activePath, text: saved });
-									setError(null);
-								} catch (reason) {
-									clearHistory();
-									setError(
-										reason instanceof Error ? reason.message : String(reason),
-									);
-									try {
-										const disk = await host.readText(activePath);
-										baseTextRef.current = disk;
-										setLoaded({ path: activePath, text: disk });
-									} catch {
-										/* Keep the last readable canvas. */
-									}
-									setSurfaceRevision((revision) => revision + 1);
-								}
 							}}
 							onDropBlock={async (event, position) => {
 								if (!editable) {
@@ -842,27 +693,30 @@ export function CanvasPane({
 											"A list item moves only within its note. Drag the whole list to bring it here.",
 										);
 									// A card dropped back on its own canvas has nowhere to move to.
-									if (data.noteId === parsed?.note?.header.noteId) return;
+									if (data.noteId === canvasHeader?.noteId) return;
 									await (event.altKey
 										? onDropBlock(data.blockId, data.noteId, position, true)
 										: onDropBlock(data.blockId, data.noteId, position));
 									setError(null);
 								} catch (reason) {
-									clearHistory();
 									setError(
 										reason instanceof Error ? reason.message : String(reason),
 									);
 									try {
-										const disk = await host.readText(activePath);
-										baseTextRef.current = disk;
-										setLoaded({ path: activePath, text: disk });
+										await inOrder(host, activePath, async () =>
+											binding?.acceptCanvasText(
+												activePath,
+												activePath,
+												await host.readText(activePath),
+											),
+										);
 									} catch {
 										/* Keep the last readable canvas. */
 									}
 								}
 							}}
 						/>
-						{roots.length === 0 && (
+						{document && roots.length === 0 && (
 							<p className="canvas-empty">Drag a block here from a note.</p>
 						)}
 						<TooltipProvider>
@@ -970,14 +824,14 @@ export function CanvasPane({
 											"Undo",
 											Undo2,
 											() => void step("undo"),
-											!canEdit || historySize.undo === 0,
+											!canEdit || !history?.undo.length,
 											undefined,
 										],
 										[
 											"Redo",
 											Redo2,
 											() => void step("redo"),
-											!canEdit || historySize.redo === 0,
+											!canEdit || !history?.redo.length,
 											undefined,
 										],
 									] as const
@@ -1061,13 +915,13 @@ export function CanvasPane({
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem
-						disabled={!canEdit || historySize.undo === 0}
+						disabled={!canEdit || !history?.undo.length}
 						onSelect={() => void step("undo")}
 					>
 						Undo
 					</ContextMenuItem>
 					<ContextMenuItem
-						disabled={!canEdit || historySize.redo === 0}
+						disabled={!canEdit || !history?.redo.length}
 						onSelect={() => void step("redo")}
 					>
 						Redo

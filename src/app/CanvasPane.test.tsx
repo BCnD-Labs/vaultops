@@ -8,16 +8,55 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { DragEvent } from "react";
+import {
+	type ComponentProps,
+	type DragEvent,
+	useEffect,
+	useState,
+} from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { canvasFlowProps } from "@/components/ui/canvas";
 import { parseNote, serializeNote } from "../core/note-format";
 import { attrsOf } from "../core/notes/canvas-ops";
 import { createCanvas } from "../core/notes/repository";
+import { scanVault } from "../core/notes/scan";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { MemoryHost } from "../host/memory-host";
-import { CanvasPane } from "./CanvasPane";
-import { createLiveDocuments } from "./live-documents";
+import { CanvasPane as RegistryCanvasPane } from "./CanvasPane";
+import { createLiveDocuments, type LiveDocuments } from "./live-documents";
+
+// Standalone pane tests supply the index that the workspace normally loads.
+type PaneProps = ComponentProps<typeof RegistryCanvasPane>;
+function CanvasPane({
+	documents,
+	...props
+}: Omit<PaneProps, "documents"> & {
+	documents?: LiveDocuments;
+}) {
+	const [local, setLocal] = useState<LiveDocuments | null>(null);
+	const { host, writable } = props;
+	useEffect(() => {
+		if (documents) return;
+		let active = true;
+		void scanVault(host).then(({ notes }) => {
+			if (active)
+				setLocal(
+					createLiveDocuments(host, {
+						notes: notes.map(({ path, note, readOnly }) => ({
+							path,
+							id: note.header.noteId,
+							readOnly,
+						})),
+						writable,
+					}),
+				);
+		});
+		return () => {
+			active = false;
+		};
+	}, [documents, host, writable]);
+	return <RegistryCanvasPane {...props} documents={documents ?? local} />;
+}
 
 /** The id of the canvas under test, for a card dropped back where it came from. */
 let ownCanvasId = "";
@@ -494,7 +533,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect((await screen.findByRole("alert")).textContent).toContain(
 		"keeps its old name",
 	);
-	expect(nameInput.value).toBe("taken");
+	expect(nameInput.value).toBe("Blocked");
 	expect(onSelect).toHaveBeenLastCalledWith("taken 2.vnote");
 	expect(await host.kindOf("taken 2.vnote")).toBe("file");
 	expect(await host.kindOf("Blocked.vnote")).toBeNull();
@@ -507,7 +546,7 @@ it("names and renames a canvas, handles clashes and failures, and disables read-
 	expect((await screen.findByRole("alert")).textContent).toContain(
 		"changed on disk",
 	);
-	expect(nameInput.value).toBe("taken");
+	expect(nameInput.value).toBe("Blocked");
 	expect(await host.readText("taken 2.vnote")).toBe("changed elsewhere");
 	view.unmount();
 
@@ -658,6 +697,51 @@ async function boardWithCard() {
 }
 const positionOnDisk = async (host: MemoryHost, path: string) =>
 	parseNote(await host.readText(path)).note?.blocks[0]?.attrs;
+
+it("shares changes and undo between two views and keeps a conflicted draft in both", async () => {
+	const { host, path, props } = await boardWithCard();
+	const id = parseNote(await host.readText(path)).note?.header.noteId;
+	const documents = createLiveDocuments(host, {
+		notes: [{ path, id, readOnly: false }],
+		writable: true,
+	});
+	render(
+		<>
+			<CanvasPane {...props} documents={documents} />
+			<CanvasPane {...props} documents={documents} />
+		</>,
+	);
+	const [first, second] = screen
+		.getAllByRole("region", { name: "Canvas view" })
+		.map((pane) => within(pane));
+	if (!first || !second) throw new Error("Expected two canvas views");
+	await second.findByText("12,30");
+	vi.spyOn(host, "writeTextAtomic").mockRejectedValueOnce(
+		new Error("disk busy"),
+	);
+	fireEvent.click(first.getByRole("button", { name: "Drag card" }));
+	await second.findByText("disk busy");
+	await second.findByText("88,99");
+	expect(await documents.flushAll()).toBe(true);
+	const undo = second.getByRole<HTMLButtonElement>("button", { name: "Undo" });
+	await waitFor(() => expect(undo.disabled).toBe(false));
+	fireEvent.click(undo);
+	await first.findByText("12,30");
+	expect(await documents.flushAll()).toBe(true);
+	const external = `${await host.readText(path)}\n`;
+	await host.writeTextAtomic(path, external);
+	fireEvent.click(first.getByRole("button", { name: "Redo" }));
+	expect((await second.findByRole("alert")).textContent).toContain(
+		"changed on disk",
+	);
+	expect(first.getByText("88,99")).toBeTruthy();
+	expect(second.getByText("88,99")).toBeTruthy();
+	expect(await host.readText(path)).toBe(external);
+	expect(await documents.flushAll()).toBe(false);
+	expect(documents.recoveryTexts(new Date())).toEqual([
+		expect.stringContaining('"x":88'),
+	]);
+});
 
 it("undoes and redoes a move, and the file follows each step", async () => {
 	const user = userEvent.setup();
@@ -868,7 +952,7 @@ it("distributes three items evenly and offers it only for three or more", async 
 	view.unmount();
 	mockSelection = ["a", "b"];
 	render(<CanvasPane {...props} />);
-	await screen.findByRole("button", { name: "Align top" });
+	await screen.findByTestId("flow-node-a");
 	expect(
 		(
 			screen.getByRole("button", {
@@ -1082,7 +1166,10 @@ async function boardWithMeetingNote() {
 	const props = {
 		host,
 		documents: createLiveDocuments(host, {
-			notes: [meetingRow()],
+			notes: [
+				meetingRow(),
+				{ path: made.path, id: made.note.header.noteId, readOnly: false },
+			],
 			writable: true,
 		}),
 		path: made.path,

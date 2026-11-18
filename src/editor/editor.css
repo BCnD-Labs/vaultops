@@ -1371,6 +1371,28 @@
 	font-weight: 600;
 }
 
+.note-editor .abc-controls {
+	position: absolute;
+	top: var(--space-1);
+	right: var(--space-2);
+	display: flex;
+	gap: var(--space-1);
+}
+
+.note-editor .abc-controls .mermaid-toggle {
+	position: static;
+}
+
+.note-editor .abc-controls .mermaid-toggle[aria-pressed="true"] {
+	color: var(--foreground);
+	background: var(--accent);
+}
+
+.note-editor .abc-svg {
+	display: block;
+	color: var(--foreground);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.note-editor .quote-color-handle,
 	.lift-ghost,

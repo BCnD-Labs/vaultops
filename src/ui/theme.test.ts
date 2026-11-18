@@ -107,12 +107,46 @@ it.each(themes)("checks tokens and contrast for $id", ({ id }) => {
 			}
 			pairs.push(["destructive-foreground", "destructive"]);
 		}
+		// Daylight holds 7:1 on the pairs people read all day (body text on every
+		// surface, muted text on the three lower ones, status text on the page and
+		// panel, text on the accent); the rest keep 4.5:1.
+		const daylightSeven = new Set<string>();
+		if (id === "daylight") {
+			for (const bg of [
+				"background",
+				"surface-container-low",
+				"surface-container",
+			])
+				daylightSeven.add(`muted-foreground/${bg}`);
+			for (const bg of ["background", "surface-container-low"])
+				for (const fg of ["destructive", "warn"])
+					daylightSeven.add(`${fg}/${bg}`);
+			for (const bg of [
+				"background",
+				"surface-container-low",
+				"surface-container",
+				"surface-container-high",
+			])
+				daylightSeven.add(`foreground/${bg}`);
+			for (const pair of [
+				"primary-foreground/primary",
+				"on-primary-container/primary-container",
+				"destructive-foreground/destructive",
+			])
+				daylightSeven.add(pair);
+			for (const key of daylightSeven) {
+				const [fg = "", bg = ""] = key.split("/");
+				pairs.push([fg, bg]);
+			}
+		}
 		for (const [fg, bg] of pairs) {
 			const values = [luminance(resolve(fg)), luminance(resolve(bg))];
 			expect(
 				(Math.max(...values) + 0.05) / (Math.min(...values) + 0.05),
 				`${id} ${dark ? "dark" : "light"} ${fg}/${bg}`,
-			).toBeGreaterThanOrEqual(id === "high-contrast" ? 7 : 4.5);
+			).toBeGreaterThanOrEqual(
+				id === "high-contrast" || daylightSeven.has(`${fg}/${bg}`) ? 7 : 4.5,
+			);
 		}
 		expect(resolve("editor-code-bg")).not.toBe(resolve("editor-bg"));
 	}

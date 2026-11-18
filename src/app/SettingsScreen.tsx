@@ -25,6 +25,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
 	type ImportReport,
 	matchesQuery,
 	SECTIONS,
@@ -42,6 +50,7 @@ import {
 	resolveMode,
 	systemIsDark,
 } from "../ui/appearance";
+import { themes } from "../ui/themes";
 import { buildCommit } from "./build-info";
 import { SettingControl } from "./SettingControl";
 import { ShortcutsList } from "./ShortcutsSection";
@@ -77,6 +86,109 @@ function Group({ title, children }: { title?: string; children: ReactNode }) {
 			{title && <h3 className="settings-group-title">{title}</h3>}
 			<div className="settings-card">{children}</div>
 		</section>
+	);
+}
+
+type Mode = "light" | "dark" | "system";
+const MODES: readonly { value: Mode; label: string }[] = [
+	{ value: "light", label: "Light" },
+	{ value: "dark", label: "Dark" },
+	{ value: "system", label: "System" },
+];
+
+/** Whether a theme can show a mode; "system" needs both light and dark. */
+function themeSupports(id: string, mode: Mode): boolean {
+	const modes: readonly string[] = themes.find((t) => t.id === id)?.modes ?? [];
+	return mode === "system"
+		? modes.includes("light") && modes.includes("dark")
+		: modes.includes(mode);
+}
+
+/** Three small dots (page, panel, accent) that preview a theme in one mode. */
+function ThemeSwatch({ id, mode }: { id: string; mode: "light" | "dark" }) {
+	const dots = themes.find((t) => t.id === id)?.swatch[mode] ?? [];
+	return (
+		<span className="theme-swatch" aria-hidden>
+			{dots.map((color, i) => (
+				<span
+					// biome-ignore lint/suspicious/noArrayIndexKey: three fixed dots
+					key={i}
+					className="size-3 rounded-full border-[length:var(--border-width)] border-border"
+					style={{ backgroundColor: color }}
+				/>
+			))}
+		</span>
+	);
+}
+
+/**
+ * The theme choice as a menu (each theme with a swatch of the mode in view)
+ * beside the light / dark / system choice. Modes the theme cannot show are
+ * disabled, and picking a theme that lacks the current mode moves to one it has.
+ */
+function ThemePicker({
+	def,
+	themeId,
+	mode,
+	shown,
+	onTheme,
+	onMode,
+}: {
+	def: SettingDef;
+	themeId: string;
+	mode: Mode;
+	/** The mode in view once "system" is resolved, for the swatches. */
+	shown: "light" | "dark";
+	onTheme: (id: string) => void;
+	onMode: (mode: Mode) => void;
+}) {
+	const id = `setting-${def.key}`;
+	return (
+		<div className="settings-row settings-theme-row" data-setting={def.key}>
+			<div className="settings-row-text">
+				<span id={`${id}-label`}>{def.label}</span>
+				{def.description && <p className="settings-note">{def.description}</p>}
+			</div>
+			<div className="settings-theme-controls">
+				<Select value={themeId} onValueChange={onTheme}>
+					<SelectTrigger
+						aria-labelledby={`${id}-label`}
+						className="settings-select"
+					>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						{themes.map((theme) => (
+							<SelectItem key={theme.id} value={theme.id}>
+								<span className="theme-option">
+									<ThemeSwatch id={theme.id} mode={shown} />
+									{theme.name}
+								</span>
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				<ToggleGroup
+					type="single"
+					aria-label="Mode"
+					value={mode}
+					onValueChange={(next) => {
+						// A click on the chosen one does nothing; there is always one chosen.
+						if (next) onMode(next as Mode);
+					}}
+				>
+					{MODES.map((m) => (
+						<ToggleGroupItem
+							key={m.value}
+							value={m.value}
+							disabled={!themeSupports(themeId, m.value)}
+						>
+							{m.label}
+						</ToggleGroupItem>
+					))}
+				</ToggleGroup>
+			</div>
+		</div>
 	);
 }
 
@@ -170,6 +282,27 @@ export function SettingsScreen({
 	);
 
 	const row = (def: Def, searching: boolean) => {
+		if (def.key === "themes.theme") {
+			const choice = settings.get("appearance.mode") as Mode;
+			return (
+				<ThemePicker
+					key={def.key}
+					def={def}
+					themeId={String(settings.get(def.key))}
+					mode={choice}
+					shown={mode}
+					onTheme={(next) => {
+						settings.set("themes.theme", next);
+						// Keep the mode the new theme can show.
+						if (!themeSupports(next, choice)) {
+							const first = MODES.find((m) => themeSupports(next, m.value));
+							if (first) settings.set("appearance.mode", first.value);
+						}
+					}}
+					onMode={(next) => settings.set("appearance.mode", next)}
+				/>
+			);
+		}
 		const defMode = modeOfDef(def);
 		const colorKey = def.store?.path[1] as ColorKey | undefined;
 		return (

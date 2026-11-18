@@ -84,3 +84,32 @@ describe.each(themes)("theme layer separation: $id", ({ id }) => {
 		}
 	});
 });
+
+// Daylight is for direct sunlight, where glare flattens small steps: its dark
+// page, panel and selected surfaces must differ clearly and its borders must
+// stand out against the panel.
+describe("daylight dark surfaces", () => {
+	const css = read("daylight");
+	const dark = css.split('[data-mode="dark"]')[1] ?? "";
+	const token = (name: string): string => {
+		const value = new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6});`).exec(
+			dark,
+		)?.[1];
+		if (!value) throw new Error(`missing --${name} in daylight dark`);
+		return value.toLowerCase();
+	};
+	it("steps page, panel and selected surfaces by a clear amount", () => {
+		const page = token("neutral-0");
+		const panel = token("neutral-1");
+		const selected = token("seed-container");
+		expect(luminance(page)).toBeGreaterThan(0.02);
+		expect(ratio(panel, page)).toBeGreaterThanOrEqual(1.15);
+		expect(ratio(selected, panel)).toBeGreaterThanOrEqual(1.3);
+		expect(ratio(token("neutral-2"), panel)).toBeGreaterThanOrEqual(1.1);
+	});
+	it("keeps borders at 3:1 or more against the panel", () => {
+		expect(
+			ratio(token("neutral-4"), token("neutral-1")),
+		).toBeGreaterThanOrEqual(3);
+	});
+});

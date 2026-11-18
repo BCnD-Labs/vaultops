@@ -104,6 +104,8 @@ export function NoteEditor({
 	const slot = sharedSlot ?? localSlot.current;
 	const initial = useRef({ doc, editable });
 	initial.current = { doc, editable };
+	const initialImages = useRef(images);
+	initialImages.current = images;
 	const completion = useRef({ completeOn, links, noteId });
 	completion.current = { completeOn, links, noteId };
 	const latest = useRef(onChange);
@@ -164,7 +166,7 @@ export function NoteEditor({
 	useLayoutEffect(() => {
 		// Acquire after the previous surface's EditorContent has unmounted.
 		slot.completion = completion.current;
-		slot.images = images;
+		slot.images = initialImages.current;
 		slot.editor ??= new TiptapEditor({
 			extensions: [
 				...createExtensions().map((extension) =>

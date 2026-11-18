@@ -808,3 +808,8 @@
 	text-transform: none;
 	letter-spacing: normal;
 }
+
+/* Same width as a folder's chevron button, so tags line up with and without children. */
+.tag-spacer {
+	width: var(--control-height-sm);
+}

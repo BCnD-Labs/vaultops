@@ -75,6 +75,7 @@ export interface NoteViewProps {
 		blockId: string,
 		canvasId: string,
 		slot: DropSlot,
+		copy?: boolean,
 	) => Promise<void>;
 	onRetry: () => void;
 	onLoadDisk: () => void;

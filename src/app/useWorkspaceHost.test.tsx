@@ -440,3 +440,29 @@ it("the canvas menu has nowhere to send a block when no note is beside it", asyn
 		message: "Open a note beside the canvas to move this block into.",
 	});
 });
+
+it("copies on Option-drag and resolves a source tab after a mid-drag tab switch", async () => {
+	const s = await setup();
+	await seed(s.host, s.a, ["x", "y"]);
+	await seed(s.host, s.b, ["z"]);
+	await s.run(() => s.result.current.open(s.a));
+	await s.run(() => s.result.current.open(s.b));
+	const alphaBefore = await s.host.readText(s.a);
+	const alphaId = await idOf(s.host, s.a);
+	// Beta is active in the same pane after a spring-loaded tab switch; Option-drag copies x into Beta.
+	const copied = await act(async () =>
+		s.result.current.dropBlock("left", "x", alphaId, { after: "z" }, true),
+	);
+	expect(copied).toEqual({ ok: true });
+	expect(await s.host.readText(s.a)).toBe(alphaBefore);
+	const betaIds = await blockIds(s.host, s.b);
+	expect(betaIds).toHaveLength(2);
+	expect(betaIds[1]).not.toBe("x");
+	// Normal drag without Option still moves x out of Alpha into Beta.
+	const moved = await act(async () =>
+		s.result.current.dropBlock("left", "x", alphaId, { after: "z" }),
+	);
+	expect(moved).toMatchObject({ ok: true });
+	expect(await blockIds(s.host, s.a)).toEqual(["y"]);
+	expect(await blockIds(s.host, s.b)).toContain("x");
+});

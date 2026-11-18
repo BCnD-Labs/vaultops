@@ -40,13 +40,34 @@ export function blockDragData(transfer: DataTransfer): {
 export function setDragEffect(
 	transfer: DataTransfer,
 	field: "effectAllowed" | "dropEffect",
-	value: "move" | "none",
+	value: "move" | "copy" | "none",
 ) {
 	try {
 		transfer[field] = value;
 	} catch {
 		/* Synthetic test events may define read-only DataTransfer properties. */
 	}
+}
+
+const SCROLL_EDGE = 48;
+const SCROLL_STEP = 16;
+
+/** Scroll a note pane up or down when a dragged block is near its top or bottom edge. */
+export function autoScrollOnDrag(
+	scroller: HTMLElement,
+	clientY: number,
+): number {
+	const bounds = scroller.getBoundingClientRect();
+	if (bounds.height <= 0) return 0;
+	const fromTop = clientY - bounds.top;
+	const fromBottom = bounds.bottom - clientY;
+	let delta = 0;
+	if (fromTop >= 0 && fromTop < SCROLL_EDGE)
+		delta = -Math.ceil(((SCROLL_EDGE - fromTop) / SCROLL_EDGE) * SCROLL_STEP);
+	else if (fromBottom >= 0 && fromBottom < SCROLL_EDGE)
+		delta = Math.ceil(((SCROLL_EDGE - fromBottom) / SCROLL_EDGE) * SCROLL_STEP);
+	if (delta !== 0) scroller.scrollTop = Math.max(0, scroller.scrollTop + delta);
+	return delta;
 }
 
 export function setBlockDragImage(

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import { MemoryHost } from "../../host/memory-host";
 import { type Note, parseNote, serializeNote } from "../note-format";
-import { moveBlock, undoMove } from "./move-block";
+import { copyBlock, moveBlock, undoMove } from "./move-block";
 import { loadNote } from "./repository";
 
 const doc = (id: string, canvas = false): Note => ({
@@ -328,4 +328,56 @@ it("sends a card to a canvas with no spot named: beside the cards already there,
 	expect(
 		parseNote(await host.readText("empty.vnote")).note?.blocks[0]?.attrs,
 	).toMatchObject({ x: 40, y: 40 });
+});
+
+it("copies between notes and canvases with fresh non-clashing IDs, atomic write, and byte-identical source", async () => {
+	const host = new MemoryHost();
+	const [s, t, c] = ["source.vnote", "target.vnote", "canvas.vnote"];
+	const blocks = async (p: string) =>
+		parseNote(await host.readText(p)).note?.blocks ?? [];
+	const sourceRaw = serializeNote({
+		...doc("source"),
+		blocks: [
+			{ id: "list", type: "bulletList", parent: null },
+			{ id: "item", type: "listItem", parent: "list" },
+			{ id: "child", type: "paragraph", parent: "item" },
+		],
+	});
+	await host.writeTextAtomic(s, sourceRaw);
+	await host.writeTextAtomic(t, serializeNote(doc("target")));
+	await host.writeTextAtomic(
+		c,
+		serializeNote({
+			...doc("canvas", true),
+			blocks: [
+				{ id: "sticky", type: "sticky", parent: null, attrs: { x: 1, y: 2 } },
+			],
+		}),
+	);
+	const write = vi.spyOn(host, "writeTextAtomic");
+	const ids = ["block", "list", "c-list", "c-item", "c-child"];
+	const nextId = () => ids.shift() ?? "x";
+	await copyBlock(host, s, t, "list", { after: "block" }, nextId);
+	expect(write).toHaveBeenCalledTimes(1);
+	expect(write.mock.calls[0]?.[0]).toBe(t);
+	expect(await host.readText(s)).toBe(sourceRaw);
+	expect((await blocks(t)).map((b) => [b.id, b.parent])).toEqual([
+		["block", null],
+		["c-list", null],
+		["c-item", "c-list"],
+		["c-child", "c-item"],
+	]);
+
+	await copyBlock(host, s, c, "list", { x: 20, y: 30 });
+	expect(await host.readText(s)).toBe(sourceRaw);
+	const canvasText = await host.readText(c);
+	const card = (await blocks(c)).find((b) => b.type === "bulletList");
+	expect(card?.id).not.toBe("list");
+	expect(card?.attrs).toMatchObject({ x: 20, y: 30 });
+	await copyBlock(host, c, t, card?.id ?? "", { after: null });
+	expect(await host.readText(c)).toBe(canvasText);
+	expect(await blocks(t)).toHaveLength(7);
+	await expect(
+		copyBlock(host, c, t, "sticky", { after: null }),
+	).rejects.toThrow("stay on the canvas");
 });

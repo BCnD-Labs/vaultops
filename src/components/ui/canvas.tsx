@@ -387,14 +387,18 @@ function Surface({
 				if (!event.dataTransfer.types.includes("application/x-vaultops-block"))
 					return;
 				event.preventDefault();
-				event.dataTransfer.dropEffect = "move";
+				event.dataTransfer.dropEffect = event.altKey ? "copy" : "move";
 			}}
 			onDragOver={(event) => {
 				event.preventDefault();
 				const valid = event.dataTransfer.types.includes(
 					"application/x-vaultops-block",
 				);
-				event.dataTransfer.dropEffect = valid ? "move" : "none";
+				event.dataTransfer.dropEffect = valid
+					? event.altKey
+						? "copy"
+						: "move"
+					: "none";
 				if (!valid) {
 					setDropSpot(null);
 					return;

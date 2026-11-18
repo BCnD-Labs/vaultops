@@ -3,12 +3,14 @@ import { type Block, parseNote, prepareSave } from "../note-format";
 import { isInsideVaultOps } from "../vault/vault";
 import { checkVaultPath, nameKey } from "../vault-path/vault-path";
 import {
+	cloneBlock,
 	extractBlock,
 	insertBlock,
 	type Placement,
 	placeOnCanvas,
 } from "./block-move";
 import { inOrder } from "./canvas-edit";
+import { newBlockId } from "./canvas-ops";
 import { copyToRecovery } from "./trash";
 
 /**
@@ -52,6 +54,35 @@ const countOf = (note: { blocks: { type: string }[] }, type: string) =>
 	note.blocks.filter((line) => line.type === type).length;
 
 /**
+ * Copy a block (and its descendants) from `source` into `destination` with
+ * fresh, unique IDs. Only `destination` is written (atomically); `source` is
+ * never written and stays byte-identical.
+ */
+export async function copyBlock(
+	host: Host,
+	source: string,
+	destination: string,
+	blockId: string,
+	placement: Placement,
+	generateId: () => string = newBlockId,
+): Promise<void> {
+	const [first, second] = [source, destination].sort();
+	await inOrder(host, first ?? source, () =>
+		inOrder(host, second ?? destination, () =>
+			moveNow(
+				host,
+				source,
+				destination,
+				blockId,
+				placement,
+				new Date(),
+				generateId,
+			),
+		),
+	);
+}
+
+/**
  * Write the destination before removing the source copy. If the second write
  * fails the first is put back, so the move either happens or leaves both files
  * as they were; only if that also fails does the block exist in both. A canvas
@@ -74,6 +105,7 @@ export function moveBlock(
 	);
 }
 
+/** With `copyId`, a copy: the destination is written and the source is left alone (no receipt). */
 async function moveNow(
 	host: Host,
 	source: string,
@@ -81,7 +113,25 @@ async function moveNow(
 	blockId: string,
 	placement: Placement,
 	now: Date,
-): Promise<MoveReceipt> {
+	copyId: () => string,
+): Promise<null>;
+async function moveNow(
+	host: Host,
+	source: string,
+	destination: string,
+	blockId: string,
+	placement: Placement,
+	now: Date,
+): Promise<MoveReceipt>;
+async function moveNow(
+	host: Host,
+	source: string,
+	destination: string,
+	blockId: string,
+	placement: Placement,
+	now: Date,
+	copyId?: () => string,
+): Promise<MoveReceipt | null> {
 	if (nameKey(source) === nameKey(destination))
 		throw new Error("Choose a different destination note.");
 	for (const path of [source, destination]) {
@@ -98,7 +148,17 @@ async function moveNow(
 	const to = parseNote(destinationText);
 	if (!from.note || !to.note || from.problems.length || to.problems.length)
 		throw new Error("Both files must be healthy before moving a block.");
-	const extracted = extractBlock(from.note, blockId);
+	const extracted = copyId
+		? {
+				doc: from.note,
+				lines: cloneBlock(
+					from.note,
+					blockId,
+					to.note.blocks.flatMap((line) => (line.id ? [line.id] : [])),
+					copyId,
+				),
+			}
+		: extractBlock(from.note, blockId);
 	const onCanvas = to.note.header.kind === "canvas";
 	// A card sent to a canvas with no spot named goes beside the ones already there.
 	const spot = onCanvas && "after" in placement ? freeSpot(to.note) : null;
@@ -134,6 +194,7 @@ async function moveNow(
 		).recoveryPath;
 	}
 	await host.writeTextAtomic(destination, destinationSave.text);
+	if (copyId) return null;
 	try {
 		if ((await host.readText(source)) !== sourceText)
 			throw new Error("The source changed after the destination was saved.");

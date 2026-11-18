@@ -1,5 +1,5 @@
 import { type Block, isCanvasOnly, type Note } from "../note-format";
-import { attrsOf, connectorEnds, groupMembers } from "./canvas-ops";
+import { attrsOf, connectorEnds, groupMembers, newBlockId } from "./canvas-ops";
 
 /**
  * Where a block lands. In a note, `after: null` means the end. A drop from the
@@ -115,6 +115,38 @@ export function extractBlock(
 		lines: doc.blocks.filter((line) => line.id && selected.has(line.id)),
 		doc: { ...doc, blocks: tidyColumns(remaining, touched) },
 	};
+}
+
+/**
+ * Copy a block and its descendants in their original line order, giving each a
+ * fresh ID that clashes with neither the source nor `taken` (the destination's
+ * block IDs). The source document is not changed.
+ */
+export function cloneBlock(
+	doc: Note,
+	blockId: string,
+	taken: Iterable<string> = [],
+	generateId: () => string = newBlockId,
+): Block[] {
+	const { lines } = extractBlock(doc, blockId);
+	const used = new Set<string>(taken);
+	for (const line of doc.blocks) if (line.id) used.add(line.id);
+	const fresh = (): string => {
+		let id = generateId();
+		while (!id || used.has(id)) id = generateId();
+		used.add(id);
+		return id;
+	};
+	const remap = new Map<string, string>();
+	for (const line of lines) if (line.id) remap.set(line.id, fresh());
+	return lines.map((line, index) => ({
+		...line,
+		id: (line.id ? remap.get(line.id) : undefined) ?? fresh(),
+		parent:
+			index === 0 || line.parent === null
+				? null
+				: (remap.get(line.parent) ?? null),
+	}));
 }
 
 function checkedDestination(doc: Note, lines: Block[]): Block {

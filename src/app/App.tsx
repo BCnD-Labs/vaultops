@@ -1077,12 +1077,14 @@ export function App({ host }: { host: Host }) {
 		blockId: string,
 		sourceId: string,
 		placement: Placement,
+		copy = false,
 	) => {
 		const result = await wsRef.current.dropBlock(
 			pane.id,
 			blockId,
 			sourceId,
 			placement,
+			copy,
 		);
 		if (!result.ok) throw new Error(result.message);
 		announceMove(result);
@@ -1278,9 +1280,9 @@ export function App({ host }: { host: Host }) {
 			templates={{ host: vaultHost, onManage: () => setTemplatesOpen(true) }}
 			links={links}
 			locked={ws.moving}
-			onDropBlock={async (blockId, sourceId, slot) => {
+			onDropBlock={async (blockId, sourceId, slot, copy) => {
 				try {
-					await dropBlock(pane, blockId, sourceId, slot);
+					await dropBlock(pane, blockId, sourceId, slot, copy);
 				} catch (reason) {
 					setError(reason instanceof Error ? reason.message : String(reason));
 				}
@@ -1347,8 +1349,8 @@ export function App({ host }: { host: Host }) {
 							: v,
 					);
 				}}
-				onDropBlock={async (blockId, noteId, position) => {
-					await dropBlock(pane, blockId, noteId, position);
+				onDropBlock={async (blockId, noteId, position, copy) => {
+					await dropBlock(pane, blockId, noteId, position, copy);
 					// Show the new card. A refused move throws first, and the canvas
 					// reloads itself and says why.
 					setCanvasKey((count) => count + 1);

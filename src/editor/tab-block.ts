@@ -7,6 +7,7 @@ import {
 	layoutTab,
 	parseTab,
 	TAB,
+	type TabMark,
 	type TabRow,
 	type TabSheet,
 } from "../core/music/tab";
@@ -18,7 +19,34 @@ const DELAY = 250;
 const esc = (text: string) =>
 	text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** The whole sheet as one SVG: string lines, TAB clef, frets, bars and chord names. */
+/** One technique mark, drawn above or along its string. */
+function markSvg(mark: TabMark, row: TabRow, y: number, top: number): string {
+	const x = (col: number) => columnX(row, col);
+	if (mark.kind === "bend") {
+		const bx = x(mark.col) + 5;
+		const tip = top - 8;
+		return `<path class="tab-arc" d="M${bx - 1} ${y} Q${bx + 7} ${y} ${bx + 7} ${tip}M${bx + 4} ${tip + 4}L${bx + 7} ${tip}L${bx + 10} ${tip + 4}"/><text class="tab-label" x="${bx + 7}" y="${tip - 4}">${mark.label}</text>`;
+	}
+	if (mark.kind === "vibrato") {
+		const x1 = x(mark.from) - 3;
+		const waves = Math.max(1, Math.round((x(mark.to) + 3 - x1) / 6));
+		return `<path class="tab-arc" d="M${x1} ${y - 8}${" q1.5 -3 3 0 q1.5 3 3 0".repeat(waves)}"/>`;
+	}
+	const x1 = Math.max(x(mark.from), TAB.left - 8);
+	const x2 = x(Math.min(mark.to, row.end - 0.5));
+	if (mark.kind === "slide") {
+		const d = mark.down ? -3 : 3;
+		return `<path class="tab-arc" d="M${x1 + 5} ${y + d}L${x2 - 5} ${y - d}"/>`;
+	}
+	if (mark.kind === "release") {
+		return `<path class="tab-arc" d="M${x1 + 12} ${top - 8}Q${x2 - 3} ${top - 8} ${x2 - 3} ${y - 6}M${x2 - 6} ${y - 10}L${x2 - 3} ${y - 6}L${x2} ${y - 10}"/>`;
+	}
+	const mid = (x1 + x2) / 2;
+	const label = mark.kind === "hammer" ? "H" : "P";
+	return `<path class="tab-arc" d="M${x1 + 3} ${y - 6}Q${mid} ${y - 14} ${x2 - 3} ${y - 6}"/><text class="tab-label" x="${mid}" y="${y - 14}">${label}</text>`;
+}
+
+/** The whole sheet as one SVG: string lines, TAB clef, frets, bars and marks. */
 export function tabSvg(sheet: TabSheet, width: number): string {
 	const { rows, height } = layoutTab(sheet, width);
 	const out: string[] = [];
@@ -49,6 +77,12 @@ export function tabSvg(sheet: TabSheet, width: number): string {
 		});
 		for (const bar of system.bars.filter(inRow))
 			out.push(line(columnX(row, bar), "tab-bar"));
+		for (const mark of system.marks) {
+			const at = mark.kind === "bend" ? mark.col : mark.from;
+			// A slide into a row's first note starts just before the row.
+			if (inRow(at) || (mark.kind === "slide" && inRow(mark.to)))
+				out.push(markSvg(mark, row, yOf(mark.string), top));
+		}
 		for (const note of system.notes.filter((n) => inRow(n.col))) {
 			const x = columnX(row, note.col + (note.text.length - 1) / 2);
 			out.push(

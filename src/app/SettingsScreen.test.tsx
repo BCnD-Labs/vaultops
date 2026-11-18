@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { FloatingWindow } from "@/components/ui/floating-editor";
 import { MemoryHost } from "../host/memory-host";
 import { loadColors, toHex } from "../ui/appearance";
 import { loadThemeChoice, themes } from "../ui/themes";
@@ -184,6 +185,47 @@ it("opens as a dialog titled Settings and closes with its button", async () => {
 	expect(close.getAttribute("data-variant")).toBe("ghost");
 	await user.click(close);
 	expect(onOpenChange).toHaveBeenCalledWith(false);
+});
+
+it("leaves note input available, remembers movement and closes with focused Escape", async () => {
+	const user = userEvent.setup();
+	const onOpenChange = vi.fn();
+	const settingsWindow = (
+		<SettingsDialog open onOpenChange={onOpenChange} host={new MemoryHost()} />
+	);
+	const { unmount } = render(
+		<>
+			<textarea aria-label="Note editor" />
+			{settingsWindow}
+			<FloatingWindow open title="Another window" onClose={vi.fn()}>
+				Content
+			</FloatingWindow>
+		</>,
+	);
+	const panel = screen.getByRole("dialog", { name: "Settings" });
+	const other = screen.getByRole("dialog", { name: "Another window" });
+	const editor = screen.getByLabelText<HTMLTextAreaElement>("Note editor");
+	await user.type(editor, "hello{Escape}");
+	expect(editor.value).toBe("hello");
+	expect(onOpenChange).not.toHaveBeenCalled();
+
+	const title = panel.querySelector("header");
+	await user.click(title as HTMLElement);
+	expect(Number(panel.style.zIndex)).toBeGreaterThan(
+		Number(other.style.zIndex),
+	);
+	await user.tab({ shift: true });
+	expect(panel.contains(document.activeElement)).toBe(false);
+	title?.focus();
+	const left = Number.parseFloat(panel.style.left);
+	await user.keyboard("{ArrowLeft}{Escape}");
+	expect(panel.style.left).toBe(`${left - 8}px`);
+	expect(onOpenChange).toHaveBeenCalledWith(false);
+	unmount();
+	render(settingsWindow);
+	expect(screen.getByRole("dialog", { name: "Settings" }).style.left).toBe(
+		`${left - 8}px`,
+	);
 });
 
 it("the settings window lists its sections and shows one at a time", async () => {

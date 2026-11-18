@@ -122,7 +122,7 @@ export function App({ host }: { host: Host }) {
 	const plannerOn = features.isEnabled("planner");
 	const [view, setView] = useState<VaultView | null>(null);
 	const [reading, setReading] = useState(false);
-	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [settingsRequest, setSettingsRequest] = useState<object>();
 	const [templatesOpen, setTemplatesOpen] = useState(false);
 	const templatePrompt = useTemplatePrompt();
 	const [resourcesOpen, setResourcesOpen] = useState(false);
@@ -681,9 +681,9 @@ export function App({ host }: { host: Host }) {
 	});
 
 	const navigate = async (next: Screen | "settings") => {
-		// Settings is a window over the workspace, not a screen: nothing to settle.
+		// Settings opens alongside the workspace.
 		if (next === "settings") {
-			setSettingsOpen(true);
+			setSettingsRequest({});
 			return;
 		}
 		if (!(await ws.settleAll())) return;
@@ -2004,8 +2004,9 @@ export function App({ host }: { host: Host }) {
 							}}
 						/>
 						<SettingsDialog
-							open={settingsOpen}
-							onOpenChange={setSettingsOpen}
+							open={!!settingsRequest}
+							focusRequest={settingsRequest}
+							onOpenChange={() => setSettingsRequest(undefined)}
 							host={host}
 						/>
 					</PlannerProvider>

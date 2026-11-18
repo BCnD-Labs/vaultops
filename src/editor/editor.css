@@ -24,17 +24,6 @@
 	color: var(--editor-italic);
 }
 
-.block-drag-handle [data-slot="button"] {
-	color: var(--muted-foreground);
-	background: var(--surface);
-	box-shadow: var(--elevation-1);
-}
-
-.block-drag-handle [data-slot="button"]:hover {
-	color: var(--foreground);
-	background: var(--accent);
-}
-
 .block-drop-indicator,
 .prosemirror-dropcursor-block {
 	position: absolute;
@@ -338,7 +327,7 @@
 }
 
 .style-swatch[aria-pressed="true"] {
-	outline: var(--focus-ring-width) solid var(--foreground);
+	outline: var(--focus-ring-width) solid var(--primary);
 	outline-offset: 1px;
 }
 
@@ -391,25 +380,13 @@
 .note-editor .callout-icon {
 	flex: none;
 	align-self: flex-start;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	padding: 2px;
 	margin-top: 0.1rem;
-	border: 0;
-	border-radius: var(--radius-control);
-	background: none;
 	color: var(--callout-accent);
-	cursor: pointer;
 }
 
 .note-editor .callout-icon:hover:not(:disabled),
 .note-editor .callout-icon:focus-visible {
 	background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
-}
-
-.note-editor .callout-icon:disabled {
-	cursor: default;
 }
 
 .note-editor .callout-icon svg {
@@ -451,34 +428,6 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--space-1);
-}
-
-.callout-preset {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--space-1);
-	padding: var(--space-1) var(--space-2);
-	border: var(--border-width) solid var(--line);
-	border-radius: var(--radius-control);
-	background: none;
-	color: var(--foreground);
-	font-size: var(--font-size-small);
-	cursor: pointer;
-}
-
-.callout-preset:hover {
-	background: var(--accent);
-}
-
-.callout-preset[aria-pressed="true"] {
-	border-color: var(--ring);
-	background: var(--accent);
-	color: var(--accent-foreground);
-}
-
-.callout-preset svg {
-	width: 14px;
-	height: 14px;
 }
 
 .note-editor .toggle {
@@ -975,11 +924,6 @@
 	box-shadow: var(--elevation-2);
 }
 
-.format-bar [data-slot="button"][aria-pressed="true"] {
-	background: var(--accent);
-	color: var(--foreground);
-}
-
 /* Tables: a bordered grid, header row tinted, cells that grow with their text. */
 .note-editor table {
 	width: 100%;
@@ -1460,14 +1404,6 @@ span.note-link-chip:hover {
 	border-radius: var(--radius-control);
 	background: var(--surface);
 	font-size: var(--font-size-small);
-}
-.note-link-gone button {
-	border: 0;
-	background: none;
-	color: var(--accent-foreground, inherit);
-	font: inherit;
-	text-decoration: underline;
-	cursor: pointer;
 }
 
 /* Math block: an equation edited visually (MathLive, see MathField.tsx). */

@@ -1,5 +1,6 @@
 import { Folder, type LucideIcon, Palette } from "lucide-react";
 import { type ReactElement, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ColorPicker, type PaletteSwatch } from "@/components/ui/color-picker";
 import {
 	ContextMenu,
@@ -185,14 +186,14 @@ export function StylePopover({
 				<PopoverAnchor asChild>{children}</PopoverAnchor>
 			) : (
 				<PopoverTrigger asChild>
-					<button
-						type="button"
-						className="tree-action"
+					<Button
+						variant="ghost"
+						size="icon-sm"
 						aria-label={`Style ${name}`}
 						title="Icon and colour"
 					>
 						<Palette className="tree-icon" aria-hidden="true" />
-					</button>
+					</Button>
 				</PopoverTrigger>
 			)}
 			<PopoverContent className="style-popover" align="start">
@@ -201,13 +202,14 @@ export function StylePopover({
 					<>
 						<div className="style-icon-head">
 							<p className="style-heading">Choose an icon</p>
-							<button
+							<Button
 								type="button"
-								className="style-link"
+								variant="link"
+								size="sm"
 								onClick={() => setView("main")}
 							>
 								Back
-							</button>
+							</Button>
 						</div>
 						<IconPicker
 							selected={iconName ?? undefined}
@@ -217,16 +219,17 @@ export function StylePopover({
 							}}
 						/>
 						{style?.icon && (
-							<button
+							<Button
 								type="button"
-								className="style-link"
+								variant="link"
+								size="sm"
 								onClick={() => {
 									save(undefined, parts);
 									setView("main");
 								}}
 							>
 								Use the default icon
-							</button>
+							</Button>
 						)}
 					</>
 				) : (
@@ -235,13 +238,14 @@ export function StylePopover({
 						<div className="style-icon-row">
 							<Icon className="tree-icon" aria-hidden="true" />
 							<span className="style-icon-name">{iconName ?? "Default"}</span>
-							<button
+							<Button
 								type="button"
-								className="style-mode"
+								variant="outline"
+								size="sm"
 								onClick={() => setView("icon")}
 							>
 								Change
-							</button>
+							</Button>
 						</div>
 						<p className="style-heading">Colours</p>
 						<ul className="style-parts">
@@ -307,16 +311,18 @@ export function StylePopover({
 					</>
 				)}
 				{style && view === "main" && (
-					<button
+					<Button
 						type="button"
-						className="style-reset"
+						variant="link"
+						size="sm"
+						className="mt-3"
 						onClick={() => {
 							setRemembered({});
 							onChange(null);
 						}}
 					>
 						Reset to default
-					</button>
+					</Button>
 				)}
 			</PopoverContent>
 		</Popover>

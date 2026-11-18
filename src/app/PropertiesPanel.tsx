@@ -111,13 +111,14 @@ function SelectControl(props: {
 					{editable && (
 						<>
 							{" "}
-							<button
+							<Button
 								type="button"
-								className="chip-label"
+								variant="link"
+								size="sm"
 								onClick={() => onOptions?.([...options, value as string])}
 							>
 								Add it
-							</button>
+							</Button>
 						</>
 					)}
 				</span>

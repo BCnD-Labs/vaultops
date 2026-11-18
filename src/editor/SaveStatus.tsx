@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { AutosaveState } from "./autosave";
 
 /** One line that always says whether the note is safely on disk. */
@@ -26,20 +27,40 @@ export function SaveStatus({
 			<span role="alert" style={{ color: "var(--bad)" }}>
 				Not saved: {state.reason}{" "}
 				{keepEditing ? (
-					<button type="button" onClick={() => setKeepEditing(false)}>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onClick={() => setKeepEditing(false)}
+					>
 						Resolve
-					</button>
+					</Button>
 				) : (
 					<>
-						<button type="button" onClick={onLoadDisk}>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={onLoadDisk}
+						>
 							Load the disk version
-						</button>{" "}
-						<button type="button" onClick={onSaveCopy}>
+						</Button>{" "}
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={onSaveCopy}
+						>
 							Save mine as a copy
-						</button>{" "}
-						<button type="button" onClick={() => setKeepEditing(true)}>
+						</Button>{" "}
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							onClick={() => setKeepEditing(true)}
+						>
 							Keep editing
-						</button>
+						</Button>
 					</>
 				)}
 			</span>
@@ -49,9 +70,9 @@ export function SaveStatus({
 		return (
 			<span role="alert" style={{ color: "var(--bad)" }}>
 				Not saved: {state.reason}{" "}
-				<button type="button" onClick={onRetry}>
+				<Button type="button" variant="outline" size="sm" onClick={onRetry}>
 					Retry
-				</button>
+				</Button>
 			</span>
 		);
 	}

@@ -149,21 +149,3 @@ export function switchable(group: string): Feature[] {
 
 /** The settings key that stores one feature's switch. */
 export const featureSettingKey = (id: string) => `features.${id}`;
-
-/**
- * Which slash-menu item belongs to which feature (slash item id to feature
- * id). The slash menu can filter its items with `slashItemEnabled`.
- */
-export const SLASH_ITEM_FEATURE: Readonly<Record<string, string>> = {
-	math: "math",
-	database: "database-blocks",
-};
-
-/** Whether a slash item should be offered; items that belong to no feature always are. */
-export function slashItemEnabled(
-	slashItemId: string,
-	state: FeatureState,
-): boolean {
-	const feature = SLASH_ITEM_FEATURE[slashItemId];
-	return feature === undefined || isEnabled(feature, state);
-}

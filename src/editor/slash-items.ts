@@ -52,6 +52,7 @@ export interface SlashItem {
 	icon: LucideIcon;
 	/** The typed shortcut that makes the same block, shown at the right. */
 	hint?: string;
+	/** The Settings > Features id that switches this item off (see core/features/registry.ts). */
 	feature?: string;
 	run: (editor: Editor, range: Range) => void;
 }
@@ -141,6 +142,7 @@ const ITEMS: SlashItem[] = [
 		icon: Sigma,
 		label: "Math block",
 		keywords: ["math", "equation", "formula", "latex", "fraction"],
+		feature: "math",
 		run: (e, r) => insertMathBlock(e, r),
 	},
 	{
@@ -242,6 +244,7 @@ const ITEMS: SlashItem[] = [
 		keywords: ["db", "records", "collection", "properties"],
 		section: "Plan",
 		icon: Database,
+		feature: "database-blocks",
 		run: (e, r) => {
 			insertDatabase(e, r);
 		},
@@ -297,6 +300,7 @@ const ITEMS: SlashItem[] = [
 		keywords: ["insert", "starter", "snippet", "boilerplate"],
 		section: "Organise",
 		icon: LayoutTemplate,
+		feature: "templates",
 		run: (e, r) => {
 			start(e, r).run();
 			e.view.dom.dispatchEvent(
@@ -349,15 +353,21 @@ export function filterSlashItems(
 		columns: boolean;
 		templates?: boolean;
 		links?: boolean;
+		/** Whether a feature is on (asked when the menu opens). Absent means all are on. */
+		enabled?: (featureId: string) => boolean;
 	} = { columns: true },
 	recent: readonly string[] = [],
 ): SlashItem[] {
 	const q = fold(query.trim());
+	const featureOn = (item: SlashItem) =>
+		item.feature === undefined || where.enabled?.(item.feature) !== false;
+	// Recent rows are taken from this list too, so a switched-off item is gone from both.
 	const all = SLASH_ITEMS.filter(
 		(item) =>
 			(where.columns || !isColumns(item)) &&
 			(where.templates !== false || !isTemplate(item)) &&
-			(where.links !== false || !isLink(item)),
+			(where.links !== false || !isLink(item)) &&
+			featureOn(item),
 	);
 	if (query === "" && recent.length) {
 		const rows = recentSlashIds(recent).flatMap((id) => {

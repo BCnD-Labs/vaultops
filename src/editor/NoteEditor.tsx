@@ -33,6 +33,7 @@ import type { Anchor } from "./menu-placement";
 import { findMovable, type Movable, moveOut, nestLabel } from "./move-out";
 import { type LinkSource, setLinkSource } from "./note-link";
 import { TEMPLATE_EVENT } from "./slash-items";
+import { setSlashFeatureCheck } from "./slash-menu";
 import { TableEdgeBars, TableMenuContent } from "./TableControls";
 import { WordComplete } from "./word-complete";
 import "./editor.css";
@@ -53,6 +54,8 @@ export interface NoteEditorProps {
 	onChooseTemplate?: (request: TemplateRequest) => void;
 	/** Turns on `[[` and `@` links; says what can be linked and how to open it. */
 	links?: LinkSource;
+	/** Whether a feature is on; the slash menu hides the items of a feature that is off. */
+	featureOn?: (featureId: string) => boolean;
 }
 
 /** Asked for when someone picks "Template" from the slash menu. */
@@ -77,6 +80,7 @@ export function NoteEditor({
 	onDropBlock,
 	onChooseTemplate,
 	links,
+	featureOn,
 }: NoteEditorProps) {
 	const completeOn = useFeature("word-complete");
 	const completion = useRef({ completeOn, links, noteId });
@@ -189,6 +193,11 @@ export function NoteEditor({
 		dom.addEventListener(TEMPLATE_EVENT, ask);
 		return () => dom.removeEventListener(TEMPLATE_EVENT, ask);
 	}, [editor, onChooseTemplate]);
+
+	useEffect(() => {
+		if (editor && !editor.isDestroyed)
+			setSlashFeatureCheck(editor, featureOn ?? (() => true));
+	}, [editor, featureOn]);
 
 	// Links read what the app knows through the editor's storage, so the
 	// picker and the chips always see the latest list without a new editor.

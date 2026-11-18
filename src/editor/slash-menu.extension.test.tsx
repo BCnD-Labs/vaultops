@@ -3,6 +3,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import { afterEach, expect, it } from "vitest";
 import { createExtensions } from "./extensions";
+import { setSlashFeatureCheck } from "./slash-menu";
 
 let current: Editor | null = null;
 function Harness() {
@@ -98,4 +99,19 @@ it("Enter chooses from the menu inside a task block, not a new task", async () =
 		);
 	});
 	expect(editor.getJSON().content?.map((node) => node.type)).toEqual(["table"]);
+});
+
+it("hides a feature's items when its switch is off, and reads the switch each time the menu opens", async () => {
+	const editor = open();
+	let mathOn = true;
+	setSlashFeatureCheck(editor, (id) => id !== "math" || mathOn);
+	await insert(editor, "/mat");
+	expect(labels()).toContain("Math block");
+	await act(async () => {
+		editor.commands.clearContent();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
+	mathOn = false;
+	await insert(editor, "/mat");
+	expect(labels()).not.toContain("Math block");
 });

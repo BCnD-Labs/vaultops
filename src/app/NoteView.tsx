@@ -35,6 +35,7 @@ import { PropertiesBlock } from "./PropertiesBlock";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { templateFormats } from "./settings";
 import { TemplatePicker } from "./TemplatePicker";
+import { featureEnabled } from "./useFeature";
 import type { NoteSession } from "./useNoteSession";
 import "./pane.css";
 
@@ -325,6 +326,7 @@ export function NoteView({
 				onDropBlock={onDropBlock}
 				onChooseTemplate={canTemplate ? setPicker : undefined}
 				links={links}
+				featureOn={featureEnabled}
 			/>
 			{picker && templates && (
 				<TemplatePicker

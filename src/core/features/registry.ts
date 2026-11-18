@@ -89,6 +89,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "mermaid",
+		name: "Diagrams",
+		description: "Mermaid diagram blocks and starter diagrams.",
+		group: "Visual",
+		defaultOn: true,
+	},
+	{
 		id: "tab-properties",
 		name: "Properties tab",
 		description: "The Properties tab in the right sidebar.",

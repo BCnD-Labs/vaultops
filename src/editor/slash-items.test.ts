@@ -53,7 +53,15 @@ describe("slash menu items", () => {
 			"template",
 		]);
 		expect(ids("Plan")).toEqual(["task", "table", "database", "date"]);
-		expect(SLASH_ITEMS).toHaveLength(34);
+		expect(ids("Visual")).toEqual([
+			"mermaid-flowchart",
+			"mermaid-sequence",
+			"mermaid-mindmap",
+			"mermaid-timeline",
+			"mermaid-gantt",
+			"mermaid-pie",
+		]);
+		expect(SLASH_ITEMS).toHaveLength(40);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 
@@ -121,10 +129,11 @@ describe("slash menu items", () => {
 	});
 
 	it("finds dividers and each callout tone by name or keyword", () => {
-		expect(filterSlashItems("hr").map((i) => i.id)).toEqual([
-			"divider",
-			"columns-3",
-		]);
+		expect(
+			filterSlashItems("hr")
+				.slice(0, 2)
+				.map((i) => i.id),
+		).toEqual(["divider", "columns-3"]);
 		expect(filterSlashItems("callout").map((i) => i.id)).toEqual([
 			"callout-note",
 			"callout-info",
@@ -216,7 +225,7 @@ describe("slash menu items", () => {
 		).toBe(false);
 	});
 
-	it("tags the math, database and template items with their feature", () => {
+	it("tags optional items with their feature", () => {
 		const tagged = SLASH_ITEMS.filter((i) => i.feature).map((i) => [
 			i.id,
 			i.feature,
@@ -225,6 +234,10 @@ describe("slash menu items", () => {
 			["math", "math"],
 			["template", "templates"],
 			["database", "database-blocks"],
+			...SLASH_ITEMS.filter((i) => i.section === "Visual").map((i) => [
+				i.id,
+				"mermaid",
+			]),
 		]);
 	});
 

@@ -13,6 +13,8 @@
 		"allow-read-text",
 		"allow-read-cover",
 		"allow-choose-cover",
+		"allow-choose-image",
+		"allow-import-attachment",
 		"allow-read-cache",
 		"allow-write-cache",
 		"allow-write-text-atomic",

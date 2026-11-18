@@ -4,6 +4,7 @@ import {
 	isGif,
 	type Size,
 } from "../core/images/display-copy";
+import type { ImageSource } from "../editor/image-block";
 import type { Host } from "../host/host";
 
 /** Turns an original's bytes into a smaller copy; null when the original is already small enough. */
@@ -47,6 +48,15 @@ export async function displayImage(
 	} catch {
 		return fallback;
 	}
+}
+
+/** What a note's image blocks use: display copies, and imports into attachments/. */
+export function imageSource(host: Host): ImageSource {
+	return {
+		show: (path, box) => displayImage(host, path, box),
+		choose: () => host.chooseImage(),
+		store: (name, bytes) => host.importAttachment(name, bytes),
+	};
 }
 
 const QUALITY = 0.82;

@@ -8,6 +8,8 @@ const COMMANDS: &[&str] = &[
     "read_text",
     "read_cover",
     "choose_cover",
+    "choose_image",
+    "import_attachment",
     "read_cache",
     "write_cache",
     "write_text_atomic",

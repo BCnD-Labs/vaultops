@@ -4,6 +4,7 @@ import {
 	HostError,
 	type HostErrorCode,
 	MAX_CACHE_BYTES,
+	MAX_IMAGE_BYTES,
 } from "./host";
 
 async function expectCode(promise: Promise<unknown>, code: HostErrorCode) {
@@ -157,6 +158,24 @@ export function describeHostContract(name: string, makeHost: () => Host) {
 				"invalid-path",
 			);
 			await expectCode(host.readCache("images"), "is-a-folder");
+		});
+
+		it("imports attachments under a free name, bytes unchanged", async () => {
+			const bytes = new Uint8Array([0x89, 0x50, 1]).buffer;
+			expect(await host.importAttachment("Pasted.png", bytes)).toBe(
+				"attachments/Pasted.png",
+			);
+			expect(await host.importAttachment("Pasted.png", bytes)).toBe(
+				"attachments/Pasted-2.png",
+			);
+			const stored = await host.readCover("attachments/Pasted-2.png");
+			expect([...new Uint8Array(stored)]).toEqual([0x89, 0x50, 1]);
+			for (const bad of ["../a.png", "a/b.png", ".x.png", "a.vnote", ""])
+				await expectCode(host.importAttachment(bad, bytes), "invalid-path");
+			await expectCode(
+				host.importAttachment("big.png", new ArrayBuffer(MAX_IMAGE_BYTES + 1)),
+				"invalid-path",
+			);
 		});
 
 		it("never puts a path from outside into an error message", async () => {

@@ -147,6 +147,10 @@ describe("readOnlyHost pass-through", () => {
 			HostError,
 		);
 		await expect(host.chooseCover()).rejects.toBeInstanceOf(HostError);
+		await expect(host.chooseImage()).rejects.toBeInstanceOf(HostError);
+		await expect(
+			host.importAttachment("a.png", new ArrayBuffer(1)),
+		).rejects.toBeInstanceOf(HostError);
 		await expect(
 			host.writeCache("images/a", new ArrayBuffer(1)),
 		).rejects.toBeInstanceOf(HostError);

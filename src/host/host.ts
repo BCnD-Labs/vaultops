@@ -100,6 +100,16 @@ export interface Host {
 	chooseCover(): Promise<string | null>;
 
 	/**
+	 * The vault's cache, `.vaultops/cache/` (display copies of images and the
+	 * like): safe to delete, made again on demand. `path` is relative to that
+	 * folder and must pass `isCachePath`. `readCache` resolves to null when
+	 * nothing is cached there. `writeCache` replaces the file atomically,
+	 * creates missing folders and refuses more than `MAX_CACHE_BYTES`.
+	 */
+	readCache(path: string): Promise<ArrayBuffer | null>;
+	writeCache(path: string, bytes: ArrayBuffer): Promise<void>;
+
+	/**
 	 * Replace or create a file atomically: readers see the old content or the
 	 * new content, never a partial file. The parent folder must exist.
 	 */
@@ -188,6 +198,20 @@ export interface Host {
 	 * the checked-out branch, and never rejects for being offline (see `error`).
 	 */
 	updateChannels(): Promise<UpdateChannels>;
+}
+
+/** Same limit as `MAX_CACHE_BYTES` in src-tauri/src/cache_ops.rs. */
+export const MAX_CACHE_BYTES = 25 * 1024 * 1024;
+
+/**
+ * A path inside `.vaultops/cache/`, same rule as src-tauri/src/cache_ops.rs:
+ * one or more parts joined by `/`, each made of letters, digits, `-`, `_` and
+ * `.`, never starting with a dot (so no `..` and no hidden files).
+ */
+export function isCachePath(path: string): boolean {
+	return path
+		.split("/")
+		.every((part) => /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,199}$/.test(part));
 }
 
 /** Same list as `ALLOWED` in src-tauri/src/app_files.rs. */

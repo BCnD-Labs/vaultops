@@ -147,6 +147,9 @@ describe("readOnlyHost pass-through", () => {
 			HostError,
 		);
 		await expect(host.chooseCover()).rejects.toBeInstanceOf(HostError);
+		await expect(
+			host.writeCache("images/a", new ArrayBuffer(1)),
+		).rejects.toBeInstanceOf(HostError);
 		await expect(host.move("..", "/etc")).rejects.toBeInstanceOf(HostError);
 		await expect(host.makeFolder("a/b/c")).rejects.toBeInstanceOf(HostError);
 		await expect(host.removeTrashed("x")).rejects.toBeInstanceOf(HostError);

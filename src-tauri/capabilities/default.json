@@ -13,6 +13,8 @@
 		"allow-read-text",
 		"allow-read-cover",
 		"allow-choose-cover",
+		"allow-read-cache",
+		"allow-write-cache",
 		"allow-write-text-atomic",
 		"allow-list",
 		"allow-make-folder",

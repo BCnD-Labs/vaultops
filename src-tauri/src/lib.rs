@@ -1,4 +1,5 @@
 pub mod app_files;
+pub mod cache_ops;
 pub mod file_ops;
 pub mod folder_ops;
 pub mod host_error;
@@ -91,6 +92,32 @@ fn choose_cover(
         }
         file_ops::import_cover(v, &source).map(Some)
     })
+}
+
+#[tauri::command(async)]
+fn read_cache(
+    state: tauri::State<'_, VaultState>,
+    path: String,
+) -> Result<tauri::ipc::Response, HostError> {
+    with_vault(&state, |v| cache_ops::read_cache(v, &path)).map(tauri::ipc::Response::new)
+}
+
+/// The bytes arrive as the raw request body and the path in a header, so a
+/// large image never goes through JSON.
+#[tauri::command(async)]
+fn write_cache(
+    state: tauri::State<'_, VaultState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<(), HostError> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(HostError::invalid("expected raw bytes"));
+    };
+    let path = request
+        .headers()
+        .get("x-cache-path")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| HostError::invalid("missing cache path"))?;
+    with_vault(&state, |v| cache_ops::write_cache(v, path, bytes))
 }
 
 /// Runs off the main thread so a large file never freezes the window.
@@ -456,6 +483,8 @@ pub fn run() {
             read_text,
             read_cover,
             choose_cover,
+            read_cache,
+            write_cache,
             write_text_atomic,
             list,
             make_folder,

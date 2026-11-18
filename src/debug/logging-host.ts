@@ -72,6 +72,10 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		readText: timed("readText", (p: string) => host.readText(p)),
 		readCover: timed("readCover", (path: string) => host.readCover(path)),
 		chooseCover: timed("chooseCover", () => host.chooseCover()),
+		readCache: timed("readCache", (p: string) => host.readCache(p)),
+		writeCache: timed("writeCache", (p: string, b: ArrayBuffer) =>
+			host.writeCache(p, b),
+		),
 		writeTextAtomic: timed("writeTextAtomic", (p: string, t: string) =>
 			host.writeTextAtomic(p, t),
 		),

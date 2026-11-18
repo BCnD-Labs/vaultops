@@ -93,7 +93,7 @@ it("drops a disabled Note tools tab, and falls back when it was the remembered o
 	expect(
 		screen.getByRole("tab", { name: "Properties" }).getAttribute("data-state"),
 	).toBe("active");
-	expect(screen.getByRole("tab", { name: "Linked from" })).toBeTruthy();
+	expect(screen.getByRole("tab", { name: "Connections" })).toBeTruthy();
 });
 
 it("lists the features by group on the Features page, finds them in search and switches them", async () => {

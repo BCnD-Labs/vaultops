@@ -29,7 +29,7 @@ import { useFeatures } from "./useFeature";
 const TOOLS: [string, string, LucideIcon, string?][] = [
 	["properties", "Properties", SlidersHorizontal, "tab-properties"],
 	["outline", "Outline", ListTree, "tab-outline"],
-	["links", "Linked from", Link2, "tab-links"],
+	["links", "Connections", Link2, "tab-links"],
 	["tags", "Tags", Tags],
 	["changes", "Changes", GitCompareArrows],
 	["planner", "Planner", PencilLine, "planner"],
@@ -57,6 +57,8 @@ export function NoteTools({
 	activeTag = null,
 	outline = [],
 	linkedFrom = [],
+	noteId,
+	noteTitle,
 	onOpenNote = () => {},
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & {
@@ -68,6 +70,8 @@ export function NoteTools({
 	outline?: OutlineItem[];
 	/** Notes and canvases that link to the open note. */
 	linkedFrom?: NoteRow[];
+	noteId?: string;
+	noteTitle?: string;
 	onOpenNote?: (path: string) => void;
 }) {
 	const features = useFeatures();
@@ -177,9 +181,15 @@ export function NoteTools({
 			</TabsContent>
 			<TabsContent value="links">
 				{hasNote ? (
-					<LinkedFromPanel rows={linkedFrom} onOpen={onOpenNote} />
+					<LinkedFromPanel
+						rows={linkedFrom}
+						notes={notes}
+						noteId={noteId}
+						title={noteTitle}
+						onOpen={onOpenNote}
+					/>
 				) : (
-					<p>Open a note to see what links to it.</p>
+					<p>Open a note to see its connections.</p>
 				)}
 			</TabsContent>
 			<TabsContent value="tags">

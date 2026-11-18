@@ -46,3 +46,34 @@ it("opens a linking note, and explains an empty list", async () => {
 	rerender(<LinkedFromPanel rows={[]} onOpen={onOpen} />);
 	expect(screen.getByText(/Nothing links here yet/)).toBeTruthy();
 });
+
+it("renders Linked from, Mentions with snippets, and clickable Graph with hover highlight", async () => {
+	const user = userEvent.setup();
+	const onOpen = vi.fn();
+	const alpha = row("Alpha", ["target"]);
+	const notes: NoteRow[] = [
+		row("Café", ["id-Out"], { id: "target" }),
+		alpha,
+		row("Beta", [], { text: "Stopped by the cafe today." }),
+		row("Out", []),
+	];
+	render(
+		<LinkedFromPanel
+			rows={[alpha]}
+			notes={notes}
+			noteId="target"
+			title="Café"
+			onOpen={onOpen}
+		/>,
+	);
+	expect(screen.getByText("Stopped by the cafe today.")).toBeTruthy();
+	await user.click(screen.getByRole("button", { name: /Beta/ }));
+	expect(onOpen).toHaveBeenCalledWith("Beta.vnote");
+	const node = screen.getByRole("link", { name: "Out" });
+	await user.hover(node);
+	expect(
+		document.querySelector('.connections-edge[data-highlighted="true"]'),
+	).toBeTruthy();
+	await user.click(node);
+	expect(onOpen).toHaveBeenCalledWith("Out.vnote");
+});

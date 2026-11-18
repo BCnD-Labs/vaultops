@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { headerCover } from "../core/notes/cover";
 import { headerIcon } from "../core/notes/icon";
 import { type OutlineItem, outlineOf } from "../core/notes/outline";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
@@ -52,6 +53,8 @@ export function useNoteSession({
 	const [editorRevision, setEditorRevision] = useState(0);
 	const [livePath, setLivePath] = useState<string | null>(null);
 	const [iconEdit, setIconEdit] = useState<string | null>();
+	const [coverEdit, setCoverEdit] = useState<string | null>();
+	const coverRef = useRef<string | null>(undefined);
 	const iconRef = useRef<string | null>(undefined);
 	const [title, setTitle] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
@@ -113,6 +116,8 @@ export function useNoteSession({
 		docRef.current = next.doc;
 		iconRef.current = undefined;
 		setIconEdit(undefined);
+		coverRef.current = undefined;
+		setCoverEdit(undefined);
 		setStats(textStats(next.doc));
 		setOutline(outlineOf(next.doc));
 		const text =
@@ -154,6 +159,7 @@ export function useNoteSession({
 		doc,
 		title: nextTitle,
 		icon: iconRef.current,
+		cover: coverRef.current,
 		...(propsRef.current ? { props: propsRef.current } : {}),
 	});
 
@@ -161,6 +167,13 @@ export function useNoteSession({
 		if (!opened?.editable || !docRef.current) return;
 		iconRef.current = next;
 		setIconEdit(next);
+		autosave.change(draftOf(docRef.current, titleRef.current), opened);
+	};
+
+	const editCover = (next: string | null) => {
+		if (!opened?.editable || !docRef.current) return;
+		coverRef.current = next;
+		setCoverEdit(next);
 		autosave.change(draftOf(docRef.current, titleRef.current), opened);
 	};
 
@@ -229,6 +242,12 @@ export function useNoteSession({
 				? headerIcon(opened?.note?.header)
 				: (iconEdit ?? undefined),
 		editIcon,
+		cover:
+			coverEdit === undefined
+				? headerCover(opened?.note?.header)
+				: (coverEdit ?? undefined),
+		host,
+		editCover,
 		editProps,
 		editTitle,
 		editDoc,

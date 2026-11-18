@@ -4,6 +4,7 @@ import {
 	NOTE_FORMAT_VERSION,
 	type Note,
 } from "../core/note-format";
+import { withCover } from "../core/notes/cover";
 import { withIcon } from "../core/notes/icon";
 import { type Props, withProps } from "../core/notes/properties";
 import { renameNote } from "../core/notes/rename";
@@ -20,6 +21,8 @@ export interface Draft {
 	props?: Props;
 	/** Null removes the icon. Omitted keeps the saved value. */
 	icon?: string | null;
+	/** Null removes the cover. Omitted keeps the saved value. */
+	cover?: string | null;
 }
 
 export type DraftOutcome =
@@ -84,6 +87,7 @@ export async function saveDraft(
 	if (titleChanged) header = { ...header, title: draft.title };
 	if (draft.props !== undefined) header = withProps(header, draft.props);
 	if (draft.icon !== undefined) header = withIcon(header, draft.icon);
+	if (draft.cover !== undefined) header = withCover(header, draft.cover);
 	const target: OpenedNote =
 		header === current.note.header
 			? current
@@ -134,6 +138,7 @@ export async function saveAsCopy(
 		};
 		if (draft.props !== undefined) header = withProps(header, draft.props);
 		if (draft.icon !== undefined) header = withIcon(header, draft.icon);
+		if (draft.cover !== undefined) header = withCover(header, draft.cover);
 		const note: Note = { header, blocks: docToBlocks(draft.doc) };
 		const { path } = await createNote(host, folder, title, note);
 		return { ok: true, path };

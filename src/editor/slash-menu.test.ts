@@ -48,7 +48,7 @@ describe("slash popup rendering", () => {
 		const headings = [...root().querySelectorAll(".slash-menu-section")].map(
 			(h) => h.textContent,
 		);
-		expect(headings).toEqual(["Blocks", "Lists", "Insert"]);
+		expect(headings).toEqual(["Write", "Organise", "Plan"]);
 		expect(
 			rows().map((r) => r.querySelector(".slash-menu-label")?.textContent),
 		).toEqual(["Text", "Heading 1", "Bulleted list", "Table"]);

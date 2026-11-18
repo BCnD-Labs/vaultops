@@ -34,10 +34,12 @@ import { insertMathBlock } from "./math-block";
 
 /** The groups the menu is divided into, in the order they appear. */
 export const SLASH_SECTIONS = [
-	"Blocks",
-	"Lists",
-	"Callouts",
-	"Insert",
+	"Recent",
+	"Write",
+	"Organise",
+	"Plan",
+	"Visual",
+	"Media",
 ] as const;
 export type SlashSection = (typeof SLASH_SECTIONS)[number];
 
@@ -50,6 +52,7 @@ export interface SlashItem {
 	icon: LucideIcon;
 	/** The typed shortcut that makes the same block, shown at the right. */
 	hint?: string;
+	feature?: string;
 	run: (editor: Editor, range: Range) => void;
 }
 
@@ -80,7 +83,7 @@ const HEADINGS: {
 const ITEMS: SlashItem[] = [
 	{
 		id: "paragraph",
-		section: "Blocks",
+		section: "Write",
 		icon: Pilcrow,
 		label: "Text",
 		keywords: ["paragraph", "plain"],
@@ -89,7 +92,7 @@ const ITEMS: SlashItem[] = [
 	...HEADINGS.map(
 		({ level, icon, keywords }): SlashItem => ({
 			id: `heading${level}`,
-			section: "Blocks",
+			section: "Write",
 			icon,
 			hint: "#".repeat(level),
 			label: `Heading ${level}`,
@@ -99,7 +102,7 @@ const ITEMS: SlashItem[] = [
 	),
 	{
 		id: "bullet",
-		section: "Lists",
+		section: "Organise",
 		icon: List,
 		hint: "-",
 		label: "Bulleted list",
@@ -108,7 +111,7 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "numbered",
-		section: "Lists",
+		section: "Organise",
 		icon: ListOrdered,
 		hint: "1.",
 		label: "Numbered list",
@@ -117,7 +120,7 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "task",
-		section: "Lists",
+		section: "Plan",
 		icon: ListChecks,
 		label: "Task",
 		keywords: ["todo", "checkbox", "check"],
@@ -125,7 +128,7 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "code",
-		section: "Blocks",
+		section: "Write",
 		icon: Code,
 		hint: "```",
 		label: "Codeblock",
@@ -134,7 +137,7 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "math",
-		section: "Blocks",
+		section: "Write",
 		icon: Sigma,
 		label: "Math block",
 		keywords: ["math", "equation", "formula", "latex", "fraction"],
@@ -142,7 +145,7 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "quote",
-		section: "Blocks",
+		section: "Write",
 		icon: Quote,
 		hint: ">",
 		label: "Quote",
@@ -151,7 +154,7 @@ const ITEMS: SlashItem[] = [
 	},
 	{
 		id: "divider",
-		section: "Blocks",
+		section: "Organise",
 		icon: DIVIDER_ICONS.solid,
 		label: "Divider",
 		keywords: ["rule", "line", "hr", "separator"],
@@ -163,7 +166,7 @@ const ITEMS: SlashItem[] = [
 	...(["dashed", "dotted", "thick"] as const).map(
 		(style): SlashItem => ({
 			id: `divider-${style}`,
-			section: "Blocks",
+			section: "Organise",
 			icon: DIVIDER_ICONS[style],
 			label: `Divider: ${style}`,
 			keywords: [style, "separator"],
@@ -178,7 +181,7 @@ const ITEMS: SlashItem[] = [
 	),
 	{
 		id: "toggle",
-		section: "Blocks",
+		section: "Organise",
 		icon: ChevronDown,
 		label: "Dropdown",
 		keywords: ["collapse", "expand", "fold", "details", "accordion"],
@@ -188,7 +191,7 @@ const ITEMS: SlashItem[] = [
 	...([1, 2] as const).map(
 		(level): SlashItem => ({
 			id: `toggle-heading${level}`,
-			section: "Blocks",
+			section: "Organise",
 			icon: level === 1 ? Heading1 : Heading2,
 			label: `Toggle heading ${level}`,
 			keywords: [
@@ -208,7 +211,7 @@ const ITEMS: SlashItem[] = [
 	),
 	{
 		id: "switch",
-		section: "Blocks",
+		section: "Organise",
 		icon: ToggleRight,
 		label: "Toggle",
 		keywords: ["switch", "on", "off", "dim", "done"],
@@ -219,7 +222,7 @@ const ITEMS: SlashItem[] = [
 			id: `callout-${tone}`,
 			label: tone === "note" ? "Callout" : `Callout: ${tone}`,
 			keywords: ["callout", "box", "admonition", tone],
-			section: "Callouts",
+			section: "Write",
 			icon: CALLOUT_ICONS[tone],
 			run: (e, r) => start(e, r).wrapIn("callout", { tone }).run(),
 		}),
@@ -228,7 +231,7 @@ const ITEMS: SlashItem[] = [
 		id: "table",
 		label: "Table",
 		keywords: ["grid", "rows", "columns", "spreadsheet"],
-		section: "Insert",
+		section: "Plan",
 		icon: Table2,
 		run: (e, r) =>
 			start(e, r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
@@ -237,7 +240,7 @@ const ITEMS: SlashItem[] = [
 		id: "database",
 		label: "Database",
 		keywords: ["db", "records", "collection", "properties"],
-		section: "Insert",
+		section: "Plan",
 		icon: Database,
 		run: (e, r) => {
 			insertDatabase(e, r);
@@ -247,7 +250,7 @@ const ITEMS: SlashItem[] = [
 		id: "columns-2",
 		label: "2 columns",
 		keywords: ["columns", "layout", "side by side", "two"],
-		section: "Insert",
+		section: "Organise",
 		icon: Columns2,
 		run: (e, r) => void insertColumns(e, r, 2),
 	},
@@ -255,7 +258,7 @@ const ITEMS: SlashItem[] = [
 		id: "columns-3",
 		label: "3 columns",
 		keywords: ["columns", "layout", "side by side", "three"],
-		section: "Insert",
+		section: "Organise",
 		icon: Columns3,
 		run: (e, r) => void insertColumns(e, r, 3),
 	},
@@ -263,7 +266,7 @@ const ITEMS: SlashItem[] = [
 		id: "date",
 		label: "Date",
 		keywords: ["today", "calendar", "day"],
-		section: "Insert",
+		section: "Plan",
 		icon: CalendarDays,
 		run: (e, r) =>
 			start(e, r)
@@ -274,7 +277,7 @@ const ITEMS: SlashItem[] = [
 		id: "link",
 		label: "Link",
 		keywords: ["note", "canvas", "resource", "reference", "wiki"],
-		section: "Insert",
+		section: "Organise",
 		icon: Link2,
 		hint: "[[",
 		run: (e, r) => start(e, r).insertContent("[[").run(),
@@ -283,7 +286,7 @@ const ITEMS: SlashItem[] = [
 		id: "mention",
 		label: "Mention a resource",
 		keywords: ["contact", "person", "at", "resource"],
-		section: "Insert",
+		section: "Organise",
 		icon: AtSign,
 		hint: "@",
 		run: (e, r) => start(e, r).insertContent("@").run(),
@@ -292,7 +295,7 @@ const ITEMS: SlashItem[] = [
 		id: "template",
 		label: "Template",
 		keywords: ["insert", "starter", "snippet", "boilerplate"],
-		section: "Insert",
+		section: "Organise",
 		icon: LayoutTemplate,
 		run: (e, r) => {
 			start(e, r).run();
@@ -313,11 +316,33 @@ const isColumns = (item: SlashItem) => item.id.startsWith("columns-");
 const isTemplate = (item: SlashItem) => item.id === "template";
 const isLink = (item: SlashItem) => item.id === "link" || item.id === "mention";
 
-/**
- * Items whose label or keywords start with what was typed after the slash.
- * `columns: false` (the cursor is inside another block) leaves out the column
- * layouts.
- */
+/** Validate stored ids and keep the first (newest) occurrence of each. */
+export function recentSlashIds(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	const ids: string[] = [];
+	for (const id of value) {
+		if (SLASH_ITEMS.some((item) => item.id === id) && !ids.includes(id)) {
+			ids.push(id);
+			if (ids.length === 5) break;
+		}
+	}
+	return ids;
+}
+
+function fold(text: string): string {
+	return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+function isSubsequence(query: string, text: string): boolean {
+	let from = 0;
+	for (const letter of query) {
+		const index = text.indexOf(letter, from);
+		if (index === -1) return false;
+		from = index + letter.length;
+	}
+	return true;
+}
+
 export function filterSlashItems(
 	query: string,
 	where: {
@@ -325,22 +350,38 @@ export function filterSlashItems(
 		templates?: boolean;
 		links?: boolean;
 	} = { columns: true },
+	recent: readonly string[] = [],
 ): SlashItem[] {
-	const q = query.trim().toLowerCase();
+	const q = fold(query.trim());
 	const all = SLASH_ITEMS.filter(
 		(item) =>
 			(where.columns || !isColumns(item)) &&
 			(where.templates !== false || !isTemplate(item)) &&
 			(where.links !== false || !isLink(item)),
 	);
-	if (q === "") return all;
+	if (query === "" && recent.length) {
+		const rows = recentSlashIds(recent).flatMap((id) => {
+			const item = all.find((entry) => entry.id === id);
+			return item ? [{ ...item, section: "Recent" as const }] : [];
+		});
+		return [...rows, ...all];
+	}
+	if (!q) return all;
 	// Best match first, so Enter picks what was typed: the label itself, then a
 	// word in the label, then a keyword. Ties keep the menu's own order.
 	const rank = (item: SlashItem): number => {
-		const label = item.label.toLowerCase();
+		const label = fold(item.label);
 		if (label.startsWith(q)) return 0;
 		if (label.split(" ").some((w) => w.startsWith(q))) return 1;
-		if (item.keywords.some((k) => k.toLowerCase().startsWith(q))) return 2;
+		const keywords = item.keywords.map(fold);
+		if (
+			keywords.some(
+				(k) =>
+					k.startsWith(q) || k.split(" ").some((word) => word.startsWith(q)),
+			)
+		)
+			return 2;
+		if ([label, ...keywords].some((text) => isSubsequence(q, text))) return 3;
 		return -1;
 	};
 	return all

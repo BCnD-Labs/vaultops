@@ -1,57 +1,100 @@
 import { describe, expect, it } from "vitest";
-import { filterSlashItems, SLASH_ITEMS } from "./slash-items";
+import {
+	filterSlashItems,
+	recentSlashIds,
+	SLASH_ITEMS,
+	SLASH_SECTIONS,
+} from "./slash-items";
 
 describe("slash menu items", () => {
-	it("has exactly the agreed blocks, in order, with no separate task list", () => {
-		expect(SLASH_ITEMS.map((i) => i.label)).toEqual([
-			"Text",
-			"Heading 1",
-			"Heading 2",
-			"Heading 3",
-			"Heading 4",
-			"Heading 5",
-			"Heading 6",
-			"Codeblock",
-			"Math block",
-			"Quote",
-			"Divider",
-			"Divider: dashed",
-			"Divider: dotted",
-			"Divider: thick",
-			"Dropdown",
-			"Toggle heading 1",
-			"Toggle heading 2",
-			"Toggle",
-			"Bulleted list",
-			"Numbered list",
-			"Task",
-			"Callout",
-			"Callout: info",
-			"Callout: tip",
-			"Callout: warning",
-			"Callout: danger",
-			"Table",
-			"Database",
-			"2 columns",
-			"3 columns",
-			"Date",
-			"Link",
-			"Mention a resource",
-			"Template",
+	it("maps every existing command to its section exactly once", () => {
+		expect(SLASH_SECTIONS).toEqual([
+			"Recent",
+			"Write",
+			"Organise",
+			"Plan",
+			"Visual",
+			"Media",
 		]);
-		expect(SLASH_ITEMS.some((i) => /task list/i.test(i.label))).toBe(false);
+		const ids = (section: string) =>
+			SLASH_ITEMS.filter((i) => i.section === section).map((i) => i.id);
+		expect(ids("Write")).toEqual([
+			"paragraph",
+			"heading1",
+			"heading2",
+			"heading3",
+			"heading4",
+			"heading5",
+			"heading6",
+			"code",
+			"math",
+			"quote",
+			"callout-note",
+			"callout-info",
+			"callout-tip",
+			"callout-warning",
+			"callout-danger",
+		]);
+		expect(ids("Organise")).toEqual([
+			"bullet",
+			"numbered",
+			"divider",
+			"divider-dashed",
+			"divider-dotted",
+			"divider-thick",
+			"toggle",
+			"toggle-heading1",
+			"toggle-heading2",
+			"switch",
+			"columns-2",
+			"columns-3",
+			"link",
+			"mention",
+			"template",
+		]);
+		expect(ids("Plan")).toEqual(["task", "table", "database", "date"]);
+		expect(SLASH_ITEMS).toHaveLength(34);
+		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 
-	it("keeps each section together and gives every item an icon", () => {
-		const sections = SLASH_ITEMS.map((i) => i.section);
-		expect(sections.filter((s, i) => s !== sections[i - 1])).toEqual([
-			"Blocks",
-			"Lists",
-			"Callouts",
-			"Insert",
+	it("remembers five distinct known ids, moving a repeated choice to the front", () => {
+		const previous = ["date", "task", "quote", "math", "code"];
+		expect(recentSlashIds(["math", null, "gone", ...previous])).toEqual([
+			"math",
+			"date",
+			"task",
+			"quote",
+			"code",
 		]);
-		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
-		expect(filterSlashItems("table").map((i) => i.id)).toEqual(["table"]);
+		expect(recentSlashIds(["link", ...previous])).toEqual([
+			"link",
+			"date",
+			"task",
+			"quote",
+			"math",
+		]);
+		expect(recentSlashIds("date")).toEqual([]);
+	});
+
+	it("shows eligible recent choices only for a bare slash", () => {
+		const recent = ["columns-2", "task", "template", "quote", "link"];
+		const where = { columns: false, templates: false, links: false };
+		const rows = (q: string) =>
+			filterSlashItems(q, where, recent)
+				.filter((i) => i.section === "Recent")
+				.map((i) => i.id);
+		expect(rows("")).toEqual(["task", "quote"]);
+		expect(rows("ta")).toEqual([]);
+	});
+
+	it("folds accents and ranks word prefixes ahead of ordered-letter matches", () => {
+		expect(filterSlashItems("DÁT").map((i) => i.id)).toEqual([
+			"database",
+			"date",
+		]);
+		expect(filterSlashItems("síd")[0]?.id).toBe("columns-2");
+		expect(filterSlashItems("bY")[0]?.id).toBe("columns-2");
+		expect(filterSlashItems("hDg")[0]?.id).toBe("heading1");
 	});
 
 	it("puts the best match first, so Enter picks what was typed", () => {
@@ -78,7 +121,10 @@ describe("slash menu items", () => {
 	});
 
 	it("finds dividers and each callout tone by name or keyword", () => {
-		expect(filterSlashItems("hr").map((i) => i.id)).toEqual(["divider"]);
+		expect(filterSlashItems("hr").map((i) => i.id)).toEqual([
+			"divider",
+			"columns-3",
+		]);
 		expect(filterSlashItems("callout").map((i) => i.id)).toEqual([
 			"callout-note",
 			"callout-info",
@@ -155,9 +201,9 @@ describe("slash menu items", () => {
 		expect(filterSlashItems("")).toEqual(SLASH_ITEMS);
 	});
 
-	it("offers Template in the Insert section, and only where something can open the picker", () => {
+	it("offers Template in the Organise section, and only where something can open the picker", () => {
 		const template = SLASH_ITEMS.find((i) => i.id === "template");
-		expect(template?.section).toBe("Insert");
+		expect(template?.section).toBe("Organise");
 		expect(filterSlashItems("templ").map((i) => i.id)).toEqual(["template"]);
 		expect(filterSlashItems("starter").map((i) => i.id)).toEqual(["template"]);
 		expect(

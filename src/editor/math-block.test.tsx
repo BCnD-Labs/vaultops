@@ -94,7 +94,7 @@ afterEach(() => {
 it("is in the slash menu as Math block, found by math, equation, formula, latex and fraction", async () => {
 	const item = SLASH_ITEMS.find((i) => i.id === "math");
 	expect(item?.label).toBe("Math block");
-	expect(item?.section).toBe("Blocks");
+	expect(item?.section).toBe("Write");
 	const { filterSlashItems } = await import("./slash-items");
 	for (const query of ["math", "equation", "formula", "latex", "fraction"]) {
 		expect(filterSlashItems(query).map((i) => i.id)).toContain("math");

@@ -165,6 +165,15 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 	column: firstColumn,
 	database,
 	databaseRow,
+	chart: {
+		type: "chart",
+		attrs: {
+			id: "chart",
+			databaseId: "db",
+			labelColumn: "title",
+			valueColumns: [],
+		},
+	},
 };
 
 /** Blocks that are only ever reached through a top-level block that holds them. */

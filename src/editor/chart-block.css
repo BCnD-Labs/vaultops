@@ -1,0 +1,89 @@
+.chart-block {
+	--chart-1: var(--primary);
+	--chart-2: var(--accent);
+	--chart-3: var(--callout-info-accent);
+	--chart-4: var(--callout-tip-accent);
+	--chart-5: var(--callout-warning-accent);
+	--chart-6: var(--callout-danger-accent);
+	--chart-7: var(--success);
+	display: block;
+	margin: 1rem 0;
+	padding: 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	color: var(--foreground);
+}
+.chart-setup {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: end;
+	margin-bottom: 0.75rem;
+}
+.chart-setup .chart-picker,
+.chart-reconnect {
+	display: grid;
+	gap: 0.2rem;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.chart-setup select,
+.chart-reconnect [data-slot="select-trigger"],
+.chart-setup [data-slot="select-trigger"] {
+	max-width: 12rem;
+	min-width: 6rem;
+	padding: 0.25rem 0.4rem;
+	border: 1px solid var(--border);
+	border-radius: calc(var(--radius) * 0.6);
+	background: var(--background);
+	color: var(--foreground);
+	font: inherit;
+}
+.chart-setup select[multiple] {
+	min-height: 3.4rem;
+}
+.chart-svg {
+	display: block;
+	width: min(100%, 42rem);
+	height: auto;
+	overflow: visible;
+}
+.chart-pie {
+	width: min(100%, 17rem);
+	margin: auto;
+}
+.chart-mark,
+.chart-svg rect {
+	transform-box: fill-box;
+	transform-origin: center bottom;
+	animation: chart-grow var(--motion-normal) var(--ease-standard) both;
+}
+.chart-svg circle {
+	transform-origin: center;
+	transform-box: fill-box;
+}
+.chart-empty,
+.chart-missing {
+	padding: 0.8rem;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-ui);
+}
+.chart-missing {
+	border-left: 3px solid var(--accent);
+}
+@keyframes chart-grow {
+	from {
+		opacity: 0;
+		scale: 0.9;
+	}
+	to {
+		opacity: 1;
+		scale: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.chart-mark,
+	.chart-svg rect {
+		animation: none;
+	}
+}

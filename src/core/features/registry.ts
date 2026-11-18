@@ -110,6 +110,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "charts",
+		name: "Charts",
+		description: "Charts drawn from database blocks in a note.",
+		group: "Visual",
+		defaultOn: true,
+	},
+	{
 		id: "tab-properties",
 		name: "Properties tab",
 		description: "The Properties tab in the right sidebar.",

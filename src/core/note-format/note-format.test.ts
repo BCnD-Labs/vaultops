@@ -91,6 +91,27 @@ describe("round trip", () => {
 		expect(parsed.problems).toEqual([]);
 		expect(serializeNote(parsed.note as Note)).toBe(text);
 	});
+	it("keeps chart references byte-stable through load and save", () => {
+		const note: Note = {
+			header: header(),
+			blocks: [
+				block("db", null, { type: "database" }),
+				block("chart-1", null, {
+					type: "chart",
+					attrs: {
+						databaseId: "db",
+						labelColumn: "kind",
+						valueColumns: ["total"],
+						kind: "bar",
+						aggregation: "sum",
+					},
+				}),
+			],
+		};
+		const saved = serializeNote(note);
+		const loaded = parseNote(saved).note as Note;
+		expect(serializeNote(loaded)).toBe(saved);
+	});
 });
 
 describe("canonical order", () => {

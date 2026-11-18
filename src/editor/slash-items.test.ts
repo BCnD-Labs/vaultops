@@ -60,10 +60,21 @@ describe("slash menu items", () => {
 			"mermaid-timeline",
 			"mermaid-gantt",
 			"mermaid-pie",
+			"chart",
 		]);
 		expect(ids("Media")).toEqual(["image"]);
-		expect(SLASH_ITEMS).toHaveLength(42);
+		expect(SLASH_ITEMS).toHaveLength(43);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
+	});
+	it("shows charts in Visual only while the charts feature is on", () => {
+		const chart = SLASH_ITEMS.find((item) => item.id === "chart");
+		expect(chart).toMatchObject({ section: "Visual", feature: "charts" });
+		expect(
+			filterSlashItems("chart", {
+				columns: true,
+				enabled: (id) => id !== "charts",
+			}),
+		).not.toContain(chart);
 	});
 
 	it("remembers five distinct known ids, moving a repeated choice to the front", () => {
@@ -242,7 +253,7 @@ describe("slash menu items", () => {
 			["database", "database-blocks"],
 			...SLASH_ITEMS.filter((i) => i.section === "Visual").map((i) => [
 				i.id,
-				"mermaid",
+				i.feature,
 			]),
 			["image", "images"],
 		]);

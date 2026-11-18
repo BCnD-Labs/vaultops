@@ -14,6 +14,7 @@ import { BlockRole } from "./block-role";
 import { QuoteColor } from "./blockquote";
 import { BLOCK_TYPES } from "./blocks";
 import { Callout } from "./callout";
+import { ChartBlock } from "./chart-block";
 import { CodeBlock, CodeLanguage } from "./code-language";
 import { Column, Columns, Document, PageDocument } from "./columns";
 import { Database, DatabaseRow } from "./database/database";
@@ -112,6 +113,7 @@ export function createExtensions(): Extensions {
 		TableCell,
 		Database.configure({ pageExtensions: createPageExtensions }),
 		DatabaseRow,
+		ChartBlock,
 		SlashMenu,
 		Folding,
 		DropSlot,

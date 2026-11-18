@@ -1,4 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import type { Logger } from "./logger";
 import { buildReport } from "./report";
 
@@ -53,6 +55,7 @@ export function DebugPanel({
 	return (
 		<div className="debug-panel" role="dialog" aria-label="Debug panel">
 			<div className="debug-panel-bar">
+				<CloseButton className="absolute top-2 right-2" onClick={onClose} />
 				<strong>Debug</strong>
 				<label>
 					<input
@@ -62,12 +65,9 @@ export function DebugPanel({
 					/>{" "}
 					Errors only
 				</label>
-				<button type="button" onClick={copy}>
+				<Button type="button" variant="outline" size="sm" onClick={copy}>
 					Copy report
-				</button>
-				<button type="button" onClick={onClose}>
-					Close
-				</button>
+				</Button>
 				<span role="status">{copied}</span>
 			</div>
 			<div className="debug-panel-summary">

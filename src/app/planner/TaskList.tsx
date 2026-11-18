@@ -199,7 +199,8 @@ export function TaskList({
 				<Plus aria-hidden />
 				<Input
 					aria-label="Add a task"
-					placeholder="Add a task, e.g. “Call dentist fri”"
+					placeholder="Add a task"
+					title="For example: Call dentist fri"
 					value={draft}
 					disabled={!writable}
 					onChange={(e) => setDraft(e.target.value)}

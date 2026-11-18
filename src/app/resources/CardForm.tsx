@@ -91,7 +91,8 @@ export function CardForm({
 					<Button
 						type="button"
 						size="sm"
-						variant="outline"
+						variant="secondary"
+						className="h-auto min-h-[var(--control-height-sm)] whitespace-normal"
 						onClick={() => onChange({ ...form, showMore: true })}
 					>
 						Add more details ({plural(hidden, "more field")})
@@ -106,12 +107,11 @@ export function CardForm({
 			<div className="res-actions">
 				<Button
 					type="submit"
-					size="sm"
 					disabled={missing.length > 0 || badLinks.length > 0}
 				>
 					{form.path ? "Save changes" : "Save card"}
 				</Button>
-				<Button type="button" size="sm" variant="outline" onClick={onCancel}>
+				<Button type="button" variant="ghost" onClick={onCancel}>
 					Cancel
 				</Button>
 				<span className="res-hint">

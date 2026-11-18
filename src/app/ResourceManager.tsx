@@ -389,12 +389,12 @@ export function ResourceManager({
 				<div className="res-toolbar">
 					<Input
 						aria-label="Search resources"
-						placeholder="Search names, emails, authors, extra properties"
+						placeholder="Search resources"
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
 					/>
 					<Button
-						size="sm"
+						variant="outline"
 						disabled={!canWrite}
 						onClick={() => guard(() => setMode("pick"))}
 					>
@@ -457,15 +457,17 @@ export function ResourceManager({
 								{...typeList.itemProps("none")}
 							/>
 						)}
-						<button
+						<Button
 							type="button"
-							className="res-row res-add"
+							variant="ghost"
+							size="sm"
+							className="self-start"
 							disabled={!canWrite}
 							onClick={() => setTypeDialog(true)}
 							{...(canWrite ? typeList.itemProps("+add") : {})}
 						>
-							+ Add type
-						</button>
+							<Plus aria-hidden="true" /> Add type
+						</Button>
 					</nav>
 					<CardList
 						rows={rows}

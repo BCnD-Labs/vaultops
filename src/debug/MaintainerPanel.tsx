@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { bundleReport, reportFileName } from "../core/session/report-bundle";
 import type { AppFileName, Host } from "../host/host";
 import type { Logger } from "./logger";
@@ -48,9 +50,9 @@ function Saved({
 			{typeof text === "string" && (
 				<>
 					<pre className="maintainer-text">{text}</pre>
-					<button type="button" onClick={copy}>
+					<Button type="button" variant="outline" size="sm" onClick={copy}>
 						Copy
-					</button>
+					</Button>
 					<span role="status"> {status}</span>
 				</>
 			)}
@@ -126,12 +128,12 @@ function Reports({
 						: `Reports go to the folder "${folder}".`}
 			</p>
 			<div className="crash-report-actions">
-				<button type="button" onClick={choose}>
+				<Button type="button" variant="outline" onClick={choose}>
 					{folder ? "Change folder…" : "Choose folder…"}
-				</button>
-				<button type="button" onClick={send} disabled={!folder}>
+				</Button>
+				<Button type="button" onClick={send} disabled={!folder}>
 					Send report now
-				</button>
+				</Button>
 				<span role="status">{status}</span>
 			</div>
 			<p>
@@ -171,14 +173,12 @@ export function MaintainerPanel({
 	return (
 		<div className="crash-report" role="dialog" aria-label="Maintainer tools">
 			<div className="crash-report-box">
+				<CloseButton className="absolute top-2 right-2" onClick={onClose} />
 				<h2>Maintainer tools</h2>
 				<div className="crash-report-actions">
-					<button type="button" onClick={onOpenDebug}>
+					<Button type="button" onClick={onOpenDebug}>
 						Open debug panel
-					</button>
-					<button type="button" onClick={onClose}>
-						Close
-					</button>
+					</Button>
 				</div>
 				<Reports host={host} logger={logger} app={app} />
 				<Saved

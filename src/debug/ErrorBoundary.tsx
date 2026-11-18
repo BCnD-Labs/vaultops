@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import type { Logger } from "./logger";
 
 /** Shows a plain message instead of a blank window, and records what broke. */
@@ -36,9 +37,9 @@ export class ErrorBoundary extends Component<
 					Your notes on disk are untouched. The details were written to the
 					debug log. Reload the window to continue.
 				</p>
-				<button type="button" onClick={() => location.reload()}>
+				<Button type="button" onClick={() => location.reload()}>
 					Reload
-				</button>
+				</Button>
 			</main>
 		);
 	}

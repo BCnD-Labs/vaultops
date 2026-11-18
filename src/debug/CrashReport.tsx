@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
+import { Textarea } from "@/components/ui/textarea";
 import type { PreviousCrash } from "../app/session-marker";
 import { buildCrashReport } from "../core/session/crash";
 import { reportFileName } from "../core/session/report-bundle";
@@ -18,6 +21,7 @@ export function CrashReport({
 	host: Pick<Host, "writeAppFile" | "reportsFolder" | "writeReport">;
 	onClose: () => void;
 }) {
+	const notesId = useId();
 	const [notes, setNotes] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const text = () => buildCrashReport({ ...crash, notes, now: new Date() });
@@ -52,14 +56,16 @@ export function CrashReport({
 	return (
 		<div className="crash-report" role="dialog" aria-label="Crash report">
 			<div className="crash-report-box">
+				<CloseButton className="absolute top-2 right-2" onClick={onClose} />
 				<h2>VaultOps closed unexpectedly last time</h2>
 				<p>
 					Your notes were saved as usual; this only shows what the app was
 					doing. Nothing is sent anywhere.
 				</p>
-				<label>
+				<label htmlFor={notesId}>
 					What were you doing?
-					<textarea
+					<Textarea
+						id={notesId}
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
 						rows={4}
@@ -71,15 +77,12 @@ export function CrashReport({
 					{crash.logTail.trim() === "" ? "(the log was empty)" : crash.logTail}
 				</pre>
 				<div className="crash-report-actions">
-					<button type="button" onClick={copy}>
+					<Button type="button" variant="outline" onClick={copy}>
 						Copy report
-					</button>
-					<button type="button" onClick={save}>
+					</Button>
+					<Button type="button" onClick={save}>
 						Save report
-					</button>
-					<button type="button" onClick={onClose}>
-						Dismiss
-					</button>
+					</Button>
 					<span role="status">{status}</span>
 				</div>
 			</div>

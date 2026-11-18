@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ResourceType } from "../../core/resources/resources";
 import { plural } from "./resource-utils";
@@ -50,7 +51,7 @@ export function TypePicker({
 					className={`${TILE} items-center font-semibold`}
 					onClick={onAddType}
 				>
-					+ Add type
+					<Plus aria-hidden="true" /> Add type
 				</Button>
 			</div>
 			<div>

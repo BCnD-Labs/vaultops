@@ -51,7 +51,7 @@ function DialogContent({
 			<DialogPrimitive.Content
 				data-slot="dialog-content"
 				className={cn(
-					"fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border-[length:var(--border-width)] border-border bg-background p-5 text-foreground shadow-lg outline-none",
+					"fixed top-1/2 left-1/2 z-50 box-border grid max-h-[calc(100%-var(--space-8))] w-[calc(100%-var(--space-8))] max-w-md grid-cols-[minmax(0,1fr)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border-[length:var(--border-width)] border-solid border-border bg-background p-5 text-foreground shadow-lg outline-none wrap-anywhere",
 					className,
 				)}
 				{...props}
@@ -59,7 +59,7 @@ function DialogContent({
 				{children}
 				{showClose && (
 					<DialogPrimitive.Close asChild>
-						<CloseButton className="absolute top-3 right-3" />
+						<CloseButton className="dialog-close absolute top-3 right-3" />
 					</DialogPrimitive.Close>
 				)}
 			</DialogPrimitive.Content>
@@ -81,7 +81,7 @@ function DialogFooter({ className, ...props }: ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="dialog-footer"
-			className={cn("flex justify-end gap-2", className)}
+			className={cn("flex flex-wrap items-center justify-end gap-2", className)}
 			{...props}
 		/>
 	);
@@ -94,7 +94,7 @@ function DialogTitle({
 	return (
 		<DialogPrimitive.Title
 			data-slot="dialog-title"
-			className={cn("text-base font-semibold", className)}
+			className={cn("m-0 text-base font-semibold", className)}
 			{...props}
 		/>
 	);
@@ -107,7 +107,7 @@ function DialogDescription({
 	return (
 		<DialogPrimitive.Description
 			data-slot="dialog-description"
-			className={cn("text-sm text-muted-foreground", className)}
+			className={cn("m-0 text-sm text-muted-foreground", className)}
 			{...props}
 		/>
 	);

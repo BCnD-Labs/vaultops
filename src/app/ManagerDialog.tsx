@@ -17,7 +17,7 @@ export const messageOf = (error: unknown): string =>
 
 /**
  * The modal shell the managers share: a window like Settings, with a light
- * overlay, a quiet centred title bar (the close button on its left; the
+ * overlay, a quiet centred title bar (the close button on its right; the
  * `.settings-*` title bar classes are reused so the two stay alike) and a
  * screen-reader-only description. Closing (Escape, the overlay, the X) goes
  * through `onRequestClose`, so a manager can ask before dropping edits.

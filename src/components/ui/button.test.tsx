@@ -121,7 +121,7 @@ describe("CloseButton", () => {
 		expect(button.className).toContain("size-[var(--control-height)]");
 	});
 
-	it("is what a dialog uses for its X", () => {
+	it("puts the dialog close button in the top-right of the bounded panel", () => {
 		render(
 			<Dialog open>
 				<DialogContent>
@@ -132,5 +132,13 @@ describe("CloseButton", () => {
 		const close = screen.getByRole("button", { name: "Close" });
 		expect(close.getAttribute("data-slot")).toBe("button");
 		expect(close.getAttribute("data-variant")).toBe("ghost");
+		const classes = close.className.split(" ");
+		expect(classes).toEqual(
+			expect.arrayContaining(["absolute", "top-3", "right-3"]),
+		);
+		expect(classes).not.toContain("relative");
+		const dialog = screen.getByRole("dialog");
+		expect(dialog.className).toContain("box-border");
+		expect(dialog.className).toContain("w-[calc(100%-var(--space-8))]");
 	});
 });

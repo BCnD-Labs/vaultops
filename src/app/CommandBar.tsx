@@ -8,16 +8,13 @@ import {
 	CommandList,
 	CommandShortcut,
 } from "@/components/ui/command";
-import {
-	createRowTitle,
-	matchNoteText,
-	matchNoteTitles,
-} from "../core/notes/quick-switch";
+import { createRowTitle, matchNoteTitles } from "../core/notes/quick-switch";
 import {
 	type ResourceCard,
 	type ResourceType,
 	searchCards,
 } from "../core/resources/resources";
+import { createSearchIndex } from "../core/search";
 import { type KeyEventLike, matchesBinding } from "../core/settings/shortcuts";
 import { type CommandContext, filterCommands, groupCommands } from "./commands";
 import type { NoteRow } from "./session";
@@ -45,6 +42,21 @@ export { isMacPlatform };
 
 const folderOf = (path: string) =>
 	path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "Vault root";
+
+function highlightedSnippet(snippet: string, ranges: [number, number][]) {
+	const parts: React.ReactNode[] = [];
+	let cursor = 0;
+	for (const [start, end] of [...ranges].sort((a, b) => a[0] - b[0])) {
+		if (start < cursor || end <= start) continue;
+		parts.push(
+			snippet.slice(cursor, start),
+			<mark key={start}>{snippet.slice(start, end)}</mark>,
+		);
+		cursor = end;
+	}
+	parts.push(snippet.slice(cursor));
+	return <>{parts}</>;
+}
 
 export function CommandBar({
 	notes,
@@ -86,6 +98,27 @@ export function CommandBar({
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const returnFocus = useRef<HTMLElement | null>(null);
+	const searchIndex = useRef(createSearchIndex());
+	const indexedRows = useRef(new Map<string, NoteRow>());
+	const nextPaths = new Set(notes.map((row) => row.path));
+	for (const path of indexedRows.current.keys())
+		if (!nextPaths.has(path)) {
+			searchIndex.current.remove(path);
+			indexedRows.current.delete(path);
+		}
+	for (const row of notes) {
+		if (indexedRows.current.get(row.path) === row) continue;
+		searchIndex.current.add({
+			path: row.path,
+			title: row.title,
+			text: row.text,
+			tags: row.tags,
+			headings: row.headings,
+			properties: row.properties,
+			updatedAt: row.updatedAt,
+		});
+		indexedRows.current.set(row.path, row);
+	}
 	const lastRequest = useRef(openRequest);
 	const mac = isMacPlatform();
 	const show = () => {
@@ -128,11 +161,10 @@ export function CommandBar({
 		seenTitles.add(key);
 	}
 	// Words inside notes, after the titles: what was typed may be in the text.
-	const textMatches = matchNoteText(
-		notes,
-		query,
-		new Set(matches.map((row) => row.path)),
-	);
+	const inNotes = searchIndex.current
+		.search(query)
+		.filter((hit) => hit.field !== "title")
+		.slice(0, 8);
 	// Cards show only once something is typed, so the empty bar stays short.
 	const cardMatches =
 		query.trim() === ""
@@ -223,18 +255,20 @@ export function CommandBar({
 						writable &&
 						(matches.length > 0 || cardMatches.length > 0) &&
 						createItem}
-					{textMatches.length > 0 && (
-						<CommandGroup heading="In note text">
-							{textMatches.map(({ row, snippet }) => (
+					{inNotes.length > 0 && (
+						<CommandGroup heading="In notes">
+							{inNotes.map((hit) => (
 								<CommandItem
-									key={row.path}
-									value={`text:${row.path}`}
-									onSelect={() => closeAnd(() => onOpenNote(row.path))}
+									key={hit.path}
+									value={`text:${hit.path}`}
+									onSelect={() => closeAnd(() => onOpenNote(hit.path))}
 								>
 									<FileText aria-hidden="true" />
 									<span className="command-hit">
-										<span>{row.title}</span>
-										<span className="command-snippet">{snippet}</span>
+										<span>{hit.title}</span>
+										<span className="command-snippet">
+											{highlightedSnippet(hit.snippet, hit.ranges)}
+										</span>
 									</span>
 								</CommandItem>
 							))}

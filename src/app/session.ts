@@ -17,6 +17,9 @@ export interface NoteRow {
 	preview: string;
 	/** The note's body text on one line (capped), so searches can look inside. */
 	text?: string;
+	headings?: string[];
+	properties?: string[];
+	updatedAt?: number;
 	/** The `noteId`s this note links to, once each. */
 	links?: string[];
 	/** The `noteId`s of the notes its database rows were turned into, once each. */
@@ -108,6 +111,24 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			kind: n.kind,
 			preview: n.preview,
 			text: searchTextOf(n.note.blocks),
+			headings: n.note.blocks
+				.filter((block) => block.type === "heading")
+				.map((block) => searchTextOf([block]))
+				.filter(Boolean),
+			properties: Object.values(headerProps(n.note.header) ?? {}).flatMap(
+				(value) => {
+					if (!value || typeof value !== "object" || Array.isArray(value))
+						return [];
+					const raw = value.value;
+					return typeof raw === "string" ||
+						typeof raw === "number" ||
+						typeof raw === "boolean"
+						? [String(raw)]
+						: Array.isArray(raw)
+							? raw.filter((item): item is string => typeof item === "string")
+							: [];
+				},
+			),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
 			rowNotes: rowNoteIds(n.note.blocks),
 			tags: tagsOf(headerProps(n.note.header)),

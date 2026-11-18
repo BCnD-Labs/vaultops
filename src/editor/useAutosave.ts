@@ -19,6 +19,9 @@ export interface SavedInfo {
 	preview: string;
 	/** The body text (capped) and the `noteId`s linked, kept so search and "Linked from" stay current. */
 	text?: string;
+	headings?: string[];
+	properties?: string[];
+	updatedAt: number;
 	links?: string[];
 	titleChanged: boolean;
 	/** The note's tags as saved. */
@@ -112,6 +115,25 @@ export function useAutosave(
 					title: draft.title,
 					preview: previewOf(result.note.blocks),
 					text: searchTextOf(result.note.blocks),
+					headings: result.note.blocks
+						.filter((block) => block.type === "heading")
+						.map((block) => searchTextOf([block]))
+						.filter(Boolean),
+					properties: Object.values(
+						headerProps(result.note.header) ?? {},
+					).flatMap((value) => {
+						if (!value || typeof value !== "object" || Array.isArray(value))
+							return [];
+						const raw = value.value;
+						return typeof raw === "string" ||
+							typeof raw === "number" ||
+							typeof raw === "boolean"
+							? [String(raw)]
+							: Array.isArray(raw)
+								? raw.filter((item): item is string => typeof item === "string")
+								: [];
+					}),
+					updatedAt: Date.now(),
 					links: [
 						...new Set(linksIn(result.note.blocks).map((link) => link.target)),
 					],

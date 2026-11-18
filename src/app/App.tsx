@@ -288,6 +288,13 @@ export function App({ host }: { host: Host }) {
 										...(info.text === undefined
 											? {}
 											: { text: info.text, links: info.links ?? [] }),
+										...(info.headings === undefined
+											? {}
+											: { headings: info.headings }),
+										...(info.properties === undefined
+											? {}
+											: { properties: info.properties }),
+										updatedAt: info.updatedAt,
 									}
 								: n,
 						)

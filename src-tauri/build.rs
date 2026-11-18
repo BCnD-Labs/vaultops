@@ -6,6 +6,8 @@ const COMMANDS: &[&str] = &[
     "choose_vault",
     "current_vault",
     "read_text",
+    "read_cover",
+    "choose_cover",
     "write_text_atomic",
     "list",
     "make_folder",

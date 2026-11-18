@@ -13,6 +13,7 @@ import {
 	toggleLine,
 } from "./code-highlight";
 import { mermaidNodeView } from "./mermaid-block";
+import { tabNodeView } from "./tab-block";
 
 /** The languages the picker offers: [stored name, label]. "" means plain text. */
 export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
@@ -31,6 +32,7 @@ export const CODE_LANGUAGES: ReadonlyArray<readonly [string, string]> = [
 	["python", "Python"],
 	["rust", "Rust"],
 	["sql", "SQL"],
+	["tab", "Guitar tab"],
 	["typescript", "TypeScript"],
 	["yaml", "YAML"],
 ];
@@ -85,10 +87,13 @@ export const CodeBlock = CodeBlockLowlight.extend({
 			},
 		};
 	},
-	// A `mermaid` block draws its diagram; every other block keeps the default
-	// view (ProseMirror falls back to it when the view is null).
+	// A `mermaid` block draws its diagram and a `tab` block its guitar tab;
+	// every other block keeps the default view (ProseMirror falls back to it
+	// when the view is null).
 	addNodeView() {
-		return mermaidNodeView as unknown as NodeViewRenderer;
+		return ((props: Parameters<typeof mermaidNodeView>[0]) =>
+			mermaidNodeView(props) ??
+			tabNodeView(props)) as unknown as NodeViewRenderer;
 	},
 }).configure({
 	lowlight: highlighter,

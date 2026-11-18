@@ -10,6 +10,7 @@ import {
 	Columns2,
 	Columns3,
 	Database,
+	Guitar,
 	Heading1,
 	Heading2,
 	Heading3,
@@ -70,6 +71,45 @@ export interface SlashItem {
 
 const start = (editor: Editor, range: Range) =>
 	editor.chain().focus().deleteRange(range);
+
+/** Replaces the typed slash command with a code block of this language and text. */
+function insertCode(
+	editor: Editor,
+	range: Range,
+	language: string,
+	text: string,
+) {
+	editor
+		.chain()
+		.focus()
+		.command(({ tr, state }) => {
+			const block = state.schema.node(
+				"codeBlock",
+				{ language },
+				state.schema.text(text),
+			);
+			tr.replaceRangeWith(range.from, range.to, block);
+			// A slash inside a paragraph splits it around the new block.
+			// The inserted block ends before any following paragraph opens.
+			const end = tr.mapping.map(range.to);
+			const $end = tr.doc.resolve(end);
+			const afterBlock = $end.parent.isTextblock ? $end.before() : end;
+			tr.setSelection(TextSelection.create(tr.doc, afterBlock - 1));
+			return true;
+		})
+		.run();
+}
+
+/** A short riff for a new guitar tab block: chord names, a hammer-on, vibrato and a slide. */
+const TAB_STARTER = [
+	"  Am              C               G",
+	"e|-------0-------|-------0-------|---------------|",
+	"B|-----1---1-----|-----1---1-----|-----0h1-0-----|",
+	"G|---2-------2---|---0-------0---|---0-------0~~~|",
+	"D|-2-------------|-2-------------|---------------|",
+	"A|-0-------------|-3-------------|---------------|",
+	"E|---------------|---------------|-3---------3/5-|",
+].join("\n");
 
 /** Asked of the note's own editor, which opens the template picker beside the caret. */
 export const TEMPLATE_EVENT = "vaultops:template";
@@ -212,26 +252,7 @@ const ITEMS: SlashItem[] = [
 			section: "Visual",
 			feature: "mermaid",
 			keywords: ["mermaid", "diagram", id],
-			run: (editor, range) =>
-				editor
-					.chain()
-					.focus()
-					.command(({ tr, state }) => {
-						const block = state.schema.node(
-							"codeBlock",
-							{ language: "mermaid" },
-							state.schema.text(text),
-						);
-						tr.replaceRangeWith(range.from, range.to, block);
-						// A slash inside a paragraph splits it around the new block.
-						// The inserted block ends before any following paragraph opens.
-						const end = tr.mapping.map(range.to);
-						const $end = tr.doc.resolve(end);
-						const afterBlock = $end.parent.isTextblock ? $end.before() : end;
-						tr.setSelection(TextSelection.create(tr.doc, afterBlock - 1));
-						return true;
-					})
-					.run(),
+			run: (editor, range) => insertCode(editor, range, "mermaid", text),
 		}),
 	),
 	{
@@ -448,6 +469,15 @@ const ITEMS: SlashItem[] = [
 		label: "Table of contents",
 		keywords: ["toc", "contents", "outline"],
 		run: (e, r) => void insertTableOfContents(e, r),
+	},
+	{
+		id: "guitar-tab",
+		section: "Media",
+		icon: Guitar,
+		label: "Guitar tab",
+		keywords: ["tab", "guitar", "bass", "music", "riff"],
+		feature: "music",
+		run: (e, r) => insertCode(e, r, "tab", TAB_STARTER),
 	},
 ];
 

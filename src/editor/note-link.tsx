@@ -31,6 +31,7 @@ import { createPopup, type PopupItem } from "./slash-menu";
  * and links show the name they were saved with.
  */
 export interface LinkSource {
+	completionRows?: readonly import("../core/complete").CompletionNote[];
 	/** What the picker offers for what was typed; `resource` is the `@` shortcut. */
 	search: (query: string, scope: "all" | "resource") => LinkTarget[];
 	/** The target's name now, or null when it can't be found any more. */

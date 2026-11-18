@@ -38,6 +38,13 @@ export const FEATURE_GROUPS = [
 
 export const FEATURES: readonly Feature[] = [
 	{
+		id: "word-complete",
+		group: "Writing",
+		name: "Word completion",
+		description: "Suggests words you've used before as you type.",
+		defaultOn: true,
+	},
+	{
 		id: "math",
 		name: "Math",
 		description: "Math blocks in notes, from the slash menu.",

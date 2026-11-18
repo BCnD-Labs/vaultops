@@ -1242,13 +1242,16 @@ export function App({ host }: { host: Host }) {
 	}, [view]);
 	const links = useMemo(
 		() =>
-			buildLinkSource(
-				linkTargets(view?.notes ?? [], resources.cards, resources.types),
-				(link) => openLink.current(link),
-				{
-					create: (request) => makeRowNote.current(request),
-					rename: (target, title) => renameRowNote.current(target, title),
-				},
+			Object.assign(
+				buildLinkSource(
+					linkTargets(view?.notes ?? [], resources.cards, resources.types),
+					(link) => openLink.current(link),
+					{
+						create: (request) => makeRowNote.current(request),
+						rename: (target, title) => renameRowNote.current(target, title),
+					},
+				),
+				{ completionRows: view?.notes ?? [] },
 			),
 		[view?.notes, resources],
 	);

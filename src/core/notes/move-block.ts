@@ -66,14 +66,19 @@ export async function copyBlock(
 	placement: Placement,
 	generateId: () => string = newBlockId,
 ): Promise<void> {
-	await moveBlock(
-		host,
-		source,
-		destination,
-		blockId,
-		placement,
-		new Date(),
-		generateId,
+	const [first, second] = [source, destination].sort();
+	await inOrder(host, first ?? source, () =>
+		inOrder(host, second ?? destination, () =>
+			moveNow(
+				host,
+				source,
+				destination,
+				blockId,
+				placement,
+				new Date(),
+				generateId,
+			),
+		),
 	);
 }
 
@@ -91,16 +96,33 @@ export function moveBlock(
 	blockId: string,
 	placement: Placement,
 	now: Date = new Date(),
-	copyId?: () => string,
 ): Promise<MoveReceipt> {
 	const [first, second] = [source, destination].sort();
 	return inOrder(host, first ?? source, () =>
 		inOrder(host, second ?? destination, () =>
-			moveNow(host, source, destination, blockId, placement, now, copyId),
+			moveNow(host, source, destination, blockId, placement, now),
 		),
 	);
 }
 
+/** With `copyId`, a copy: the destination is written and the source is left alone (no receipt). */
+async function moveNow(
+	host: Host,
+	source: string,
+	destination: string,
+	blockId: string,
+	placement: Placement,
+	now: Date,
+	copyId: () => string,
+): Promise<null>;
+async function moveNow(
+	host: Host,
+	source: string,
+	destination: string,
+	blockId: string,
+	placement: Placement,
+	now: Date,
+): Promise<MoveReceipt>;
 async function moveNow(
 	host: Host,
 	source: string,
@@ -109,7 +131,7 @@ async function moveNow(
 	placement: Placement,
 	now: Date,
 	copyId?: () => string,
-): Promise<MoveReceipt> {
+): Promise<MoveReceipt | null> {
 	if (nameKey(source) === nameKey(destination))
 		throw new Error("Choose a different destination note.");
 	for (const path of [source, destination]) {
@@ -172,7 +194,7 @@ async function moveNow(
 		).recoveryPath;
 	}
 	await host.writeTextAtomic(destination, destinationSave.text);
-	if (copyId) return null as never;
+	if (copyId) return null;
 	try {
 		if ((await host.readText(source)) !== sourceText)
 			throw new Error("The source changed after the destination was saved.");

@@ -15,7 +15,7 @@ import {
 interface FileNode {
 	kind: "file";
 	name: string;
-	text: string;
+	text: string | Uint8Array<ArrayBuffer>;
 }
 interface FolderNode {
 	kind: "folder";
@@ -52,12 +52,61 @@ export class MemoryHost implements Host {
 		return "Memory vault";
 	}
 
-	async readText(path: string): Promise<string> {
-		const node = this.find(this.parts(path));
+	private fileAt(parts: string[]): FileNode {
+		const node = this.find(parts);
 		if (!node) throw new HostError("not-found", "file not found");
 		if (node.kind === "folder")
 			throw new HostError("is-a-folder", "path is a folder");
-		return node.text;
+		return node;
+	}
+
+	async readText(path: string): Promise<string> {
+		const { text } = this.fileAt(this.parts(path));
+		return typeof text === "string" ? text : new TextDecoder().decode(text);
+	}
+
+	nextCover: { name: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
+
+	async chooseCover(): Promise<string | null> {
+		const picked = this.nextCover;
+		this.nextCover = null;
+		if (!picked) return null;
+		const parts = this.parts(picked.name);
+		const match = /^(.*)\.(png|jpe?g|gif|webp)$/i.exec(picked.name);
+		if (parts.length !== 1 || !match)
+			throw new HostError("invalid-path", "expected an image filename");
+		await this.makeFolder("attachments");
+		const { children } = this.folderAt(["attachments"]);
+		const stem =
+			new TextEncoder().encode(match[1]).length > 230 ? "cover" : match[1];
+		let name = picked.name;
+		for (let n = 2; children.has(nameKey(name)); n++) {
+			name = `${stem}-${n}.${match[2]}`;
+		}
+		children.set(nameKey(name), {
+			kind: "file",
+			name,
+			text: new Uint8Array(picked.bytes),
+		});
+		return `attachments/${name}`;
+	}
+
+	async readCover(path: string): Promise<ArrayBuffer> {
+		const parts = this.parts(path);
+		if (
+			!path.startsWith("attachments/") ||
+			!/\.(png|jpe?g|gif|webp)$/i.test(path)
+		)
+			throw new HostError(
+				"invalid-path",
+				"expected an image under attachments",
+			);
+		const { text } = this.fileAt(parts);
+		const bytes =
+			typeof text === "string"
+				? new TextEncoder().encode(text)
+				: new Uint8Array(text);
+		return bytes.buffer;
 	}
 
 	async writeTextAtomic(path: string, text: string): Promise<void> {

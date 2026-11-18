@@ -70,6 +70,8 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		chooseVault: timed("chooseVault", () => host.chooseVault()),
 		currentVault: timed("currentVault", () => host.currentVault()),
 		readText: timed("readText", (p: string) => host.readText(p)),
+		readCover: timed("readCover", (path: string) => host.readCover(path)),
+		chooseCover: timed("chooseCover", () => host.chooseCover()),
 		writeTextAtomic: timed("writeTextAtomic", (p: string, t: string) =>
 			host.writeTextAtomic(p, t),
 		),

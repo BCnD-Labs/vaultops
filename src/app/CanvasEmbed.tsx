@@ -1,16 +1,32 @@
+import type { JSONContent } from "@tiptap/core";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { type Block, parseNote } from "../core/note-format";
+import { useInViewport } from "@/components/ui/use-in-viewport";
+import type { Block } from "../core/note-format";
 import type { EmbedTarget } from "../core/notes/canvas-embed";
-import type { Host } from "../host/host";
+import { docToBlocks } from "../editor/doc-blocks";
 import { NoteBlocks } from "./CanvasCard";
+import type { LiveDocument, LiveDocuments } from "./live-documents";
 import type { NoteRow } from "./session";
 
-type Shown =
-	| { state: "loading" }
-	| { state: "ready"; blocks: Block[] }
-	| { state: "unreadable" };
+const updates = new Set<() => void>();
+let scheduled = false;
+const projected = new WeakMap<JSONContent, Block[]>();
+
+function snapshot(document: LiveDocument | null) {
+	if (!document?.draft || document.kind !== "note") return null;
+	const edit = document.editorDraft;
+	if (!edit) return { blocks: document.draft.blocks };
+	if (document.saveStatus.kind === "saved")
+		return { blocks: (document.base ?? document.draft).blocks };
+	let blocks = projected.get(edit.doc);
+	if (!blocks) {
+		blocks = docToBlocks(edit.doc);
+		projected.set(edit.doc, blocks);
+	}
+	return { blocks, title: edit.title.trim() || "Untitled" };
+}
 
 const WHY: { [status: string]: string } = {
 	missing:
@@ -23,52 +39,69 @@ const WHY: { [status: string]: string } = {
 
 /**
  * A note shown read-only on a canvas, found by its id so a rename does not
- * break it. It only ever reads the note: nothing here writes to it. The text is
- * read again when the note's title or preview changes in the list.
+ * break it. Only visible embeds listen to the workspace's shared note entry.
  */
 export function CanvasEmbed({
-	host,
+	documents,
 	target,
 	locked = false,
 	onOpen,
 }: {
-	host: Host;
+	documents: LiveDocuments | null;
 	target: EmbedTarget<NoteRow>;
 	locked?: boolean;
 	onOpen?: (path: string) => void;
 }) {
 	const row = target.status === "found" ? target.row : null;
-	const path = row?.path ?? null;
-	const stamp = row ? `${row.title}\n${row.preview}` : "";
-	const [shown, setShown] = useState<Shown>({ state: "loading" });
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `stamp` is how a changed note is noticed.
+	const { ref, visible } = useInViewport();
+	const noteId = row?.id;
+	const path = row?.path;
+	const readOnly = row?.readOnly;
+	const [shown, setShown] = useState<ReturnType<typeof snapshot>>();
 	useEffect(() => {
-		if (path === null) return;
+		setShown(readOnly ? null : undefined);
+		if (!visible || !noteId || !path || !documents || readOnly) return;
 		let active = true;
-		host
-			.readText(path)
-			.then((text) => {
-				if (!active) return;
-				const parsed = parseNote(text);
-				setShown(
-					parsed.note && parsed.note.header.kind !== "canvas"
-						? { state: "ready", blocks: parsed.note.blocks }
-						: { state: "unreadable" },
-				);
-			})
-			.catch(() => {
-				if (active) setShown({ state: "unreadable" });
+		const show = () => {
+			const next = snapshot(subscription.current());
+			setShown((previous) =>
+				previous &&
+				next &&
+				previous.blocks === next.blocks &&
+				previous.title === next.title
+					? previous
+					: next,
+			);
+		};
+		const queue = () => {
+			if (!active) return;
+			updates.add(show);
+			if (scheduled) return;
+			scheduled = true;
+			requestAnimationFrame(() => {
+				scheduled = false;
+				const batch = [...updates];
+				updates.clear();
+				for (const update of batch) update();
 			});
+		};
+		const subscription = documents.subscribePassive(noteId, queue);
+		void subscription.ready.then(queue, queue);
 		return () => {
 			active = false;
+			updates.delete(show);
+			subscription.unsubscribe();
 		};
-	}, [host, path, stamp]);
-	const title = row?.title ?? "Embedded note";
+	}, [documents, noteId, path, readOnly, visible]);
+	const current = visible ? shown : undefined;
+	const title = current?.title ?? row?.title ?? "Embedded note";
+	const state = current ? "ready" : current === null ? "unreadable" : "loading";
 	return (
 		<article
+			ref={ref}
 			aria-label="Embedded note"
 			className={`canvas-item canvas-embed${locked ? " canvas-item-pinned" : ""}`}
-			data-state={row ? shown.state : target.status}
+			data-state={row ? state : target.status}
 			title={
 				locked
 					? "Shapes, sticky notes, labels, groups, embedded notes and connectors stay on the canvas."
@@ -93,9 +126,9 @@ export function CanvasEmbed({
 			<div className="canvas-embed-body nowheel">
 				{!row ? (
 					<p className="canvas-embed-note">{WHY[target.status]}</p>
-				) : shown.state === "ready" ? (
-					<NoteBlocks blocks={shown.blocks} />
-				) : shown.state === "unreadable" ? (
+				) : current ? (
+					<NoteBlocks blocks={current.blocks} />
+				) : current === null ? (
 					<p className="canvas-embed-note">This note could not be read.</p>
 				) : null}
 			</div>

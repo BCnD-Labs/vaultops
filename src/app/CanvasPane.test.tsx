@@ -17,6 +17,7 @@ import { createCanvas } from "../core/notes/repository";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { MemoryHost } from "../host/memory-host";
 import { CanvasPane } from "./CanvasPane";
+import { createLiveDocuments } from "./live-documents";
 
 /** The id of the canvas under test, for a card dropped back where it came from. */
 let ownCanvasId = "";
@@ -131,6 +132,7 @@ vi.mock("@/components/ui/canvas", async (importOriginal) => {
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 	localStorage.clear();
 	mockSelection = [];
 	mockBoxes = {};
@@ -1045,6 +1047,7 @@ it("changes a shape's outline and the text size in one checked write each, and u
 });
 
 async function boardWithMeetingNote() {
+	vi.stubGlobal("IntersectionObserver", undefined);
 	const host = new MemoryHost();
 	const made = await createCanvas(host, "", "Board");
 	await host.writeTextAtomic(
@@ -1078,6 +1081,10 @@ async function boardWithMeetingNote() {
 	});
 	const props = {
 		host,
+		documents: createLiveDocuments(host, {
+			notes: [meetingRow()],
+			writable: true,
+		}),
 		path: made.path,
 		canvases: [
 			{
@@ -1176,13 +1183,9 @@ it("still shows an embedded note after it is renamed, because the embed holds it
 	);
 	const onOpenNote = vi.fn();
 	const user = userEvent.setup();
-	render(
-		<CanvasPane
-			{...props}
-			onOpenNote={onOpenNote}
-			notes={[meetingRow({ path: "Renamed.vnote", title: "Renamed" })]}
-		/>,
-	);
+	const notes = [meetingRow({ path: "Renamed.vnote", title: "Renamed" })];
+	props.documents.setNotes(notes);
+	render(<CanvasPane {...props} onOpenNote={onOpenNote} notes={notes} />);
 	expect(await screen.findByText("Ship the canvas")).toBeTruthy();
 	await user.click(screen.getByRole("button", { name: "Open Renamed" }));
 	expect(onOpenNote).toHaveBeenCalledWith("Renamed.vnote");

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { parseNote } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
+import type { DocumentRow } from "../core/notes/document-identity";
 import { movedPath } from "../core/notes/folders";
 import {
 	copyBlock,
@@ -66,6 +67,7 @@ export interface WorkspaceHostOptions {
 	host: Host;
 	writable: boolean;
 	vaultGeneration?: number;
+	notes?: readonly DocumentRow[];
 	/** Whether a path is a canvas; the app answers it from the vault's notes. */
 	isCanvas: (path: string) => boolean;
 	/** After any save, for the note list and history (tab paths are handled here). */
@@ -108,6 +110,7 @@ export function useWorkspaceHost({
 	host: nativeHost,
 	writable,
 	vaultGeneration,
+	notes,
 	isCanvas,
 	onSaved,
 	onUnsaved,
@@ -129,6 +132,8 @@ export function useWorkspaceHost({
 	}, []);
 	const latest = useRef({ isCanvas, onSaved, onError, onUnsaved, writable });
 	latest.current = { isCanvas, onSaved, onError, onUnsaved, writable };
+	const notesRef = useRef(notes);
+	notesRef.current = notes;
 	const canvas = useCallback(
 		(path: string) => latest.current.isCanvas(path),
 		[],
@@ -144,9 +149,11 @@ export function useWorkspaceHost({
 		[change],
 	);
 	const documents = useRef<LiveDocuments | null>(null);
+	const [registry, setRegistry] = useState<LiveDocuments | null>(null);
 	useLayoutEffect(() => {
 		documents.current?.setWritable(writable);
-	}, [writable]);
+		if (notes) documents.current?.setNotes(notes);
+	}, [writable, notes]);
 	const sessionOptions = {
 		host,
 		writable,
@@ -170,13 +177,14 @@ export function useWorkspaceHost({
 	useEffect(() => {
 		const registry = createLiveDocuments(
 			nativeHost,
-			{ notes: [], writable: latest.current.writable },
+			{ notes: notesRef.current ?? [], writable: latest.current.writable },
 			{
-				open: (path) => openNote(nativeHost, path),
+				open: (path, text) => openNote(nativeHost, path, text),
 				onSaved: handleSaved,
 			},
 		);
 		documents.current = registry;
+		setRegistry(registry);
 		for (const id of SLOTS) {
 			loading.current[id] = null;
 			sessions.current[id].clear();
@@ -269,6 +277,7 @@ export function useWorkspaceHost({
 			try {
 				if ((await pick()) === null) return false;
 				documents.current = null;
+				setRegistry(null);
 				registry.dispose();
 				return true;
 			} finally {
@@ -588,6 +597,7 @@ export function useWorkspaceHost({
 
 	return {
 		workspace,
+		documents: registry,
 		panes,
 		focused: workspace.focused,
 		/** The focused pane's note session, for the Details panel, breadcrumb and status bar. */

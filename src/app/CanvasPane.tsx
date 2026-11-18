@@ -49,7 +49,7 @@ import {
 	embedBlock,
 	embeddable,
 	embedNoteId,
-	resolveEmbed,
+	indexEmbedTargets,
 } from "../core/notes/canvas-embed";
 import {
 	addConnector,
@@ -90,12 +90,14 @@ import {
 	saveCanvasLocked,
 	saveCanvasSnapModes,
 } from "./canvas-layout";
+import type { LiveDocuments } from "./live-documents";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NotePickerDialog } from "./NotePickerDialog";
 import { compareRows, type NoteRow } from "./session";
 
 const lockLabel = "Lock canvas: drag cards out to the note";
 const HISTORY_LIMIT = 50;
+const NO_NOTES: NoteRow[] = [];
 
 /** Block types this build can draw and keep safe on a canvas. */
 const KNOWN_TYPES: ReadonlySet<string> = new Set([
@@ -112,6 +114,7 @@ const ITEM_SIZE: { [type: string]: { w: number; h: number } } = {
 
 export function CanvasPane({
 	host,
+	documents = null,
 	path,
 	canvases,
 	writable,
@@ -123,10 +126,11 @@ export function CanvasPane({
 	onDropBlock,
 	onMoveToNote,
 	onMoveTo,
-	notes = [],
+	notes = NO_NOTES,
 	onOpenNote,
 }: {
 	host: Host;
+	documents?: LiveDocuments | null;
 	path: string;
 	canvases: NoteRow[];
 	writable: boolean;
@@ -465,6 +469,7 @@ export function CanvasPane({
 			saveCanvasSnapModes(next);
 			return next;
 		});
+	const embedTarget = useMemo(() => indexEmbedTargets(notes), [notes]);
 	const nodes: CanvasNode[] = roots.map((block) => {
 		const id = block.id as string;
 		const canvasOnly = (CANVAS_ONLY_TYPES as readonly string[]).includes(
@@ -475,8 +480,8 @@ export function CanvasPane({
 			block.type === "embed" ? (
 				<CanvasEmbed
 					key={id}
-					host={host}
-					target={resolveEmbed(notes, embedNoteId(block))}
+					documents={documents}
+					target={embedTarget(embedNoteId(block))}
 					locked={locked}
 					onOpen={onOpenNote}
 				/>

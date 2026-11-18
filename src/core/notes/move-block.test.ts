@@ -26,54 +26,110 @@ const doc = (id: string, canvas = false): Note => ({
 			],
 });
 
-it("writes destination first and puts it back when the source write fails", async () => {
+const directions = ["move", "undo"] as const;
+async function setupTransfer(direction: (typeof directions)[number]) {
 	const host = new MemoryHost();
-	await host.writeTextAtomic("source.vnote", serializeNote(doc("source")));
-	await host.writeTextAtomic(
-		"canvas.vnote",
-		serializeNote(doc("canvas", true)),
-	);
-	const original = await host.readText("source.vnote");
-	const write = vi.spyOn(host, "writeTextAtomic");
-	write.mockImplementationOnce(async (path, text) =>
-		MemoryHost.prototype.writeTextAtomic.call(host, path, text),
-	);
-	write.mockRejectedValueOnce(new Error("disk full"));
-	await expect(
-		moveBlock(host, "source.vnote", "canvas.vnote", "block", { x: 3, y: 4 }),
-	).rejects.toThrow("The block was not moved");
-	expect(write.mock.calls.map(([path]) => path)).toEqual([
-		"canvas.vnote",
-		"source.vnote",
-		"canvas.vnote",
-	]);
-	// Both files are exactly as they were: the move did not half happen.
-	expect(await host.readText("source.vnote")).toBe(original);
-	expect(parseNote(await host.readText("canvas.vnote")).note?.blocks).toEqual(
-		[],
-	);
-});
+	const source = "source.vnote";
+	const canvas = "canvas.vnote";
+	await host.writeTextAtomic(source, serializeNote(doc("source")));
+	await host.writeTextAtomic(canvas, serializeNote(doc("canvas", true)));
+	const move = () => moveBlock(host, source, canvas, "block", { x: 3, y: 4 });
+	if (direction === "move")
+		return { host, first: canvas, second: source, run: move };
+	const receipt = await move();
+	return {
+		host,
+		first: source,
+		second: canvas,
+		run: () => undoMove(host, receipt),
+	};
+}
 
-it("says the block is in both files, and what to do, only when putting the destination back also fails", async () => {
-	const host = new MemoryHost();
-	await host.writeTextAtomic("source.vnote", serializeNote(doc("source")));
-	await host.writeTextAtomic(
-		"canvas.vnote",
-		serializeNote(doc("canvas", true)),
-	);
-	const write = vi.spyOn(host, "writeTextAtomic");
-	write.mockImplementationOnce(async (path, text) =>
-		MemoryHost.prototype.writeTextAtomic.call(host, path, text),
-	);
-	write.mockRejectedValueOnce(new Error("disk full"));
-	write.mockRejectedValueOnce(new Error("disk still full"));
-	await expect(
-		moveBlock(host, "source.vnote", "canvas.vnote", "block", { x: 3, y: 4 }),
-	).rejects.toThrow("so it is in both. Nothing is lost: delete the extra copy");
-	expect(
-		parseNote(await host.readText("canvas.vnote")).note?.blocks[0],
-	).toMatchObject({ id: "block" });
-});
+it.each(directions)(
+	"rolls back a %s to the exact original bytes if the second write fails",
+	async (direction) => {
+		const { host, first, second, run } = await setupTransfer(direction);
+		const firstBefore = await host.readText(first);
+		const secondBefore = await host.readText(second);
+		const writeDisk = host.writeTextAtomic.bind(host);
+		const write = vi
+			.spyOn(host, "writeTextAtomic")
+			.mockImplementationOnce(writeDisk)
+			.mockRejectedValueOnce(new Error("disk full"));
+		await expect(run()).rejects.toThrow(
+			direction === "move" ? "was not moved" : "Both files were restored",
+		);
+		expect(write.mock.calls.map(([path]) => path)).toEqual([
+			first,
+			second,
+			first,
+		]);
+		expect(await host.readText(first)).toBe(firstBefore);
+		expect(await host.readText(second)).toBe(secondBefore);
+	},
+);
+
+it.each(directions)(
+	"reports a partial %s when the rollback write fails",
+	async (direction) => {
+		const { host, first, second, run } = await setupTransfer(direction);
+		const writeDisk = host.writeTextAtomic.bind(host);
+		vi.spyOn(host, "writeTextAtomic")
+			.mockImplementationOnce(writeDisk)
+			.mockRejectedValueOnce(new Error("disk full"))
+			.mockRejectedValueOnce(new Error("disk still full"));
+		await expect(run()).rejects.toThrow(
+			`${first} could not be restored. Check both files for a duplicate block.`,
+		);
+		for (const path of [first, second])
+			expect(parseNote(await host.readText(path)).note?.blocks[0]?.id).toBe(
+				"block",
+			);
+	},
+);
+
+it.each(directions)(
+	"keeps external edits to the first file when a %s's second write fails",
+	async (direction) => {
+		const { host, first, second, run } = await setupTransfer(direction);
+		const secondBefore = await host.readText(second);
+		const writeDisk = host.writeTextAtomic.bind(host);
+		const write = vi
+			.spyOn(host, "writeTextAtomic")
+			.mockImplementationOnce(writeDisk)
+			.mockImplementationOnce(async () => {
+				await writeDisk(first, `${await host.readText(first)}\n`);
+				throw new Error("disk full");
+			});
+		await expect(run()).rejects.toThrow("One of the files changed");
+		expect(write.mock.calls.map(([path]) => path)).toEqual([first, second]);
+		expect(await host.readText(first)).toBe(`${write.mock.calls[0]?.[1]}\n`);
+		expect(await host.readText(second)).toBe(secondBefore);
+	},
+);
+
+it.each(directions)(
+	"keeps the first copy when an external edit removes the other before a %s can finish",
+	async (direction) => {
+		const { host, first, second, run } = await setupTransfer(direction);
+		const { note } = parseNote(await host.readText(second));
+		if (!note) throw new Error("Missing second note");
+		const external = serializeNote({ ...note, blocks: [] });
+		const writeDisk = host.writeTextAtomic.bind(host);
+		const write = vi
+			.spyOn(host, "writeTextAtomic")
+			.mockImplementationOnce(async (path, text) => {
+				await writeDisk(path, text);
+				await writeDisk(second, external);
+			});
+		await expect(run()).rejects.toThrow("One of the files changed");
+		expect(write).toHaveBeenCalledExactlyOnceWith(first, expect.any(String));
+		expect(await host.readText(second)).toBe(external);
+		expect(parseNote(await host.readText(first)).note?.blocks[0]?.id).toBe(
+			"block",
+		);
+	},
+);
 
 it("refuses a duplicate destination ID before writing", async () => {
 	const host = new MemoryHost();
@@ -86,14 +142,33 @@ it("refuses a duplicate destination ID before writing", async () => {
 	expect(write).not.toHaveBeenCalled();
 });
 
-it("refuses two names for the same file before writing", async () => {
-	const host = new MemoryHost();
-	const write = vi.spyOn(host, "writeTextAtomic");
-	await expect(
-		moveBlock(host, "Board.vnote", "board.vnote", "block", { after: null }),
-	).rejects.toThrow("different destination");
-	expect(write).not.toHaveBeenCalled();
-});
+it.each(["Board.vnote", "board.vnote"])(
+	"rejects same-file move, copy and undo to %s before taking locks",
+	async (destination) => {
+		const host = new MemoryHost();
+		const source = "Board.vnote";
+		const read = vi.spyOn(host, "readText");
+		const write = vi.spyOn(host, "writeTextAtomic");
+		const receipt = {
+			source,
+			destination,
+			sourceBefore: "",
+			sourceAfter: "",
+			destinationBefore: "",
+			destinationAfter: "",
+			lost: { connectors: 0, groups: 0 },
+			recoveryPath: null,
+		};
+		for (const operation of [
+			moveBlock(host, source, destination, "block", { after: null }),
+			copyBlock(host, source, destination, "block", { after: null }),
+			undoMove(host, receipt),
+		])
+			await expect(operation).rejects.toThrow("different destination");
+		expect(read).not.toHaveBeenCalled();
+		expect(write).not.toHaveBeenCalled();
+	},
+);
 
 it("moves a block from canvas back to a note without canvas positions", async () => {
 	const host = new MemoryHost();

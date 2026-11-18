@@ -1,7 +1,6 @@
 import { Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { type Backlink, backlinks } from "../core/links/links";
 import {
@@ -401,7 +400,7 @@ export function ResourceManager({
 					>
 						<Plus aria-hidden="true" /> New resource
 					</Button>
-					<Chip>Cards are not notes.</Chip>
+					<span className="res-hint">Cards are not notes.</span>
 				</div>
 				{!writable && (
 					<p className="res-note">

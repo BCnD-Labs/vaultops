@@ -29,7 +29,7 @@ import "./pane.css";
 export interface WorkspacePanesProps {
 	host: WorkspaceHost;
 	/** The vault's notes and canvases, for tab titles and canvas icons. */
-	notes: Pick<NoteRow, "path" | "title" | "kind">[];
+	notes: Pick<NoteRow, "path" | "title" | "kind" | "icon">[];
 	/** What a pane shows for a note that is loaded (`pane.session` holds it). */
 	renderNote: (pane: PaneView) => ReactNode;
 	renderCanvas: (path: string, pane: PaneView) => ReactNode;
@@ -96,7 +96,9 @@ export function WorkspacePanes({
 					?.replace(/\.vnote$/, "") ?? path;
 			// The note being edited shows its live title, before it is saved.
 			const live = active && !canvas && pane.ready ? pane.session.title : "";
-			return { path, title: live || row?.title || name, active, canvas };
+			const icon =
+				active && !canvas && pane.ready ? pane.session.icon : row?.icon;
+			return { path, title: live || row?.title || name, active, canvas, icon };
 		});
 
 	const docOf = (pane: PaneView): PaneDoc => {

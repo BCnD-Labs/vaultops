@@ -31,7 +31,7 @@ import {
 } from "../core/notes/tree";
 import { useAppearance } from "./AppearanceContext";
 import { type ItemStyle, rowPaint } from "./appearance";
-import { resolveIcon } from "./iconCatalog";
+import { ICON_BY_NAME, resolveIcon } from "./iconCatalog";
 import { StylePopover } from "./StylePopover";
 import { type TreeMenuEntry, TreeRowMenu } from "./TreeRowMenu";
 
@@ -475,10 +475,13 @@ function NoteRow({ node, ctx }: { node: NoteNode; ctx: Ctx }) {
 		);
 	}
 	const entries = noteEntries(node, ctx);
+	const DefaultIcon =
+		ICON_BY_NAME.get(node.icon ?? "") ??
+		(node.canvas ? LayoutDashboard : FileText);
 	return (
 		<li title={node.path}>
 			<StylePopover
-				defaultIcon={node.canvas ? LayoutDashboard : FileText}
+				defaultIcon={DefaultIcon}
 				name={node.name}
 				style={ctx.styles[node.path]}
 				onChange={(next) => ctx.setStyle(node.path, next)}
@@ -508,8 +511,7 @@ function NoteRow({ node, ctx }: { node: NoteNode; ctx: Ctx }) {
 							<span className="tree-icon" aria-hidden="true" />
 							{(() => {
 								const Icon =
-									resolveIcon(ctx.styles[node.path]?.icon ?? "") ??
-									(node.canvas ? LayoutDashboard : FileText);
+									resolveIcon(ctx.styles[node.path]?.icon ?? "") ?? DefaultIcon;
 								return (
 									<Icon
 										className="tree-icon tree-icon-main"

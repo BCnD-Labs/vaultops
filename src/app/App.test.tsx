@@ -124,7 +124,9 @@ it("saves title edits before sidebar navigation, and the note menu trashes at on
 	expect(
 		container.querySelector(".app .sidebar .vault-switch")?.textContent,
 	).toBe("Memory vault");
-	expect(container.querySelector(".app .pane > .title-field")).toBe(title);
+	expect(
+		container.querySelector(".app .pane > .note-title > .title-field"),
+	).toBe(title);
 	fireEvent.change(title, { target: { value: "Renamed" } });
 	await user.click(screen.getByRole("button", { name: /^Vault menu:/ }));
 	await user.click(await screen.findByRole("menuitem", { name: "Trash" }));

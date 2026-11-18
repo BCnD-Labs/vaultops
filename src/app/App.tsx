@@ -256,6 +256,7 @@ export function App({ host }: { host: Host }) {
 					!info.titleChanged &&
 					sameTags &&
 					row.preview === info.preview &&
+					row.icon === info.icon &&
 					sameBody &&
 					!repaired
 				)
@@ -285,6 +286,7 @@ export function App({ host }: { host: Host }) {
 										title: info.title,
 										tags: info.tags,
 										preview: info.preview,
+										icon: info.icon,
 										...(info.text === undefined
 											? {}
 											: { text: info.text, links: info.links ?? [] }),
@@ -1278,6 +1280,22 @@ export function App({ host }: { host: Host }) {
 		/>
 	);
 
+	const onCanvasIconSaved = useCallback(
+		(path: string, icon: string | undefined) => {
+			changeView((v) =>
+				v?.notes.some((row) => row.path === path && row.icon !== icon)
+					? {
+							...v,
+							notes: v.notes.map((row) =>
+								row.path === path ? { ...row, icon } : row,
+							),
+						}
+					: v,
+			);
+		},
+		[changeView],
+	);
+
 	const renderCanvas = (path: string, pane: PaneView) => {
 		const beside = ws.panes[other(pane.id)];
 		const noteBeside =
@@ -1296,6 +1314,7 @@ export function App({ host }: { host: Host }) {
 				writable={writable}
 				focusName={focusCanvas}
 				onFocusedName={() => setFocusCanvas(false)}
+				onIconSaved={onCanvasIconSaved}
 				onSelect={(next) => void open(next, { pane: pane.id })}
 				onRename={(oldPath, newPath, nextTitle) => {
 					selectCanvas(newPath);

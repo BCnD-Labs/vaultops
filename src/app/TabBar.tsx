@@ -14,6 +14,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { setDragEffect } from "../editor/block-drag";
+import { ICON_BY_NAME } from "./iconCatalog";
 import {
 	dropIndex,
 	hasTabDrag,
@@ -29,6 +30,7 @@ export interface TabItem {
 	active: boolean;
 	/** A canvas rather than a note: shown with a canvas icon. */
 	canvas?: boolean;
+	icon?: string;
 }
 
 /**
@@ -191,6 +193,9 @@ export function TabBar({
 				data-drop-end={dropAt === tabs.length ? true : undefined}
 			>
 				{tabs.map((tab, index) => {
+					const Icon =
+						ICON_BY_NAME.get(tab.icon ?? "") ??
+						(tab.canvas ? LayoutDashboard : undefined);
 					const node = (
 						// biome-ignore lint/a11y/noStaticElementInteractions: dragging is a pointer path; the keyboard route is Alt+Shift+Arrow on the tab button
 						<div
@@ -263,9 +268,7 @@ export function TabBar({
 									focusNeighbor(tab.path, direction);
 								}}
 							>
-								{tab.canvas && (
-									<LayoutDashboard className="tab-icon" aria-hidden="true" />
-								)}
+								{Icon && <Icon className="tab-icon" aria-hidden="true" />}
 								{tab.title}
 							</button>
 							<button

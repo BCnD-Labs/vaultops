@@ -1,4 +1,5 @@
 import { linksIn } from "../core/links/links";
+import { headerIcon } from "../core/notes/icon";
 import { headerProps } from "../core/notes/properties";
 import { createCanvas, createNote } from "../core/notes/repository";
 import { rowNoteIds } from "../core/notes/row-notes";
@@ -15,6 +16,7 @@ export interface NoteRow {
 	id?: string;
 	title: string;
 	preview: string;
+	icon?: string;
 	/** The note's body text on one line (capped), so searches can look inside. */
 	text?: string;
 	/** The `noteId`s this note links to, once each. */
@@ -107,6 +109,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			readOnly: n.readOnly,
 			kind: n.kind,
 			preview: n.preview,
+			icon: headerIcon(n.note.header),
 			text: searchTextOf(n.note.blocks),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
 			rowNotes: rowNoteIds(n.note.blocks),

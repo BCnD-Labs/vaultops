@@ -37,7 +37,11 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CANVAS_ONLY_TYPES, parseNote } from "../core/note-format";
+import {
+	CANVAS_ONLY_TYPES,
+	type NoteHeader,
+	parseNote,
+} from "../core/note-format";
 import { arrangeItems } from "../core/notes/canvas-arrange";
 import { restoreCanvasText, saveCanvasEdit } from "../core/notes/canvas-edit";
 import {
@@ -71,6 +75,7 @@ import {
 	saveCanvasPosition,
 } from "../core/notes/canvas-position";
 import { setShapeKind, setTextSize } from "../core/notes/canvas-style";
+import { headerIcon, withIcon } from "../core/notes/icon";
 import { renameNote } from "../core/notes/rename";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { BLOCK_TYPES } from "../editor/blocks";
@@ -85,6 +90,7 @@ import {
 	saveCanvasLocked,
 	saveCanvasSnapModes,
 } from "./canvas-layout";
+import { NoteIconPicker } from "./NoteIconPicker";
 import { NotePickerDialog } from "./NotePickerDialog";
 import { compareRows, type NoteRow } from "./session";
 
@@ -113,6 +119,7 @@ export function CanvasPane({
 	onFocusedName,
 	onSelect,
 	onRename,
+	onIconSaved,
 	onDropBlock,
 	onMoveToNote,
 	onMoveTo,
@@ -126,6 +133,7 @@ export function CanvasPane({
 	focusName?: boolean;
 	onFocusedName?: () => void;
 	onSelect: (path: string) => void;
+	onIconSaved?: (path: string, icon: string | undefined) => void;
 	onRename?: (oldPath: string, newPath: string, title: string) => void;
 	onDropBlock: (
 		blockId: string,
@@ -228,6 +236,12 @@ export function CanvasPane({
 		() => (text === null ? null : parseNote(text)),
 		[text],
 	);
+	const canvasHeader = parsed?.note?.header;
+	const icon = headerIcon(canvasHeader);
+	const isCanvas = canvasHeader?.kind === "canvas";
+	useEffect(() => {
+		if (isCanvas) onIconSaved?.(activePath, icon);
+	}, [activePath, icon, isCanvas, onIconSaved]);
 	const blocks =
 		parsed?.note?.header.kind === "canvas" ? parsed.note.blocks : [];
 	const roots = canvasNodes(blocks);
@@ -265,12 +279,16 @@ export function CanvasPane({
 		const nextTitle = nameRef.current;
 		const currentPath = activePathRef.current;
 		const baseText = baseTextRef.current;
+		const current = baseText === null ? null : parseNote(baseText);
 		if (
 			renamingRef.current ||
 			!editable ||
-			!parsed?.note ||
+			currentPath !== activePath ||
+			current?.note?.header.kind !== "canvas" ||
+			current.problems.length > 0 ||
 			baseText === null ||
-			nextTitle === savedTitle
+			nextTitle === savedTitle ||
+			nextTitle === current.note.header.title
 		)
 			return;
 		renamingRef.current = true;
@@ -282,7 +300,7 @@ export function CanvasPane({
 			const result = await renameNote(
 				host,
 				currentPath,
-				parsed.note,
+				current.note,
 				nextTitle,
 				{ readOnly: !editable },
 			);
@@ -336,12 +354,19 @@ export function CanvasPane({
 	const commit = (
 		mutate: (all: typeof blocks) => typeof blocks,
 		action: string,
-	): Promise<boolean> => inOrder(() => commitNow(mutate, action));
+		mutateHeader?: (header: NoteHeader) => NoteHeader,
+	): Promise<boolean> => inOrder(() => commitNow(mutate, action, mutateHeader));
 	const commitNow = async (
 		mutate: (all: typeof blocks) => typeof blocks,
 		action: string,
+		mutateHeader?: (header: NoteHeader) => NoteHeader,
 	): Promise<boolean> => {
-		if (!editable || baseTextRef.current === null) return false;
+		if (
+			!editable ||
+			activePathRef.current !== activePath ||
+			baseTextRef.current === null
+		)
+			return false;
 		try {
 			const before = baseTextRef.current;
 			const saved = await saveCanvasEdit(
@@ -350,6 +375,7 @@ export function CanvasPane({
 				before,
 				mutate,
 				action,
+				mutateHeader,
 			);
 			baseTextRef.current = saved;
 			if (saved !== before) remember(before);
@@ -584,6 +610,20 @@ export function CanvasPane({
 					</p>
 				)}
 			<header className="canvas-bar">
+				<NoteIconPicker
+					key={path}
+					icon={icon}
+					onChange={
+						editable
+							? (next) =>
+									void commit(
+										(all) => all,
+										"changing its icon",
+										(header) => withIcon(header, next),
+									)
+							: undefined
+					}
+				/>
 				<input
 					ref={nameInput}
 					className="canvas-name"
@@ -594,11 +634,11 @@ export function CanvasPane({
 						nameRef.current = event.target.value;
 						setName(event.target.value);
 					}}
-					onBlur={() => void commitName()}
+					onBlur={() => void inOrder(commitName)}
 					onKeyDown={(event) => {
 						if (event.key === "Enter") {
 							event.preventDefault();
-							void commitName();
+							void inOrder(commitName);
 						} else if (event.key === "Escape") {
 							event.preventDefault();
 							nameRef.current = savedTitle;

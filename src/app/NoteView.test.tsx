@@ -11,6 +11,8 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { parseNote } from "../core/note-format";
+import { headerIcon } from "../core/notes/icon";
 import { createNote } from "../core/notes/repository";
 import { MemoryHost } from "../host/memory-host";
 import { SessionNoteView } from "./NoteView";
@@ -236,4 +238,27 @@ it("Enter in the title moves the cursor into the note body", async () => {
 	title.focus();
 	fireEvent.keyDown(title, { key: "Enter" });
 	expect(document.activeElement).toBe(body);
+});
+
+it("adds and removes a title icon through the picker and saves both changes", async () => {
+	const { run, host, a } = await setup();
+	await run(() => api.open(a));
+
+	fireEvent.click(screen.getByRole("button", { name: "Add icon" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Icon star" }));
+	await run(() => api.flushAll());
+	expect(headerIcon(parseNote(await host.readText(a)).note?.header)).toBe(
+		"star",
+	);
+	expect(
+		screen.getByRole("tab", { name: "Alpha" }).querySelector(".tab-icon"),
+	).toBeTruthy();
+
+	fireEvent.click(screen.getByRole("button", { name: "Change icon" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Remove icon" }));
+	await run(() => api.flushAll());
+	expect(parseNote(await host.readText(a)).note?.header).not.toHaveProperty(
+		"icon",
+	);
+	expect(screen.getByRole("button", { name: "Add icon" })).toBeTruthy();
 });

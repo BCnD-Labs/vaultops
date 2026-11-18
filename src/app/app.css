@@ -618,7 +618,9 @@ select {
 	[role="menuitem"],
 	input,
 	select,
-	[data-slot="button"]::after {
+	[data-slot="button"]::after,
+	.connections-node,
+	.connections-edge {
 		transition: none;
 	}
 }
@@ -785,4 +787,55 @@ select {
 :root[data-reduce-motion] *::after {
 	transition-duration: 0ms !important;
 	animation-duration: 0ms !important;
+}
+
+.connections-snippet {
+	margin: 2px var(--shell-gap) 4px;
+	font-size: var(--font-size-small);
+	color: var(--muted-foreground);
+	overflow-wrap: anywhere;
+}
+.connections-graph {
+	display: block;
+	width: 100%;
+	max-width: 240px;
+	margin: var(--space-1) auto;
+}
+.connections-edge {
+	stroke: var(--line);
+	stroke-width: 1.25;
+	transition:
+		stroke var(--motion-fast) var(--ease-standard),
+		stroke-width var(--motion-fast) var(--ease-standard);
+}
+.connections-edge[data-highlighted="true"] {
+	stroke: var(--primary);
+	stroke-width: 2;
+}
+@keyframes connections-node-in {
+	from {
+		transform: translate(110px, 110px);
+		opacity: 0;
+	}
+}
+.connections-node {
+	cursor: pointer;
+	animation: connections-node-in var(--motion-normal) var(--ease-standard);
+	transition: transform var(--motion-normal) var(--ease-standard);
+}
+.connections-node circle {
+	fill: var(--surface-container-high);
+	stroke: var(--muted-foreground);
+	stroke-width: 1.5;
+}
+.connections-node[data-hop="0"] circle,
+.connections-node:hover circle,
+.connections-node:focus-visible circle {
+	fill: var(--primary);
+	stroke: var(--primary);
+}
+.connections-node text {
+	fill: var(--foreground);
+	font-size: var(--font-size-small);
+	pointer-events: none;
 }

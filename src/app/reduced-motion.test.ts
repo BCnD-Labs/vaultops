@@ -26,7 +26,11 @@ function reducedMotionRules(file: string): Map<string, string> {
 
 it("removes transitions on controls and decorative parts under reduced motion", () => {
 	const cases = {
-		"src/app/app.css": ['[data-slot="button"]::after'],
+		"src/app/app.css": [
+			'[data-slot="button"]::after',
+			".connections-node",
+			".connections-edge",
+		],
 		"src/app/pane.css": [".props-block-header svg"],
 		"src/editor/editor.css": [
 			".note-editor .quote-color-handle",

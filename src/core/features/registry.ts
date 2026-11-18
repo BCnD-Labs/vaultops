@@ -104,8 +104,8 @@ export const FEATURES: readonly Feature[] = [
 	},
 	{
 		id: "tab-links",
-		name: "Linked from tab",
-		description: "The Linked from tab in the right sidebar.",
+		name: "Connections tab",
+		description: "The Connections tab in the right sidebar.",
 		group: "Note tools",
 		defaultOn: true,
 	},

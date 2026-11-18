@@ -1522,6 +1522,8 @@ export function App({ host }: { host: Host }) {
 										view?.notes ?? [],
 										session?.opened?.note?.header.noteId,
 									)}
+									noteId={session?.opened?.note?.header.noteId}
+									noteTitle={session?.title}
 									onOpenNote={(path) => void open(path)}
 									hasNote={screen === "note" && !!session?.opened}
 									props={session?.props ?? null}

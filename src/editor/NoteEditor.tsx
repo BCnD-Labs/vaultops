@@ -1,5 +1,6 @@
 import type { Editor, JSONContent } from "@tiptap/core";
 import DragHandle from "@tiptap/extension-drag-handle-react";
+import { isHistoryTransaction, undoDepth } from "@tiptap/pm/history";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { dropPoint } from "@tiptap/pm/transform";
 import { EditorContent, Editor as TiptapEditor } from "@tiptap/react";
@@ -42,6 +43,9 @@ import "./editor.css";
 
 export interface NoteEditorSlot {
 	editor?: Editor;
+	nextEdit?: () => number;
+	undoSequence?: number;
+	emptyNote?: ProseMirrorNode;
 	completion?: { completeOn: boolean; links?: LinkSource; noteId?: string };
 	/** Where the editor's image blocks read and store pictures (the surface that owns it). */
 	images?: ImageSource;
@@ -172,6 +176,8 @@ export function NoteEditor({
 		// Acquire after the previous surface's EditorContent has unmounted.
 		slot.completion = completion.current;
 		slot.images = initialImages.current;
+		const groups: number[] = [];
+		const creating = !slot.editor;
 		slot.editor ??= new TiptapEditor({
 			extensions: [
 				...createExtensions().map((extension) =>
@@ -187,10 +193,44 @@ export function NoteEditor({
 			],
 			content: ensureUniqueIds(initial.current.doc),
 			editable: initial.current.editable,
+			onTransaction: ({ editor, transaction }) => {
+				const depth = undoDepth(editor.state);
+				const previous = groups.length;
+				if (isHistoryTransaction(transaction) && depth < previous)
+					groups.length = depth;
+				else if (
+					depth &&
+					slot.nextEdit &&
+					(depth !== previous ||
+						(transaction.docChanged &&
+							transaction.getMeta("addToHistory") !== false))
+				) {
+					// ProseMirror can trim several old groups as it adds a new one.
+					if (depth <= previous && depth !== previous)
+						groups.splice(0, previous - depth + 1);
+					groups[depth - 1] = slot.nextEdit();
+				}
+				slot.undoSequence = groups.at(-1);
+			},
 		});
 		const editor = slot.editor;
+		const first = initial.current.doc.content;
+		// A file with no blocks opens with a placeholder paragraph.
+		if (
+			creating &&
+			sharedSlot &&
+			first?.length === 1 &&
+			first[0]?.type === "paragraph" &&
+			!first[0].attrs?.id &&
+			!first[0].content?.length
+		)
+			slot.emptyNote = editor.state.doc;
 		const update = () => {
-			latest.current(editor.getJSON());
+			latest.current(
+				slot.emptyNote?.eq(editor.state.doc)
+					? { type: "doc", content: [] }
+					: editor.getJSON(),
+			);
 			// Hide on every edit; the extension shows it again on the next hover.
 			editor.view.dispatch(editor.state.tr.setMeta("hideDragHandle", true));
 		};
@@ -414,6 +454,7 @@ export function NoteEditor({
 							return;
 						setMovable(null);
 					}}
+					data-undo-note={sharedSlot ? noteId : undefined}
 					data-block-dragging={dropIndicator !== null || undefined}
 					aria-label="Note editor drop area"
 					onDragEnter={updateDropIndicator}

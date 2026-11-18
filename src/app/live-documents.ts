@@ -15,6 +15,11 @@ import {
 	indexDocumentIds,
 } from "../core/notes/document-identity";
 import { movedPath, within } from "../core/notes/folders";
+import {
+	type MoveReceipt,
+	StaleMove,
+	undoMove,
+} from "../core/notes/move-block";
 import { type RenameResult, renameSavedNote } from "../core/notes/rename";
 import { buildRecoveryText } from "../core/session/recovery";
 import type { Autosave, AutosaveState } from "../editor/autosave";
@@ -28,9 +33,14 @@ import { type Host, HostError } from "../host/host";
 import { READ_ONLY_VAULT_MESSAGE } from "../host/read-only-host";
 
 export type DocumentTarget = { path: string } | { noteId: string };
-type CanvasHistory = Readonly<Record<"undo" | "redo", readonly string[]>>;
+type CanvasStep = { text: string; sequence: number };
+type CanvasHistory = Readonly<Record<"undo" | "redo", readonly CanvasStep[]>>;
 const emptyHistory: CanvasHistory = { undo: [], redo: [] };
 type CanvasWrite = { text: string; action: string; history: CanvasHistory };
+
+export type UndoResult =
+	| { ok: true; move?: true }
+	| { ok: false; message: string; dismiss?: () => void };
 
 export interface LiveDocument {
 	readonly noteId: string | null;
@@ -58,7 +68,7 @@ type SavedDocument = LiveDocument & { base: Note };
 export type BlockWrite<T> = (
 	source: SavedDocument,
 	destination: SavedDocument,
-	publish: (source: string, destination: string) => void,
+	publish: (source: string, destination: string, local?: boolean) => void,
 ) => Promise<T>;
 type Listener = (document: LiveDocument, reloaded: boolean) => void;
 interface Entry {
@@ -136,6 +146,10 @@ export function createLiveDocuments(
 	let tail: Promise<unknown> | null = null;
 	let writingBlock: Promise<unknown> | null = null;
 	let dropping = false;
+	let sequence = 0;
+	const nextEdit = () => ++sequence;
+	const moves: { sequence: number; receipt: MoveReceipt }[] = [];
+	let undoing = false;
 
 	function run<T>(task: () => Promise<T>) {
 		const result = tail ? tail.then(task) : task();
@@ -189,7 +203,7 @@ export function createLiveDocuments(
 			path,
 			document: opened ? fromOpened(opened) : null,
 			subscribers: new Map(),
-			editorSlot: {},
+			editorSlot: { nextEdit },
 			ready: Promise.resolve(),
 		};
 		entries.set(path, entry);
@@ -241,7 +255,7 @@ export function createLiveDocuments(
 	) {
 		if (reloaded && !keepEditor) {
 			disposeEditor(entry);
-			entry.editorSlot = {};
+			entry.editorSlot = { nextEdit };
 		}
 		entry.document = document;
 		for (const listener of entry.subscribers.values()) {
@@ -530,7 +544,10 @@ export function createLiveDocuments(
 							text === document.diskText
 								? history
 								: {
-										undo: [...history.undo, document.diskText].slice(-50),
+										undo: [
+											...history.undo,
+											{ text: document.diskText, sequence: nextEdit() },
+										].slice(-50),
 										redo: [],
 									},
 					};
@@ -541,16 +558,19 @@ export function createLiveDocuments(
 				return runCanvas(entry, (document) => {
 					if (document.saveStatus.kind !== "saved") return;
 					const history = document.canvasHistory ?? emptyHistory;
-					const text = history[direction].at(-1);
-					if (text === undefined) return;
+					const step = history[direction].at(-1);
+					if (!step) return;
 					const other = direction === "undo" ? "redo" : "undo";
 					return {
-						text,
+						text: step.text,
 						action: "undoing or redoing",
 						history: {
 							...history,
 							[direction]: history[direction].slice(0, -1),
-							[other]: [...history[other], document.diskText],
+							[other]: [
+								...history[other],
+								{ text: document.diskText, sequence: nextEdit() },
+							],
 						},
 					};
 				});
@@ -780,7 +800,7 @@ export function createLiveDocuments(
 						? {
 								undo: [
 									...(previous.canvasHistory?.undo ?? []),
-									previous.diskText,
+									{ text: previous.diskText, sequence: nextEdit() },
 								].slice(-50),
 								redo: [],
 							}
@@ -796,7 +816,9 @@ export function createLiveDocuments(
 		to: string,
 		task: BlockWrite<T>,
 		onGate: (gated: boolean) => void,
+		stale?: StaleMove,
 	) {
+		const unavailable = (message: string) => stale ?? new Error(message);
 		const source = subscribe({ noteId: from }, undefined, undefined, true);
 		const destination = subscribe({ noteId: to }, undefined, undefined, true);
 		const checked = (document: LiveDocument | null) => {
@@ -807,7 +829,7 @@ export function createLiveDocuments(
 				!document.noteId ||
 				indexedPaths.get(document.noteId) !== document.path
 			)
-				throw new Error(
+				throw unavailable(
 					"A document is missing or read-only, so the block was not moved.",
 				);
 			return { ...document, base: document.base };
@@ -818,7 +840,7 @@ export function createLiveDocuments(
 				destination.ready,
 			]);
 			if (!first)
-				throw new Error(
+				throw unavailable(
 					"Open the source note before moving this block. It may be missing or read-only.",
 				);
 			const a = entries.get(checked(first).path) as Entry;
@@ -860,8 +882,10 @@ export function createLiveDocuments(
 			try {
 				if (!(await Promise.all(pair.map(flushEntry))).every(Boolean)) {
 					const status = pair.find(isDirty)?.document?.saveStatus;
+					if (stale && status?.kind === "failed" && status.conflict)
+						throw stale;
 					throw new Error(
-						`Save the note before moving a block: ${status?.kind === "failed" ? status.reason : "the save did not finish"}.`,
+						`Save the note before ${stale ? "undoing the move" : "moving a block"}: ${status?.kind === "failed" ? status.reason : "the save did not finish"}.`,
 					);
 				}
 				const commit = run(async () => {
@@ -896,6 +920,95 @@ export function createLiveDocuments(
 		}
 	}
 
+	// Receipt paths are document IDs here. Resolve paths again under the write
+	// coordinator, after flushing any edits that could rename a participant.
+	function recordMove(receipt: MoveReceipt, onGate: (gated: boolean) => void) {
+		const move = { sequence: nextEdit(), receipt };
+		moves.push(move);
+		if (moves.length > 20) moves.shift();
+		return () =>
+			undo(onGate, move.sequence) ??
+			Promise.resolve({
+				ok: false as const,
+				message: "This is no longer the latest move.",
+			});
+	}
+
+	function prefersLocalUndo(noteId: string, canvas: boolean) {
+		const path = indexedPaths.get(noteId);
+		const entry = path ? entries.get(path) : undefined;
+		const move = moves.at(-1);
+		if (!entry || !move || dropping || undoing) return false;
+		const local = canvas
+			? entry.document?.canvasHistory?.undo.at(-1)?.sequence
+			: entry.editorSlot.editor?.isEditable
+				? entry.editorSlot.undoSequence
+				: undefined;
+		return (canvas && !!entry.canvasTask) || (local ?? 0) > move.sequence;
+	}
+
+	function undo(
+		onGate: (gated: boolean) => void,
+		expected?: number,
+	): Promise<UndoResult> | undefined {
+		const move = moves.at(-1);
+		if (
+			!writable ||
+			disposed ||
+			!move ||
+			(expected !== undefined && move.sequence !== expected)
+		)
+			return;
+		if (dropping || undoing) return Promise.resolve({ ok: true });
+
+		const receipt = move.receipt;
+		const stale = new StaleMove(receipt.copy);
+		undoing = true;
+		return withSavedDocuments(
+			receipt.copy ? receipt.destination : receipt.source,
+			receipt.destination,
+			async (source, destination, publish) => {
+				if (moves.at(-1) !== move)
+					throw new Error("This is no longer the latest move.");
+				await undoMove(host, {
+					...receipt,
+					source: source.path,
+					destination: destination.path,
+				});
+				publish(
+					receipt.copy ? receipt.destinationBefore : receipt.sourceBefore,
+					receipt.destinationBefore,
+					false,
+				);
+				moves.pop();
+				return { ok: true as const, move: true as const };
+			},
+			onGate,
+			stale,
+		)
+			.catch((error: unknown) => {
+				const changed =
+					error instanceof StaleMove ||
+					(error instanceof HostError && error.code === "not-found");
+				return {
+					ok: false as const,
+					message: changed
+						? stale.message
+						: error instanceof Error
+							? error.message
+							: String(error),
+					dismiss: changed
+						? () => {
+								if (!undoing && moves.at(-1) === move) moves.pop();
+							}
+						: undefined,
+				};
+			})
+			.finally(() => {
+				undoing = false;
+			});
+	}
+
 	return {
 		subscribe,
 		subscribePassive: (target: string | DocumentTarget, onChange: Listener) =>
@@ -911,6 +1024,11 @@ export function createLiveDocuments(
 		run,
 		guardMoves,
 		withSavedDocuments,
+		recordMove,
+		prefersLocalUndo,
+		undo,
+		idAt: (path: string | null) =>
+			[...indexedPaths].find(([, candidate]) => candidate === path)?.[0],
 		hasDrafts: () => [...entries.values()].some(isDirty),
 		rekey,
 		refresh,

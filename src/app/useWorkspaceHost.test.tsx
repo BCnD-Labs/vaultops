@@ -645,7 +645,7 @@ it("copies on Option-drag and resolves a source tab after a mid-drag tab switch"
 	const copied = await act(async () =>
 		s.result.current.dropBlock(s.id(s.b), "x", alphaId, { after: "z" }, true),
 	);
-	expect(copied).toEqual({ ok: true });
+	expect(copied).toMatchObject({ ok: true, moved: { copy: true } });
 	expect(await s.host.readText(s.a)).toBe(alphaBefore);
 	const betaIds = await blockIds(s.host, s.b);
 	expect(betaIds).toHaveLength(2);
@@ -659,4 +659,17 @@ it("copies on Option-drag and resolves a source tab after a mid-drag tab switch"
 	expect(moved).toMatchObject({ ok: true });
 	expect(await blockIds(s.host, s.a)).toEqual(["y"]);
 	expect(await blockIds(s.host, s.b)).toContain("x");
+	await act(async () =>
+		expect(await s.result.current.undo()).toMatchObject({ ok: true }),
+	);
+	expect(await blockIds(s.host, s.b)).toEqual(betaIds);
+	await seed(s.host, s.a, ["new-source"]);
+	const movedPath = "Renamed Beta.vnote";
+	await s.host.move(s.b, movedPath);
+	act(() => s.result.current.rekey(s.b, movedPath));
+	await act(async () =>
+		expect(await s.result.current.undo()).toMatchObject({ ok: true }),
+	);
+	expect(await blockIds(s.host, movedPath)).toEqual(["z"]);
+	expect(await blockIds(s.host, s.a)).toEqual(["new-source"]);
 });

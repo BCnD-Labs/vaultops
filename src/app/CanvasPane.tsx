@@ -425,6 +425,7 @@ export function CanvasPane({
 		<section
 			className={locked ? "canvas-pane canvas-pane-locked" : "canvas-pane"}
 			aria-label="Canvas view"
+			data-undo-canvas={canEdit ? document?.noteId : undefined}
 			aria-busy={!document && error === null}
 			onKeyDown={(event) => {
 				if (!(event.metaKey || event.ctrlKey) || event.altKey) return;

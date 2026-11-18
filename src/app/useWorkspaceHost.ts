@@ -22,7 +22,6 @@ import {
 	copyBlock,
 	type MoveReceipt,
 	moveBlock,
-	undoMove,
 } from "../core/notes/move-block";
 import {
 	closeSplit,
@@ -45,11 +44,12 @@ import {
 import { openNote } from "../editor/note-io";
 import type { SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
-import { READ_ONLY_VAULT_MESSAGE, readOnlyHost } from "../host/read-only-host";
+import { readOnlyHost } from "../host/read-only-host";
 import {
 	type BlockWrite,
 	createLiveDocuments,
 	type LiveDocuments,
+	type UndoResult,
 } from "./live-documents";
 import {
 	type NoteSession,
@@ -98,7 +98,8 @@ export interface MoveInfo {
 	destination: string;
 	lost: MoveReceipt["lost"];
 	recoveryPath: string | null;
-	undo: () => Promise<{ ok: true } | { ok: false; message: string }>;
+	copy?: boolean;
+	undo: () => Promise<UndoResult>;
 }
 
 /** How a block move ended; a refusal says why, in words for the person. */
@@ -314,158 +315,6 @@ export function useWorkspaceHost({
 		return pane?.active && pane.active !== NEW_TAB ? pane.active : null;
 	}, []);
 
-	/** Read a pane's note again from disk, after a block move changed its file. */
-	const reloadPane = useCallback(
-		async (id: PaneId) => {
-			const path = sessions.current[id].livePathRef.current;
-			if (path === null) return;
-			try {
-				await sessions.current[id].reload(host, path);
-			} catch (reason) {
-				latest.current.onError(
-					reason instanceof Error ? reason.message : String(reason),
-				);
-			}
-		},
-		[host],
-	);
-
-	const moveLocked = useCallback(
-		async (
-			find: () => Promise<
-				| { from: PaneId | { path: string }; to: PaneId | { path: string } }
-				| string
-			>,
-			blockId: string,
-			placement: Placement,
-			refuse: (message: string) => BlockMoveResult,
-		): Promise<BlockMoveResult> => {
-			if (!(await settleAll())) {
-				const why = SLOTS.map((id) =>
-					sessions.current[id].failureReason(),
-				).find(Boolean);
-				return refuse(
-					`Save the note before moving a block: ${why ?? "the save did not finish"}.`,
-				);
-			}
-			const found = await find();
-			if (typeof found === "string") return refuse(found);
-			const { from } = found;
-			// The source and destination are panes that show them, or open files in the vault.
-			const target = found.to;
-			const fromPane = typeof from === "string" ? from : null;
-			const to = typeof target === "string" ? target : null;
-			const source = typeof from === "string" ? paneOf(from) : from.path;
-			const destination =
-				typeof target === "string" ? paneOf(target) : target.path;
-			if (source === null || destination === null)
-				return refuse("Open both documents before moving a block.");
-			for (const id of [fromPane, to].filter(
-				(pane): pane is PaneId => pane !== null,
-			)) {
-				const path = id === fromPane ? source : destination;
-				if (canvas(path)) continue;
-				const opened = sessions.current[id].opened;
-				if (!opened?.editable)
-					return refuse(
-						opened?.notice ??
-							"This note is read-only, so the block was not moved.",
-					);
-			}
-			const reloadBoth = async () => {
-				await Promise.all([
-					...(fromPane === null ? [] : [reloadPane(fromPane)]),
-					...(to === null ? [] : [reloadPane(to)]),
-				]);
-			};
-			let failure: string | null = null;
-			let receipt: MoveReceipt | null = null;
-			try {
-				receipt = await moveBlock(
-					host,
-					source,
-					destination,
-					blockId,
-					placement,
-				);
-			} catch (reason) {
-				failure = reason instanceof Error ? reason.message : String(reason);
-			}
-			// Win or lose, show what is on disk now.
-			await reloadBoth();
-			if (failure !== null)
-				return refuse(failure ?? "The block was not moved.");
-			if (receipt === null) return refuse("The block was not moved.");
-			const made = receipt;
-			return {
-				ok: true,
-				moved: {
-					destination,
-					lost: made.lost,
-					recoveryPath: made.recoveryPath,
-					undo: async () => {
-						setMoving(true);
-						try {
-							if (!(await settleAll()))
-								return {
-									ok: false as const,
-									message: "Save the open notes before undoing the move.",
-								};
-							if (!latest.current.writable)
-								return { ok: false as const, message: READ_ONLY_VAULT_MESSAGE };
-							try {
-								await undoMove(host, made);
-							} catch (reason) {
-								await reloadBoth();
-								return {
-									ok: false as const,
-									message:
-										reason instanceof Error ? reason.message : String(reason),
-								};
-							}
-							await reloadBoth();
-							return { ok: true as const };
-						} finally {
-							setMoving(false);
-						}
-					},
-				},
-			};
-		},
-		[host, canvas, settleAll, paneOf, reloadPane],
-	);
-
-	/**
-	 * Move a block between two shown documents: save every open note, move the
-	 * block on disk (destination written first, so a failure leaves both copies),
-	 * then read both documents again so the screen matches the disk. `find` runs
-	 * after the save, because saving can rename a note and so change its path.
-	 */
-	const moveBetween = useCallback(
-		async (
-			find: () => Promise<
-				| { from: PaneId | { path: string }; to: PaneId | { path: string } }
-				| string
-			>,
-			blockId: string,
-			placement: Placement,
-		): Promise<BlockMoveResult> => {
-			const refuse = (message: string): BlockMoveResult => ({
-				ok: false,
-				message,
-			});
-			if (!writable)
-				return refuse("This vault is read-only, so the block was not moved.");
-			setMoving(true);
-			try {
-				return await moveLocked(find, blockId, placement, refuse);
-			} finally {
-				setMoving(false);
-			}
-		},
-		[writable, moveLocked],
-	);
-
 	const dropBlock = async (
 		to: string,
 		blockId: string,
@@ -484,7 +333,7 @@ export function useWorkspaceHost({
 				ok: false,
 				message: "Open both documents before moving a block.",
 			};
-		const move: BlockWrite<MoveReceipt | null> = async (
+		const move: BlockWrite<MoveInfo | null> = async (
 			source,
 			target,
 			publish,
@@ -495,7 +344,11 @@ export function useWorkspaceHost({
 				throw new Error("This block is no longer in the source document.");
 			if (block.type === "listItem")
 				throw new Error("A list item moves only within its own editor.");
-			if ((target.kind === "canvas") !== "x" in placement)
+			if (
+				"x" in placement
+					? target.kind !== "canvas"
+					: from === to && target.kind === "canvas"
+			)
 				throw new Error("This drop location is no longer available.");
 			const { path, diskText } = source;
 			const expected = { source: diskText, destination: target.diskText };
@@ -535,30 +388,47 @@ export function useWorkspaceHost({
 				publish(saved.text, saved.text);
 				return null;
 			}
-			if (copy) {
-				const text = await copyBlock(
-					host,
-					path,
-					target.path,
-					blockId,
-					placement,
-					undefined,
-					expected,
-				);
-				publish(diskText, text);
-				return null;
-			}
-			const receipt = await moveBlock(
-				host,
-				path,
-				target.path,
-				blockId,
-				placement,
-				undefined,
-				expected,
-			);
+			const receipt = copy
+				? {
+						copy: true,
+						source: path,
+						destination: target.path,
+						sourceBefore: diskText,
+						sourceAfter: diskText,
+						destinationBefore: target.diskText,
+						destinationAfter: await copyBlock(
+							host,
+							path,
+							target.path,
+							blockId,
+							placement,
+							undefined,
+							expected,
+						),
+						lost: { connectors: 0, groups: 0 },
+						recoveryPath: null,
+					}
+				: await moveBlock(
+						host,
+						path,
+						target.path,
+						blockId,
+						placement,
+						undefined,
+						expected,
+					);
 			publish(receipt.sourceAfter, receipt.destinationAfter);
-			return receipt;
+			const undo = registry.recordMove(
+				{ ...receipt, source: from, destination: to },
+				setMoving,
+			);
+			return {
+				destination: target.path,
+				lost: receipt.lost,
+				recoveryPath: receipt.recoveryPath,
+				undo,
+				copy,
+			};
 		};
 		const failure = (reason: unknown) => ({
 			ok: false as const,
@@ -571,75 +441,35 @@ export function useWorkspaceHost({
 				move,
 				setMoving,
 			);
-			if (!receipt) return { ok: true };
-			const restore: BlockWrite<void> = async (a, b, publish) => {
-				await undoMove(host, {
-					...receipt,
-					source: a.path,
-					destination: b.path,
-				});
-				publish(receipt.sourceBefore, receipt.destinationBefore);
-			};
-			return {
-				ok: true,
-				moved: {
-					destination: receipt.destination,
-					lost: receipt.lost,
-					recoveryPath: receipt.recoveryPath,
-					undo: async () => {
-						try {
-							await registry.withSavedDocuments(from, to, restore, setMoving);
-							return { ok: true };
-						} catch (reason) {
-							return failure(reason);
-						}
-					},
-				},
-			};
+			return receipt ? { ok: true, moved: receipt } : { ok: true };
 		} catch (reason) {
 			return failure(reason);
 		}
 	};
 
-	/** A canvas card's "move to note": into the note shown beside the canvas. */
-	const blockToNote = useCallback(
-		(from: PaneId, blockId: string): Promise<BlockMoveResult> =>
-			moveBetween(
-				async () => {
-					const to = from === "left" ? "right" : "left";
-					const path = paneOf(to);
-					return path !== null && !canvas(path)
-						? { from, to }
-						: "Open a note beside the canvas to move this block into.";
-				},
-				blockId,
-				{ after: null },
-			),
-		[moveBetween, paneOf, canvas],
-	);
+	const blockToPath = (from: PaneId, blockId: string, destination: string) => {
+		const registry = documents.current;
+		const source = paneOf(from);
+		return dropBlock(
+			registry?.idAt(destination) ?? "",
+			blockId,
+			(source && registry?.idAt(source)) || "",
+			{ after: null },
+		);
+	};
 
-	/**
-	 * A canvas card's "Move to…": into any note or canvas in the vault, shown or
-	 * not. A card landing on a canvas is placed beside the cards already there.
-	 */
-	const blockToPath = useCallback(
-		(
-			from: PaneId,
-			blockId: string,
-			destination: string,
-		): Promise<BlockMoveResult> => {
-			const other = from === "left" ? "right" : "left";
-			return moveBetween(
-				async () => ({
-					from,
-					to: paneOf(other) === destination ? other : { path: destination },
-				}),
-				blockId,
-				{ after: null },
-			);
-		},
-		[moveBetween, paneOf],
-	);
+	const blockToNote = (
+		from: PaneId,
+		blockId: string,
+	): Promise<BlockMoveResult> => {
+		const path = paneOf(from === "left" ? "right" : "left");
+		return path && !canvas(path)
+			? blockToPath(from, blockId, path)
+			: Promise.resolve({
+					ok: false,
+					message: "Open a note beside the canvas to move this block into.",
+				});
+	};
 
 	// Tab commands still save the panes first. A detached draft can be reopened
 	// to retry, discard it, or save a copy.
@@ -751,6 +581,7 @@ export function useWorkspaceHost({
 		moving,
 		/** Move a block between documents identified by their drag and drop surfaces. */
 		dropBlock,
+		undo: () => documents.current?.undo(setMoving),
 		/** Move a block from the canvas in `from` into the note in the other pane. */
 		blockToNote,
 		blockToPath,

@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+
 import {
 	act,
 	cleanup,
@@ -9,12 +10,15 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Editor } from "@tiptap/core";
+import { closeHistory } from "@tiptap/pm/history";
 import { afterEach, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { parseNote } from "../core/note-format";
 import { headerIcon } from "../core/notes/icon";
 import { createNote } from "../core/notes/repository";
 import { MemoryHost } from "../host/memory-host";
+import { CanvasEmbed } from "./CanvasEmbed";
 import { SessionNoteView } from "./NoteView";
 import { loadVault, type NoteRow } from "./session";
 import { useWorkspaceHost, type WorkspaceHost } from "./useWorkspaceHost";
@@ -34,11 +38,13 @@ function Harness({
 	rows,
 	writable,
 	onMoveToTrash,
+	embed,
 }: {
 	host: MemoryHost;
 	rows: NoteRow[];
 	writable: boolean;
 	onMoveToTrash: () => void;
+	embed: boolean;
 }) {
 	api = useWorkspaceHost({
 		host,
@@ -48,8 +54,18 @@ function Harness({
 		onUnsaved: () => {},
 		onError: () => {},
 	});
+	const first = rows[0];
 	return (
 		<TooltipProvider>
+			{embed && first && (
+				<div className="react-flow__node selected" data-testid="selected-embed">
+					<CanvasEmbed
+						host={host}
+						documents={api.documents}
+						target={{ status: "found", row: first }}
+					/>
+				</div>
+			)}
 			<WorkspacePanes
 				host={api}
 				notes={rows}
@@ -71,7 +87,7 @@ function Harness({
 	);
 }
 
-async function setup(writable = true) {
+async function setup(writable = true, embed = false) {
 	const host = new MemoryHost();
 	await loadVault(host);
 	const a = (await createNote(host, "", "Alpha")).path;
@@ -84,6 +100,7 @@ async function setup(writable = true) {
 			rows={rows}
 			writable={writable}
 			onMoveToTrash={onMoveToTrash}
+			embed={embed}
 		/>,
 	);
 	const run = (command: () => Promise<boolean>) =>
@@ -96,6 +113,88 @@ async function setup(writable = true) {
 		screen.getAllByRole("textbox", { name: "Title" }) as HTMLInputElement[];
 	return { host, a, b, run, pane, titles, onMoveToTrash };
 }
+
+it("transfers the same editor and history both ways after composition during a save", async () => {
+	const { host, run, a, pane, titles } = await setup(true, true);
+	await run(() => api.open(a));
+	const embed = screen.getByLabelText("Embedded note");
+	const soleEditorIn = (surface: HTMLElement) => {
+		const editors = document.querySelectorAll<HTMLElement & { editor: Editor }>(
+			'.ProseMirror[contenteditable="true"]',
+		);
+		expect(editors).toHaveLength(1);
+		const field = editors[0];
+		if (!field) throw new Error("Expected a mounted editor.");
+		expect(surface.contains(field)).toBe(true);
+		return field;
+	};
+	const field = await waitFor(() => soleEditorIn(pane("left")));
+	const { editor } = field;
+	const type = (text: string) =>
+		act(() =>
+			editor.view.dispatch(closeHistory(editor.state.tr).insertText(text)),
+		);
+	const write = host.writeTextAtomic.bind(host);
+	let release = () => {};
+	const held = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	vi.spyOn(host, "writeTextAtomic").mockImplementation(async (path, text) => {
+		if (path === a) await held;
+		await write(path, text);
+	});
+	type("pane ");
+	const saving = api.flushAll();
+	try {
+		await waitFor(() =>
+			expect(host.writeTextAtomic).toHaveBeenCalledWith(a, expect.any(String)),
+		);
+		fireEvent.compositionStart(field);
+		await act(async () => {
+			fireEvent.doubleClick(embed);
+		});
+		expect(soleEditorIn(pane("left"))).toBe(field);
+		type("日本語");
+		act(() => {
+			editor.commands.setTextSelection({ from: 1, to: 3 });
+		});
+		const selection = editor.state.selection.toJSON();
+		fireEvent.compositionEnd(field);
+		expect(await waitFor(() => soleEditorIn(embed))).toBe(field);
+		expect(editor.state.selection.toJSON()).toEqual(selection);
+		expect(titles()[0]?.readOnly).toBe(true);
+		act(() => {
+			expect(editor.commands.undo()).toBe(true);
+		});
+		type("embed ");
+		const preview = screen.getByLabelText("Note preview");
+		expect(preview.textContent).toContain("pane embed");
+		fireEvent.compositionStart(field);
+		fireEvent.pointerDown(preview);
+		expect(soleEditorIn(embed)).toBe(field);
+		type("かな");
+		const returning = editor.state.selection.toJSON();
+		fireEvent.compositionEnd(field);
+		expect(await waitFor(() => soleEditorIn(pane("left")))).toBe(field);
+		expect(editor.state.selection.toJSON()).toEqual(returning);
+		expect(document.activeElement).toBe(field);
+		act(() => {
+			expect(editor.commands.undo()).toBe(true);
+		});
+		expect(editor.getText()).toBe("pane embed ");
+		type("final");
+	} finally {
+		release();
+		await act(async () => {
+			expect(await saving).toBe(true);
+		});
+	}
+	expect(await host.readText(a)).toContain("pane embed final");
+	fireEvent.keyDown(screen.getByTestId("selected-embed"), { key: "Enter" });
+	expect(await waitFor(() => soleEditorIn(embed))).toBe(field);
+	fireEvent.keyDown(field, { key: "Escape" });
+	expect(await waitFor(() => soleEditorIn(pane("left")))).toBe(field);
+});
 
 it("shows one note's title, status line and editor", async () => {
 	const { run, a, pane } = await setup();

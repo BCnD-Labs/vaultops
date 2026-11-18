@@ -2,6 +2,7 @@
 import {
 	act,
 	cleanup,
+	fireEvent,
 	render,
 	renderHook,
 	screen,
@@ -93,6 +94,29 @@ it("shows the embedded note read-only, with its title", async () => {
 	expect(screen.queryByRole("textbox")).toBeNull();
 	expect(write).not.toHaveBeenCalled();
 });
+
+it.each(["note", "vault"])(
+	"cannot activate an embed with a read-only %s",
+	async (locked) => {
+		const host = await hostWithMeeting();
+		const documents = createLiveDocuments(
+			host,
+			{ notes: [row], writable: locked !== "vault" },
+			{ open: (path, text) => openNote(host, path, text), onSaved: vi.fn() },
+		);
+		render(
+			<CanvasEmbed
+				host={host}
+				documents={documents}
+				target={{ ...target, row: { ...row, readOnly: locked === "note" } }}
+			/>,
+		);
+		await act(async () => {
+			fireEvent.doubleClick(screen.getByLabelText("Embedded note"));
+		});
+		expect(document.querySelector("[contenteditable]")).toBeNull();
+	},
+);
 
 it("opens the note from its button, with the note's current path", async () => {
 	const user = userEvent.setup();

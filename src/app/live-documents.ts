@@ -13,6 +13,7 @@ import { buildRecoveryText } from "../core/session/recovery";
 import type { Autosave, AutosaveState } from "../editor/autosave";
 import { BLOCK_TYPES } from "../editor/blocks";
 import { blocksToDoc, checkBlocks } from "../editor/doc-blocks";
+import type { NoteEditorSlot } from "../editor/NoteEditor";
 import { allowEditing, type OpenedNote } from "../editor/note-io";
 import type { Draft } from "../editor/save-draft";
 import type { DraftAutosaveOwner, SavedInfo } from "../editor/useAutosave";
@@ -46,6 +47,8 @@ interface Entry {
 	ready: Promise<void>;
 	editorReady?: Promise<void>;
 	autosave?: Autosave<Draft>;
+	editorSlot: NoteEditorSlot;
+	transfer?: AbortController;
 	subscribers: Map<symbol, Listener | undefined>;
 }
 
@@ -152,6 +155,7 @@ export function createLiveDocuments(
 			path,
 			document: opened ? fromOpened(opened) : null,
 			subscribers: new Map(),
+			editorSlot: {},
 			ready: Promise.resolve(),
 		};
 		entries.set(path, entry);
@@ -194,11 +198,20 @@ export function createLiveDocuments(
 	}
 
 	function publish(entry: Entry, document: LiveDocument, reloaded = false) {
+		if (reloaded) {
+			disposeEditor(entry);
+			entry.editorSlot = {};
+		}
 		entry.document = document;
 		for (const listener of entry.subscribers.values()) {
 			if (entry.document !== document) break;
 			listener?.(document, reloaded);
 		}
+	}
+
+	function disposeEditor(entry: Entry) {
+		entry.transfer?.abort();
+		entry.editorSlot.editor?.destroy();
 	}
 
 	function evictCleanEntry(entry: Entry) {
@@ -211,6 +224,7 @@ export function createLiveDocuments(
 				entries.get(key) === entry
 			) {
 				entry.autosave?.dispose();
+				disposeEditor(entry);
 				entries.delete(key);
 			}
 		};
@@ -241,8 +255,10 @@ export function createLiveDocuments(
 			if (!entry || path === undefined || !entry.subscribers.delete(subscriber))
 				return;
 			const document = entry.document;
-			if (document?.editorOwner === subscriber)
+			if (document?.editorOwner === subscriber) {
+				entry.editorSlot.editor?.setEditable(false, false);
 				publish(entry, { ...document, editorOwner: null });
+			}
 			if (!entry.subscribers.size) evictCleanEntry(entry);
 		}
 
@@ -347,6 +363,10 @@ export function createLiveDocuments(
 			ready,
 			current,
 			unsubscribe,
+			get editorSlot() {
+				return entry?.editorSlot;
+			},
+			ownsEditor: () => current()?.editorOwner === subscriber,
 			autosave,
 			write,
 			unlock() {
@@ -388,13 +408,43 @@ export function createLiveDocuments(
 				});
 				return true;
 			},
-			setEditorOwner(owns: boolean) {
-				const document = current();
-				if (!entry || !document || document.readOnly) return false;
-				const owner = document.editorOwner;
-				if (owner !== null && owner !== subscriber) return false;
-				const next = owns ? subscriber : null;
-				if (owner !== next) publish(entry, { ...document, editorOwner: next });
+			setEditorOwner(owns: boolean, transfer = false) {
+				const eligible = () => {
+					const document = current();
+					if (!document) return null;
+					const owner = document.editorOwner;
+					const allowed = owns
+						? !document.readOnly &&
+							(owner === null || owner === subscriber || transfer)
+						: owner === subscriber;
+					return allowed ? document : null;
+				};
+				if (!entry || !eligible()) return false;
+				const changeOwner = () => {
+					const document = eligible();
+					if (!document) return false;
+					const next = owns ? subscriber : null;
+					if (document.editorOwner !== next) {
+						entry.editorSlot.editor?.setEditable(false, false);
+						publish(entry, { ...document, editorOwner: next });
+					}
+					return true;
+				};
+				if (transfer || !owns) entry.transfer?.abort();
+				const view = entry.editorSlot.editor?.view;
+				if (!view?.composing || (!transfer && owns)) return changeOwner();
+				entry.transfer = new AbortController();
+				const { signal } = entry.transfer;
+				// Let ProseMirror publish the final composition transaction first.
+				view.dom.addEventListener(
+					"compositionend",
+					() => {
+						setTimeout(() => {
+							if (!signal.aborted) changeOwner();
+						});
+					},
+					{ once: true, signal },
+				);
 				return true;
 			},
 		};
@@ -581,6 +631,7 @@ export function createLiveDocuments(
 				// always did, so replacing the registry never discards an edit.
 				const auto = entry.autosave;
 				if (auto) void auto.flush().finally(() => auto.dispose());
+				disposeEditor(entry);
 				entry.subscribers.clear();
 			}
 			entries.clear();

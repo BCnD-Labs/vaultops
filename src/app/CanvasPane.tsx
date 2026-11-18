@@ -79,6 +79,7 @@ import { headerIcon, withIcon } from "../core/notes/icon";
 import { renameNote } from "../core/notes/rename";
 import { BLOCK_DRAG_TYPE } from "../editor/block-drag";
 import { BLOCK_TYPES } from "../editor/blocks";
+import type { LinkSource } from "../editor/note-link";
 import type { Host } from "../host/host";
 import { CanvasCard } from "./CanvasCard";
 import { CanvasEmbed } from "./CanvasEmbed";
@@ -128,6 +129,7 @@ export function CanvasPane({
 	onMoveTo,
 	notes = NO_NOTES,
 	onOpenNote,
+	links,
 }: {
 	host: Host;
 	documents?: LiveDocuments | null;
@@ -152,6 +154,7 @@ export function CanvasPane({
 	notes?: NoteRow[];
 	/** Opens a note, from the button on an embedded note. */
 	onOpenNote?: (path: string) => void;
+	links?: LinkSource;
 }) {
 	const [activePath, setActivePath] = useState(path);
 	const [prevPathProp, setPrevPathProp] = useState(path);
@@ -482,6 +485,8 @@ export function CanvasPane({
 					key={id}
 					documents={documents}
 					target={embedTarget(embedNoteId(block))}
+					host={editable ? host : undefined}
+					links={links}
 					locked={locked}
 					onOpen={onOpenNote}
 				/>

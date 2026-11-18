@@ -884,7 +884,8 @@ button.note-meta-chip:focus-visible {
 	.note-title .note-add-cover,
 	.note-cover img,
 	.note-cover-controls,
-	.props-block-header svg {
+	.props-block-header svg,
+	.canvas-embed {
 		transition: none;
 	}
 }
@@ -1218,7 +1219,7 @@ input.canvas-item-field {
 .canvas-label .canvas-item-text {
 	min-height: 1.2em;
 }
-/* An embedded note: a read-only window onto another note. */
+/* An embedded note can take over editing from the pane. */
 .canvas-embed {
 	display: flex;
 	flex-direction: column;
@@ -1227,6 +1228,10 @@ input.canvas-item-field {
 	background: var(--surface);
 	box-shadow: var(--elevation-1);
 	overflow: hidden;
+	transition: border-color var(--motion-fast) var(--ease-standard);
+}
+.canvas-embed[data-editing] {
+	border-color: var(--ring);
 }
 .canvas-embed-bar {
 	display: flex;

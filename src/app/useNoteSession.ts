@@ -65,6 +65,8 @@ export function useNoteSession({
 	const livePathRef = useRef<string | null>(null);
 	const statsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [binding, setBinding] = useState<Binding | null>(null);
+	const [editorOwner, setEditorOwner] = useState<symbol | null>(null);
+	const [, showSharedDoc] = useState<JSONContent>();
 	const attached = useRef<Binding | null>(null);
 	const unsavedCallback = useRef(onUnsaved);
 	unsavedCallback.current = onUnsaved;
@@ -129,8 +131,14 @@ export function useNoteSession({
 	const subscribe = (path: string, seed?: OpenedNote) => {
 		const next = documents()?.subscribe(
 			{ path },
-			({ lastSave, opened, path }, reloaded) => {
+			({ lastSave, opened, path, editorOwner, editorDraft }, reloaded) => {
 				if (attached.current !== next) return;
+				setEditorOwner(editorOwner);
+				if (!reloaded && editorDraft && docRef.current !== editorDraft.doc) {
+					docRef.current = editorDraft.doc;
+					showSharedDoc(editorDraft.doc);
+					refreshStats();
+				}
 				if (reloaded && opened) show(opened, path);
 				else if (lastSave) handleSaved(lastSave);
 				else if (path !== livePathRef.current) {
@@ -154,6 +162,7 @@ export function useNoteSession({
 		attached.current?.unsubscribe();
 		attached.current = next;
 		setBinding(next);
+		setEditorOwner(next.current()?.editorOwner ?? null);
 		show(snapshot.opened, snapshot.path, snapshot.editorDraft);
 		if (snapshot.lastSave) setNotice(snapshot.lastSave.notice ?? null);
 	};
@@ -255,6 +264,8 @@ export function useNoteSession({
 		notice,
 		setNotice,
 		editorRevision,
+		binding,
+		editorElsewhere: editorOwner !== null && !binding?.ownsEditor(),
 		stats,
 		outline,
 		docRef,

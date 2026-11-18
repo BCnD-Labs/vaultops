@@ -41,7 +41,7 @@ async function setup(writable = true) {
 	const hook = renderHook(() =>
 		useNoteSession({ host, writable, documents: () => registry, onUnsaved }),
 	);
-	return { host, alpha, beta, onSaved, onUnsaved, ...hook };
+	return { host, alpha, beta, onSaved, onUnsaved, registry, ...hook };
 }
 
 afterEach(() => {
@@ -49,10 +49,10 @@ afterEach(() => {
 });
 
 it("starts with no note and nothing to recover", async () => {
-	const { result } = await setup();
+	const { result, registry } = await setup();
 	expect(result.current.opened).toBeNull();
 	expect(result.current.livePath).toBeNull();
-	expect(result.current.recoveryText(new Date())).toBeNull();
+	expect(registry.recoveryTexts(new Date())).toEqual([]);
 	expect(await result.current.settle()).toBe(true);
 });
 
@@ -148,12 +148,12 @@ it("refuses to leave an unsaved note, says so, and lets retry save it", async ()
 	expect(await host.readText(alpha.path)).toContain("not on disk yet");
 });
 
-it("builds recovery text from what is on screen, saved or not", async () => {
-	const { result, alpha } = await setup();
+it("builds recovery text from the dirty entry", async () => {
+	const { result, alpha, registry } = await setup();
 	act(() => result.current.load(alpha, alpha.path));
 	act(() => result.current.editTitle("Draft title"));
 	act(() => result.current.editDoc(doc("words nobody has saved")));
-	const text = result.current.recoveryText(new Date("2026-11-05T00:00:00Z"));
+	const [text] = registry.recoveryTexts(new Date("2026-11-05T00:00:00Z"));
 	expect(text).toContain("kept at: 2026-11-05T00:00:00.000Z");
 	expect(text).toContain(`note: ${alpha.path}`);
 	expect(text).toContain("title: Draft title");
@@ -191,14 +191,13 @@ it("shows a note in a read-only vault locked, and writes nothing", async () => {
 	expect(await host.kindOf("Changed.vnote")).not.toBe("file");
 });
 
-it("keeps no recovery text for a note that was put away", async () => {
-	const { result, alpha } = await setup();
+it("keeps no recovery text once the draft is saved", async () => {
+	const { result, alpha, registry } = await setup();
 	act(() => result.current.load(alpha, alpha.path));
 	act(() => result.current.editDoc(doc("left behind")));
-	expect(result.current.recoveryText(new Date())).toContain("left behind");
+	expect(registry.recoveryTexts(new Date())[0]).toContain("left behind");
 	await act(async () => {
 		expect(await result.current.settle()).toBe(true);
 	});
-	act(() => result.current.clear());
-	expect(result.current.recoveryText(new Date())).toBeNull();
+	expect(registry.recoveryTexts(new Date())).toEqual([]);
 });

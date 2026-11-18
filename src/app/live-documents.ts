@@ -1,16 +1,18 @@
-import { CANVAS_ONLY_TYPES, type Note, parseNote } from "../core/note-format";
+import {
+	CANVAS_ONLY_TYPES,
+	type Note,
+	parseNote,
+	serializeNote,
+} from "../core/note-format";
 import {
 	type DocumentRow,
 	indexDocumentIds,
 } from "../core/notes/document-identity";
+import { buildRecoveryText } from "../core/session/recovery";
 import type { Autosave, AutosaveState } from "../editor/autosave";
 import { BLOCK_TYPES } from "../editor/blocks";
-import { checkBlocks } from "../editor/doc-blocks";
-import {
-	allowEditing,
-	lockedForReadOnlyVault,
-	type OpenedNote,
-} from "../editor/note-io";
+import { blocksToDoc, checkBlocks } from "../editor/doc-blocks";
+import { allowEditing, type OpenedNote } from "../editor/note-io";
 import type { Draft } from "../editor/save-draft";
 import type { DraftAutosaveOwner, SavedInfo } from "../editor/useAutosave";
 import type { Host } from "../host/host";
@@ -41,6 +43,10 @@ interface Entry {
 	ready: Promise<void>;
 	autosave?: Autosave<Draft>;
 	subscribers: Map<symbol, Listener | undefined>;
+}
+
+function isDirty({ document }: Entry) {
+	return document !== null && document.saveStatus.kind !== "saved";
 }
 
 const canvasTypes = new Set<string>([...BLOCK_TYPES, ...CANVAS_ONLY_TYPES]);
@@ -97,7 +103,7 @@ export function createLiveDocuments(
 		else if (id && indexedPaths.get(id) === path) indexedPaths.delete(id);
 		return {
 			...openedDocument(path, baseText ?? "", indexedPaths, writable),
-			opened: writable ? opened : lockedForReadOnlyVault(opened),
+			opened,
 		};
 	}
 
@@ -127,6 +133,26 @@ export function createLiveDocuments(
 		}
 	}
 
+	function evictCleanEntry(entry: Entry, path: string) {
+		if (isDirty(entry)) return;
+		const evict = () => {
+			const document = entry.document;
+			const key = document?.path ?? path;
+			if (
+				entry.subscribers.size === 0 &&
+				!isDirty(entry) &&
+				entries.get(key) === entry
+			) {
+				entry.autosave?.dispose();
+				entries.delete(key);
+			}
+		};
+		// Discard can mark an entry saved before an admitted write finishes.
+		// Leave the queue in the registry until that write has settled.
+		if (entry.autosave) void entry.autosave.flush().then(evict);
+		else evict();
+	}
+
 	/** `ready` supplies the initial snapshot. The listener receives later changes. */
 	function subscribe(
 		target: DocumentTarget,
@@ -149,14 +175,7 @@ export function createLiveDocuments(
 			const document = entry.document;
 			if (document?.editorOwner === subscriber)
 				publish(entry, { ...document, editorOwner: null });
-			if (
-				!entry.subscribers.size &&
-				(!document || document.saveStatus.kind === "saved") &&
-				entries.get(document?.path ?? path) === entry
-			) {
-				entry.autosave?.dispose();
-				entries.delete(document?.path ?? path);
-			}
+			if (!entry.subscribers.size) evictCleanEntry(entry, path);
 		}
 
 		function current() {
@@ -187,7 +206,8 @@ export function createLiveDocuments(
 
 		const autosave: DraftAutosaveOwner["autosave"] = (create) => {
 			const document = current();
-			if (!entry || !document || !editor) return null;
+			if (!entry || !writable || !document?.opened?.editable || !editor)
+				return null;
 			if (entry.autosave) return entry.autosave;
 			const auto = create((saved, draft, info) => {
 				const latest = entry.document;
@@ -212,15 +232,13 @@ export function createLiveDocuments(
 				const latest = entry.document;
 				if (disposed || !latest || entries.get(latest.path) !== entry) return;
 				publish(entry, { ...latest, saveStatus });
-				if (saveStatus.kind === "saved" && !entry.subscribers.size) {
-					entries.delete(latest.path);
-					auto.dispose();
-				}
+				if (saveStatus.kind === "saved" && !entry.subscribers.size)
+					evictCleanEntry(entry, latest.path);
 			});
 			const change = auto.change;
 			auto.change = (editorDraft) => {
 				const latest = entry.document;
-				if (disposed || !latest) return;
+				if (disposed || !writable || !latest) return;
 				entry.document = {
 					...latest,
 					editorDraft,
@@ -239,9 +257,10 @@ export function createLiveDocuments(
 			current,
 			unsubscribe,
 			autosave,
+			canWrite: () => writable,
 			unlock() {
 				const document = current();
-				if (!entry || !document?.opened) return null;
+				if (!writable || !entry || !document?.opened) return null;
 				const opened = allowEditing(document.opened);
 				publish(entry, { ...document, opened });
 				return opened;
@@ -288,6 +307,61 @@ export function createLiveDocuments(
 
 	return {
 		subscribe,
+		setWritable(next: boolean) {
+			if (disposed || writable === next) return;
+			writable = next;
+			for (const entry of entries.values()) {
+				const document = entry.document;
+				if (document)
+					publish(entry, {
+						...document,
+						readOnly: !writable || document.noteId === null,
+					});
+			}
+		},
+		async flushAll() {
+			do {
+				const results = await Promise.all(
+					[...entries.values()].map(async (entry) => {
+						const saved = await entry.autosave?.flush();
+						return saved !== false && !isDirty(entry);
+					}),
+				);
+				if (!results.every(Boolean)) return false;
+				// Another entry may have received an edit while a slower one saved.
+			} while ([...entries.values()].some(isDirty));
+			return true;
+		},
+		recoveryTexts(now: Date) {
+			const texts = new Map<string, string>();
+			for (const { document } of entries.values()) {
+				if (!document || document.saveStatus.kind === "saved") continue;
+				const { path, editorDraft, base, draft, opened, kind } = document;
+				const header = (base ?? opened?.note ?? draft)?.header;
+				const id = document.noteId ?? header?.noteId;
+				if (id === undefined || texts.has(id)) continue;
+				if (!editorDraft && !draft) continue;
+				const title = editorDraft?.title ?? draft?.header.title;
+				const body = editorDraft
+					? { doc: editorDraft.doc }
+					: draft && kind === "canvas"
+						? { jsonl: serializeNote(draft) }
+						: { doc: blocksToDoc(draft?.blocks ?? []) };
+				texts.set(
+					id,
+					buildRecoveryText({
+						path,
+						now,
+						title: typeof title === "string" ? title : path,
+						props: editorDraft
+							? (editorDraft.props ?? header?.props)
+							: draft?.header.props,
+						...body,
+					}),
+				);
+			}
+			return [...texts.values()];
+		},
 		dispose() {
 			disposed = true;
 			for (const entry of entries.values()) {

@@ -1,3 +1,5 @@
+import type { JsonValue } from "../note-format";
+
 /** A document node as far as plain text is concerned. */
 export interface TextNode {
 	type?: string;
@@ -32,12 +34,12 @@ export function docToPlainText(doc: TextNode): string {
 	return lines.join("\n");
 }
 
-export interface RecoveryInput {
+export type RecoveryInput = {
 	path: string | null;
 	title: string;
-	doc: TextNode;
+	props?: JsonValue;
 	now: Date;
-}
+} & ({ doc: TextNode } | { jsonl: string });
 
 /** What is kept when the window is closed with edits that could not be saved. */
 export function buildRecoveryText(input: RecoveryInput): string {
@@ -46,8 +48,11 @@ export function buildRecoveryText(input: RecoveryInput): string {
 		`kept at: ${input.now.toISOString()}`,
 		`note: ${input.path ?? "(not saved yet)"}`,
 		`title: ${input.title}`,
+		...(input.props === undefined
+			? []
+			: [`properties: ${JSON.stringify(input.props)}`]),
 		"",
-		docToPlainText(input.doc),
+		"doc" in input ? docToPlainText(input.doc) : input.jsonl,
 		"",
 	].join("\n");
 }

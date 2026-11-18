@@ -53,6 +53,64 @@ function freeSpot(note: { blocks: Block[] }): { x: number; y: number } {
 const countOf = (note: { blocks: { type: string }[] }, type: string) =>
 	note.blocks.filter((line) => line.type === type).length;
 
+function withMoveLocks<T>(
+	host: Host,
+	source: string,
+	destination: string,
+	task: () => Promise<T>,
+): Promise<T> {
+	if (nameKey(source) === nameKey(destination))
+		return Promise.reject(new Error("Choose a different destination note."));
+	const first = source < destination ? source : destination;
+	const second = first === source ? destination : source;
+	return inOrder(host, first, () => inOrder(host, second, task));
+}
+
+type FileChange = { path: string; before: string; after: string };
+
+async function restoreFirstWrite(
+	host: Host,
+	first: FileChange,
+	second: FileChange,
+): Promise<string | undefined> {
+	try {
+		// Keep the first copy if the other file changed and might no longer have the block.
+		if (
+			(await host.readText(second.path)) !== second.before ||
+			(await host.readText(first.path)) !== first.after
+		)
+			return "One of the files changed during the operation. Check both files for the block.";
+		await host.writeTextAtomic(first.path, first.before);
+	} catch {
+		return `${first.path} could not be restored. Check both files for a duplicate block.`;
+	}
+}
+
+/** Finish a two-file write after the first file has received its copy. */
+async function finishMove(
+	host: Host,
+	first: FileChange,
+	second: FileChange,
+	messages: { partial: string; restored: string },
+): Promise<void> {
+	try {
+		if (
+			(await host.readText(first.path)) !== first.after ||
+			(await host.readText(second.path)) !== second.before
+		)
+			throw new Error("A file changed after the first save.");
+		await host.writeTextAtomic(second.path, second.after);
+	} catch (cause) {
+		const notice = await restoreFirstWrite(host, first, second);
+		throw new Error(
+			notice ? `${messages.partial} ${notice}` : messages.restored,
+			{
+				cause,
+			},
+		);
+	}
+}
+
 /**
  * Copy a block (and its descendants) from `source` into `destination` with
  * fresh, unique IDs. Only `destination` is written (atomically); `source` is
@@ -66,28 +124,24 @@ export async function copyBlock(
 	placement: Placement,
 	generateId: () => string = newBlockId,
 ): Promise<void> {
-	const [first, second] = [source, destination].sort();
-	await inOrder(host, first ?? source, () =>
-		inOrder(host, second ?? destination, () =>
-			moveNow(
-				host,
-				source,
-				destination,
-				blockId,
-				placement,
-				new Date(),
-				generateId,
-			),
+	await withMoveLocks(host, source, destination, () =>
+		moveNow(
+			host,
+			source,
+			destination,
+			blockId,
+			placement,
+			new Date(),
+			generateId,
 		),
 	);
 }
 
 /**
  * Write the destination before removing the source copy. If the second write
- * fails the first is put back, so the move either happens or leaves both files
- * as they were; only if that also fails does the block exist in both. A canvas
- * that loses connectors or group membership is copied to the recovery folder
- * first. Moves into or out of the same files go one at a time.
+ * fails, roll the first back only while both files still match. A canvas that
+ * loses connectors or group membership is copied to the recovery folder first.
+ * Moves into or out of the same files go one at a time.
  */
 export function moveBlock(
 	host: Host,
@@ -97,11 +151,8 @@ export function moveBlock(
 	placement: Placement,
 	now: Date = new Date(),
 ): Promise<MoveReceipt> {
-	const [first, second] = [source, destination].sort();
-	return inOrder(host, first ?? source, () =>
-		inOrder(host, second ?? destination, () =>
-			moveNow(host, source, destination, blockId, placement, now),
-		),
+	return withMoveLocks(host, source, destination, () =>
+		moveNow(host, source, destination, blockId, placement, now),
 	);
 }
 
@@ -132,8 +183,6 @@ async function moveNow(
 	now: Date,
 	copyId?: () => string,
 ): Promise<MoveReceipt | null> {
-	if (nameKey(source) === nameKey(destination))
-		throw new Error("Choose a different destination note.");
 	for (const path of [source, destination]) {
 		if (
 			!checkVaultPath(path).ok ||
@@ -174,11 +223,6 @@ async function moveNow(
 	const sourceSave = prepareSave(extracted.doc);
 	if (!destinationSave.ok || !sourceSave.ok)
 		throw new Error("The moved block did not pass the save check.");
-	if (
-		(await host.readText(source)) !== sourceText ||
-		(await host.readText(destination)) !== destinationText
-	)
-		throw new Error("A note changed while the block was being moved.");
 	// What the canvas gives up with the card: connectors that ended at it, and
 	// its place in a group. Keep the old canvas first so none of it is lost.
 	const lost = {
@@ -193,26 +237,22 @@ async function moveNow(
 			await copyToRecovery(host, sourceText, `moved-from/${name}`, now)
 		).recoveryPath;
 	}
+	if (
+		(await host.readText(source)) !== sourceText ||
+		(await host.readText(destination)) !== destinationText
+	)
+		throw new Error("A note changed while the block was being moved.");
 	await host.writeTextAtomic(destination, destinationSave.text);
 	if (copyId) return null;
-	try {
-		if ((await host.readText(source)) !== sourceText)
-			throw new Error("The source changed after the destination was saved.");
-		await host.writeTextAtomic(source, sourceSave.text);
-	} catch (error) {
-		try {
-			await host.writeTextAtomic(destination, destinationText);
-		} catch {
-			throw new Error(
-				`The block was saved to ${destination}, but could not be removed from ${source}, so it is in both. Nothing is lost: delete the extra copy from whichever you do not want.`,
-				{ cause: error },
-			);
-		}
-		throw new Error(
-			`The block was not moved: ${source} could not be saved. Nothing changed, so you can try again.`,
-			{ cause: error },
-		);
-	}
+	await finishMove(
+		host,
+		{ path: destination, before: destinationText, after: destinationSave.text },
+		{ path: source, before: sourceText, after: sourceSave.text },
+		{
+			partial: `The block move from ${source} could not be completed.`,
+			restored: `The block was not moved. ${source} could not be saved. You can try again.`,
+		},
+	);
 	return {
 		source,
 		destination,
@@ -243,31 +283,33 @@ function groupsChanged(
  * The source is restored first, so the block is never missing from both.
  */
 export function undoMove(host: Host, receipt: MoveReceipt): Promise<void> {
-	const [first, second] = [receipt.source, receipt.destination].sort();
-	return inOrder(host, first ?? receipt.source, () =>
-		inOrder(host, second ?? receipt.destination, async () => {
-			if (
-				(await host.readText(receipt.source)) !== receipt.sourceAfter ||
-				(await host.readText(receipt.destination)) !== receipt.destinationAfter
-			)
-				throw new Error(
-					"One of the two changed since the move, so it can't be undone here. Drag the block back instead.",
-				);
-			await host.writeTextAtomic(receipt.source, receipt.sourceBefore);
-			try {
-				await host.writeTextAtomic(
-					receipt.destination,
-					receipt.destinationBefore,
-				);
-			} catch (error) {
-				await host
-					.writeTextAtomic(receipt.source, receipt.sourceAfter)
-					.catch(() => undefined);
-				throw new Error(
-					"The move could not be undone, and nothing was changed.",
-					{ cause: error },
-				);
-			}
-		}),
-	);
+	const { source, destination } = receipt;
+	return withMoveLocks(host, source, destination, async () => {
+		if (
+			(await host.readText(destination)) !== receipt.destinationAfter ||
+			(await host.readText(source)) !== receipt.sourceAfter
+		)
+			throw new Error(
+				"One of the two changed since the move, so it can't be undone here. Drag the block back instead.",
+			);
+		await host.writeTextAtomic(source, receipt.sourceBefore);
+		await finishMove(
+			host,
+			{
+				path: source,
+				before: receipt.sourceAfter,
+				after: receipt.sourceBefore,
+			},
+			{
+				path: destination,
+				before: receipt.destinationAfter,
+				after: receipt.destinationBefore,
+			},
+			{
+				partial: "The move could not be undone.",
+				restored:
+					"The move could not be undone. Both files were restored to their state after the move.",
+			},
+		);
+	});
 }

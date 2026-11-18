@@ -7,6 +7,7 @@ import { type HealthEntry, scanVault, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import type { PlannerTask } from "../core/planner/rules";
 import { taskFromNote } from "../core/planner/task-note";
+import { searchFieldsOf } from "../core/search/fields";
 import { openVault, type VaultResult } from "../core/vault/vault";
 import type { Host } from "../host/host";
 
@@ -19,6 +20,9 @@ export interface NoteRow {
 	icon?: string;
 	/** The note's body text on one line (capped), so searches can look inside. */
 	text?: string;
+	headings?: string[];
+	properties?: string[];
+	updatedAt?: number;
 	/** The `noteId`s this note links to, once each. */
 	links?: string[];
 	/** The `noteId`s of the notes its database rows were turned into, once each. */
@@ -111,6 +115,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			preview: n.preview,
 			icon: headerIcon(n.note.header),
 			text: searchTextOf(n.note.blocks),
+			...searchFieldsOf(n.note),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
 			rowNotes: rowNoteIds(n.note.blocks),
 			tags: tagsOf(headerProps(n.note.header)),

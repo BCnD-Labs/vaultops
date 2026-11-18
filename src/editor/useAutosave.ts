@@ -4,6 +4,7 @@ import { headerIcon } from "../core/notes/icon";
 import { headerProps } from "../core/notes/properties";
 import { previewOf, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
+import { searchFieldsOf } from "../core/search/fields";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
 import { type Autosave, type AutosaveState, createAutosave } from "./autosave";
@@ -21,6 +22,9 @@ export interface SavedInfo {
 	icon?: string;
 	/** The body text (capped) and the `noteId`s linked, kept so search and "Linked from" stay current. */
 	text?: string;
+	headings?: string[];
+	properties?: string[];
+	updatedAt: number;
 	links?: string[];
 	titleChanged: boolean;
 	/** The note's tags as saved. */
@@ -115,6 +119,8 @@ export function useAutosave(
 					preview: previewOf(result.note.blocks),
 					icon: headerIcon(result.note.header),
 					text: searchTextOf(result.note.blocks),
+					...searchFieldsOf(result.note),
+					updatedAt: Date.now(),
 					links: [
 						...new Set(linksIn(result.note.blocks).map((link) => link.target)),
 					],

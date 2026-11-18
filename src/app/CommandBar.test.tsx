@@ -262,9 +262,10 @@ it("finds a note by a word in its text, after the title matches, and opens it", 
 		screen.getByRole("combobox", { name: "Find or create a note" }),
 		"budget",
 	);
-	const group = screen.getByText("In note text").closest("[cmdk-group]");
+	const group = screen.getByText("In notes").closest("[cmdk-group]");
 	expect(group?.textContent).toContain("Meeting");
 	expect(group?.textContent).toContain("talked about the budget");
+	expect(group?.querySelector("mark")?.textContent).toBe("budget");
 	// Creating stays first: a search for words you meant as a title still creates.
 	expect(screen.getAllByRole("option")[0]?.textContent).toContain(
 		"Create note: budget",

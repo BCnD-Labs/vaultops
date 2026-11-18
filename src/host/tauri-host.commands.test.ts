@@ -102,6 +102,20 @@ describe("tauriHost app files, log and window", () => {
 		).rejects.toBeInstanceOf(HostError);
 	});
 
+	it("sends a pasted image as the raw body with its name in a header", async () => {
+		invoke.mockResolvedValueOnce("attachments/a.png");
+		const path = await tauriHost.importAttachment(
+			"a.png",
+			new Uint8Array([7]).buffer,
+		);
+		expect(path).toBe("attachments/a.png");
+		expect(invoke.mock.calls[0]).toEqual([
+			"import_attachment",
+			new Uint8Array([7]),
+			{ headers: { "x-attachment-name": "a.png" } },
+		]);
+	});
+
 	it("never leaks an unexpected native message", async () => {
 		invoke.mockRejectedValueOnce("/Users/someone/secret/place failed");
 		const error = (await tauriHost.readText("a").catch((e) => e)) as HostError;

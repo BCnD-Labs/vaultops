@@ -9,6 +9,7 @@ import {
 	HostError,
 	isCachePath,
 	MAX_CACHE_BYTES,
+	MAX_IMAGE_BYTES,
 	type UpdateChannelName,
 	type UpdateChannels,
 	type UpdateScriptStatus,
@@ -72,23 +73,32 @@ export class MemoryHost implements Host {
 	async chooseCover(): Promise<string | null> {
 		const picked = this.nextCover;
 		this.nextCover = null;
-		if (!picked) return null;
-		const parts = this.parts(picked.name);
-		const match = /^(.*)\.(png|jpe?g|gif|webp)$/i.exec(picked.name);
-		if (parts.length !== 1 || !match)
+		return picked && this.importAttachment(picked.name, picked.bytes.buffer);
+	}
+
+	chooseImage(): Promise<string | null> {
+		return this.chooseCover();
+	}
+
+	async importAttachment(file: string, bytes: ArrayBuffer): Promise<string> {
+		const parts = this.parts(file);
+		const match = /^(.*)\.(png|jpe?g|gif|webp)$/i.exec(file);
+		if (parts.length !== 1 || !match || file.startsWith("."))
 			throw new HostError("invalid-path", "expected an image filename");
+		if (bytes.byteLength > MAX_IMAGE_BYTES)
+			throw new HostError("invalid-path", "the image is larger than 25 MB");
 		await this.makeFolder("attachments");
 		const { children } = this.folderAt(["attachments"]);
 		const stem =
-			new TextEncoder().encode(match[1]).length > 230 ? "cover" : match[1];
-		let name = picked.name;
+			new TextEncoder().encode(match[1]).length > 230 ? "image" : match[1];
+		let name = file;
 		for (let n = 2; children.has(nameKey(name)); n++) {
 			name = `${stem}-${n}.${match[2]}`;
 		}
 		children.set(nameKey(name), {
 			kind: "file",
 			name,
-			text: new Uint8Array(picked.bytes),
+			text: new Uint8Array(bytes.slice(0)),
 		});
 		return `attachments/${name}`;
 	}

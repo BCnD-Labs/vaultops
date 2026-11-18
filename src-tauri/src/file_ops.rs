@@ -33,15 +33,15 @@ pub fn read_text(vault: &Vault, path: &str) -> Result<String, HostError> {
     String::from_utf8(bytes).map_err(|_| HostError::new(ErrorCode::Io, "file is not UTF-8 text"))
 }
 
-/// Covers are read whole into memory, so a very large file is refused.
-pub const MAX_COVER_BYTES: u64 = 25 * 1024 * 1024;
+/// Images are read whole into memory, so a very large file is refused.
+pub const MAX_IMAGE_BYTES: u64 = 25 * 1024 * 1024;
 
-pub const COVER_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
+pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp"];
 
-fn cover_extension(path: &Path) -> Result<&str, HostError> {
+fn image_extension(path: &Path) -> Result<&str, HostError> {
     path.extension()
         .and_then(|ext| ext.to_str())
-        .filter(|ext| COVER_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+        .filter(|ext| IMAGE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
         .ok_or_else(|| HostError::invalid("expected a PNG, JPEG, GIF or WebP image"))
 }
 
@@ -50,7 +50,7 @@ pub fn read_cover(vault: &Vault, path: &str) -> Result<Vec<u8>, HostError> {
     if parts.len() < 2 || parts[0] != "attachments" {
         return Err(HostError::invalid("expected an image under attachments"));
     }
-    cover_extension(Path::new(path))?;
+    image_extension(Path::new(path))?;
     let mut rel = PathBuf::new();
     for part in parts {
         rel.push(part);
@@ -65,21 +65,32 @@ pub fn read_cover(vault: &Vault, path: &str) -> Result<Vec<u8>, HostError> {
 }
 
 /// The source comes from the native picker and stays on the Rust side.
-pub fn import_cover(vault: &Vault, source: &Path) -> Result<String, HostError> {
-    let ext = cover_extension(source)?;
+pub fn import_image_file(vault: &Vault, source: &Path) -> Result<String, HostError> {
+    image_extension(source)?;
     let name = source
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| HostError::invalid("invalid image filename"))?;
-    check_relative(name, false)?;
     let meta = std::fs::metadata(source).map_err(io)?;
     if !meta.is_file() {
-        return Err(HostError::invalid("cover is not a regular file"));
+        return Err(HostError::invalid("image is not a regular file"));
     }
-    if meta.len() > MAX_COVER_BYTES {
+    if meta.len() > MAX_IMAGE_BYTES {
         return Err(HostError::invalid("the image is larger than 25 MB"));
     }
-    let bytes = std::fs::read(source).map_err(io)?;
+    import_attachment(vault, name, &std::fs::read(source).map_err(io)?)
+}
+
+/// Store an image in `attachments/` as `name`, or `name-2`, `name-3`... when
+/// that is taken. The bytes are kept exactly as they are (never re-encoded).
+pub fn import_attachment(vault: &Vault, name: &str, bytes: &[u8]) -> Result<String, HostError> {
+    let ext = image_extension(Path::new(name))?;
+    if check_relative(name, false)?.len() != 1 || name.starts_with('.') {
+        return Err(HostError::invalid("expected an image filename"));
+    }
+    if bytes.len() as u64 > MAX_IMAGE_BYTES {
+        return Err(HostError::invalid("the image is larger than 25 MB"));
+    }
     let dir = vault.dir();
     match dir.create_dir("attachments") {
         Ok(()) => (),
@@ -94,9 +105,9 @@ pub fn import_cover(vault: &Vault, source: &Path) -> Result<String, HostError> {
         return Err(HostError::invalid("attachments cannot be a symlink"));
     }
     let parent = open_folder(dir, Path::new("attachments"))?;
-    let temp = write_temp(&parent, &bytes)?;
+    let temp = write_temp(&parent, bytes)?;
     let stem = &name[..name.len() - ext.len() - 1];
-    let stem = if stem.len() > 230 { "cover" } else { stem };
+    let stem = if stem.len() > 230 { "image" } else { stem };
     let mut candidate = name.to_owned();
     let mut suffix = 2;
     // Publish the complete file atomically, without replacing any existing entry.
@@ -238,9 +249,9 @@ mod tests {
         let (tmp, vault) = setup();
         let source = tmp.path().join("photo.png");
         fs::write(&source, b"first").unwrap();
-        let first = import_cover(&vault, &source).unwrap();
+        let first = import_image_file(&vault, &source).unwrap();
         fs::write(&source, b"second").unwrap();
-        let second = import_cover(&vault, &source).unwrap();
+        let second = import_image_file(&vault, &source).unwrap();
         assert_eq!(first, "attachments/photo.png");
         assert_eq!(second, "attachments/photo-2.png");
         assert_eq!(read_cover(&vault, &first).unwrap(), b"first");
@@ -261,7 +272,10 @@ mod tests {
         fs::write(&source, b"image").unwrap();
         let attachments = vault.root().join("attachments");
         symlink(tmp.path(), &attachments).unwrap();
-        assert_eq!(code(import_cover(&vault, &source)), ErrorCode::InvalidPath);
+        assert_eq!(
+            code(import_image_file(&vault, &source)),
+            ErrorCode::InvalidPath
+        );
         fs::remove_file(&attachments).unwrap();
         fs::create_dir(&attachments).unwrap();
         symlink(&source, attachments.join("photo.png")).unwrap();
@@ -270,9 +284,39 @@ mod tests {
             ErrorCode::InvalidPath
         );
         assert_eq!(
-            import_cover(&vault, &source).unwrap(),
+            import_image_file(&vault, &source).unwrap(),
             "attachments/photo-2.png"
         );
+    }
+
+    #[test]
+    fn imports_attachment_bytes_unchanged_and_refuses_unsafe_names() {
+        let (_tmp, vault) = setup();
+        let bytes = [0x89, b'P', b'N', b'G', 0, 1, 2];
+        let first = import_attachment(&vault, "Pasted image.png", &bytes).unwrap();
+        let second = import_attachment(&vault, "Pasted image.png", b"x").unwrap();
+        assert_eq!(first, "attachments/Pasted image.png");
+        assert_eq!(second, "attachments/Pasted image-2.png");
+        assert_eq!(read_cover(&vault, &first).unwrap(), bytes);
+        for bad in [
+            "../up.png",
+            "a/b.png",
+            "/abs.png",
+            ".hidden.png",
+            "notes.vnote",
+            "",
+        ] {
+            assert_eq!(
+                code(import_attachment(&vault, bad, b"x")),
+                ErrorCode::InvalidPath
+            );
+        }
+        let big = vec![0; MAX_IMAGE_BYTES as usize + 1];
+        assert_eq!(
+            code(import_attachment(&vault, "big.png", &big)),
+            ErrorCode::InvalidPath
+        );
+        assert_eq!(leftover_temps(&vault.root().join("attachments")), 0);
     }
 
     fn leftover_temps(dir: &Path) -> usize {

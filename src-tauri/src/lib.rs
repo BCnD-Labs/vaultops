@@ -67,18 +67,19 @@ fn read_cover(
     with_vault(&state, |v| file_ops::read_cover(v, &path)).map(tauri::ipc::Response::new)
 }
 
-#[tauri::command(async)]
-fn choose_cover(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, VaultState>,
+/// The picked file stays on the Rust side; only its new vault path comes back.
+fn pick_image(
+    app: &tauri::AppHandle,
+    state: &tauri::State<'_, VaultState>,
+    title: &str,
 ) -> Result<Option<String>, HostError> {
     use tauri_plugin_dialog::DialogExt;
-    let root = with_vault(&state, |v| Ok(v.root().to_owned()))?;
+    let root = with_vault(state, |v| Ok(v.root().to_owned()))?;
     let Some(picked) = app
         .dialog()
         .file()
-        .set_title("Choose a note cover")
-        .add_filter("Images", file_ops::COVER_EXTENSIONS)
+        .set_title(title)
+        .add_filter("Images", file_ops::IMAGE_EXTENSIONS)
         .blocking_pick_file()
     else {
         return Ok(None);
@@ -86,12 +87,46 @@ fn choose_cover(
     let source = picked
         .into_path()
         .map_err(|_| HostError::invalid("expected a local image"))?;
-    with_vault(&state, |v| {
+    with_vault(state, |v| {
         if v.root() != root {
             return Err(HostError::invalid("the open vault changed"));
         }
-        file_ops::import_cover(v, &source).map(Some)
+        file_ops::import_image_file(v, &source).map(Some)
     })
+}
+
+#[tauri::command(async)]
+fn choose_cover(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VaultState>,
+) -> Result<Option<String>, HostError> {
+    pick_image(&app, &state, "Choose a note cover")
+}
+
+#[tauri::command(async)]
+fn choose_image(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, VaultState>,
+) -> Result<Option<String>, HostError> {
+    pick_image(&app, &state, "Choose an image")
+}
+
+/// A pasted or dropped image: the bytes are the raw request body and the
+/// file name (plain ASCII) a header, as for `write_cache`.
+#[tauri::command(async)]
+fn import_attachment(
+    state: tauri::State<'_, VaultState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<String, HostError> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(HostError::invalid("expected raw bytes"));
+    };
+    let name = request
+        .headers()
+        .get("x-attachment-name")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| HostError::invalid("missing file name"))?;
+    with_vault(&state, |v| file_ops::import_attachment(v, name, bytes))
 }
 
 #[tauri::command(async)]
@@ -483,6 +518,8 @@ pub fn run() {
             read_text,
             read_cover,
             choose_cover,
+            choose_image,
+            import_attachment,
             read_cache,
             write_cache,
             write_text_atomic,

@@ -43,6 +43,8 @@ export function readOnlyHost(host: Host): Host {
 		// Everything that changes the vault's folder.
 		writeTextAtomic: refuse,
 		chooseCover: refuse,
+		chooseImage: refuse,
+		importAttachment: refuse,
 		writeCache: refuse,
 		move: refuse,
 		makeFolder: refuse,

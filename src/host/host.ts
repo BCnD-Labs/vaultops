@@ -98,6 +98,15 @@ export interface Host {
 	readCover(path: string): Promise<ArrayBuffer>;
 	/** Pick and import an image, or return null when cancelled. */
 	chooseCover(): Promise<string | null>;
+	/** The same for an image block: the picker is titled for an image. */
+	chooseImage(): Promise<string | null>;
+	/**
+	 * Store a pasted or dropped image in attachments/ as `name` (a plain file
+	 * name, see `attachmentName`), or `name-2`... when that is taken, and
+	 * resolve to its vault path. The bytes are kept exactly as they are; more
+	 * than `MAX_IMAGE_BYTES` is refused.
+	 */
+	importAttachment(name: string, bytes: ArrayBuffer): Promise<string>;
 
 	/**
 	 * The vault's cache, `.vaultops/cache/` (display copies of images and the
@@ -199,6 +208,9 @@ export interface Host {
 	 */
 	updateChannels(): Promise<UpdateChannels>;
 }
+
+/** Same limit as `MAX_IMAGE_BYTES` in src-tauri/src/file_ops.rs. */
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 /** Same limit as `MAX_CACHE_BYTES` in src-tauri/src/cache_ops.rs. */
 export const MAX_CACHE_BYTES = 25 * 1024 * 1024;

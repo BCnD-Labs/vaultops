@@ -56,6 +56,17 @@ export const tauriHost: Host = {
 	readCover: async (path) =>
 		toBuffer(await call<ArrayBuffer | number[]>("read_cover", { path })),
 	chooseCover: () => call<string | null>("choose_cover"),
+	chooseImage: () => call<string | null>("choose_image"),
+	// Like writeCache: raw bytes as the body, the file name in a header.
+	importAttachment: async (name, bytes) => {
+		try {
+			return await invoke<string>("import_attachment", new Uint8Array(bytes), {
+				headers: { "x-attachment-name": name },
+			});
+		} catch (raw) {
+			throw toHostError(raw);
+		}
+	},
 	readCache: async (path) => {
 		try {
 			return toBuffer(

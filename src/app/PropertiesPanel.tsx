@@ -108,7 +108,7 @@ function SelectControl(props: {
 			{stray && (
 				<span className="read-only-tag" role="status">
 					{value} is not an option
-					{editable && (
+					{editable && onOptions && (
 						<>
 							{" "}
 							<Button
@@ -269,7 +269,7 @@ export function Control(props: {
 				<input
 					aria-label={label}
 					type="checkbox"
-					checked={item.value as boolean}
+					checked={item.value === true}
 					disabled={!editable}
 					onChange={(e) => onValue(e.target.checked)}
 				/>

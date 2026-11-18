@@ -1,5 +1,7 @@
 import { type Editor, Extension } from "@tiptap/core";
+import { Plugin, TextSelection } from "@tiptap/pm/state";
 import Suggestion, {
+	findSuggestionMatch,
 	type SuggestionKeyDownProps,
 	type SuggestionProps,
 } from "@tiptap/suggestion";
@@ -11,6 +13,7 @@ import {
 	filterSlashItems,
 	recentSlashIds,
 	type SlashItem,
+	TEMPLATE_EVENT,
 } from "./slash-items";
 
 const RECENT_KEY = "vaultops:slash-recent";
@@ -221,11 +224,37 @@ export const SlashMenu = Extension.create({
 	},
 
 	addProseMirrorPlugins() {
+		let selected: { from: number; to: number } | null = null;
 		return [
+			new Plugin({
+				props: {
+					handleTextInput(view, from, to, text) {
+						if (
+							text !== "/" ||
+							from === to ||
+							view.dom.dataset.templates !== "on"
+						)
+							return false;
+						// Keep the selected text in the note while the slash menu is open.
+						selected = { from, to };
+						const tr = view.state.tr.insertText(text, from, from);
+						view.dispatch(
+							tr.setSelection(TextSelection.create(tr.doc, from + 1)),
+						);
+						return true;
+					},
+				},
+			}),
 			Suggestion<SlashItem, SlashItem>({
 				editor: this.editor,
 				char: "/",
 				allowedPrefixes: [" "],
+				findSuggestionMatch: (config) => {
+					const match = findSuggestionMatch(
+						selected ? { ...config, allowedPrefixes: null } : config,
+					);
+					return selected && match?.range.from !== selected.from ? null : match;
+				},
 				items: ({ query, editor }) =>
 					filterSlashItems(
 						query,
@@ -241,7 +270,17 @@ export const SlashMenu = Extension.create({
 						query === "" ? readRecent() : [],
 					),
 				command: ({ editor, range, props }) => {
-					props.run(editor, range);
+					if (props.id === "template" && selected?.from === range.from) {
+						const { from, to } = selected;
+						editor
+							.chain()
+							.deleteRange(range)
+							.setTextSelection({ from, to })
+							.run();
+						editor.view.dom.dispatchEvent(
+							new CustomEvent(TEMPLATE_EVENT, { bubbles: true }),
+						);
+					} else props.run(editor, range);
 					rememberItem(props.id);
 				},
 				render: () => {
@@ -250,7 +289,10 @@ export const SlashMenu = Extension.create({
 						onStart: (props) => popup.mount(props),
 						onUpdate: (props) => popup.update(props),
 						onKeyDown: ({ event }: SuggestionKeyDownProps) => popup.key(event),
-						onExit: () => popup.destroy(),
+						onExit: () => {
+							selected = null;
+							popup.destroy();
+						},
 					};
 				},
 			}),

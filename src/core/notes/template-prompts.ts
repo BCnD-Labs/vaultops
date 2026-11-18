@@ -164,7 +164,7 @@ export function fillTemplate(
 				p.label.toLowerCase(),
 				typed(
 					p.type,
-					name === null ? p.default : (answers[name] ?? p.default),
+					name === null ? p.default : (answers[name] ?? null),
 					now,
 					week,
 				),
@@ -236,6 +236,10 @@ export function fillTemplate(
 				}
 		};
 		walk(block as JsonValue);
+		if (Array.isArray(block.content))
+			block.content = block.content.filter(
+				(item) => !object(item) || item.type !== "text" || item.text !== "",
+			);
 	}
 	const props = object(template.header.props)
 		? { ...template.header.props }

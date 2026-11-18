@@ -9,6 +9,7 @@ import {
 	within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Editor } from "@tiptap/core";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Note } from "../core/note-format";
 import { createNote, loadNote } from "../core/notes/repository";
@@ -21,9 +22,6 @@ import { settings } from "./settings";
 
 const notify = vi.hoisted(() => vi.fn());
 vi.mock("../ui/notify", () => ({ notify }));
-vi.mock("../editor/NoteEditor", () => ({
-	NoteEditor: () => <div className="note-editor" />,
-}));
 
 beforeEach(() => {
 	localStorage.setItem("vaultops:sidebar-mode", "navigator");
@@ -54,12 +52,12 @@ const template: Note = {
 	],
 };
 
-async function openApp(folder: string) {
+async function openApp(folder: string, source = template) {
 	const host = new MemoryHost();
 	await loadVault(host);
 	await host.makeFolder(folder);
 	await createNote(host, folder, "Alpha");
-	await saveTemplate(host, "Meeting", template);
+	await saveTemplate(host, "Meeting", source);
 	render(<App host={host} />);
 	await screen.findByRole("textbox", { name: "Title" });
 	act(() => {
@@ -111,4 +109,50 @@ it("makes a note from a template in the current folder, opens it and closes the 
 			})) as HTMLInputElement
 		).value,
 	).toBe("Meeting");
+});
+
+it("fills the title, body and properties, then opens the note at the cursor", async () => {
+	const host = await openApp("Work", {
+		header: {
+			...template.header,
+			titleTemplate: "Plan for {{?Client}}",
+			props: { Client: { type: "text", value: "" } },
+		},
+		blocks: [
+			{
+				id: "a",
+				type: "paragraph",
+				parent: null,
+				content: [
+					{ type: "text", text: "{{prompt:Client|text|Ada}}" },
+					{ type: "text", text: "{{cursor}}", marks: [{ type: "bold" }] },
+					{ type: "text", text: "!" },
+				],
+			},
+		],
+	});
+	const u = userEvent.setup();
+	await u.click(await screen.findByRole("treeitem", { name: "Meeting" }));
+	await u.click(
+		screen.getByRole("button", { name: "New note from this template" }),
+	);
+	const input = await screen.findByRole<HTMLInputElement>("textbox", {
+		name: "Client",
+	});
+	expect(input.value).toBe("Ada");
+	expect(document.activeElement).toBe(input);
+	await u.clear(input);
+	await u.type(input, "Grace{Enter}");
+	await waitFor(() => {
+		const field = document.activeElement as
+			| (HTMLElement & { editor?: Editor })
+			| null;
+		expect(field?.editor?.state.doc.textContent).toBe("Grace!");
+		expect(field?.editor?.state.selection.$from.parentOffset).toBe(5);
+	});
+	const { note } = await loadNote(host, "Work/Plan for Grace.vnote");
+	expect(note?.header.title).toBe("Plan for Grace");
+	expect(note?.header.props).toEqual({
+		Client: { type: "text", value: "Grace" },
+	});
 });

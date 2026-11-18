@@ -20,11 +20,8 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Props } from "../core/notes/properties";
-import {
-	blocksFromTemplate,
-	type TemplateEntry,
-} from "../core/notes/templates";
+import { findName, type Props } from "../core/notes/properties";
+import type { TemplateEntry } from "../core/notes/templates";
 import type { AutosaveState } from "../editor/autosave";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import {
@@ -44,8 +41,8 @@ import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
 import { PropertiesBlock } from "./PropertiesBlock";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
-import { templateFormats, templateWeekStart } from "./settings";
 import { TemplatePicker } from "./TemplatePicker";
+import { useTemplatePrompt } from "./TemplatePromptDialog";
 import { featureEnabled } from "./useFeature";
 import type { NoteSession } from "./useNoteSession";
 import "./pane.css";
@@ -226,25 +223,35 @@ export function NoteView({
 	);
 	const canTemplate = !!templates && opened.editable && !reading;
 	const Body = editorElsewhere ? NotePreview : NoteEditor;
+	const prompt = useTemplatePrompt();
 	const insertTemplate = (entry: TemplateEntry, request: TemplateRequest) => {
-		if (!entry.note) return;
-		const blocks = blocksFromTemplate(
-			entry.note,
-			title,
-			new Date(),
-			templateFormats(),
-			templateWeekStart(),
-		);
-		const understood = checkBlocks(blocks);
-		if (!understood.ok) {
-			request.focus();
-			setTemplateNotice(
-				`"${entry.name}" has ${understood.reason}, which this version can't insert.`,
-			);
-			return;
-		}
-		setTemplateNotice(null);
-		request.insert(blocksToDoc(blocks).content ?? []);
+		if (!entry.note) return request.focus();
+		const replace = JSON.stringify(entry.note.blocks).includes("{{selection}}");
+		prompt.ask(entry.note, title, {
+			name: entry.name,
+			selection: request.selection,
+			onCancel: request.focus,
+			onFill: ({ blocks, props: filledProps, cursor }) => {
+				const understood = checkBlocks(blocks);
+				if (!understood.ok) {
+					request.focus();
+					setTemplateNotice(
+						`"${entry.name}" has ${understood.reason}, which this version can't insert.`,
+					);
+					return;
+				}
+				setTemplateNotice(null);
+				if (!request.insert(blocksToDoc(blocks).content ?? [], cursor, replace))
+					return;
+				if (props) {
+					let merged = props;
+					for (const [name, value] of Object.entries(filledProps))
+						if (findName(merged, name) === null)
+							merged = { ...merged, [name]: value };
+					if (merged !== props) onPropsChange(merged);
+				}
+			},
+		});
 	};
 	return (
 		<>
@@ -456,6 +463,7 @@ export function NoteView({
 				featureOn={featureEnabled}
 				images={images}
 			/>
+			{prompt.dialog}
 			{picker && templates && (
 				<TemplatePicker
 					host={templates.host}

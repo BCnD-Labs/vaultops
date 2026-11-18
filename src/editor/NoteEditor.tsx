@@ -29,7 +29,7 @@ import { createExtensions } from "./extensions";
 import { FormatBar } from "./FormatBar";
 import { ensureUniqueIds } from "./ids";
 import { ImageBlock, type ImageSource } from "./image-block";
-import { insertBlocksAtCaret } from "./insert-blocks";
+import { insertBlocksAtCaret, type TemplateCursor } from "./insert-blocks";
 import { abandonLift, liftBlock } from "./lift";
 import type { Anchor } from "./menu-placement";
 import { findMovable, type Movable, moveOut, nestLabel } from "./move-out";
@@ -77,7 +77,12 @@ export interface TemplateRequest {
 	/** Where the caret is, so the picker can open beside it. */
 	anchor: Anchor;
 	/** Put blocks into the note at the caret. */
-	insert: (nodes: JSONContent[]) => void;
+	insert: (
+		nodes: JSONContent[],
+		cursor: TemplateCursor | null,
+		replace: boolean,
+	) => boolean;
+	selection: string;
 	/** Hand the caret back to the note, for when the picker closes without a choice. */
 	focus: () => void;
 }
@@ -235,12 +240,22 @@ export function NoteEditor({
 		const ask = () => {
 			const handler = chooseTemplate.current;
 			if (!handler) return;
-			const caret = editor.view.coordsAtPos(editor.state.selection.from);
+			const { doc, selection } = editor.state;
+			const { from, to } = selection;
+			const caret = editor.view.coordsAtPos(from);
 			handler({
 				anchor: { left: caret.left, top: caret.top, bottom: caret.bottom },
-				insert: (nodes) => {
-					insertBlocksAtCaret(editor, nodes);
-				},
+				selection: selection.empty ? "" : doc.textBetween(from, to, "\n", "\n"),
+				insert: (nodes, cursor, replace) =>
+					!editor.isDestroyed &&
+					editor.isEditable &&
+					editor.state.doc === doc &&
+					insertBlocksAtCaret(
+						editor,
+						nodes,
+						cursor,
+						replace ? { from, to } : undefined,
+					),
 				focus: () => {
 					if (!editor.isDestroyed) editor.commands.focus();
 				},

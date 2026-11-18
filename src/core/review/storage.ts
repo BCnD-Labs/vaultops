@@ -24,6 +24,7 @@ function parse(text: string): ReviewState | null {
 	}
 }
 
+/** The vault's review state; empty when there is no file yet. */
 export async function loadReview(host: Host): Promise<ReviewState> {
 	if ((await host.kindOf(REVIEW_FILE)) === null) return empty();
 	const state = parse(await host.readText(REVIEW_FILE));
@@ -31,6 +32,11 @@ export async function loadReview(host: Host): Promise<ReviewState> {
 	return state;
 }
 
+/**
+ * Write the whole review state. The caller passes a state it loaded (unknown
+ * fields and kinds included), so items it removed stay removed. A file that
+ * can't be read is copied to recovery first; one from a newer app is refused.
+ */
 export async function saveReview(
 	host: Host,
 	state: ReviewState,
@@ -59,12 +65,6 @@ export async function saveReview(
 					throw error;
 			}
 			({ recoveryPath } = await copyToRecovery(host, text, "review.json", now));
-		} else {
-			state = {
-				...previous,
-				...state,
-				items: { ...previous.items, ...state.items },
-			};
 		}
 	}
 	await host.writeTextAtomic(

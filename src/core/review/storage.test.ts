@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import { MemoryHost } from "../../host/memory-host";
 import { loadReview, REVIEW_FILE, saveReview } from "./storage";
 
-it("stores atomically and preserves unknown data", async () => {
+it("stores atomically, keeps unknown data it loaded, and lets items be removed", async () => {
 	const host = new MemoryHost();
 	await host.makeFolder(".vaultops");
 	await host.writeTextAtomic(
@@ -10,16 +10,23 @@ it("stores atomically and preserves unknown data", async () => {
 		JSON.stringify({
 			version: 1,
 			extra: true,
-			items: { future: { kind: "future", data: 1 } },
+			items: {
+				future: { kind: "future", data: 1 },
+				gone: { id: "gone", kind: "flashcard", due: "2026-11-18" },
+			},
 		}),
 	);
+	const loaded = await loadReview(host);
+	const { gone: _gone, ...items } = loaded.items;
 	const write = vi.spyOn(host, "writeTextAtomic");
-	await saveReview(host, { version: 1, items: {} });
+	await saveReview(host, { ...loaded, items });
 	expect(write).toHaveBeenCalledWith(REVIEW_FILE, expect.any(String));
-	expect(await loadReview(host)).toMatchObject({
+	const saved = await loadReview(host);
+	expect(saved).toMatchObject({
 		extra: true,
 		items: { future: { kind: "future", data: 1 } },
 	});
+	expect(saved.items.gone).toBeUndefined();
 });
 it("copies corrupt content to recovery before replacing it", async () => {
 	const host = new MemoryHost();

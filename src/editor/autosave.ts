@@ -80,10 +80,11 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 
 	function drain(): Promise<boolean> {
 		if (draining) return draining;
+		if (disposed) return Promise.resolve(false);
 		draining = (async () => {
 			clearTimers();
 			let ok = true;
-			while (pending !== null) {
+			while (!disposed && pending !== null) {
 				const doc = pending;
 				const started = epoch;
 				pending = null;
@@ -98,7 +99,7 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 					};
 				}
 				// Discarded while saving: nothing to keep, retry or report.
-				if (started !== epoch) continue;
+				if (started !== epoch || disposed) continue;
 				if (outcome.ok) {
 					failures = 0;
 					ok = true;
@@ -137,6 +138,7 @@ export function createAutosave<T>(options: AutosaveOptions<T>): Autosave<T> {
 
 	return {
 		change(value) {
+			if (disposed) return;
 			pending = value;
 			if (state.kind === "saved") setState(DIRTY);
 			clearTimeout(debounce);

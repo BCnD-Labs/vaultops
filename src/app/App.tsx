@@ -45,7 +45,6 @@ import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
 import { checkBlocks } from "../editor/doc-blocks";
-import { openNote } from "../editor/note-io";
 import type { RowNoteActions } from "../editor/note-link";
 import { createQuitGuard } from "../editor/quit";
 import { saveAsCopy } from "../editor/save-draft";
@@ -84,7 +83,6 @@ import { ScreenPane } from "./ScreenPane";
 import { SettingsDialog } from "./SettingsScreen";
 import { Sidebar } from "./Sidebar";
 import {
-	chooseAndLoad,
 	compareRows,
 	createAndLoad,
 	createCanvasAndLoad,
@@ -197,6 +195,7 @@ export function App({ host }: { host: Host }) {
 	const [appInfo, setAppInfo] = useState({ name: "vaultops", version: "?" });
 	const [treeNotice, setTreeNotice] = useState<string | null>(null);
 	const [selection, setSelection] = useState<Selection>({ kind: "all" });
+	const [vaultGeneration, nextVaultGeneration] = useState(0);
 	const vaultName = view?.name ?? null;
 	// The latest view, updated at once so a command that follows a change (make a
 	// note, then open it) already sees the new rows.
@@ -317,6 +316,7 @@ export function App({ host }: { host: Host }) {
 	// notes first; if a save fails, nothing changes and nothing typed is lost.
 	const ws = useWorkspaceHost({
 		host: vaultHost,
+		vaultGeneration,
 		writable,
 		isCanvas,
 		onSaved,
@@ -334,6 +334,7 @@ export function App({ host }: { host: Host }) {
 	);
 
 	// Bring back this vault's tabs (for notes that still exist) when it opens.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Vaults can have the same folder name.
 	useEffect(() => {
 		if (!vaultName) return;
 		const notes = viewRef.current?.notes ?? [];
@@ -344,7 +345,7 @@ export function App({ host }: { host: Host }) {
 			),
 			right: [],
 		});
-	}, [vaultName]);
+	}, [vaultName, vaultGeneration]);
 	// Remember the tabs. Runs when the workspace changes (a vault change makes a
 	// new workspace first), so one vault's tabs are never saved under another.
 	const workspace = ws.workspace;
@@ -409,7 +410,7 @@ export function App({ host }: { host: Host }) {
 			const path = pane.session.livePathRef.current;
 			if (path === null) return;
 			try {
-				pane.session.load(await openNote(host, path), path);
+				await pane.session.reload(host, path);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			}
@@ -1618,7 +1619,13 @@ export function App({ host }: { host: Host }) {
 										if (!(await ws.settleAll())) return;
 										setScreen("note");
 										setSelection({ kind: "all" });
-										run(() => chooseAndLoad(host));
+										run(async () => {
+											if ((await host.chooseVault()) === null) return null;
+											wsRef.current.endVault();
+											const next = await loadVault(host);
+											nextVaultGeneration((generation) => generation + 1);
+											return next;
+										});
 									}}
 									onShowMaintainer={() => setShowMaintainer(true)}
 									onNavigate={navigate}

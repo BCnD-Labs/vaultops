@@ -8,9 +8,9 @@ import { type TextStats, textStats } from "../core/notes/text-stats";
 import { buildRecoveryText } from "../core/session/recovery";
 import { getLogger } from "../debug/index";
 import {
-	allowEditing,
 	lockedForReadOnlyVault,
 	type OpenedNote,
+	openNote,
 } from "../editor/note-io";
 import type { Draft } from "../editor/save-draft";
 import {
@@ -19,6 +19,9 @@ import {
 	useAutosave,
 } from "../editor/useAutosave";
 import type { Host } from "../host/host";
+import type { LiveDocuments } from "./live-documents";
+
+type Binding = ReturnType<LiveDocuments["subscribe"]>;
 
 // How long writing must pause before the status bar recounts.
 const STATS_DELAY_MS = 300;
@@ -28,11 +31,7 @@ export interface NoteSessionOptions {
 	host: Host;
 	/** False when the vault is read-only: the note is shown locked. */
 	writable: boolean;
-	/**
-	 * Called after every save, for what lives outside the session (tabs, history,
-	 * the note list). The session has already updated its own path and notice.
-	 */
-	onSaved: (info: SavedInfo) => void;
+	documents: () => LiveDocuments | null;
 	/** Called with a message when leaving the note was refused because it is unsaved. */
 	onUnsaved: (message: string) => void;
 }
@@ -46,7 +45,7 @@ export interface NoteSessionOptions {
 export function useNoteSession({
 	host,
 	writable,
-	onSaved,
+	documents,
 	onUnsaved,
 }: NoteSessionOptions) {
 	const [openedNote, setOpened] = useState<OpenedNote | null>(null);
@@ -66,8 +65,8 @@ export function useNoteSession({
 	const propsRef = useRef<NoteProps | null>({});
 	const livePathRef = useRef<string | null>(null);
 	const statsTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	const savedCallback = useRef(onSaved);
-	savedCallback.current = onSaved;
+	const [binding, setBinding] = useState<Binding | null>(null);
+	const attached = useRef<Binding | null>(null);
 	const unsavedCallback = useRef(onUnsaved);
 	unsavedCallback.current = onUnsaved;
 
@@ -96,9 +95,8 @@ export function useNoteSession({
 			livePathRef.current = info.path;
 			setLivePath(info.path);
 		}
-		savedCallback.current(info);
 	}, []);
-	const autosave = useAutosave(host, opened, handleSaved);
+	const autosave = useAutosave(host, opened, undefined, binding);
 	const { flush } = autosave;
 
 	// Leaving a note (open another, change vault) first saves it; if that
@@ -112,32 +110,75 @@ export function useNoteSession({
 	}, [flush]);
 
 	/** Put a note that was just read from disk on screen. */
-	const load = useCallback((next: OpenedNote, path: string) => {
-		docRef.current = next.doc;
-		iconRef.current = undefined;
-		setIconEdit(undefined);
-		coverRef.current = undefined;
-		setCoverEdit(undefined);
-		setStats(textStats(next.doc));
-		setOutline(outlineOf(next.doc));
-		const text =
-			typeof next.note?.header.title === "string"
-				? next.note.header.title
-				: path;
+	const show = useCallback((next: OpenedNote, path: string, draft?: Draft) => {
+		docRef.current = draft?.doc ?? next.doc;
+		iconRef.current = draft?.icon;
+		setIconEdit(draft?.icon);
+		coverRef.current = draft?.cover;
+		setCoverEdit(draft?.cover);
+		setStats(textStats(docRef.current));
+		setOutline(outlineOf(docRef.current));
+		const title = draft?.title ?? next.note?.header.title;
+		const text = typeof title === "string" ? title : path;
 		titleRef.current = text;
 		setTitle(text);
 		setNotice(next.notice ?? null);
 		livePathRef.current = path;
 		setLivePath(path);
-		const loaded = headerProps(next.note?.header);
+		const loaded = draft?.props ?? headerProps(next.note?.header);
 		propsRef.current = loaded;
 		setProps(loaded);
 		setOpened(next);
 		setEditorRevision((revision) => revision + 1);
 	}, []);
 
+	const subscribe = (path: string, seed?: OpenedNote) => {
+		const next = documents()?.subscribe(
+			{ path },
+			({ lastSave }) => {
+				if (attached.current === next && lastSave) handleSaved(lastSave);
+			},
+			seed,
+		);
+		return next;
+	};
+
+	const load = (
+		note: OpenedNote,
+		path: string,
+		next = subscribe(path, note),
+	) => {
+		const snapshot = next?.current();
+		if (!next || !snapshot?.opened) return;
+		void flush();
+		attached.current?.unsubscribe();
+		attached.current = next;
+		setBinding(next);
+		show(snapshot.opened, snapshot.path, snapshot.editorDraft);
+		if (snapshot.lastSave) setNotice(snapshot.lastSave.notice ?? null);
+	};
+
+	const reload = async (host: Host, path: string) => {
+		const entry = attached.current;
+		const snapshot = entry?.current();
+		if (!entry || snapshot?.path !== path) return;
+		const stillCurrent = () =>
+			attached.current === entry && entry.current() === snapshot;
+		try {
+			const note = await openNote(host, path);
+			const fresh = stillCurrent() ? entry.reload(note) : null;
+			if (fresh?.opened) show(fresh.opened, path);
+		} catch (error) {
+			if (stillCurrent()) throw error;
+		}
+	};
+	useEffect(() => () => attached.current?.unsubscribe(), []);
+
 	/** Put the note away (it was saved by the caller) and forget its path. */
 	const clear = useCallback(() => {
+		attached.current?.unsubscribe();
+		attached.current = null;
+		setBinding(null);
 		setOpened(null);
 		livePathRef.current = null;
 		setLivePath(null);
@@ -148,14 +189,18 @@ export function useNoteSession({
 
 	/** Let the person edit a note that was opened locked. */
 	const unlock = useCallback(() => {
-		if (!opened) return;
-		setOpened(allowEditing(opened));
-		setNotice(null);
-	}, [opened]);
+		const unlocked = attached.current?.unlock();
+		if (unlocked) {
+			setOpened(unlocked);
+			setNotice(null);
+		}
+	}, []);
 
 	// What gets saved: the body, the title and, unless the file keeps its props
 	// in a form we can't edit, the properties.
 	const draftOf = (doc: JSONContent, nextTitle: string): Draft => ({
+		...binding?.current()?.editorDraft,
+		...autosave.peek(),
 		doc,
 		title: nextTitle,
 		icon: iconRef.current,
@@ -228,6 +273,8 @@ export function useNoteSession({
 		docRef,
 		saveState: autosave.state,
 		load,
+		subscribe,
+		reload,
 		clear,
 		hide,
 		unlock,

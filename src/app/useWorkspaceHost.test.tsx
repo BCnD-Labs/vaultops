@@ -158,6 +158,54 @@ it("moving a note's tab to the other pane saves it, then reads it there", async 
 	expect(result.current.panes.left.session.title).toBe("Alpha");
 });
 
+it("saves the latest edits after a note changes panes during a write", async () => {
+	const { a, b, host, result, run, ready } = await setup();
+	await run(() => result.current.open(a));
+	await ready("left");
+	let release!: () => void;
+	const paused = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const write = host.writeTextAtomic.bind(host);
+	host.writeTextAtomic = vi.fn(async (path, text) => {
+		if (path === a) await paused;
+		await write(path, text);
+	});
+	const left = result.current.panes.left.session;
+	act(() => {
+		left.editTitle("First title");
+		left.editCover("attachments/cover.png");
+	});
+	const firstSave = left.flush();
+	try {
+		await waitFor(() =>
+			expect(host.writeTextAtomic).toHaveBeenCalledWith(a, expect.any(String)),
+		);
+		act(() => result.current.restoreFrom({ left: [b], right: [a] }));
+		await ready("right");
+		const right = result.current.panes.right?.session;
+		expect(right?.saveState.kind).toBe("saving");
+		expect(right?.title).toBe("First title");
+		act(() => {
+			right?.editTitle("Latest title");
+			right?.editDoc(doc("latest body"));
+			right?.editProps({ owner: "latest" });
+			right?.editIcon("star");
+		});
+	} finally {
+		release();
+		await act(async () => expect(await firstSave).toBe(true));
+	}
+	const file = await host.readText("Latest title.vnote");
+	expect(file).toContain("latest body");
+	expect(parseNote(file).note?.header).toMatchObject({
+		title: "Latest title",
+		props: { owner: "latest" },
+		icon: "star",
+		cover: "attachments/cover.png",
+	});
+});
+
 it("a title edit renames the file and the tab follows, with no reload", async () => {
 	const { result, host, a, run, ready, onSaved } = await setup();
 	await run(() => result.current.open(a));

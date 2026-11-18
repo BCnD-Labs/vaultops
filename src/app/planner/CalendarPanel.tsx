@@ -3,13 +3,21 @@ import { Agenda } from "./CalendarView";
 import { MiniCalendar } from "./MiniCalendar";
 import { NewItemDialog } from "./NewItemDialog";
 import { usePlanner } from "./PlannerContext";
+import { TaskDetailsDialog } from "./TaskInspector";
 import "./planner.css";
 
 /** The calendar tool: a month and the chosen day's items. Wherever it sits, it
  *  reads and writes the same planner state. */
-export function CalendarPanel({ bare = false }: { bare?: boolean }) {
+export function CalendarPanel({
+	bare = false,
+	hideEvents = false,
+}: {
+	bare?: boolean;
+	hideEvents?: boolean;
+}) {
 	const p = usePlanner();
 	const [dialog, setDialog] = useState<string | null>(null);
+	const [editPath, setEditPath] = useState<string | null>(null);
 	return (
 		<section
 			className={bare ? "planner-side planner-side-bare" : "planner-side"}
@@ -29,8 +37,10 @@ export function CalendarPanel({ bare = false }: { bare?: boolean }) {
 				writable={p.writable}
 				onSelect={(t) => {
 					p.select(t);
+					setEditPath(t.path);
 				}}
 				onAdd={(d) => setDialog(d)}
+				hideEvents={hideEvents}
 			/>
 			{dialog !== null && (
 				<NewItemDialog
@@ -40,6 +50,9 @@ export function CalendarPanel({ bare = false }: { bare?: boolean }) {
 					onClose={() => setDialog(null)}
 					onCreate={p.create}
 				/>
+			)}
+			{editPath && (
+				<TaskDetailsDialog path={editPath} onClose={() => setEditPath(null)} />
 			)}
 		</section>
 	);

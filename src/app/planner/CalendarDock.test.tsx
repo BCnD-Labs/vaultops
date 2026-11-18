@@ -78,13 +78,13 @@ const tick = () =>
 		await new Promise((resolve) => setTimeout(resolve, 5));
 	});
 
-it("keeps the calendar in the planner by default, with Today's log and Tasks under it", () => {
+it("keeps the calendar in the planner by default, with the Tasks | Log switch under it", () => {
 	inSidebar();
 	render(<Planner />);
 	const planner = screen.getByRole("region", { name: "Planner" });
 	expect(planner.querySelector('[aria-label="Calendar"]')).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Today's log" })).toBeTruthy();
-	expect(screen.getByRole("button", { name: "Tasks" })).toBeTruthy();
+	expect(screen.getByRole("radio", { name: "Tasks" })).toBeTruthy();
+	expect(screen.getByRole("radio", { name: "Log" })).toBeTruthy();
 	expect(screen.queryByRole("region", { name: "Calendar group" })).toBeNull();
 });
 
@@ -97,12 +97,10 @@ it("moves the calendar below the right sidebar's tools, still one calendar", asy
 		await screen.findByRole("menuitemradio", { name: "Below the tools" }),
 	);
 	const planner = screen.getByRole("region", { name: "Planner" });
-	// Planner is Today's log and Tasks; the calendar sits below it in its own group.
+	// The planner page starts with the Tasks | Log switch; the calendar sits
+	// below it in its own group.
 	expect(planner.querySelector('[aria-label="Calendar"]')).toBeNull();
-	const names = Array.from(planner.querySelectorAll(".planner-section")).map(
-		(s) => s.getAttribute("aria-label"),
-	);
-	expect(names).toEqual(["Today's log", "Tasks"]);
+	expect(planner.querySelector(".planner-switch-row")).toBeTruthy();
 	expect(screen.getByTestId("right").querySelector(".dock-group")).toBeTruthy();
 	expect(localStorage.getItem("vaultops:calendar-dock")).toBe("right");
 });
@@ -152,9 +150,7 @@ it("puts the calendar in the title bar from its own options button", async () =>
 it("moves the calendar by dragging its tab to the sidebar's drop zone", async () => {
 	inSidebar();
 	render(<Planner />);
-	const head = screen
-		.getByRole("button", { name: "Calendar" })
-		.closest(".planner-section-head") as HTMLElement;
+	const head = screen.getByRole("img", { name: "Drag the calendar" });
 	expect(head.getAttribute("draggable")).toBe("true");
 	expect(screen.queryByTestId("dock-zone-right")).toBeNull();
 	const dataTransfer = transfer();
@@ -182,7 +178,7 @@ it("puts the calendar back into the planner by dragging its tab onto it", async 
 	expect(
 		screen
 			.getByRole("region", { name: "Planner" })
-			.querySelector(".planner-section-head"),
+			.querySelector(".planner-grip"),
 	).toBeTruthy();
 });
 

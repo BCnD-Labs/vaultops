@@ -109,6 +109,7 @@ export function NewItemDialog({
 	open,
 	defaults,
 	task,
+	kind: presetKind,
 	onClose,
 	onCreate,
 	onSave,
@@ -116,6 +117,8 @@ export function NewItemDialog({
 	open: boolean;
 	defaults: { date: string; time?: string; today?: string };
 	task?: PlannerTask;
+	/** Which kind a new item starts as (still switchable). Default: task. */
+	kind?: "task" | "event";
 	onClose: () => void;
 	onCreate: (item: NewItem) => Promise<void>;
 	onSave?: (patch: TaskPatch) => Promise<void>;
@@ -124,7 +127,9 @@ export function NewItemDialog({
 		defaults.today ??
 		(validDateKey(defaults.date) ? defaults.date : keyOfDate(new Date()));
 	const isTask = (task?.kind ?? "task") === "task";
-	const [kind, setKind] = useState<"task" | "event">(task?.kind ?? "task");
+	const [kind, setKind] = useState<"task" | "event">(
+		task?.kind ?? presetKind ?? "task",
+	);
 	const [title, setTitle] = useState(task?.title ?? "");
 	const [priority, setPriority] = useState<TaskPriority>(
 		task?.priority ?? "none",

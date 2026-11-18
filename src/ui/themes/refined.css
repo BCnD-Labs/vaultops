@@ -160,7 +160,6 @@
 		var(--raise-highlight), 0 1px 2px #0f172a0f, 0 6px 16px -10px #0f172a2e;
 	--panel-shadow:
 		var(--raise-highlight), 0 1px 2px #0f172a14, 0 10px 24px -14px #0f172a33;
-	--raised-control: #ffffff;
 	--well-bg: #e9ebef;
 	--well-shadow: inset 0 1px 2px #0f172a14, 0 1px 0 #ffffffb3;
 	--card-bg: #ffffff;
@@ -194,7 +193,6 @@
 		var(--raise-highlight), 0 1px 2px #00000073, 0 8px 18px -10px #00000099;
 	--panel-shadow:
 		var(--raise-highlight), 0 1px 1px #00000080, 0 10px 24px -12px #000000b3;
-	--raised-control: #303136;
 	--well-bg: #0f1012;
 	--well-shadow: inset 0 1px 2px #0000008c, 0 1px 0 #ffffff0a;
 	--card-bg: #242529;
@@ -229,7 +227,6 @@
 			var(--raise-highlight), 0 1px 2px #00000073, 0 8px 18px -10px #00000099;
 		--panel-shadow:
 			var(--raise-highlight), 0 1px 1px #00000080, 0 10px 24px -12px #000000b3;
-		--raised-control: #303136;
 		--well-bg: #0f1012;
 		--well-shadow: inset 0 1px 2px #0000008c, 0 1px 0 #ffffff0a;
 		--card-bg: #242529;
@@ -238,13 +235,13 @@
 
 /*
  * Refined: component touches. Everything below is scoped to this theme, so
- * no other theme changes. Raised = panels, cards, the selected row and the
- * chosen segment; sunken = inputs and toolbar trays.
+ * no other theme changes. Raised = panels and cards only; sunken = inputs and
+ * toolbar trays. Buttons are flat (hover tint from the shared button layer)
+ * and every selected row or segment is the soft --row-raised tint.
  */
 :root[data-theme="refined"] {
 	/* Section headers read as plain titles, not spaced-out capitals. */
-	& .section-label,
-	& .planner-section-toggle {
+	& .section-label {
 		text-transform: none;
 		letter-spacing: 0;
 		font-weight: 600;
@@ -254,24 +251,19 @@
 		padding: 8px 10px 4px;
 		color: color-mix(in srgb, var(--foreground) 80%, transparent);
 	}
-	& .planner-section-toggle {
-		font-size: 13px;
-	}
 
-	/* The three main panels. */
-	& .shell-regions > [data-slot="resizable-panel"] {
+	/* The main panels: both sidebars, and each pane's frame in the editor
+	   (the editor's own panel has none while panes show; its tabs float). */
+	& .shell-regions > [data-slot="resizable-panel"]:not(:has(.editor-split)),
+	& .pane-frame {
 		box-shadow: var(--panel-shadow);
 	}
 
-	/* Floating sidebar toggles: a raised button of their own, kept apart from
-	   the tools by a thin divider. */
+	/* Floating sidebar toggles: a flat ghost button, kept apart from the
+	   tools by a thin divider. */
 	& .shell-toggle {
 		width: var(--control-height);
 		height: var(--control-height);
-		border: var(--border-width) solid var(--raise-edge);
-		border-radius: 9px;
-		background: var(--raised-control);
-		box-shadow: var(--raise-shadow);
 		color: var(--foreground);
 	}
 	& .sidebar-header-first {
@@ -362,8 +354,7 @@
 		border-radius: 7px;
 	}
 	& .sidebar-tabs [data-state="active"][data-slot="tabs-trigger"] {
-		background: var(--raised-control);
-		box-shadow: var(--raise-shadow);
+		background: var(--row-raised);
 		color: var(--primary);
 	}
 
@@ -393,9 +384,7 @@
 		border-left: var(--border-width) solid var(--border);
 	}
 	& .note-list button[aria-current="true"] {
-		background: color-mix(in srgb, var(--primary) 14%, transparent);
-		box-shadow: inset 0 0 0 1px
-			color-mix(in srgb, var(--primary) 24%, transparent);
+		background: var(--row-raised);
 		color: var(--foreground);
 	}
 	& .note-list button[aria-current="true"] svg {
@@ -426,7 +415,7 @@
 		--folder-tone: var(--tone-teal);
 	}
 
-	/* Vault menu and settings: two small raised buttons. */
+	/* Vault menu and settings: two flat ghost buttons. */
 	& .sidebar-foot {
 		gap: 6px;
 		padding: 8px;
@@ -436,10 +425,7 @@
 	& .sidebar-foot-settings {
 		min-height: 30px;
 		height: 30px;
-		border: var(--border-width) solid var(--raise-edge);
-		border-radius: 9px;
-		background: var(--raised-control);
-		box-shadow: var(--raise-shadow);
+		border-radius: var(--radius-control);
 	}
 	& .vault-switch {
 		font-weight: 600;
@@ -447,14 +433,6 @@
 	& .sidebar-foot-settings {
 		width: 30px;
 		color: var(--foreground);
-	}
-
-	/* Filled buttons get a little light on top. */
-	& [data-slot="button"].bg-primary {
-		background-image: linear-gradient(#ffffff2e, #ffffff00);
-		box-shadow:
-			inset 0 1px 0 #ffffff59,
-			0 1px 2px var(--shadow-color);
 	}
 
 	/* Inputs are sunken wells. */
@@ -498,11 +476,7 @@
 		background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
 	}
 
-	/* Planner: each section is a raised card with a plain title. */
-	& .planner-section + .planner-section {
-		border-top: 0;
-		margin-top: 6px;
-	}
+	/* Planner cards. */
 	& .planner-side .plan-card {
 		border: var(--border-width) solid var(--raise-edge);
 		border-radius: 10px;
@@ -541,8 +515,7 @@
 	}
 	& .plan-checkin-slot[data-current],
 	& .plan-task-tabs [data-slot="tabs-trigger"][data-state="active"] {
-		background: var(--raised-control);
-		box-shadow: var(--raise-shadow);
+		background: var(--row-raised);
 		color: var(--foreground);
 		font-weight: 600;
 	}
@@ -576,17 +549,5 @@
 	}
 	& .plan-prompts button:nth-child(4) {
 		--prompt-tone: var(--tone-yellow);
-	}
-}
-
-/* Manager windows: the selected row is raised, like the sidebar's controls.
-   Their search boxes already sit in sunken wells through the input rule. */
-:root[data-theme="refined"] {
-	& .res-row[aria-current="true"],
-	& .tpl-row[data-selected="true"] {
-		background: var(--raised-control);
-		box-shadow:
-			var(--raise-shadow),
-			0 0 0 var(--border-width) var(--raise-edge);
 	}
 }

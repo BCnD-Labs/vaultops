@@ -337,9 +337,8 @@
 	color: var(--foreground);
 }
 .plan-priority-pill.is-selected {
-	background: var(--surface);
+	background: var(--row-raised);
 	color: var(--foreground);
-	box-shadow: var(--elevation-1);
 }
 .plan-priority-pill.is-selected[data-priority="high"] {
 	color: var(--destructive);
@@ -447,6 +446,10 @@
 }
 .plan-dot.is-done {
 	background: var(--tone-green);
+}
+/* A day with an event: the accent colour, apart from the task dots. */
+.plan-dot.is-event {
+	background: var(--primary);
 }
 /* A day with a daily log: a purple dot, apart from the task dots. */
 .plan-dot.is-log {
@@ -830,52 +833,73 @@
 	height: 4px;
 }
 
-/* Stacked, collapsible planner sections (VS Code style). */
+/* The sidebar planner is one page: calendar, a Tasks | Log switch, then the list. */
 .planner-stack {
-	gap: 0;
+	gap: var(--space-2);
 }
-.planner-stack > .planner-side-bar,
 .planner-stack > .plan-error {
-	margin-bottom: var(--space-2);
+	margin: 0;
 }
-.planner-section + .planner-section {
-	border-top: var(--border-width) solid var(--line);
+.planner-side-bar {
+	min-height: var(--control-height-sm);
 }
-.planner-section-head {
+.planner-cal-tools {
 	display: flex;
 	align-items: center;
 	gap: var(--space-1);
+	color: var(--muted-foreground);
 }
-.planner-section-head[draggable="true"] {
+.planner-wide {
+	margin-left: auto;
+	color: var(--muted-foreground);
+}
+.planner-grip {
+	display: inline-flex;
+	align-items: center;
 	cursor: grab;
 }
-.planner-section-toggle {
+.planner-grip svg {
+	width: 1rem;
+	height: 1rem;
+}
+.planner-switch-row {
 	display: flex;
-	flex: 1;
 	align-items: center;
-	gap: var(--space-1);
-	min-height: var(--row-height);
+	justify-content: space-between;
+	gap: var(--space-2);
+}
+/* The picked day's events, above the task list: a quiet title and flat rows. */
+.plan-events ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.plan-event-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	min-width: 0;
+	padding: var(--space-1) var(--space-3);
 	border: 0;
+	border-radius: var(--radius-control);
 	background: none;
-	padding: 0 var(--space-1);
-	color: var(--muted-foreground);
-	font: inherit;
-	font-size: var(--section-size);
-	letter-spacing: var(--section-tracking);
-	text-transform: uppercase;
-	cursor: inherit;
-}
-.planner-section-toggle:hover {
 	color: var(--foreground);
+	font: inherit;
+	font-size: var(--font-size-small);
+	text-align: left;
+	cursor: pointer;
 }
-.planner-section-chevron {
-	width: 14px;
-	height: 14px;
-	transform: rotate(-90deg);
-	transition: transform var(--motion-fast);
+.plan-event-row:hover,
+.plan-event-row.is-selected {
+	background: var(--hover-layer);
 }
-.planner-section-chevron[data-open] {
-	transform: none;
+.plan-event-row.is-done {
+	color: var(--muted-foreground);
+	text-decoration: line-through;
+}
+.plan-event-row .plan-dot {
+	flex: none;
 }
 .planner-side-bare {
 	padding: var(--space-2) 0;
@@ -1122,7 +1146,7 @@
 	min-width: 0;
 	height: var(--control-height-sm);
 	padding: 0 var(--space-2);
-	border: var(--border-width) solid var(--line);
+	border: var(--border-width) solid transparent;
 	border-radius: var(--radius-control);
 	background: none;
 	color: var(--muted-foreground);

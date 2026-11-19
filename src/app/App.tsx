@@ -1879,7 +1879,12 @@ export function App({ host }: { host: Host }) {
 									screen={screen}
 									journal={
 										ws.documents
-											? { documents: ws.documents, host: vaultHost, links }
+											? {
+													documents: ws.documents,
+													host: vaultHost,
+													links,
+													onDropBlock: dropBlock,
+												}
 											: undefined
 									}
 									error={error}

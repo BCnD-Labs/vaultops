@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useReducer, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useInViewport } from "@/components/ui/use-in-viewport";
+import { keyOfDate } from "../../core/planner/dates";
 import { dayOfLogPath, logPath } from "../../core/planner/log";
+import type { DocumentDrop } from "../../editor/block-drag";
 import { openNote } from "../../editor/note-io";
 import type { LinkSource } from "../../editor/note-link";
 import type { Host } from "../../host/host";
@@ -8,6 +11,7 @@ import { SharedNoteEditor } from "../CanvasEmbed";
 import type { LiveDocuments } from "../live-documents";
 import { NotePreview } from "../NoteView";
 import { fmtLong } from "../planner/fmt";
+import { MiniCalendar } from "../planner/MiniCalendar";
 import { usePlanner } from "../planner/PlannerContext";
 import type { VaultView } from "../session";
 
@@ -15,6 +19,7 @@ export interface JournalOptions {
 	documents: LiveDocuments;
 	host: Host;
 	links?: LinkSource;
+	onDropBlock?: DocumentDrop;
 }
 
 function JournalDay({
@@ -28,8 +33,10 @@ function JournalDay({
 	duplicate: boolean;
 	locked: boolean;
 }) {
-	const { documents, host, links, locked } = options;
-	const allowMissing = day === today;
+	const { documents, host, links, locked, onDropBlock } = options;
+	// Any listed day may be one picked on the calendar that has no file yet;
+	// it is created on the first edit, like today.
+	const allowMissing = true;
 	const path = logPath(day);
 	const { ref, visible: near } = useInViewport("400px 0px");
 	const [focused, setFocused] = useState(false);
@@ -74,6 +81,7 @@ function JournalDay({
 	return (
 		<section
 			ref={ref}
+			id={`journal-day-${day}`}
 			className="journal-day border-b border-border px-4 py-3"
 			aria-label={fmtLong(day)}
 			onFocus={() => setFocused(true)}
@@ -96,6 +104,11 @@ function JournalDay({
 						{...{ host, links, binding, opened }}
 						readOnly={!editable}
 						focusOnAttach={activate}
+						onDropBlock={
+							doc?.noteId && onDropBlock
+								? onDropBlock.bind(null, doc.noteId)
+								: undefined
+						}
 					/>
 				) : (
 					<NotePreview
@@ -111,12 +124,36 @@ function JournalDay({
 	);
 }
 
+/** The app's Reduce motion setting or the system's. */
+function reduceMotion(): boolean {
+	return (
+		document.documentElement.hasAttribute("data-reduce-motion") ||
+		window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+	);
+}
+
 export function JournalSpace({
 	view,
 	locked,
 	...options
 }: JournalOptions & { view: VaultView; locked: boolean }) {
-	const { today } = usePlanner();
+	const { today, tasks, loggedDays, openNote: openFloating } = usePlanner();
+	const [selected, setSelected] = useState(today);
+	const activity = new Set([
+		...loggedDays,
+		...view.notes.flatMap((note) =>
+			note.updatedAt ? [keyOfDate(new Date(note.updatedAt))] : [],
+		),
+	]);
+	const memories = view.notes.filter((note) => {
+		const day =
+			dayOfLogPath(note.path) ||
+			(note.updatedAt ? keyOfDate(new Date(note.updatedAt)) : "");
+		return (
+			day.slice(5) === selected.slice(5) &&
+			day.slice(0, 4) < selected.slice(0, 4)
+		);
+	});
 	const older = view.notes.flatMap(({ path, kind }) => {
 		const day = kind !== "canvas" && dayOfLogPath(path);
 		return day && day !== today ? [day] : [];
@@ -127,17 +164,65 @@ export function JournalSpace({
 			.map((entry) => entry.path),
 	);
 	return (
-		<section className="min-h-0 flex-1 overflow-auto p-3" aria-label="Journal">
-			{[today, ...older.sort().reverse()].map((day) => (
-				<JournalDay
-					key={day}
-					{...options}
-					day={day}
+		<div className="flex min-h-0 flex-1">
+			<section
+				className="min-h-0 flex-1 overflow-auto p-3"
+				aria-label="Journal"
+			>
+				{[...new Set([today, selected, ...older])]
+					.sort()
+					.reverse()
+					.map((day) => (
+						<JournalDay
+							key={day}
+							{...options}
+							day={day}
+							today={today}
+							duplicate={duplicates.has(logPath(day))}
+							locked={locked || !view.writable}
+						/>
+					))}
+			</section>
+			<aside
+				className="hidden w-72 shrink-0 overflow-auto border-l p-3 min-[900px]:block"
+				aria-label="Journal calendar"
+			>
+				<MiniCalendar
+					date={selected}
 					today={today}
-					duplicate={duplicates.has(logPath(day))}
-					locked={locked || !view.writable}
+					tasks={tasks}
+					loggedDays={activity}
+					onDate={(day) => {
+						setSelected(day);
+						requestAnimationFrame(() =>
+							document.getElementById(`journal-day-${day}`)?.scrollIntoView({
+								behavior: reduceMotion() ? "instant" : "smooth",
+							}),
+						);
+					}}
 				/>
-			))}
-		</section>
+				{memories.length > 0 && (
+					<section aria-label="On this day" className="mt-4">
+						<h2 className="mb-1 font-semibold text-muted-foreground text-xs">
+							On this day
+						</h2>
+						<ul className="flex flex-col gap-0.5">
+							{memories.map((note) => (
+								<li key={note.path}>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="w-full justify-start truncate"
+										onClick={() => openFloating(note.path)}
+									>
+										{note.title}
+									</Button>
+								</li>
+							))}
+						</ul>
+					</section>
+				)}
+			</aside>
+		</div>
 	);
 }

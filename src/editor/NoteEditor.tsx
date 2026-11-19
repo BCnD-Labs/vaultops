@@ -39,6 +39,11 @@ import {
 	setDragEffect,
 } from "./block-drag";
 import { BLOCK_TYPES } from "./blocks";
+import {
+	ButtonBlockContext,
+	type ButtonOptions,
+	type RunButton,
+} from "./button-block";
 import { COLUMN_DRAG_RULES } from "./columns";
 import { docToBlocks } from "./doc-blocks";
 import { type DropSlotState, setDropSlot } from "./drop-slot";
@@ -84,6 +89,8 @@ export interface NoteEditorProps {
 	) => Promise<void>;
 	/** Offers "Template" in the slash menu; called with where to put it. */
 	onChooseFrame?: (request: TemplateRequest) => void;
+	onRunButton?: RunButton;
+	buttonOptions?: ButtonOptions;
 	onChooseTemplate?: (request: TemplateRequest) => void;
 	/** Turns on `[[` and `@` links; says what can be linked and how to open it. */
 	links?: LinkSource;
@@ -138,6 +145,8 @@ export function NoteEditor({
 	slot: sharedSlot,
 	focusOnAttach,
 	onDropBlock,
+	onRunButton,
+	buttonOptions,
 	onChooseTemplate,
 	onChooseFrame,
 	links,
@@ -531,7 +540,11 @@ export function NoteEditor({
 							: onDropBlock(data.blockId, data.noteId, slot));
 					}}
 				>
-					<EditorContent editor={editor} />
+					<ButtonBlockContext.Provider
+						value={{ options: buttonOptions, run: onRunButton }}
+					>
+						<EditorContent editor={editor} />
+					</ButtonBlockContext.Provider>
 					{editor && editable && (
 						<BubbleMenu
 							editor={editor}

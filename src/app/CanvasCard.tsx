@@ -9,6 +9,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -190,6 +191,18 @@ function renderBlock(
 		}
 		case "divider":
 			return <hr />;
+		case "buttonBlock": {
+			const attrs = block.attrs;
+			const label =
+				attrs && typeof attrs === "object" && !Array.isArray(attrs)
+					? attrs.label
+					: null;
+			return (
+				<Button type="button" disabled>
+					{typeof label === "string" && label ? label : "Button"}
+				</Button>
+			);
+		}
 		case "mathBlock":
 			return (
 				<div className="math-block">

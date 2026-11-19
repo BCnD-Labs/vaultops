@@ -13,6 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { BlockRole } from "./block-role";
 import { QuoteColor } from "./blockquote";
 import { BLOCK_TYPES } from "./blocks";
+import { ButtonBlock } from "./button-block";
 import { Callout } from "./callout";
 import { CanvasFrame } from "./canvas-frame";
 import { ChartBlock } from "./chart-block";
@@ -112,6 +113,7 @@ export function createExtensions(): Extensions {
 		TaskBlock,
 		Divider,
 		MathBlock,
+		ButtonBlock,
 		ImageBlock,
 		CanvasFrame,
 		Callout,

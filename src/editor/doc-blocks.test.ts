@@ -14,6 +14,12 @@ const text = (value: string, marks?: string[]): JSONContent => ({
 /** One of every block type, nested lists included, in the form the file stores them. */
 const FIXTURE: Block[] = [
 	{
+		id: "button",
+		type: "buttonBlock",
+		parent: null,
+		attrs: { label: "Open Trash", action: "command", target: "open-trash" },
+	},
+	{
 		id: "frame",
 		type: "canvasFrame",
 		parent: null,

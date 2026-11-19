@@ -59,6 +59,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "button-blocks",
+		name: "Button blocks",
+		description: "Action buttons in notes, from the slash menu.",
+		group: "Writing",
+		defaultOn: true,
+	},
+	{
 		id: "math",
 		name: "Math",
 		description: "Math blocks in notes, from the slash menu.",

@@ -20,9 +20,11 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { REMOVED_BUTTON_TARGET, resolveButtonTarget } from "../core/buttons";
 import { findName, type Props } from "../core/notes/properties";
-import type { TemplateEntry } from "../core/notes/templates";
+import { listTemplates, type TemplateEntry } from "../core/notes/templates";
 import type { AutosaveState } from "../editor/autosave";
+import type { ButtonOptions, RunButton } from "../editor/button-block";
 import { CanvasFrameView } from "../editor/canvas-frame";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import {
@@ -104,6 +106,9 @@ export interface NoteViewProps {
 	onAllowEditing: () => void;
 	/** Turns on the slash menu's Template item and "Save as template". */
 	templates?: TemplatesApi;
+	buttonCommands?: ButtonOptions["commands"];
+	onButtonCommand?: (id: string) => void;
+	onButtonNewNote?: (entry: TemplateEntry) => void;
 	frames?: FramesApi;
 	/** Turns on `[[` and `@` links. */
 	links?: LinkSource;
@@ -177,6 +182,9 @@ export function NoteView({
 	onConfirmEditing,
 	onAllowEditing,
 	templates,
+	buttonCommands,
+	onButtonCommand,
+	onButtonNewNote,
 	frames,
 	links,
 	locked = false,
@@ -239,7 +247,10 @@ export function NoteView({
 	const canTemplate = !!templates && opened.editable && !reading;
 	const Body = editorElsewhere ? NotePreview : NoteEditor;
 	const prompt = useTemplatePrompt();
-	const insertTemplate = (entry: TemplateEntry, request: TemplateRequest) => {
+	const insertTemplate = (
+		entry: TemplateEntry,
+		request: Omit<TemplateRequest, "anchor">,
+	) => {
 		if (!entry.note) return request.focus();
 		const replace = JSON.stringify(entry.note.blocks).includes("{{selection}}");
 		prompt.ask(entry.note, title, {
@@ -267,6 +278,18 @@ export function NoteView({
 				}
 			},
 		});
+	};
+	const buttonTemplates = featureEnabled("templates") ? templates : undefined;
+	const runButton: RunButton = async ({ action, target }, request) => {
+		if (action === "command") {
+			onButtonCommand?.(target);
+		} else if (buttonTemplates) {
+			const { templates: entries } = await listTemplates(buttonTemplates.host);
+			const entry = resolveButtonTarget(target, entries, (item) => item.label);
+			if (!entry?.note) return REMOVED_BUTTON_TARGET;
+			if (action === "insert-template") insertTemplate(entry, request);
+			else if (action === "new-note-template") onButtonNewNote?.(entry);
+		}
 	};
 	return (
 		<>
@@ -488,6 +511,14 @@ export function NoteView({
 						onDocChange(next);
 					}}
 					onDropBlock={onDropBlock}
+					onRunButton={buttonCommands ? runButton : undefined}
+					buttonOptions={
+						buttonCommands && {
+							commands: buttonCommands,
+							templates: buttonTemplates,
+							canCreate: !!onButtonNewNote,
+						}
+					}
 					onChooseTemplate={canTemplate ? setPicker : undefined}
 					onChooseFrame={canFrame ? setFramePicker : undefined}
 					links={links}
@@ -589,6 +620,9 @@ export interface SessionNoteViewProps {
 	onMoveTo?: () => void;
 	onDropBlock?: NoteViewProps["onDropBlock"];
 	templates?: TemplatesApi;
+	buttonCommands?: ButtonOptions["commands"];
+	onButtonCommand?: (id: string) => void;
+	onButtonNewNote?: (entry: TemplateEntry) => void;
 	frames?: FramesApi;
 	links?: LinkSource;
 	locked?: boolean;
@@ -622,6 +656,9 @@ function PaneNote({
 	onMoveTo,
 	onDropBlock,
 	templates,
+	buttonCommands,
+	onButtonCommand,
+	onButtonNewNote,
 	frames,
 	links,
 	locked = false,
@@ -676,6 +713,9 @@ function PaneNote({
 			onDocChange={session.editDoc}
 			onDropBlock={onDropBlock}
 			templates={templates}
+			buttonCommands={buttonCommands}
+			onButtonCommand={onButtonCommand}
+			onButtonNewNote={onButtonNewNote}
 			frames={frames}
 			links={links}
 			locked={locked || editorElsewhere}

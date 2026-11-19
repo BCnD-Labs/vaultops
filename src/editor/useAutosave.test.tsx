@@ -239,3 +239,36 @@ it("discarding after a conflict leaves the other app's file alone and stops furt
 	});
 	expect(await host.readText(opened.path)).toBe("changed by another app");
 });
+
+it("reports typed properties, type and cover so live views stay current", async () => {
+	const { host, a } = await twoNotes();
+	const infos: SavedInfo[] = [];
+	const { result } = renderHook(() =>
+		useAutosave(host, a, (info) => infos.push(info)),
+	);
+	await act(async () => {});
+	await act(async () => {
+		result.current.change({
+			doc: a.doc,
+			title: "Alpha",
+			cover: "attachments/c.png",
+			props: {
+				Pages: { type: "number", value: 320 },
+				Status: { type: "select", value: "Reading", options: ["Reading"] },
+			},
+		});
+	});
+	await act(async () => {
+		await result.current.flush();
+	});
+	expect(infos.at(-1)?.fields).toEqual({
+		pages: { name: "Pages", type: "number", value: 320 },
+		status: {
+			name: "Status",
+			type: "select",
+			value: "Reading",
+			options: ["Reading"],
+		},
+	});
+	expect(infos.at(-1)?.cover).toBe("attachments/c.png");
+});

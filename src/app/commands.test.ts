@@ -101,3 +101,17 @@ it.each([false, true])(
 		expect(filterCommands("pinned", c, { "pinned-notes": false })).toEqual([]);
 	},
 );
+
+it("offers the canvas template picker only when the context can open it", () => {
+	expect(filterCommands("template", context()).map((m) => m.id)).not.toContain(
+		"new-canvas-from-template",
+	);
+	const onNewCanvasFromTemplate = vi.fn();
+	const c = { ...context(), onNewCanvasFromTemplate };
+	const match = filterCommands("mind map", c);
+	expect(match.map((m) => [m.id, m.needsWrite])).toEqual([
+		["new-canvas-from-template", true],
+	]);
+	match[0]?.run(c);
+	expect(onNewCanvasFromTemplate).toHaveBeenCalledOnce();
+});

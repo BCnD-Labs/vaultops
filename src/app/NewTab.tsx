@@ -1,4 +1,10 @@
-import { FilePlus, LayoutDashboard, Search, X } from "lucide-react";
+import {
+	FilePlus,
+	LayoutDashboard,
+	LayoutTemplate,
+	Search,
+	X,
+} from "lucide-react";
 import { useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { ShellNavigation } from "./AppShell";
@@ -13,12 +19,15 @@ export function NewTab({
 	writable,
 	onCreateNote,
 	onCreateCanvas,
+	onCreateCanvasFromTemplate,
 	onClose,
 }: {
 	writable: boolean;
 	onCreateNote?: () => void;
 	/** Left out while another pane already shows a canvas (two never show together). */
 	onCreateCanvas?: () => void;
+	/** Opens the template picker; left out together with `onCreateCanvas`. */
+	onCreateCanvasFromTemplate?: () => void;
 	/** Only in the split view's right pane: closes the split. */
 	onClose?: () => void;
 }) {
@@ -46,6 +55,16 @@ export function NewTab({
 					>
 						<LayoutDashboard aria-hidden="true" />
 						Create a canvas
+					</Button>
+				)}
+				{onCreateCanvasFromTemplate && (
+					<Button
+						variant="secondary"
+						disabled={!writable}
+						onClick={onCreateCanvasFromTemplate}
+					>
+						<LayoutTemplate aria-hidden="true" />
+						Create a canvas from a template
 					</Button>
 				)}
 				<Button variant="secondary" onClick={openSearch}>

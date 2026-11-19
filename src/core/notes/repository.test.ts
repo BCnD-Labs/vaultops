@@ -3,6 +3,7 @@ import { HostError } from "../../host/host";
 import { MemoryHost } from "../../host/memory-host";
 import { NOTE_FORMAT, NOTE_FORMAT_VERSION, parseNote } from "../note-format";
 import { openVault } from "../vault/vault";
+import { CANVAS_TEMPLATES } from "./canvas-templates";
 import { moveNote, renameNote } from "./rename";
 import {
 	createCanvas,
@@ -29,6 +30,15 @@ describe("note repository", () => {
 		});
 		expect((await saveNote(host, first.path, first.note)).ok).toBe(true);
 		expect((await loadNote(host, first.path)).note).toEqual(first.note);
+	});
+	it("creates a canvas with starting blocks that read back clean", async () => {
+		const host = new MemoryHost();
+		await openVault(host);
+		const blocks = CANVAS_TEMPLATES[0]?.build(() => crypto.randomUUID()) ?? [];
+		const made = await createCanvas(host, "", "Mind map", blocks);
+		expect(made.note.blocks).toEqual(blocks);
+		expect((await loadNote(host, made.path)).problems).toEqual([]);
+		expect((await loadNote(host, made.path)).note?.blocks).toEqual(blocks);
 	});
 	it("renames, moves and trashes a canvas through the note operations", async () => {
 		const host = new MemoryHost();

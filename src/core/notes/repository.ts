@@ -2,6 +2,7 @@ import type { Host } from "../../host/host";
 import { fileNameFor, NOTE_EXT } from "../file-name/file-name";
 import { saveWithPending } from "../history/pending";
 import {
+	type Block,
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
 	type Note,
@@ -75,11 +76,12 @@ async function createNoteNow(
 	return { path, note };
 }
 
-/** Canvases use the same file naming and atomic creation path as notes. */
+/** Canvases use the same file naming and atomic creation path as notes; a template passes its starting blocks. */
 export function createCanvas(
 	host: Host,
 	folder = "",
 	title = "Untitled canvas",
+	blocks: Block[] = [],
 ) {
 	return createNote(host, folder, title, {
 		header: {
@@ -88,7 +90,7 @@ export function createCanvas(
 			noteId: "",
 			kind: "canvas",
 		},
-		blocks: [],
+		blocks,
 	});
 }
 

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import type { LinkRef } from "../core/links/links";
 import { NOTE_FORMAT, NOTE_FORMAT_VERSION } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
+import type { CanvasTemplate } from "../core/notes/canvas-templates";
 import { duplicateNote } from "../core/notes/duplicate";
 import {
 	createFolder,
@@ -56,6 +57,7 @@ import { notify } from "../ui/notify";
 import { AppearanceProvider } from "./AppearanceContext";
 import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
+import { CanvasTemplateDialog } from "./CanvasTemplateDialog";
 import { lastCanvas } from "./canvas-layout";
 import { FloatingNotes } from "./FloatingNotes";
 import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
@@ -124,6 +126,11 @@ export function App({ host }: { host: Host }) {
 	const [reading, setReading] = useState(false);
 	const [settingsRequest, setSettingsRequest] = useState<object>();
 	const [templatesRequest, setTemplatesRequest] = useState<object>();
+	// The canvas template picker, with where the new canvas will go.
+	const [canvasPicker, setCanvasPicker] = useState<{
+		folder: string;
+		pane?: PaneId;
+	} | null>(null);
 	const templatePrompt = useTemplatePrompt();
 	const [resourcesRequest, setResourcesRequest] = useState<object>();
 	// The card a link asked to see; the manager shows it when it opens.
@@ -855,14 +862,23 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
-	const startCanvas = async (folder = "", pane?: PaneId) => {
+	const startCanvas = async (
+		folder = "",
+		pane?: PaneId,
+		template?: CanvasTemplate,
+	) => {
 		if (!view || creating.current) return;
 		creating.current = true;
 		try {
 			if (!(await ws.settleAll())) return;
 			setBusy(true);
 			try {
-				const made = await createCanvasAndLoad(vaultHost, view, folder);
+				const made = await createCanvasAndLoad(
+					vaultHost,
+					view,
+					folder,
+					template,
+				);
 				changeView(made.view);
 				if (made.path) {
 					await open(made.path, { pane });
@@ -1177,6 +1193,9 @@ export function App({ host }: { host: Host }) {
 		moveTo: setTreeMove,
 		newNote: (folder) => void startNote(folder),
 		newCanvas: canvasOn ? (folder) => void startCanvas(folder) : undefined,
+		newCanvasFromTemplate: canvasOn
+			? (folder) => setCanvasPicker({ folder })
+			: undefined,
 	};
 
 	// "Move to…": the note goes to the folder picked, its tab follows it, and an
@@ -1635,6 +1654,11 @@ export function App({ host }: { host: Host }) {
 							? undefined
 							: () => void startCanvas(folder, pane.id)
 					}
+					onCreateCanvasFromTemplate={
+						canvasShown || !canvasOn
+							? undefined
+							: () => setCanvasPicker({ folder, pane: pane.id })
+					}
 					onClose={pane.id === "right" ? () => void ws.closeSplit() : undefined}
 				/>
 			</main>
@@ -1713,6 +1737,15 @@ export function App({ host }: { host: Host }) {
 											setFocusResource(null);
 											setResourcesRequest({});
 										}
+									: undefined
+							}
+							onNewCanvasFromTemplate={
+								view && view.status !== "none" && canvasOn
+									? () =>
+											setCanvasPicker({
+												folder:
+													selection.kind === "folder" ? selection.value : "",
+											})
 									: undefined
 							}
 							onOpenTemplates={
@@ -1938,6 +1971,18 @@ export function App({ host }: { host: Host }) {
 										setError(String(reason)),
 									);
 								})();
+							}}
+						/>
+						<CanvasTemplateDialog
+							open={canvasPicker !== null}
+							onOpenChange={(next) => {
+								if (!next) setCanvasPicker(null);
+							}}
+							onPick={(template) => {
+								const target = canvasPicker;
+								setCanvasPicker(null);
+								if (target)
+									void startCanvas(target.folder, target.pane, template);
 							}}
 						/>
 						<FolderPickerDialog

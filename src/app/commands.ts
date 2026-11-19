@@ -25,6 +25,8 @@ export interface CommandContext {
 	onNavigate: (screen: "trash" | "health" | "settings") => void;
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
+	/** Opens the canvas template picker; left out while canvases are off. */
+	onNewCanvasFromTemplate?: () => void;
 	onOpenResources?: () => void;
 	/** Opens the folder picker for the note being shown. */
 	pinAction?: { pinned: boolean; run: () => void };
@@ -70,6 +72,23 @@ export const COMMANDS: Command[] = [
 		keywords: ["create", "directory"],
 		needsWrite: true,
 		run: (c) => c.onNewFolder(),
+	},
+	{
+		id: "new-canvas-from-template",
+		label: "New canvas from template…",
+		group: "Create",
+		icon: LayoutTemplate,
+		keywords: [
+			"canvas",
+			"mind map",
+			"flowchart",
+			"timeline",
+			"board",
+			"kanban",
+		],
+		needsWrite: true,
+		available: (c) => c.onNewCanvasFromTemplate !== undefined,
+		run: (c) => c.onNewCanvasFromTemplate?.(),
 	},
 	{
 		id: "move-note",

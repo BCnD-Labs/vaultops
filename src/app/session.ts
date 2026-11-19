@@ -1,4 +1,6 @@
 import { linksIn } from "../core/links/links";
+import { newBlockId } from "../core/notes/canvas-ops";
+import type { CanvasTemplate } from "../core/notes/canvas-templates";
 import { headerIcon } from "../core/notes/icon";
 import { loadPins } from "../core/notes/pins";
 import { headerProps } from "../core/notes/properties";
@@ -175,8 +177,14 @@ export async function createCanvasAndLoad(
 	host: Host,
 	view: VaultView,
 	folder = "",
+	template?: CanvasTemplate,
 ) {
 	if (!view.writable) return { view, path: null };
-	const { path } = await createCanvas(host, folder);
+	const { path } = await createCanvas(
+		host,
+		folder,
+		template?.name,
+		template?.build(newBlockId),
+	);
 	return { view: await loadVault(host), path };
 }

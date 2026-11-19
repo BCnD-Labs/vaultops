@@ -70,6 +70,7 @@ export function AppShell({
 	pinAction,
 	onMoveNote,
 	onOpenTemplates,
+	onNewCanvasFromTemplate,
 	onOpenResources,
 	resources,
 	resourceTypes,
@@ -101,6 +102,8 @@ export function AppShell({
 	onMoveNote?: () => void;
 	/** Opens the template manager (the command bar offers it when this is set). */
 	onOpenTemplates?: () => void;
+	/** Opens the canvas template picker (the command bar offers it when this is set). */
+	onNewCanvasFromTemplate?: () => void;
 	/** Opens the resource manager (the command bar offers it when this is set). */
 	onOpenResources?: () => void;
 	/** Resource cards and their types, so the search bar can find them. */
@@ -271,6 +274,7 @@ export function AppShell({
 								pinAction={pinAction}
 								onMoveNote={onMoveNote}
 								onOpenTemplates={onOpenTemplates}
+								onNewCanvasFromTemplate={onNewCanvasFromTemplate}
 								onOpenResources={onOpenResources}
 								resources={resources}
 								resourceTypes={resourceTypes}

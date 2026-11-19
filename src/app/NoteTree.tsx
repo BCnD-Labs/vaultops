@@ -7,6 +7,7 @@ import {
 	FolderInput,
 	FolderPlus,
 	LayoutDashboard,
+	LayoutTemplate,
 	Palette,
 	Pencil,
 	Pin,
@@ -64,6 +65,7 @@ export interface TreeActions {
 	moveTo?: (item: DragItem) => void;
 	newNote?: (folder: string) => void;
 	newCanvas?: (folder: string) => void;
+	newCanvasFromTemplate?: (folder: string) => void;
 }
 
 interface Props {
@@ -562,6 +564,14 @@ function folderEntries(node: FolderNode, ctx: Ctx): TreeMenuEntry[] {
 			label: "New canvas here",
 			icon: LayoutDashboard,
 			run: () => newCanvas(node.path),
+		});
+	}
+	if (a.newCanvasFromTemplate) {
+		const fromTemplate = a.newCanvasFromTemplate;
+		entries.push({
+			label: "New canvas from template here",
+			icon: LayoutTemplate,
+			run: () => fromTemplate(node.path),
 		});
 	}
 	entries.push(

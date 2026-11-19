@@ -70,6 +70,7 @@ export function CommandBar({
 	onNavigate,
 	onToggleReading,
 	onOpenTemplates,
+	onNewCanvasFromTemplate,
 	onOpenResources,
 	pinAction,
 	onMoveNote,
@@ -88,6 +89,7 @@ export function CommandBar({
 	onNavigate: (screen: "trash" | "health" | "settings") => void;
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
+	onNewCanvasFromTemplate?: () => void;
 	onOpenResources?: () => void;
 	pinAction?: import("./commands").CommandContext["pinAction"];
 	onMoveNote?: () => void;
@@ -191,6 +193,7 @@ export function CommandBar({
 		onNavigate,
 		onToggleReading,
 		onOpenTemplates,
+		onNewCanvasFromTemplate,
 		onOpenResources,
 		pinAction,
 		onMoveNote,

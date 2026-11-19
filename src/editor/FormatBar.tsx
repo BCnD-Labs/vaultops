@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import {
 	Bold,
+	ChevronDown,
 	Code,
 	Highlighter,
 	Italic,
@@ -12,12 +13,19 @@ import {
 	Superscript,
 	Underline,
 } from "lucide-react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { highlightColors } from "../core/notes/highlights";
 
 interface FormatMark {
 	/** The mark's name in the note file. */
@@ -96,6 +104,7 @@ export const FORMAT_MARKS: FormatMark[] = [
 
 /** The text-formatting buttons shown over a selection. */
 export function FormatBar({ editor }: { editor: Editor }) {
+	const [open, setOpen] = useState(false);
 	const active = useEditorState({
 		editor,
 		selector: ({ editor: current }) =>
@@ -106,25 +115,65 @@ export function FormatBar({ editor }: { editor: Editor }) {
 	return (
 		<div className="format-bar" role="toolbar" aria-label="Text formatting">
 			{FORMAT_MARKS.map((mark) => (
-				<Tooltip key={mark.name}>
-					<TooltipTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							aria-label={mark.label}
-							aria-pressed={active[mark.name] === true}
-							// Keep the selection: a click would move focus out of the editor.
-							onMouseDown={(event) => event.preventDefault()}
-							onClick={() => mark.toggle(editor)}
-						>
-							<mark.icon aria-hidden="true" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>
-						{mark.label} ({mark.shortcut})
-					</TooltipContent>
-				</Tooltip>
+				<Fragment key={mark.name}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								aria-label={mark.label}
+								aria-pressed={active[mark.name] === true}
+								// Keep the selection: a click would move focus out of the editor.
+								onMouseDown={(event) => event.preventDefault()}
+								onClick={() => mark.toggle(editor)}
+							>
+								<mark.icon aria-hidden="true" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							{mark.label} ({mark.shortcut})
+						</TooltipContent>
+					</Tooltip>
+					{mark.name === "highlight" && (
+						<Popover open={open} onOpenChange={setOpen}>
+							<PopoverTrigger asChild>
+								<Button
+									size="icon"
+									variant="ghost"
+									aria-label="Highlight colour"
+									onMouseDown={(e) => e.preventDefault()}
+								>
+									<ChevronDown />
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent onCloseAutoFocus={(e) => e.preventDefault()}>
+								{highlightColors.map((color) => (
+									<Button
+										key={color}
+										variant="ghost"
+										onMouseDown={(e) => e.preventDefault()}
+										onClick={() => {
+											editor
+												.chain()
+												.focus()
+												.setMark("highlight", {
+													color: color === "yellow" ? null : color,
+												})
+												.run();
+											setOpen(false);
+										}}
+									>
+										<span className="highlight-dot" data-color={color}>
+											●
+										</span>
+										{color}
+									</Button>
+								))}
+							</PopoverContent>
+						</Popover>
+					)}
+				</Fragment>
 			))}
 		</div>
 	);

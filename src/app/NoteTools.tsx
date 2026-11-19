@@ -1,5 +1,6 @@
 import {
 	GitCompareArrows,
+	Highlighter,
 	Link2,
 	ListTree,
 	type LucideIcon,
@@ -15,8 +16,10 @@ import {
 	useState,
 } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { HighlightItem } from "../core/notes/highlights";
 import type { OutlineItem } from "../core/notes/outline";
 import { ShellNavigation } from "./AppShell";
+import { HighlightsPanel } from "./HighlightsPanel";
 import { LinkedFromPanel } from "./LinkedFromPanel";
 import { OutlinePanel } from "./OutlinePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
@@ -29,6 +32,7 @@ import { useFeatures } from "./useFeature";
 const TOOLS: [string, string, LucideIcon, string?][] = [
 	["properties", "Properties", SlidersHorizontal, "tab-properties"],
 	["outline", "Outline", ListTree, "tab-outline"],
+	["highlights", "Highlights", Highlighter, "highlights"],
 	["links", "Connections", Link2, "tab-links"],
 	["tags", "Tags", Tags],
 	["changes", "Changes", GitCompareArrows],
@@ -41,6 +45,7 @@ function loadTab() {
 		const saved = localStorage.getItem(TAB_KEY);
 		return saved === "changes" ||
 			saved === "outline" ||
+			saved === "highlights" ||
 			saved === "links" ||
 			saved === "tags" ||
 			saved === "planner"
@@ -56,6 +61,7 @@ export function NoteTools({
 	notes = [],
 	activeTag = null,
 	outline = [],
+	highlights = [],
 	linkedFrom = [],
 	noteId,
 	noteTitle,
@@ -68,6 +74,7 @@ export function NoteTools({
 	notes?: NoteRow[];
 	/** Tag currently filtering the left sidebar tree, if any. */
 	activeTag?: string | null;
+	highlights?: HighlightItem[];
 	outline?: OutlineItem[];
 	/** Notes and canvases that link to the open note. */
 	linkedFrom?: NoteRow[];
@@ -180,6 +187,13 @@ export function NoteTools({
 					<OutlinePanel items={outline} />
 				) : (
 					<p>Open a note to see its outline.</p>
+				)}
+			</TabsContent>
+			<TabsContent value="highlights">
+				{hasNote ? (
+					<HighlightsPanel items={highlights} />
+				) : (
+					<p>Open a note to see its highlights.</p>
 				)}
 			</TabsContent>
 			<TabsContent value="links">

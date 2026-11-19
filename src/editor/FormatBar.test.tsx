@@ -10,6 +10,8 @@ import type { Editor } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { afterEach, expect, it } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HighlightsPanel } from "../app/HighlightsPanel";
+import type { JsonValue } from "../core/note-format";
 import { blocksToDoc, docToBlocks } from "./doc-blocks";
 import { createExtensions } from "./extensions";
 import { FormatBar } from "./FormatBar";
@@ -108,4 +110,53 @@ it("keeps the new marks through the note file round trip", async () => {
 		.map((mark) => mark.type)
 		.sort();
 	expect(marks).toEqual(["highlight", "superscript", "underline"]);
+});
+
+it("applies a chosen colour to the selected text", async () => {
+	render(<Harness />);
+	await screen.findByRole("toolbar");
+	select(1, 6);
+	fireEvent.click(screen.getByRole("button", { name: "Highlight colour" }));
+	fireEvent.click(await screen.findByRole("button", { name: /purple/ }));
+	expect(current?.getAttributes("highlight").color).toBe("purple");
+});
+
+it.each([undefined, "green", "future"])(
+	"round trips highlight colour %s",
+	async (color) => {
+		render(<Harness />);
+		await screen.findByRole("toolbar");
+		const mark: Record<string, JsonValue> = color
+			? { type: "highlight", attrs: { color } }
+			: { type: "highlight" };
+		const blocks = [
+			{
+				type: "paragraph",
+				id: "p1",
+				parent: null,
+				content: [{ type: "text", text: "Hello", marks: [mark] }],
+			},
+		];
+		act(() => {
+			current?.commands.setContent(blocksToDoc(blocks));
+		});
+		expect(docToBlocks(current!.getJSON())).toEqual(blocks);
+	},
+);
+
+it("selects the listed occurrence in the focused editor", async () => {
+	render(
+		<div className="workspace-pane" data-focused="true">
+			<div className="note-editor">
+				<Harness />
+			</div>
+			<HighlightsPanel
+				items={[{ blockId: "p1", text: "world", color: "blue", offset: 6 }]}
+			/>
+		</div>,
+	);
+	await screen.findByRole("toolbar");
+	fireEvent.click(screen.getByRole("button", { name: /world/ }));
+	expect(current?.state.selection.from).toBe(7);
+	expect(current?.state.selection.to).toBe(12);
 });

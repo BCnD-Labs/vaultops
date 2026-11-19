@@ -903,7 +903,7 @@
 .canvas-card mark {
 	padding-inline: 0.1em;
 	border-radius: var(--radius-control);
-	background: var(--editor-highlight-bg);
+	background: var(--highlight-fill, var(--editor-highlight-bg));
 	color: var(--editor-highlight-text);
 }
 
@@ -1773,4 +1773,47 @@ span.note-link-chip:hover {
 	max-height: 86vh;
 	margin: auto;
 	object-fit: contain;
+}
+
+:is(mark, .highlight-dot)[data-color="green"] {
+	--highlight-fill: color-mix(
+		in srgb,
+		var(--tone-green) var(--tone-text-mix),
+		var(--background)
+	);
+}
+
+:is(mark, .highlight-dot)[data-color="blue"] {
+	--highlight-fill: color-mix(
+		in srgb,
+		var(--tone-blue) var(--tone-text-mix),
+		var(--background)
+	);
+}
+
+:is(mark, .highlight-dot)[data-color="pink"] {
+	--highlight-fill: color-mix(
+		in srgb,
+		var(--tone-pink) var(--tone-text-mix),
+		var(--background)
+	);
+}
+
+:is(mark, .highlight-dot)[data-color="orange"] {
+	--highlight-fill: color-mix(
+		in srgb,
+		var(--tone-orange) var(--tone-text-mix),
+		var(--background)
+	);
+}
+
+:is(mark, .highlight-dot)[data-color="purple"] {
+	--highlight-fill: color-mix(
+		in srgb,
+		var(--tone-purple) var(--tone-text-mix),
+		var(--background)
+	);
+}
+.highlight-dot {
+	color: var(--highlight-fill, var(--tone-yellow));
 }

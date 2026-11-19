@@ -86,7 +86,18 @@ export function createExtensions(): Extensions {
 			trailingNode: false,
 		}),
 		CodeBlock,
-		Highlight,
+		Highlight.extend({
+			addAttributes() {
+				return {
+					color: {
+						default: null,
+						parseHTML: (el) => el.getAttribute("data-color"),
+						renderHTML: (attrs) =>
+							attrs.color ? { "data-color": attrs.color } : {},
+					},
+				};
+			},
+		}).configure({ multicolor: true }),
 		// Text cannot be raised and lowered at once: adding one replaces the other.
 		Subscript.extend({ excludes: "superscript" }),
 		Superscript.extend({ excludes: "subscript" }),

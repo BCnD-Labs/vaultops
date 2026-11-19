@@ -81,7 +81,10 @@ function fromEditorInline(item: JSONContent): JSONContent {
 			const restored = { ...mark };
 			const markAttrs = fromEditorAttrs(mark.attrs);
 			delete restored.attrs;
-			if (markAttrs) restored.attrs = markAttrs;
+			if (mark.type === "highlight" && markAttrs?.color === null)
+				delete markAttrs.color;
+			if (markAttrs && Object.keys(markAttrs).length)
+				restored.attrs = markAttrs;
 			return restored;
 		});
 	if (item.content) result.content = item.content.map(fromEditorInline);

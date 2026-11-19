@@ -84,7 +84,18 @@ function inline(value: JsonValue | undefined, noteLinks?: boolean): ReactNode {
 			if (mark.type === "code") content = <code>{content}</code>;
 			if (mark.type === "strike") content = <s>{content}</s>;
 			if (mark.type === "underline") content = <u>{content}</u>;
-			if (mark.type === "highlight") content = <mark>{content}</mark>;
+			if (mark.type === "highlight") {
+				const attrs = mark.attrs;
+				const color =
+					attrs && typeof attrs === "object" && !Array.isArray(attrs)
+						? attrs.color
+						: undefined;
+				content = (
+					<mark data-color={typeof color === "string" ? color : undefined}>
+						{content}
+					</mark>
+				);
+			}
 			if (mark.type === "kbd") content = <kbd>{content}</kbd>;
 			if (mark.type === "subscript") content = <sub>{content}</sub>;
 			if (mark.type === "superscript") content = <sup>{content}</sup>;

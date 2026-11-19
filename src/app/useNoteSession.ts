@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { headerCover } from "../core/notes/cover";
+import { type HighlightItem, highlightsOf } from "../core/notes/highlights";
 import { headerIcon } from "../core/notes/icon";
 import { type OutlineItem, outlineOf } from "../core/notes/outline";
 import { headerProps, type Props as NoteProps } from "../core/notes/properties";
@@ -58,6 +59,7 @@ export function useNoteSession({
 	const [notice, setNotice] = useState<string | null>(null);
 	const [props, setProps] = useState<NoteProps | null>({});
 	const [stats, setStats] = useState<TextStats | null>(null);
+	const [highlights, setHighlights] = useState<HighlightItem[]>([]);
 	const [outline, setOutline] = useState<OutlineItem[]>([]);
 	const docRef = useRef<JSONContent | null>(null);
 	const titleRef = useRef("");
@@ -83,6 +85,7 @@ export function useNoteSession({
 		clearTimeout(statsTimer.current);
 		statsTimer.current = setTimeout(() => {
 			setStats(textStats(docRef.current));
+			setHighlights(highlightsOf(docRef.current?.content));
 			setOutline(outlineOf(docRef.current));
 		}, STATS_DELAY_MS);
 	}, []);
@@ -113,6 +116,7 @@ export function useNoteSession({
 		coverRef.current = draft?.cover;
 		setCoverEdit(draft?.cover);
 		setStats(textStats(docRef.current));
+		setHighlights(highlightsOf(docRef.current?.content));
 		setOutline(outlineOf(docRef.current));
 		const title = draft?.title ?? next.note?.header.title;
 		const text = typeof title === "string" ? title : path;
@@ -267,6 +271,7 @@ export function useNoteSession({
 		binding,
 		editorElsewhere: editorOwner !== null && !binding?.ownsEditor(),
 		stats,
+		highlights,
 		outline,
 		docRef,
 		saveState: autosave.state,

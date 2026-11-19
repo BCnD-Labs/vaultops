@@ -12,6 +12,7 @@ import { previewOf, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import { flashcardIds } from "../core/review/cards";
 import { searchFieldsOf } from "../core/search/fields";
+import { type ViewFields, viewFieldsOf } from "../core/views/row";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
 import {
@@ -26,7 +27,8 @@ import { type Draft, saveDraft } from "./save-draft";
 
 const SAVED: AutosaveState = { kind: "saved" };
 
-export interface SavedInfo {
+/** A save, with the typed properties, type and cover live views read. */
+export interface SavedInfo extends Partial<ViewFields> {
 	/** The note's path before and after this save (they differ after a rename). */
 	oldPath: string;
 	path: string;
@@ -154,6 +156,7 @@ export function useAutosave(
 					icon: headerIcon(result.note.header),
 					text: searchTextOf(result.note.blocks),
 					...searchFieldsOf(result.note),
+					...viewFieldsOf(result.note),
 					updatedAt: Date.now(),
 					links: [
 						...new Set(linksIn(result.note.blocks).map((link) => link.target)),

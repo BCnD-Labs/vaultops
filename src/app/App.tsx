@@ -46,6 +46,7 @@ import {
 } from "../core/resources/resources";
 import { parseMaintainer } from "../core/session/maintainer";
 import { joinRecovery } from "../core/session/recovery";
+import { sameViewFields } from "../core/views/row";
 import { NEW_TAB, type PaneId } from "../core/workspace";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
@@ -300,6 +301,7 @@ export function App({ host }: { host: Host }) {
 					row.icon === info.icon &&
 					sameBody &&
 					sameCards &&
+					(info.fields === undefined || sameViewFields(row, info)) &&
 					!repaired
 				)
 					return v;
@@ -341,6 +343,13 @@ export function App({ host }: { host: Host }) {
 										...(info.flashcards === undefined
 											? {}
 											: { flashcards: info.flashcards }),
+										...(info.fields === undefined
+											? {}
+											: {
+													fields: info.fields,
+													type: info.type,
+													cover: info.cover,
+												}),
 										updatedAt: info.updatedAt,
 									}
 								: n,

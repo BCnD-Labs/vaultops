@@ -13,9 +13,10 @@ import { taskFromNote } from "../core/planner/task-note";
 import { flashcardIds } from "../core/review/cards";
 import { searchFieldsOf } from "../core/search/fields";
 import { openVault, type VaultResult } from "../core/vault/vault";
+import { type ViewFields, viewFieldsOf } from "../core/views/row";
 import type { Host } from "../host/host";
 
-export interface NoteRow {
+export interface NoteRow extends Partial<ViewFields> {
 	path: string;
 	/** The note's `noteId`, which stays the same when it is renamed or moved. */
 	id?: string;
@@ -131,6 +132,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			icon: headerIcon(n.note.header),
 			text: searchTextOf(n.note.blocks),
 			...searchFieldsOf(n.note),
+			...viewFieldsOf(n.note),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
 			rowNotes: rowNoteIds(n.note.blocks),
 			flashcards: flashcardIds(n.note),

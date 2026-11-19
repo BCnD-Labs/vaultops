@@ -92,6 +92,7 @@ import { PlannerProvider } from "./planner/PlannerContext";
 import { ResourceManager } from "./ResourceManager";
 import { useReviewState } from "./review/useReviewState";
 import { createRowNote } from "./row-note";
+import { useSavedWorkspaces } from "./SavedWorkspaces";
 import { ScreenPane } from "./ScreenPane";
 import { SendToBlock, SendToDialog } from "./SendToDialog";
 import { SettingsDialog } from "./SettingsScreen";
@@ -492,6 +493,15 @@ export function App({ host }: { host: Host }) {
 	// Remember the tabs. Runs when the workspace changes (a vault change makes a
 	// new workspace first), so one vault's tabs are never saved under another.
 	const workspace = ws.workspace;
+	const savedWorkspaces = useSavedWorkspaces(
+		vaultName,
+		vaultGeneration,
+		ws,
+		async (saved) => {
+			if (await ws.restoreSaved(saved, notify, screen === "journal"))
+				setScreen("note");
+		},
+	);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: see above
 	useEffect(() => {
 		if (!vaultName) return;
@@ -1847,6 +1857,7 @@ export function App({ host }: { host: Host }) {
 						onOpenScreen={() => void navigate("planner")}
 					>
 						<AppShell
+							workspaceCommands={savedWorkspaces?.commands}
 							vault={vaultName ?? "VaultOps"}
 							path={shownPath}
 							title={shownTitle}
@@ -2044,6 +2055,7 @@ export function App({ host }: { host: Host }) {
 											renderCanvas={renderCanvas}
 											renderEmpty={renderEmpty}
 											renderTitleBar={renderTitleBar}
+											workspaceMenu={savedWorkspaces?.menu}
 										/>
 									)}
 								</div>
@@ -2077,6 +2089,7 @@ export function App({ host }: { host: Host }) {
 								/>
 							)}
 						</AppShell>
+						{savedWorkspaces?.dialog}
 						{view && ws.documents && (
 							<FloatingNotes
 								key={vaultGeneration}

@@ -69,6 +69,7 @@ export function AppShell({
 	onToggleReading,
 	pinAction,
 	getSendBlock,
+	workspaceCommands,
 	onMoveNote,
 	onOpenTemplates,
 	onNewCanvasFromTemplate,
@@ -99,6 +100,7 @@ export function AppShell({
 	onForward?: () => void;
 	reading?: boolean;
 	onToggleReading?: () => void;
+	workspaceCommands?: import("./commands").Command[];
 	pinAction?: import("./commands").CommandContext["pinAction"];
 	getSendBlock?: (origin: Element | null) => (() => void) | undefined;
 	onMoveNote?: () => void;
@@ -275,6 +277,7 @@ export function AppShell({
 								onToggleReading={onToggleReading}
 								pinAction={pinAction}
 								getSendBlock={getSendBlock}
+								workspaceCommands={workspaceCommands}
 								onMoveNote={onMoveNote}
 								onOpenTemplates={onOpenTemplates}
 								onNewCanvasFromTemplate={onNewCanvasFromTemplate}

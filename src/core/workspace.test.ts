@@ -282,16 +282,35 @@ describe("renaming, pruning, remembering", () => {
 		expect(pruned.left.tabs).toEqual(["b"]);
 	});
 
-	it("saves document tabs only and restores them with nothing active", () => {
+	it("saves active tabs and restores an empty side of a split", () => {
 		const ws = openEmptyTab(
 			splitFrom(opened("a", "b", "c"), "a", isCanvas),
 			"right",
 		);
-		expect(saveable(ws)).toEqual({ left: ["b", "c"], right: ["a"] });
-		const back = restore(saveable(ws));
-		expect(back.left).toEqual({ tabs: ["b", "c"], active: null });
-		expect(back.right).toEqual({ tabs: ["a"], active: null });
-		expect(restore({ left: [], right: ["z"] }).left.tabs).toEqual(["z"]);
+		expect(restore(saveable(ws)).right?.active).toBe(NEW_TAB);
+		expect(saveable(ws).active?.left).toBe(ws.left.active);
+		const empty = restore({
+			left: [],
+			right: ["a"],
+			active: { left: NEW_TAB, right: "a" },
+		});
+		expect(restore(saveable(empty)).left).toEqual({
+			tabs: [NEW_TAB],
+			active: NEW_TAB,
+		});
+	});
+
+	it("restores old snapshots and prunes missing active tabs", () => {
+		const legacy = restore({ left: [], right: ["z"] });
+		expect(legacy.left).toEqual({ tabs: ["z"], active: null });
+		const restored = restore({
+			left: ["a", "b", "c"],
+			right: ["z"],
+			active: { left: "b", right: "z" },
+		});
+		const pruned = pruneDocs(restored, (path) => path !== "b" && path !== "z");
+		expect(pruned.left).toEqual({ tabs: ["a", "c"], active: "c" });
+		expect(pruned.right).toBeNull();
 	});
 
 	it("focuses a pane only when it exists", () => {

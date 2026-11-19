@@ -11,10 +11,12 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { BLOCK_DRAG_TYPE, setDragEffect } from "../editor/block-drag";
 import { ICON_BY_NAME } from "./iconCatalog";
+import type { SavedWorkspaceMenu } from "./SavedWorkspaces";
 import {
 	dropIndex,
 	hasTabDrag,
@@ -55,6 +57,7 @@ export function TabBar({
 	focusRequest = null,
 	splitOpen = false,
 	onCloseSplit,
+	workspaceMenu,
 	label = "Open notes",
 	paneId,
 }: {
@@ -80,6 +83,7 @@ export function TabBar({
 	/** Focus this tab's label when it is in the strip (after a move that lost focus). */
 	focusRequest?: string | null;
 	splitOpen?: boolean;
+	workspaceMenu?: SavedWorkspaceMenu;
 	onCloseSplit?: () => void;
 	/** The tab list's accessible name (a split view has one list per side). */
 	label?: string;
@@ -381,6 +385,19 @@ export function TabBar({
 								{tab.title}
 							</DropdownMenuItem>
 						))}
+						{workspaceMenu && (
+							<>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem onSelect={workspaceMenu.onSave}>
+									Save workspace as…
+								</DropdownMenuItem>
+								{workspaceMenu.switches.map(({ name, run }) => (
+									<DropdownMenuItem key={name} onSelect={run}>
+										Switch workspace: {name}
+									</DropdownMenuItem>
+								))}
+							</>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}

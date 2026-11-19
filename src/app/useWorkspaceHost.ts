@@ -599,16 +599,17 @@ export function useWorkspaceHost({
 	);
 
 	const restoreFrom = useCallback(
-		(saved: SavedWorkspace) => {
+		(saved: SavedWorkspace, exists?: (path: string) => boolean) => {
 			let next = restore(saved);
+			if (exists) next = pruneDocs(next, exists);
 			for (const id of SLOTS) {
 				const pane = id === "left" ? next.left : next.right;
-				const first = pane?.tabs[0];
+				const first = pane?.active ?? pane?.tabs[0];
 				if (first) next = selectTab(next, id, first, canvas);
 			}
-			change(() => focusPane(next, "left"));
+			return focusPane(next, "left");
 		},
-		[change, canvas],
+		[canvas],
 	);
 
 	const view = (id: PaneId): PaneView | null => {
@@ -690,7 +691,30 @@ export function useWorkspaceHost({
 		},
 		renameDraft: (path: string, title: string) =>
 			documents.current?.renameDraft(path, title),
-		restoreFrom,
+		restoreFrom: (saved: SavedWorkspace) => change(() => restoreFrom(saved)),
+		restoreSaved: async (
+			saved: SavedWorkspace,
+			report: (message: string) => void,
+			settleJournal: boolean,
+		) => {
+			const registry = documents.current;
+			if (!registry || (settleJournal && !(await settleAll()))) return false;
+			let restored = false;
+			await run((ws) => {
+				if (documents.current !== registry) return ws;
+				const exists = new Set(notesRef.current?.map((note) => note.path));
+				const paths = [...saved.left, ...saved.right];
+				const missing = paths.filter((path) => !exists.has(path)).length;
+				if (paths.length > 0 && missing === paths.length) {
+					report("All tabs in this workspace are missing.");
+					return ws;
+				}
+				if (missing) report("Skipped missing tabs.");
+				restored = true;
+				return restoreFrom(saved, (path) => exists.has(path));
+			});
+			return restored;
+		},
 		chooseVault,
 		settleAll,
 		/** True while a block is being moved; notes are not editable then. */

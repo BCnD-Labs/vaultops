@@ -381,19 +381,29 @@ export function pruneDocs(
 export interface SavedWorkspace {
 	left: string[];
 	right: string[];
+	active?: Record<PaneId, string | null>;
 }
 
 export function saveable(ws: Workspace): SavedWorkspace {
 	const docs = (pane: Pane | null) =>
 		pane ? pane.tabs.filter((tab) => tab !== NEW_TAB) : [];
-	return { left: docs(ws.left), right: docs(ws.right) };
+	return {
+		left: docs(ws.left),
+		right: docs(ws.right),
+		active: { left: ws.left.active, right: ws.right?.active ?? null },
+	};
 }
 
 export function restore(saved: SavedWorkspace): Workspace {
-	const pane = (tabs: string[]): Pane => ({ tabs, active: null });
+	const pane = (tabs: string[], id: PaneId): Pane => {
+		const active = saved.active?.[id] ?? null;
+		if (active === NEW_TAB) return { tabs: [...tabs, NEW_TAB], active };
+		return { tabs, active: active && tabs.includes(active) ? active : null };
+	};
+	const right = pane(saved.right, "right");
 	const ws: Workspace = {
-		left: pane(saved.left),
-		right: saved.right.length > 0 ? pane(saved.right) : null,
+		left: pane(saved.left, "left"),
+		right: right.tabs.length > 0 ? right : null,
 		focused: "left",
 	};
 	return settled(ws);

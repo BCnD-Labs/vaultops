@@ -14,6 +14,7 @@ import {
 import { NEW_TAB, type PaneId } from "../core/workspace";
 import { setDragEffect } from "../editor/block-drag";
 import { ShellNavigation } from "./AppShell";
+import type { SavedWorkspaceMenu } from "./SavedWorkspaces";
 import type { NoteRow } from "./session";
 import { TabBar, type TabItem } from "./TabBar";
 import {
@@ -28,6 +29,7 @@ import "./pane.css";
 
 export interface WorkspacePanesProps {
 	host: WorkspaceHost;
+	workspaceMenu?: SavedWorkspaceMenu;
 	/** The vault's notes and canvases, for tab titles and canvas icons. */
 	notes: Pick<NoteRow, "path" | "title" | "kind" | "icon">[];
 	/** What a pane shows for a note that is loaded (`pane.session` holds it). */
@@ -69,6 +71,7 @@ export function WorkspacePanes({
 	renderCanvas,
 	renderEmpty,
 	renderTitleBar,
+	workspaceMenu,
 }: WorkspacePanesProps) {
 	const { left, right } = host.panes;
 	const { leftCollapsed, rightCollapsed } = useContext(ShellNavigation);
@@ -230,6 +233,7 @@ export function WorkspacePanes({
 			>
 				{pane.tabs.length > 0 && (
 					<TabBar
+						workspaceMenu={workspaceMenu}
 						paneId={pane.id}
 						label={pane.id === "left" ? "Open notes" : "Open notes, right side"}
 						tabs={tabsOf(pane)}

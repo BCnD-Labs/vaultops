@@ -12,6 +12,7 @@ import {
 	Search,
 } from "lucide-react";
 import { type ReactNode, useContext, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -64,7 +65,9 @@ interface SidebarProps {
 	onStartCanvas?: (folder: string) => void;
 	onChooseVault: () => void;
 	onShowMaintainer: () => void;
-	onNavigate: (screen: "trash" | "journal") => void;
+	onNavigate: (screen: "trash" | "journal" | "review") => void;
+	reviewCount?: number;
+	reviewActive?: boolean;
 	journalActive?: boolean;
 	/** Opens the settings window (the gear beside the vault menu). */
 	onOpenSettings?: () => void;
@@ -120,6 +123,8 @@ export function Sidebar({
 	onChooseVault,
 	onShowMaintainer,
 	onNavigate,
+	reviewCount = 0,
+	reviewActive,
 	journalActive,
 	onOpenSettings = () => {},
 	onOpenTemplates,
@@ -187,6 +192,19 @@ export function Sidebar({
 			{mode === "tree" ? <PanelsTopLeft /> : <ListTree />}
 		</IconAction>
 	);
+	const review = useFeature("review") &&
+		(view?.writable || view?.status === "read-only") && (
+			<button
+				type="button"
+				className="sidebar-row"
+				disabled={busy}
+				aria-current={reviewActive}
+				onClick={() => onNavigate("review")}
+			>
+				<BookOpen className="tree-icon" aria-hidden="true" />
+				Review {reviewCount > 0 && <Badge>{reviewCount}</Badge>}
+			</button>
+		);
 	const journal = plannerOn &&
 		(view?.writable || view?.status === "read-only") && (
 			<button
@@ -260,6 +278,7 @@ export function Sidebar({
 									{modeToggle}
 								</header>
 								{journal}
+								{review}
 								{pinned &&
 									onPlacePin &&
 									(pinned.length > 0 || draggingNote) && (
@@ -356,6 +375,7 @@ export function Sidebar({
 										{modeToggle}
 									</header>
 									{journal}
+									{review}
 									<div className="section-label">Notes</div>
 									<button
 										type="button"

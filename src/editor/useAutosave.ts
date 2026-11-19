@@ -10,6 +10,7 @@ import { headerIcon } from "../core/notes/icon";
 import { headerProps } from "../core/notes/properties";
 import { previewOf, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
+import { flashcardIds } from "../core/review/cards";
 import { searchFieldsOf } from "../core/search/fields";
 import { getLogger } from "../debug/index";
 import type { Host } from "../host/host";
@@ -42,6 +43,8 @@ export interface SavedInfo {
 	titleChanged: boolean;
 	/** The note's tags as saved. */
 	tags: string[];
+	/** The ids of its flashcard blocks as saved. */
+	flashcards?: string[];
 	notice?: string;
 }
 
@@ -157,6 +160,7 @@ export function useAutosave(
 					],
 					titleChanged: result.titleChanged,
 					tags: tagsOf(headerProps(result.note.header)),
+					flashcards: flashcardIds(result.note),
 					...(result.notice ? { notice: result.notice } : {}),
 				});
 				return { ok: true };

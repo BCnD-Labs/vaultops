@@ -10,6 +10,7 @@ import { type HealthEntry, scanVault, searchTextOf } from "../core/notes/scan";
 import { tagsOf } from "../core/notes/tags";
 import type { PlannerTask } from "../core/planner/rules";
 import { taskFromNote } from "../core/planner/task-note";
+import { flashcardIds } from "../core/review/cards";
 import { searchFieldsOf } from "../core/search/fields";
 import { openVault, type VaultResult } from "../core/vault/vault";
 import type { Host } from "../host/host";
@@ -34,11 +35,19 @@ export interface NoteRow {
 	kind?: "note" | "canvas";
 	/** Tags from the note's `tags` list property. */
 	tags: string[];
+	/** The ids of the note's flashcard blocks, so Review can count without opening notes. */
+	flashcards?: string[];
 	/** Set when the note is a planner task or event (and readable). */
 	task?: PlannerTask;
 }
 
-export type Screen = "note" | "trash" | "health" | "planner" | "journal";
+export type Screen =
+	| "note"
+	| "trash"
+	| "health"
+	| "planner"
+	| "journal"
+	| "review";
 
 /** Everything the window shows about the open vault. */
 export interface VaultView {
@@ -124,6 +133,7 @@ export async function loadVault(host: Host): Promise<VaultView> {
 			...searchFieldsOf(n.note),
 			links: [...new Set(linksIn(n.note.blocks).map((link) => link.target))],
 			rowNotes: rowNoteIds(n.note.blocks),
+			flashcards: flashcardIds(n.note),
 			tags: tagsOf(headerProps(n.note.header)),
 			...(n.readOnly || n.kind === "canvas"
 				? {}

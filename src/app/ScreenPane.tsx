@@ -9,7 +9,11 @@ import type { Screen, VaultView } from "./session";
 import { loadTrashView, saveTrashView, TrashScreen } from "./TrashScreen";
 import "./pane.css";
 
+import { ReviewScreen } from "./review/ReviewScreen";
+import type { Review } from "./review/useReviewState";
+
 interface ScreenPaneProps {
+	review?: Review;
 	view: VaultView | null;
 	screen: Exclude<Screen, "note">;
 	journal?: JournalOptions;
@@ -36,6 +40,7 @@ interface ScreenPaneProps {
 export function ScreenPane({
 	view,
 	screen,
+	review,
 	journal,
 	error,
 	busy,
@@ -79,6 +84,9 @@ export function ScreenPane({
 			>
 				<ArrowLeft aria-hidden="true" /> Back to notes
 			</Button>
+			{screen === "review" && review && (
+				<ReviewScreen review={review} writable={writable && !busy} />
+			)}
 			{screen === "journal" && view && journal && (
 				<JournalSpace view={view} locked={busy} {...journal} />
 			)}

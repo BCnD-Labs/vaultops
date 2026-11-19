@@ -89,6 +89,7 @@ import {
 } from "./nav-history";
 import { PlannerProvider } from "./planner/PlannerContext";
 import { ResourceManager } from "./ResourceManager";
+import { useReviewState } from "./review/useReviewState";
 import { createRowNote } from "./row-note";
 import { ScreenPane } from "./ScreenPane";
 import { SendToBlock, SendToDialog } from "./SendToDialog";
@@ -282,6 +283,9 @@ export function App({ host }: { host: Host }) {
 				const row = v?.notes.find((n) => n.path === info.oldPath);
 				if (!v || !row) return v;
 				const sameTags = row.tags.join("\n") === info.tags.join("\n");
+				const sameCards =
+					info.flashcards === undefined ||
+					(row.flashcards ?? []).join("\n") === info.flashcards.join("\n");
 				const repaired = v.report.some(
 					(e) => e.path === info.oldPath && e.group === "truncated",
 				);
@@ -295,6 +299,7 @@ export function App({ host }: { host: Host }) {
 					row.preview === info.preview &&
 					row.icon === info.icon &&
 					sameBody &&
+					sameCards &&
 					!repaired
 				)
 					return v;
@@ -333,6 +338,9 @@ export function App({ host }: { host: Host }) {
 										...(info.properties === undefined
 											? {}
 											: { properties: info.properties }),
+										...(info.flashcards === undefined
+											? {}
+											: { flashcards: info.flashcards }),
 										updatedAt: info.updatedAt,
 									}
 								: n,
@@ -373,6 +381,13 @@ export function App({ host }: { host: Host }) {
 		onUnsaved: setError,
 		onError: setError,
 	});
+	const review = useReviewState(
+		vaultHost,
+		features.isEnabled("review") ? ws.documents : null,
+		view?.notes,
+		writable,
+		screen === "review",
+	);
 	const wsRef = useRef(ws);
 	wsRef.current = ws;
 	const scan = useCallback(
@@ -757,7 +772,8 @@ export function App({ host }: { host: Host }) {
 		try {
 			if (next === "trash") setTrash(await listTrash(host));
 			if (next === "journal") journalOpening.current = true;
-			if (next === "health" || next === "journal") await refreshVault();
+			if (next === "health" || next === "review" || next === "journal")
+				await refreshVault();
 			if (next === "note") {
 				// Notes the planner wrote while it was on screen: read them again so a
 				// later edit in the pane can't write the old text over the change.
@@ -1949,6 +1965,8 @@ export function App({ host }: { host: Host }) {
 									}
 									onShowMaintainer={() => setShowMaintainer(true)}
 									onNavigate={navigate}
+									reviewCount={review.dueCount}
+									reviewActive={screen === "review"}
 									journalActive={screen === "journal"}
 									onOpenSettings={() => void navigate("settings")}
 									onOpenTemplates={
@@ -2022,6 +2040,7 @@ export function App({ host }: { host: Host }) {
 								</div>
 							) : (
 								<ScreenPane
+									review={review}
 									view={view}
 									screen={screen}
 									journal={

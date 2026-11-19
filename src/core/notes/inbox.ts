@@ -95,7 +95,7 @@ export function isInboxHeading(block: Block): boolean {
 	return INBOX_TITLES.has(headingText(block).toLowerCase());
 }
 
-function childrenByParent(blocks: Block[]): Map<string, Block[]> {
+export function childrenByParent(blocks: Block[]): Map<string, Block[]> {
 	const map = new Map<string, Block[]>();
 	for (const block of blocks) {
 		if (block.parent === null) continue;

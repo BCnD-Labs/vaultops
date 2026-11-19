@@ -1,0 +1,19 @@
+.review-face {
+	animation: review-fade 120ms ease-out;
+}
+@keyframes review-fade {
+	from {
+		opacity: 0.3;
+	}
+}
+@media (prefers-reduced-motion: no-preference) {
+	:root:not([data-reduce-motion]) .review-face {
+		animation: review-flip 160ms ease-out;
+	}
+}
+@keyframes review-flip {
+	from {
+		transform: perspective(800px) rotateX(-12deg);
+		opacity: 0.5;
+	}
+}

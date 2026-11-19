@@ -153,6 +153,12 @@ export function useNoteSession({
 					showSharedDoc(editorDraft.doc);
 					refreshStats();
 				}
+				// Props changed elsewhere (another pane, a live view): take them, so
+				// this pane's next edit can't save its older props over them.
+				if (!reloaded && editorDraft?.props && propsRef.current) {
+					propsRef.current = editorDraft.props;
+					setProps(editorDraft.props);
+				}
 				if (reloaded && opened) show(opened, path);
 				else if (lastSave) handleSaved(lastSave);
 				else if (path !== livePathRef.current) {

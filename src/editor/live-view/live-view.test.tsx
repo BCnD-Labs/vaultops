@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { PropsEdit } from "../../app/live-documents";
 import type { NoteRow } from "../../app/session";
 import { createViewRows } from "../../app/view-rows";
 import { createExtensions } from "../extensions";
@@ -48,13 +49,17 @@ function Harness({ attrs }: { attrs: object }) {
 	return <EditorContent editor={editor} />;
 }
 
-function show(attrs: object, notes: NoteRow[]) {
+function show(
+	attrs: object,
+	notes: NoteRow[],
+	setProps?: LiveViewSource["setProps"],
+) {
 	const rows = createViewRows();
 	rows.sync(notes);
 	const open = vi.fn();
 	render(
 		<LiveViewSource.Provider
-			value={{ rows, hostPath: "Books/Shelf.vnote", open }}
+			value={{ rows, hostPath: "Books/Shelf.vnote", open, setProps }}
 		>
 			<Harness attrs={attrs} />
 		</LiveViewSource.Provider>,
@@ -165,4 +170,46 @@ it("edits the rule from menus: add and remove conditions, group, and flag a miss
 	await waitFor(() =>
 		expect(document.querySelectorAll(".lv-condition")).toHaveLength(2),
 	);
+});
+
+it("edits a cell through the note writer, shows it at once, and explains read-only cells", async () => {
+	let finish: (result: { ok: false; message: string }) => void = () => {};
+	const setProps = vi.fn(
+		() =>
+			new Promise<{ ok: false; message: string }>((resolve) => {
+				finish = resolve;
+			}),
+	);
+	const author = (value: string) => ({
+		author: { name: "Author", type: "text" as const, value },
+	});
+	show(
+		{ rule: folderRule, columns: ["title", "prop:Author"] },
+		[
+			note("Books/Alpha.vnote", { id: "a", fields: author("Ann") }),
+			note("Books/Beta.vnote", {
+				id: "b",
+				readOnly: true,
+				fields: author("Bo"),
+			}),
+		],
+		setProps,
+	);
+	const [alpha, beta] = (await screen.findAllByRole("textbox", {
+		name: "Author",
+	})) as HTMLInputElement[];
+	fireEvent.change(alpha as HTMLInputElement, { target: { value: "Annie" } });
+	expect(alpha?.value).toBe("Annie");
+	expect(setProps).toHaveBeenCalledWith("a", expect.any(Function));
+	const edit = (setProps.mock.calls[0] as unknown[])[1] as PropsEdit;
+	expect(edit({ Author: { type: "text", value: "Ann" } })).toEqual({
+		ok: true,
+		props: { Author: { type: "text", value: "Annie" } },
+	});
+	expect(beta?.readOnly).toBe(true);
+	expect(beta?.closest("td")?.title).toMatch(/read-only/);
+	// A refused write says why and puts the note's own value back.
+	await act(async () => finish({ ok: false, message: "Disk full." }));
+	expect(screen.getByRole("alert").textContent).toBe("Not changed: Disk full.");
+	expect(alpha?.value).toBe("Ann");
 });

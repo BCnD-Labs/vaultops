@@ -1,7 +1,9 @@
 import {
 	CANVAS_ONLY_TYPES,
+	describeSaveProblems,
 	type Note,
 	parseNote,
+	prepareSave,
 	serializeNote,
 } from "../core/note-format";
 import {
@@ -20,6 +22,12 @@ import {
 	StaleMove,
 	undoMove,
 } from "../core/notes/move-block";
+import {
+	type Change,
+	headerProps,
+	type Props,
+	withProps,
+} from "../core/notes/properties";
 import { type RenameResult, renameSavedNote } from "../core/notes/rename";
 import { buildRecoveryText } from "../core/session/recovery";
 import type { Autosave, AutosaveState } from "../editor/autosave";
@@ -37,6 +45,18 @@ type CanvasStep = { text: string; sequence: number };
 type CanvasHistory = Readonly<Record<"undo" | "redo", readonly CanvasStep[]>>;
 const emptyHistory: CanvasHistory = { undo: [], redo: [] };
 type CanvasWrite = { text: string; action: string; history: CanvasHistory };
+
+/** A property change: the note's current props in, the new props (or why not) out. */
+export type PropsEdit = (props: Props) => Change;
+/** `saved` is the note as written when it was saved straight to disk. */
+export type PropsWrite =
+	| { ok: true; saved?: { path: string; note: Note } }
+	| { ok: false; message: string };
+export const READ_ONLY_NOTE_MESSAGE =
+	"This note is read-only (damaged or made by a newer version), so it was not changed.";
+const refuse = (message: string) => ({ ok: false, message }) as const;
+const editProps = (props: Props | null, edit: PropsEdit) =>
+	props ? edit(props) : refuse("This note's properties can't be edited here.");
 
 export type UndoResult =
 	| { ok: true; move?: true }
@@ -758,6 +778,84 @@ export function createLiveDocuments(
 		return true;
 	}
 
+	/** An editor's save queue holds this note: the edit becomes its next draft. */
+	function editThroughEditor(entry: Entry | undefined, edit: PropsEdit) {
+		const document = entry?.document;
+		const auto = entry?.autosave;
+		if (!entry || !auto || !document?.opened) return null;
+		if (entry.gated || document.readOnly || !document.opened.editable)
+			return refuse(READ_ONLY_NOTE_MESSAGE);
+		const draft = document.editorDraft ?? { doc: document.opened.doc };
+		const change = editProps(
+			draft.props ?? headerProps(document.opened.note?.header),
+			edit,
+		);
+		if (!change.ok) return change;
+		// Every session showing the note picks the new props up from this draft.
+		auto.change({ ...draft, props: change.props });
+		return { ok: true } as const;
+	}
+
+	/**
+	 * Change one note's properties. A note an editor holds changes through that
+	 * editor's autosave, so what is on screen changes at once. Any other note is
+	 * written atomically, in order with every other write, and only if the file
+	 * still holds the text the registry last read: an older base never wins.
+	 */
+	async function writeProps(
+		noteId: string,
+		edit: PropsEdit,
+	): Promise<PropsWrite> {
+		const held = () => entries.get(indexedPaths.get(noteId) ?? "");
+		if (!writable || disposed) return refuse(READ_ONLY_VAULT_MESSAGE);
+		const now = editThroughEditor(held(), edit);
+		if (now) return now;
+		const first = held();
+		if (first && !(await flushEntry(first)))
+			return refuse("This note has changes that could not be saved yet.");
+		return run(async () => {
+			const path = indexedPaths.get(noteId);
+			if (disposed || !writable) return refuse(READ_ONLY_VAULT_MESSAGE);
+			if (path === undefined)
+				return refuse("This note is no longer in the vault.");
+			const entry = entries.get(path);
+			const later = editThroughEditor(entry, edit);
+			if (later) return later;
+			if (entry?.document?.opened && !entry.document.opened.editable)
+				return refuse(READ_ONLY_NOTE_MESSAGE);
+			if (entry && (entry.gated || isDirty(entry)))
+				return refuse("This note is being saved. Try again.");
+			return inOrder(host, path, async () => {
+				const text = await host.readText(path);
+				if (entry?.document && entry.document.diskText !== text)
+					return refuse(
+						"This note changed on disk. Open it to see the latest version.",
+					);
+				const { base, readOnly, kind } = openedDocument(
+					path,
+					text,
+					indexedPaths,
+					writable,
+				);
+				if (
+					!base ||
+					readOnly ||
+					kind !== "note" ||
+					base.header.noteId !== noteId
+				)
+					return refuse(READ_ONLY_NOTE_MESSAGE);
+				const change = editProps(headerProps(base.header), edit);
+				if (!change.ok) return change;
+				const note = { ...base, header: withProps(base.header, change.props) };
+				const saved = prepareSave(note);
+				if (!saved.ok) return refuse(describeSaveProblems(saved.problems));
+				await host.writeTextAtomic(path, saved.text);
+				if (entry) accept(entry, saved.text, false);
+				return { ok: true, saved: { path, note } } as const;
+			});
+		});
+	}
+
 	async function flushEntry(entry: Entry) {
 		while (entry.canvasTask) await entry.canvasTask.catch(() => {});
 		if (
@@ -1024,6 +1122,7 @@ export function createLiveDocuments(
 		run,
 		guardMoves,
 		withSavedDocuments,
+		writeProps,
 		recordMove,
 		prefersLocalUndo,
 		undo,

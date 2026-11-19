@@ -10,15 +10,19 @@ import {
 	Fragment,
 	type RefObject,
 	useContext,
+	useEffect,
 	useMemo,
 	useState,
 	useSyncExternalStore,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { useInViewport } from "@/components/ui/use-in-viewport";
+import type { PropsEdit, PropsWrite } from "../../app/live-documents";
 import type { ViewRow } from "../../app/view-rows";
+import type { PropertyValue } from "../../core/notes/properties";
 import { knownProps, viewChoices } from "../../core/views/edit";
 import { compileRule } from "../../core/views/match";
+import { propName } from "../../core/views/rule";
 import { groupRows, sortRows } from "../../core/views/sort";
 import {
 	BUILT_LAYOUTS,
@@ -29,9 +33,13 @@ import {
 import { Cell } from "../database/cells";
 import { jsonAttr } from "../database/database";
 import { TYPE_ICONS } from "../database/icons";
-import { DEFAULT_WIDTH } from "../database/model";
+import {
+	type CellValue,
+	type DbColumn,
+	DEFAULT_WIDTH,
+} from "../database/model";
 import { todayIso } from "../date-chip";
-import { cellOf, columnHeader } from "./columns";
+import { cellEdit, cellOf, cellToValue, columnHeader } from "./columns";
 import { RuleEditor } from "./rule-editor";
 import "./live-view.css";
 
@@ -45,6 +53,8 @@ export interface LiveViewSource {
 	};
 	hostPath: string | null;
 	open: (path: string) => void;
+	/** Change a note's properties; left out, cells are read-only. */
+	setProps?: (noteId: string, edit: PropsEdit) => Promise<PropsWrite>;
 }
 
 export const LiveViewSource = createContext<LiveViewSource | null>(null);
@@ -54,7 +64,27 @@ const NO_STORE: LiveViewSource["rows"] = {
 	subscribe: () => () => {},
 	getSnapshot: () => NO_ROWS,
 };
-const noop = () => {};
+
+/** A cell edit shown before the note's row catches up (names as option ids). */
+interface Override {
+	path: string;
+	field: string;
+	value: PropertyValue;
+	column: DbColumn;
+}
+const fieldValue = (row: ViewRow, field: string) =>
+	row.fields[(propName(field) ?? field).toLowerCase()]?.value ?? null;
+const same = (a: unknown, b: unknown) =>
+	JSON.stringify(a) === JSON.stringify(b);
+
+/** Why a cell can't be edited, for its tooltip; null when it can. */
+function lockedBecause(row: ViewRow, field: string): string | null {
+	if (row.readOnly || !row.id)
+		return "This note is read-only (damaged or made by a newer version).";
+	if (field === "type")
+		return "A note's type can't be changed from a view yet.";
+	return null;
+}
 
 function LiveViewNode({
 	node,
@@ -68,6 +98,54 @@ function LiveViewNode({
 	const hostPath = source?.hostPath ?? null;
 	const settings = useMemo(() => readViewSettings(node.attrs), [node.attrs]);
 	const [more, setMore] = useState(0);
+	const [overrides, setOverrides] = useState<ReadonlyMap<string, Override>>(
+		() => new Map(),
+	);
+	const [problem, setProblem] = useState<string | null>(null);
+	// An edit stops showing once its note's row has the value (or it failed).
+	useEffect(() => {
+		setOverrides((now) => {
+			const byPath = new Map(rows.map((row) => [row.path, row]));
+			const next = new Map(
+				[...now].filter(([, o]) => {
+					const row = byPath.get(o.path);
+					return row && !same(fieldValue(row, o.field), o.value);
+				}),
+			);
+			return next.size === now.size ? now : next;
+		});
+	}, [rows]);
+	const writable = editor.isEditable && !!source?.setProps;
+	const editCell = (
+		row: ViewRow,
+		field: string,
+		column: DbColumn,
+		cell: CellValue,
+	) => {
+		const setProps = source?.setProps;
+		if (!row.id || !setProps) return;
+		const key = `${row.path}\n${field}`;
+		const value = cellToValue(column, cell);
+		const options = column.options?.map((o) => ({ ...o, id: o.name }));
+		const override = {
+			path: row.path,
+			field,
+			value,
+			column: { ...column, options },
+		};
+		setProblem(null);
+		setOverrides((now) => new Map(now).set(key, override));
+		void setProps(row.id, cellEdit(column, value)).then((result) => {
+			if (result.ok) return;
+			setProblem(result.message);
+			setOverrides((now) => {
+				if (now.get(key) !== override) return now;
+				const next = new Map(now);
+				next.delete(key);
+				return next;
+			});
+		});
+	};
 	// A view scrolled out of sight does no work.
 	const { ref, visible } = useInViewport();
 	// What the menus offer, and which properties exist (a condition on any other matches nothing).
@@ -242,20 +320,33 @@ function LiveViewNode({
 														{row.title || "Untitled"}
 													</Button>
 												</td>
-												{fields.map((field) => {
-													const { column, cells } = cellOf(field, row);
+												{fields.map((field, i) => {
+													const shown = overrides.get(`${row.path}\n${field}`);
+													const { column, cells } = shown
+														? {
+																column: shown.column,
+																cells: { [field]: shown.value },
+															}
+														: cellOf(field, row, headers[i + 1]);
+													const locked = lockedBecause(row, field);
+													const can = writable && !locked;
+													const edit = (value: CellValue, next = column) =>
+														can && editCell(row, field, next, value);
 													return (
 														<td
 															key={field}
 															className="db-td"
 															data-column-type={column.type}
+															title={locked ?? undefined}
 														>
 															<Cell
 																column={column}
 																cells={cells}
-																editable={false}
-																onChange={noop}
-																onOptionChange={noop}
+																editable={can}
+																onChange={edit}
+																onOptionChange={(next, value) =>
+																	edit(value, next)
+																}
 															/>
 														</td>
 													);
@@ -268,6 +359,11 @@ function LiveViewNode({
 						</table>
 						{result?.total === 0 && (
 							<p className="db-empty-hint">No notes match this view</p>
+						)}
+						{problem && (
+							<p className="db-empty-hint lv-problem" role="alert">
+								Not changed: {problem}
+							</p>
 						)}
 					</div>
 				)}

@@ -59,6 +59,7 @@ import {
 	type LiveDocuments,
 	type UndoResult,
 } from "./live-documents";
+import { createNoteWriter } from "./note-writer";
 import {
 	type NoteSession,
 	UNSAVED_NOTE_MESSAGE,
@@ -183,6 +184,13 @@ export function useWorkspaceHost({
 		documents.current?.setWritable(writable);
 		if (notes) documents.current?.setNotes(notes);
 	}, [writable, notes]);
+	// Views write other notes' properties through the registry (never around it).
+	const [writer] = useState(() =>
+		createNoteWriter({
+			documents: () => documents.current,
+			onSaved: (info) => latest.current.onSaved(info),
+		}),
+	);
 	const sessionOptions = {
 		host,
 		writable,
@@ -681,6 +689,8 @@ export function useWorkspaceHost({
 				),
 			);
 		},
+		/** Change one note's properties (open or not): see `createNoteWriter`. */
+		setProps: writer.setProps,
 		withDocuments<T>(
 			task: (registry: LiveDocuments, host: Host) => Promise<T>,
 		) {

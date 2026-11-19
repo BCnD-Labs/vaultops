@@ -79,10 +79,18 @@ export function FloatingNotes({
 					event.repeat
 				)
 					return;
-			} else if (!anchor.closest(".floating-editor")) return;
+			} else if (
+				!anchor.hasAttribute("data-edit-card") &&
+				!anchor.closest(".floating-editor")
+			)
+				return;
 			event.preventDefault();
 			event.stopPropagation();
-			open(anchor, { edit: event instanceof KeyboardEvent && !event.altKey });
+			open(anchor, {
+				edit:
+					anchor.hasAttribute("data-edit-card") ||
+					(event instanceof KeyboardEvent && !event.altKey),
+			});
 		};
 		const listeners = new AbortController();
 		for (const type of ["pointerover", "pointerout", "click", "keydown"])

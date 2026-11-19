@@ -45,6 +45,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "review",
+		name: "Review",
+		description: "Review flashcards from your notes.",
+		group: "Planning",
+		defaultOn: true,
+	},
+	{
 		id: "word-complete",
 		group: "Writing",
 		name: "Word completion",

@@ -74,6 +74,7 @@ export function CommandBar({
 	onOpenResources,
 	pinAction,
 	getSendBlock,
+	workspaceCommands,
 	onMoveNote,
 	resources = [],
 	resourceTypes = [],
@@ -92,6 +93,7 @@ export function CommandBar({
 	onOpenTemplates?: () => void;
 	onNewCanvasFromTemplate?: () => void;
 	onOpenResources?: () => void;
+	workspaceCommands?: import("./commands").Command[];
 	pinAction?: import("./commands").CommandContext["pinAction"];
 	getSendBlock?: (origin: Element | null) => (() => void) | undefined;
 	onMoveNote?: () => void;
@@ -199,6 +201,7 @@ export function CommandBar({
 		onOpenResources,
 		pinAction,
 		onSendBlock: open ? getSendBlock?.(returnFocus.current) : undefined,
+		workspaceCommands,
 		onMoveNote,
 	};
 	return (

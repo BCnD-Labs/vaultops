@@ -32,6 +32,7 @@ export interface CommandContext {
 	pinAction?: { pinned: boolean; run: () => void };
 	onSendBlock?: () => void;
 	onMoveNote?: () => void;
+	workspaceCommands?: Command[];
 }
 
 export interface Command {
@@ -210,16 +211,19 @@ export function filterCommands(
 	features: FeatureState = {},
 ): Command[] {
 	const q = query.trim().toLowerCase();
-	return COMMANDS.filter((command) => {
-		if (command.feature && !isEnabled(command.feature, features)) return false;
-		if (command.available && !command.available(context)) return false;
-		if (q === "") return true;
-		return (
-			command.label.toLowerCase().includes(q) ||
-			command.group.toLowerCase().startsWith(q) ||
-			command.keywords.some((word) => word.toLowerCase().startsWith(q))
-		);
-	});
+	return [...COMMANDS, ...(context.workspaceCommands ?? [])].filter(
+		(command) => {
+			if (command.feature && !isEnabled(command.feature, features))
+				return false;
+			if (command.available && !command.available(context)) return false;
+			if (q === "") return true;
+			return (
+				command.label.toLowerCase().includes(q) ||
+				command.group.toLowerCase().startsWith(q) ||
+				command.keywords.some((word) => word.toLowerCase().startsWith(q))
+			);
+		},
+	);
 }
 
 /** Commands under their group, groups in `COMMAND_GROUPS` order, empty groups left out. */

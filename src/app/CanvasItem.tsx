@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Block } from "../core/note-format";
 import { attrsOf, blockTone, textOf } from "../core/notes/canvas-ops";
 
@@ -18,13 +18,15 @@ export function CanvasItem({
 	locked = false,
 	startEditing = false,
 	onText,
+	onTextFrom,
 	onTitle,
 }: {
 	block: Block;
 	editable: boolean;
 	locked?: boolean;
 	startEditing?: boolean;
-	onText: (text: string) => void;
+	onText?: (text: string) => void;
+	onTextFrom?: (text: string, original: string) => void;
 	onTitle: (title: string) => void;
 }) {
 	const isGroup = block.type === "group";
@@ -33,15 +35,20 @@ export function CanvasItem({
 	const [draft, setDraft] = useState<string | null>(
 		startEditing ? saved : null,
 	);
+	const original = useRef(saved);
 	useEffect(() => {
-		if (startEditing) setDraft(saved);
+		if (startEditing) {
+			original.current = saved;
+			setDraft(saved);
+		}
 	}, [startEditing, saved]);
 	const finish = (keep: boolean) => {
 		const next = draft;
 		setDraft(null);
-		if (!keep || next === null || next === saved) return;
+		if (!keep || next === null || next === original.current) return;
 		if (isGroup) onTitle(next);
-		else onText(next);
+		else if (onTextFrom) onTextFrom(next, original.current);
+		else onText?.(next);
 	};
 	const text =
 		draft !== null ? (
@@ -80,7 +87,11 @@ export function CanvasItem({
 				{saved || (isGroup ? "Frame" : "")}
 			</span>
 		);
-	const edit = () => editable && !locked && setDraft(saved);
+	const edit = () => {
+		if (!editable || locked || draft !== null) return;
+		original.current = saved;
+		setDraft(saved);
+	};
 	const className = `canvas-item canvas-${block.type}${locked ? " canvas-item-pinned" : ""}`;
 	const pinned = locked
 		? "Shapes, sticky notes, labels, frames and connectors stay on the canvas."

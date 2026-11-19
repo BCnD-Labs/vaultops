@@ -117,6 +117,7 @@ const ABC_STARTER =
 	'X:1\nT:Simple melody\nM:4/4\nL:1/4\nK:C\n"C" C D E G | "F" A2 "G" G2 | "C" E D C2 |]';
 
 /** Asked of the note's own editor, which opens the template picker beside the caret. */
+export const FRAME_EVENT = "vaultops:frame";
 export const TEMPLATE_EVENT = "vaultops:template";
 
 const HEADINGS: {
@@ -453,6 +454,18 @@ const ITEMS: SlashItem[] = [
 		},
 	},
 	{
+		id: "frame",
+		label: "Frame",
+		keywords: ["canvas", "embed"],
+		section: "Organise",
+		icon: LayoutTemplate,
+		feature: "canvas",
+		run: (e, r) => {
+			start(e, r).run();
+			e.view.dom.dispatchEvent(new CustomEvent(FRAME_EVENT));
+		},
+	},
+	{
 		id: "template",
 		label: "Template",
 		keywords: ["insert", "starter", "snippet", "boilerplate"],
@@ -544,6 +557,7 @@ export function filterSlashItems(
 	where: {
 		columns: boolean;
 		templates?: boolean;
+		frames?: boolean;
 		links?: boolean;
 		/** Whether a feature is on (asked when the menu opens). Absent means all are on. */
 		enabled?: (featureId: string) => boolean;
@@ -559,6 +573,7 @@ export function filterSlashItems(
 			(where.columns || !isColumns(item)) &&
 			(where.templates !== false || !isTemplate(item)) &&
 			(where.links !== false || !isLink(item)) &&
+			(item.id !== "frame" || where.frames !== false) &&
 			featureOn(item),
 	);
 	if (query === "" && recent.length) {

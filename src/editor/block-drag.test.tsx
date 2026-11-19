@@ -133,6 +133,7 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 		type: "mathBlock",
 		attrs: { id: "math", latex: "x^2" },
 	},
+	canvasFrame: { type: "canvasFrame", attrs: { id: "frame" } },
 	image: {
 		type: "image",
 		attrs: { id: "image", src: "attachments/cat.png" },

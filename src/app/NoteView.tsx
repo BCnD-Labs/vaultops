@@ -23,6 +23,7 @@ import {
 import { findName, type Props } from "../core/notes/properties";
 import type { TemplateEntry } from "../core/notes/templates";
 import type { AutosaveState } from "../editor/autosave";
+import { CanvasFrameView } from "../editor/canvas-frame";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import {
 	type DropSlot,
@@ -36,6 +37,11 @@ import { SaveStatus } from "../editor/SaveStatus";
 import type { Host } from "../host/host";
 import { DroppableNoteBlocks } from "./CanvasCard";
 import { imageSource } from "./display-image";
+import {
+	FramePicker,
+	type FramesApi,
+	NoteCanvasFrame,
+} from "./NoteCanvasFrame";
 import { NoteCover } from "./NoteCover";
 import { NoteIconPicker } from "./NoteIconPicker";
 import { NoteDetails } from "./NoteMetadata";
@@ -98,6 +104,7 @@ export interface NoteViewProps {
 	onAllowEditing: () => void;
 	/** Turns on the slash menu's Template item and "Save as template". */
 	templates?: TemplatesApi;
+	frames?: FramesApi;
 	/** Turns on `[[` and `@` links. */
 	links?: LinkSource;
 	/** The note cannot be typed in for a moment (a block is being moved). */
@@ -170,6 +177,7 @@ export function NoteView({
 	onConfirmEditing,
 	onAllowEditing,
 	templates,
+	frames,
 	links,
 	locked = false,
 }: NoteViewProps) {
@@ -226,6 +234,8 @@ export function NoteView({
 		() => (coverHost ? imageSource(coverHost) : undefined),
 		[coverHost],
 	);
+	const [framePicker, setFramePicker] = useState<TemplateRequest | null>(null);
+	const canFrame = frames && writable && opened.editable && !reading && !locked;
 	const canTemplate = !!templates && opened.editable && !reading;
 	const Body = editorElsewhere ? NotePreview : NoteEditor;
 	const prompt = useTemplatePrompt();
@@ -450,24 +460,61 @@ export function NoteView({
 						Allow editing
 					</Button>
 				))}
-			<Body
-				key={`${opened.path}:${editorRevision}`}
-				slot={editorSlot}
-				focusOnAttach={focusEditor}
-				onResumeEditing={onResumeEditing}
-				doc={liveDoc ?? opened.doc}
-				noteId={opened.note?.header.noteId}
-				editable={opened.editable && !reading && !locked}
-				onChange={(next) => {
-					setDoc(next);
-					onDocChange(next);
-				}}
-				onDropBlock={onDropBlock}
-				onChooseTemplate={canTemplate ? setPicker : undefined}
-				links={links}
-				featureOn={featureEnabled}
-				images={images}
-			/>
+			<CanvasFrameView.Provider
+				value={
+					frames
+						? (canvasId, groupId) => (
+								<NoteCanvasFrame
+									key={`${canvasId}:${groupId}`}
+									documents={frames.documents}
+									canvasId={canvasId}
+									groupId={groupId}
+									editable={Boolean(canFrame)}
+								/>
+							)
+						: null
+				}
+			>
+				<Body
+					key={`${opened.path}:${editorRevision}`}
+					slot={editorSlot}
+					focusOnAttach={focusEditor}
+					onResumeEditing={onResumeEditing}
+					doc={liveDoc ?? opened.doc}
+					noteId={opened.note?.header.noteId}
+					editable={opened.editable && !reading && !locked}
+					onChange={(next) => {
+						setDoc(next);
+						onDocChange(next);
+					}}
+					onDropBlock={onDropBlock}
+					onChooseTemplate={canTemplate ? setPicker : undefined}
+					onChooseFrame={canFrame ? setFramePicker : undefined}
+					links={links}
+					featureOn={featureEnabled}
+					images={images}
+				/>
+			</CanvasFrameView.Provider>
+			{frames && canFrame && framePicker && (
+				<FramePicker
+					api={frames}
+					onPick={(canvasId, groupId) => {
+						setFramePicker(null);
+						if (
+							!framePicker.insert(
+								[{ type: "canvasFrame", attrs: { canvasId, groupId } }],
+								null,
+								false,
+							)
+						)
+							framePicker.focus();
+					}}
+					onClose={() => {
+						setFramePicker(null);
+						framePicker.focus();
+					}}
+				/>
+			)}
 			{prompt.dialog}
 			{picker && templates && (
 				<TemplatePicker
@@ -542,6 +589,7 @@ export interface SessionNoteViewProps {
 	onMoveTo?: () => void;
 	onDropBlock?: NoteViewProps["onDropBlock"];
 	templates?: TemplatesApi;
+	frames?: FramesApi;
 	links?: LinkSource;
 	locked?: boolean;
 }
@@ -574,6 +622,7 @@ function PaneNote({
 	onMoveTo,
 	onDropBlock,
 	templates,
+	frames,
 	links,
 	locked = false,
 }: SessionNoteViewProps & { opened: OpenedNote }) {
@@ -627,6 +676,7 @@ function PaneNote({
 			onDocChange={session.editDoc}
 			onDropBlock={onDropBlock}
 			templates={templates}
+			frames={frames}
 			links={links}
 			locked={locked || editorElsewhere}
 			onRetry={session.retry}

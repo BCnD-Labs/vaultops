@@ -1541,6 +1541,11 @@ export function App({ host }: { host: Host }) {
 	const renderNote = (pane: PaneView) => (
 		<SessionNoteView
 			session={pane.session}
+			frames={
+				ws.documents
+					? { documents: ws.documents, rows: view?.notes ?? [] }
+					: undefined
+			}
 			writable={writable}
 			reading={reading}
 			onToggleReading={() => setReading((on) => !on)}

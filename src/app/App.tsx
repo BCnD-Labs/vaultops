@@ -3,8 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { LinkRef } from "../core/links/links";
-import type { Block } from "../core/note-format";
-import { NOTE_FORMAT, NOTE_FORMAT_VERSION } from "../core/note-format";
+import {
+	type Block,
+	NOTE_FORMAT,
+	NOTE_FORMAT_VERSION,
+	type Note,
+} from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import type { CanvasTemplate } from "../core/notes/canvas-templates";
 import { duplicateNote } from "../core/notes/duplicate";
@@ -15,6 +19,11 @@ import {
 	renameFolder,
 	within,
 } from "../core/notes/folders";
+import {
+	type Answers,
+	buildFormNote,
+	type FormConfig,
+} from "../core/notes/forms";
 import { outlineOf } from "../core/notes/outline";
 import { prunePins, savePin } from "../core/notes/pins";
 import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
@@ -32,7 +41,11 @@ import {
 	resolveFolderTemplate,
 	trackTemplateRuleMove,
 } from "../core/notes/template-rules";
-import { readTemplate, type TemplateEntry } from "../core/notes/templates";
+import {
+	listTemplates,
+	readTemplate,
+	type TemplateEntry,
+} from "../core/notes/templates";
 import {
 	deleteForever,
 	listTrash,
@@ -111,7 +124,7 @@ import {
 	type Screen,
 	type VaultView,
 } from "./session";
-import { newNoteFolder } from "./settings";
+import { newNoteFolder, templateFormats, templateWeekStart } from "./settings";
 import { commandMatches } from "./shortcuts";
 import { type Selection, selectionForPath } from "./sidebar-selection";
 import { TemplateManager } from "./TemplateManager";
@@ -990,6 +1003,64 @@ export function App({ host }: { host: Host }) {
 		}
 	};
 
+	/** A form block's Create button: a new note from its template, in its folder; the form stays where it is. */
+	const createFromForm = async (request: {
+		config: FormConfig;
+		answers: Answers;
+	}): Promise<string | null> => {
+		const { config, answers } = request;
+		if (!view || !writable) return "This vault is read-only.";
+		if (creating.current)
+			return "A note is being created. Try again in a moment.";
+		creating.current = true;
+		try {
+			let template: Note | null = null;
+			if (config.template) {
+				const entry = (await listTemplates(vaultHost)).templates.find(
+					(candidate) => candidate.label === config.template,
+				);
+				if (!entry?.note)
+					return `The template "${config.template}" isn't available.`;
+				template = entry.note;
+			}
+			const built = buildFormNote({
+				template,
+				fields: config.fields,
+				answers,
+				fallbackTitle: config.template.split("/").pop() || "Untitled",
+				formats: templateFormats(),
+				weekStartsOn: templateWeekStart(),
+			});
+			const understood = checkBlocks(built.blocks ?? []);
+			if (!understood.ok)
+				return `The template has ${understood.reason}, which this version can't use for a new note.`;
+			const folder =
+				config.folder !== "" && view.folders.includes(config.folder)
+					? config.folder
+					: newNoteFolder("", view.folders);
+			const made = await createNote(vaultHost, folder, built.title, {
+				...(built.blocks && { blocks: built.blocks }),
+				...(Object.keys(built.props).length > 0 && {
+					header: {
+						format: NOTE_FORMAT,
+						v: NOTE_FORMAT_VERSION,
+						noteId: "",
+						props: built.props,
+					},
+				}),
+			});
+			changeView(await loadVault(host));
+			notify(
+				`Created "${built.title}" in ${made.path.includes("/") ? folder : "the vault root"}.`,
+			);
+			return null;
+		} catch (e) {
+			return e instanceof Error ? e.message : String(e);
+		} finally {
+			creating.current = false;
+		}
+	};
+
 	const startCanvas = async (
 		folder = "",
 		pane?: PaneId,
@@ -1751,6 +1822,15 @@ export function App({ host }: { host: Host }) {
 			onMoveToTrash={() => void moveToTrash(pane)}
 			onMoveTo={() => setMovePicker(pane.id)}
 			templates={{ host: vaultHost, onManage: () => setTemplatesRequest({}) }}
+			forms={{
+				canCreate: writable && !!view,
+				folders: view?.folders ?? [],
+				templates: async () =>
+					(await listTemplates(vaultHost)).templates.map(({ label }) => ({
+						label,
+					})),
+				create: createFromForm,
+			}}
 			links={links}
 			locked={ws.moving}
 			onDropBlock={

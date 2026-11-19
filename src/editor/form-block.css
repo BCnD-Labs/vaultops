@@ -1,0 +1,82 @@
+.form-block {
+	position: relative;
+	display: grid;
+	gap: 0.5rem;
+	margin: 1rem 0;
+	padding: 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	color: var(--foreground);
+}
+.form-settings-button {
+	position: absolute;
+	top: 0.25rem;
+	right: 0.25rem;
+	opacity: 0;
+	transition: opacity 150ms ease-out;
+}
+.form-block:hover .form-settings-button,
+.form-block:focus-within .form-settings-button,
+.form-settings-button[data-state="open"] {
+	opacity: 1;
+}
+.form-row {
+	display: grid;
+	grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr);
+	align-items: center;
+	gap: 0.5rem;
+}
+.form-label,
+.form-note {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.form-note {
+	margin: 0;
+}
+.form-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.form-settings-popover {
+	width: min(28rem, 90vw);
+}
+.form-settings {
+	display: grid;
+	gap: 0.5rem;
+}
+.form-setting {
+	display: grid;
+	gap: 0.2rem;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.form-fields-list {
+	display: grid;
+	gap: 0.35rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.form-fields-list li {
+	display: grid;
+	grid-template-columns: minmax(3rem, 1fr) minmax(0, 1fr) 6.5rem auto;
+	align-items: center;
+	gap: 0.35rem;
+}
+.form-field-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.form-add {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 6.5rem auto;
+	gap: 0.35rem;
+}
+@media (prefers-reduced-motion: reduce) {
+	.form-settings-button {
+		transition: none;
+	}
+}

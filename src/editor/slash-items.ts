@@ -7,6 +7,7 @@ import {
 	ChartNoAxesGantt,
 	ChartPie,
 	ChevronDown,
+	ClipboardList,
 	Code,
 	Columns2,
 	Columns3,
@@ -388,6 +389,17 @@ const ITEMS: SlashItem[] = [
 			start(e, r)
 				.insertContent({ type: "kanban", attrs: { columns: defaultColumns() } })
 				.run(),
+	},
+	{
+		id: "form",
+		label: "Form",
+		keywords: ["fields", "properties", "input", "questionnaire", "create note"],
+		section: "Plan",
+		icon: ClipboardList,
+		feature: "forms",
+		run: (editor, range) => {
+			start(editor, range).insertContent({ type: "formBlock" }).run();
+		},
 	},
 	{
 		id: "chart",

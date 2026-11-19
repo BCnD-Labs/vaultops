@@ -34,6 +34,20 @@ const FIXTURE: Block[] = [
 		},
 	},
 	{
+		id: "form",
+		type: "formBlock",
+		parent: null,
+		attrs: {
+			mode: "create",
+			fields: [
+				{ name: "Title", type: "text" },
+				{ name: "Due", type: "date", label: "Due date" },
+			],
+			template: "School/Lecture",
+			folder: "Projects",
+		},
+	},
+	{
 		id: "frame",
 		type: "canvasFrame",
 		parent: null,

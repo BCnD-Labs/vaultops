@@ -52,6 +52,7 @@ import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { TemplatePicker } from "./TemplatePicker";
 import { useTemplatePrompt } from "./TemplatePromptDialog";
 import { featureEnabled } from "./useFeature";
+import { type FormsApi, useFormSource } from "./useFormSource";
 import type { NoteSession } from "./useNoteSession";
 import "./pane.css";
 
@@ -109,6 +110,8 @@ export interface NoteViewProps {
 	buttonCommands?: ButtonOptions["commands"];
 	onButtonCommand?: (id: string) => void;
 	onButtonNewNote?: (entry: TemplateEntry) => void;
+	/** What form blocks that create notes need. */
+	forms?: FormsApi;
 	frames?: FramesApi;
 	/** Turns on `[[` and `@` links. */
 	links?: LinkSource;
@@ -185,6 +188,7 @@ export function NoteView({
 	buttonCommands,
 	onButtonCommand,
 	onButtonNewNote,
+	forms,
 	frames,
 	links,
 	locked = false,
@@ -245,6 +249,12 @@ export function NoteView({
 	const [framePicker, setFramePicker] = useState<TemplateRequest | null>(null);
 	const canFrame = frames && writable && opened.editable && !reading && !locked;
 	const canTemplate = !!templates && opened.editable && !reading;
+	const formSource = useFormSource({
+		props,
+		editable: opened.editable && !reading && !locked,
+		onProps: onPropsChange,
+		api: forms,
+	});
 	const Body = editorElsewhere ? NotePreview : NoteEditor;
 	const prompt = useTemplatePrompt();
 	const insertTemplate = (
@@ -524,6 +534,7 @@ export function NoteView({
 					links={links}
 					featureOn={featureEnabled}
 					images={images}
+					forms={formSource}
 				/>
 			</CanvasFrameView.Provider>
 			{frames && canFrame && framePicker && (
@@ -623,6 +634,7 @@ export interface SessionNoteViewProps {
 	buttonCommands?: ButtonOptions["commands"];
 	onButtonCommand?: (id: string) => void;
 	onButtonNewNote?: (entry: TemplateEntry) => void;
+	forms?: FormsApi;
 	frames?: FramesApi;
 	links?: LinkSource;
 	locked?: boolean;
@@ -659,6 +671,7 @@ function PaneNote({
 	buttonCommands,
 	onButtonCommand,
 	onButtonNewNote,
+	forms,
 	frames,
 	links,
 	locked = false,
@@ -716,6 +729,7 @@ function PaneNote({
 			buttonCommands={buttonCommands}
 			onButtonCommand={onButtonCommand}
 			onButtonNewNote={onButtonNewNote}
+			forms={forms}
 			frames={frames}
 			links={links}
 			locked={locked || editorElsewhere}

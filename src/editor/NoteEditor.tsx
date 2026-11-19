@@ -49,6 +49,7 @@ import { docToBlocks } from "./doc-blocks";
 import { type DropSlotState, setDropSlot } from "./drop-slot";
 import { createExtensions } from "./extensions";
 import { FormatBar } from "./FormatBar";
+import { FormBlock, type FormSource } from "./form-block";
 import { ensureUniqueIds } from "./ids";
 import { ImageBlock, type ImageSource } from "./image-block";
 import { insertBlocksAtCaret, type TemplateCursor } from "./insert-blocks";
@@ -70,6 +71,8 @@ export interface NoteEditorSlot {
 	completion?: { completeOn: boolean; links?: LinkSource; noteId?: string };
 	/** Where the editor's image blocks read and store pictures (the surface that owns it). */
 	images?: ImageSource;
+	/** What the note's form blocks fill and create with. */
+	forms?: FormSource;
 }
 
 export interface NoteEditorProps {
@@ -98,6 +101,8 @@ export interface NoteEditorProps {
 	featureOn?: (featureId: string) => boolean;
 	/** Shows image blocks and stores picked, pasted and dropped images. */
 	images?: ImageSource;
+	/** The note's properties and note creation for its form blocks. */
+	forms?: FormSource;
 }
 
 /** Asked for when someone picks "Template" from the slash menu. */
@@ -152,6 +157,7 @@ export function NoteEditor({
 	links,
 	featureOn,
 	images,
+	forms,
 }: NoteEditorProps) {
 	const sendTo = useContext(SendToBlock);
 	const [blockMenu, setBlockMenu] = useState(false);
@@ -162,6 +168,8 @@ export function NoteEditor({
 	initial.current = { doc, editable };
 	const initialImages = useRef(images);
 	initialImages.current = images;
+	const initialForms = useRef(forms);
+	initialForms.current = forms;
 	const completion = useRef({ completeOn, links, noteId });
 	completion.current = { completeOn, links, noteId };
 	const latest = useRef(onChange);
@@ -223,6 +231,7 @@ export function NoteEditor({
 		// Acquire after the previous surface's EditorContent has unmounted.
 		slot.completion = completion.current;
 		slot.images = initialImages.current;
+		slot.forms = initialForms.current;
 		const groups: number[] = [];
 		const creating = !slot.editor;
 		slot.editor ??= new TiptapEditor({
@@ -230,7 +239,9 @@ export function NoteEditor({
 				...createExtensions().map((extension) =>
 					extension.name === "image"
 						? ImageBlock.configure({ source: () => slot.images ?? null })
-						: extension,
+						: extension.name === "formBlock"
+							? FormBlock.configure({ source: () => slot.forms ?? null })
+							: extension,
 				),
 				WordComplete.configure({
 					enabled: () => slot.completion?.completeOn ?? false,
@@ -295,7 +306,8 @@ export function NoteEditor({
 	useLayoutEffect(() => {
 		slot.completion = { completeOn, links, noteId };
 		slot.images = images;
-	}, [slot, completeOn, links, noteId, images]);
+		slot.forms = forms;
+	}, [slot, completeOn, links, noteId, images, forms]);
 
 	useLayoutEffect(() => {
 		if (editor && !editor.isDestroyed) editor.setEditable(editable, false);

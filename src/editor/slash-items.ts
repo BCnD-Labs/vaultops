@@ -477,6 +477,18 @@ const ITEMS: SlashItem[] = [
 		},
 	},
 	{
+		id: "button",
+		label: "Button",
+		keywords: ["action", "command"],
+		section: "Organise",
+		icon: LayoutTemplate,
+		feature: "button-blocks",
+		run: (e, r) =>
+			start(e, r)
+				.insertContent([{ type: "buttonBlock" }, { type: "paragraph" }])
+				.run(),
+	},
+	{
 		id: "template",
 		label: "Template",
 		keywords: ["insert", "starter", "snippet", "boilerplate"],

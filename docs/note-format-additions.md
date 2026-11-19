@@ -528,3 +528,10 @@ yellow, green, blue, pink, orange or purple. An absent colour displays yellow
 and stays absent on save. Unknown colours also display yellow and retain their stored value.
 - **Older build:** keeps `color` through its pass-through slot for future inline
   attributes and shows the highlight yellow, so nothing is lost.
+## Button block
+
+`buttonBlock` is an atom with no inline content. Its attributes are `label`
+(the displayed text), `action` (`command`, `insert-template`, or
+`new-note-template`), and `target` (a command id or a template name with its
+path relative to the templates folder, without the `.vnote` extension).
+Loading or pasting the block never runs its action.

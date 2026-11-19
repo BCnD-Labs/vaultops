@@ -20,8 +20,8 @@ export type CommandGroup = (typeof COMMAND_GROUPS)[number];
 
 /** What a command can do. A callback that is missing hides its commands. */
 export interface CommandContext {
-	onNewFolder: () => void;
-	onToggle: (side: "left" | "right") => void;
+	onNewFolder?: () => void;
+	onToggle?: (side: "left" | "right") => void;
 	onNavigate: (screen: "trash" | "health" | "settings") => void;
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
@@ -73,7 +73,8 @@ export const COMMANDS: Command[] = [
 		icon: FolderPlus,
 		keywords: ["create", "directory"],
 		needsWrite: true,
-		run: (c) => c.onNewFolder(),
+		available: (c) => !!c.onNewFolder,
+		run: (c) => c.onNewFolder?.(),
 	},
 	{
 		id: "new-canvas-from-template",
@@ -119,7 +120,8 @@ export const COMMANDS: Command[] = [
 		group: "View",
 		icon: PanelLeft,
 		keywords: ["files", "navigation", "hide", "show"],
-		run: (c) => c.onToggle("left"),
+		available: (c) => !!c.onToggle,
+		run: (c) => c.onToggle?.("left"),
 	},
 	{
 		id: "toggle-right",
@@ -127,7 +129,8 @@ export const COMMANDS: Command[] = [
 		group: "View",
 		icon: PanelRight,
 		keywords: ["details", "outline", "hide", "show"],
-		run: (c) => c.onToggle("right"),
+		available: (c) => !!c.onToggle,
+		run: (c) => c.onToggle?.("right"),
 	},
 	{
 		id: "toggle-reading",

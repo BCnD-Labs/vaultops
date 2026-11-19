@@ -51,6 +51,7 @@ describe("slash menu items", () => {
 			"link",
 			"mention",
 			"frame",
+			"button",
 			"template",
 		]);
 		expect(ids("Plan")).toEqual(["task", "table", "database", "date", "toc"]);
@@ -65,7 +66,7 @@ describe("slash menu items", () => {
 			"plot",
 		]);
 		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
-		expect(SLASH_ITEMS).toHaveLength(47);
+		expect(SLASH_ITEMS).toHaveLength(48);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {
@@ -252,6 +253,7 @@ describe("slash menu items", () => {
 		expect(tagged).toEqual([
 			["math", "math"],
 			["frame", "canvas"],
+			["button", "button-blocks"],
 			["template", "templates"],
 			["database", "database-blocks"],
 			...SLASH_ITEMS.filter((i) => i.section === "Visual").map((i) => [

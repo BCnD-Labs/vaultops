@@ -66,6 +66,7 @@ import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { CanvasTemplateDialog } from "./CanvasTemplateDialog";
 import { lastCanvas } from "./canvas-layout";
+import { COMMANDS, type CommandContext, filterCommands } from "./commands";
 import { FloatingNotes } from "./FloatingNotes";
 import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
 import { linkedFrom } from "./LinkedFromPanel";
@@ -1632,9 +1633,52 @@ export function App({ host }: { host: Host }) {
 		return () => clearTimeout(timer);
 	}, [moveNotice]);
 
+	const noteButtons = (pane: PaneView) => {
+		const path = pane.session.opened?.path;
+		const context: CommandContext = {
+			onNavigate: (next) => void navigate(next),
+			onToggleReading: () => setReading((on) => !on),
+			onOpenTemplates: templatesOn ? () => setTemplatesRequest({}) : undefined,
+			pinAction: path ? treeActions.pinAction?.(path) : undefined,
+			onMoveNote: pane.session.opened?.editable
+				? () => setMovePicker(pane.id)
+				: undefined,
+		};
+		const available = new Set(
+			filterCommands("", context, features.state)
+				.filter((command) => !command.needsWrite || (writable && !busy))
+				.map((command) => command.id),
+		);
+		const commands = COMMANDS.filter(
+			(command) =>
+				!command.id.startsWith("focus-") &&
+				![
+					"new-folder",
+					"toggle-left",
+					"toggle-right",
+					"new-canvas-from-template",
+					"open-resources",
+				].includes(command.id),
+		);
+		return {
+			buttonCommands: commands.map(({ id, label }) => ({
+				id,
+				label,
+				available: available.has(id),
+			})),
+			onButtonCommand: (id: string) => {
+				if (available.has(id))
+					commands.find((command) => command.id === id)?.run(context);
+			},
+			onButtonNewNote:
+				templatesOn && writable && !busy ? startNoteFromTemplate : undefined,
+		};
+	};
+
 	const renderNote = (pane: PaneView) => (
 		<SessionNoteView
 			session={pane.session}
+			{...noteButtons(pane)}
 			frames={
 				ws.documents
 					? { documents: ws.documents, rows: view?.notes ?? [] }

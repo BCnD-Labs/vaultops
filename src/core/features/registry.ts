@@ -131,6 +131,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "plots",
+		name: "Function plots",
+		description: "Graphs of formulas like y = x^2, from the slash menu.",
+		group: "Visual",
+		defaultOn: true,
+	},
+	{
 		id: "music",
 		name: "Music",
 		description: "Guitar tab and sheet music blocks.",

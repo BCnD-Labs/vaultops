@@ -3,6 +3,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import {
 	AtSign,
 	CalendarDays,
+	ChartLine,
 	ChartNoAxesGantt,
 	ChartPie,
 	ChevronDown,
@@ -43,6 +44,7 @@ import { todayIso } from "./date-chip";
 import { DIVIDER_ICONS } from "./divider-icons";
 import { chooseImage } from "./image-block";
 import { insertMathBlock } from "./math-block";
+import { insertPlotBlock } from "./plot-block";
 import { insertTableOfContents } from "./table-of-contents";
 
 /** The groups the menu is divided into, in the order they appear. */
@@ -395,6 +397,15 @@ const ITEMS: SlashItem[] = [
 				.insertContent({ type: "chart", attrs: { databaseId } })
 				.run();
 		},
+	},
+	{
+		id: "plot",
+		label: "Function plot",
+		keywords: ["graph", "plot", "function", "formula", "equation", "curve"],
+		section: "Visual",
+		icon: ChartLine,
+		feature: "plots",
+		run: (editor, range) => insertPlotBlock(editor, range),
 	},
 	{
 		id: "columns-2",

@@ -532,6 +532,38 @@ describe("math block fixture", () => {
 	});
 });
 
+describe("plot block fixture", () => {
+	const text = readFileSync(
+		new URL("../../test-fixtures/plot-block.vnote", import.meta.url),
+		"utf8",
+	);
+
+	it("keeps only the formulas and range, leaves out defaults, and saves back byte for byte", () => {
+		const parsed = parseNote(text);
+		expect(parsed.problems).toEqual([]);
+		const note = parsed.note;
+		if (!note) throw new Error("fixture did not parse");
+		expect(checkBlocks(note.blocks)).toEqual({ ok: true });
+		const doc = blocksToDoc(note.blocks);
+		expect(doc.content?.map((node) => node.attrs?.expr)).toEqual([
+			undefined,
+			"y = sin(x); y = cos(x)",
+			"",
+			undefined,
+			undefined,
+		]);
+		// A range that is not a number is kept as written, not replaced.
+		expect(doc.content?.map((node) => node.attrs?.xmin)).toEqual([
+			undefined,
+			-6.28,
+			undefined,
+			"left",
+			undefined,
+		]);
+		expect(serializeNote({ ...note, blocks: docToBlocks(doc) })).toBe(text);
+	});
+});
+
 describe("note links fixture", () => {
 	const text = readFileSync(
 		new URL("../../test-fixtures/note-links.vnote", import.meta.url),

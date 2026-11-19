@@ -1,0 +1,6 @@
+{"format":"vaultops-note","v":1,"noteId":"plot-block-1"}
+{"id":"g1","type":"plotBlock","parent":null}
+{"id":"g2","type":"plotBlock","parent":null,"attrs":{"expr":"y = sin(x); y = cos(x)","xmax":6.28,"xmin":-6.28}}
+{"id":"g3","type":"plotBlock","parent":null,"attrs":{"expr":""}}
+{"id":"g4","type":"plotBlock","parent":null,"attrs":{"xmax":3,"xmin":"left"}}
+{"id":"p1","type":"paragraph","parent":null,"content":[{"text":"After","type":"text"}]}

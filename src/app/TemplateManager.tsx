@@ -247,7 +247,7 @@ export function TemplateManager({
 			} else {
 				const result = await renameTemplateEntry(host, prompt.path, name);
 				setPrompt(null);
-				notify(`Renamed "${prompt.initial}" to "${name}".`);
+				notify(result.notice ?? `Renamed "${prompt.initial}" to "${name}".`);
 				const moved =
 					selected === prompt.path
 						? result.path

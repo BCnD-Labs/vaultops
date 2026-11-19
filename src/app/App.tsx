@@ -27,7 +27,12 @@ import {
 	renameTagOnDisk,
 } from "../core/notes/tag-rename";
 import type { fillTemplate } from "../core/notes/template-prompts";
-import type { TemplateEntry } from "../core/notes/templates";
+import {
+	loadTemplateRules,
+	resolveFolderTemplate,
+	trackTemplateRuleMove,
+} from "../core/notes/template-rules";
+import { readTemplate, type TemplateEntry } from "../core/notes/templates";
 import {
 	deleteForever,
 	listTrash,
@@ -876,12 +881,32 @@ export function App({ host }: { host: Host }) {
 		noteTitle = "Untitled",
 		pane?: PaneId,
 	) => {
-		if (!view || creating.current) return;
+		if (!view || creating.current || templatePrompt.dialog) return;
 		creating.current = true;
+		let template:
+			| { note: Awaited<ReturnType<typeof readTemplate>>; name: string }
+			| undefined;
 		try {
 			if (!(await ws.settleAll())) return;
 			setBusy(true);
 			try {
+				const path = resolveFolderTemplate(
+					folder,
+					await loadTemplateRules(vaultHost),
+				);
+				if (path) {
+					const note = await readTemplate(vaultHost, path);
+					if (!checkBlocks(note.blocks).ok)
+						throw new Error("Unsupported template blocks.");
+					template = {
+						note,
+						name: path.slice(path.lastIndexOf("/") + 1, -".vnote".length),
+					};
+				}
+			} catch {
+				notify("The folder template could not be used. Creating a blank note.");
+			}
+			if (!template) {
 				const made = await createAndLoad(vaultHost, view, folder, noteTitle);
 				changeView(made.view);
 				if (made.path) {
@@ -889,13 +914,20 @@ export function App({ host }: { host: Host }) {
 					focusBody.current = noteTitle !== "Untitled";
 					await open(made.path, { pane });
 				}
-			} catch (e) {
-				setError(e instanceof Error ? e.message : String(e));
-			} finally {
-				setBusy(false);
 			}
+		} catch (e) {
+			setError(e instanceof Error ? e.message : String(e));
 		} finally {
 			creating.current = false;
+			setBusy(false);
+		}
+		if (template) {
+			const title = noteTitle === "Untitled" ? template.name : noteTitle;
+			templatePrompt.ask(template.note, title, {
+				name: template.name,
+				onFill: (filled) =>
+					void createFromTemplate(filled, title, folder, pane),
+			});
 		}
 	};
 
@@ -910,6 +942,11 @@ export function App({ host }: { host: Host }) {
 	const createFromTemplate = async (
 		filled: ReturnType<typeof fillTemplate>,
 		defaultTitle: string,
+		folder = newNoteFolder(
+			selection.kind === "folder" ? selection.value : "",
+			view?.folders ?? [],
+		),
+		pane?: PaneId,
 	) => {
 		if (!view || !writable || creating.current) return;
 		const { blocks, props, cursor } = filled;
@@ -928,10 +965,6 @@ export function App({ host }: { host: Host }) {
 			setTemplatesRequest(undefined);
 			setBusy(true);
 			try {
-				const folder = newNoteFolder(
-					selection.kind === "folder" ? selection.value : "",
-					view.folders,
-				);
 				const made = await createNote(vaultHost, folder, title, {
 					blocks,
 					...(Object.keys(props).length > 0 && {
@@ -945,7 +978,7 @@ export function App({ host }: { host: Host }) {
 				});
 				changeView(await loadVault(host));
 				focusBody.current = { path: made.path, cursor };
-				if (!(await open(made.path))) focusBody.current = false;
+				if (!(await open(made.path, { pane }))) focusBody.current = false;
 				notify(`Created "${title}" from the template.`);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
@@ -1196,6 +1229,22 @@ export function App({ host }: { host: Host }) {
 			setBusy(false);
 		}
 	};
+	const trackFolderMove = async (
+		host: Host,
+		from: string,
+		result: Awaited<ReturnType<typeof renameFolder>>,
+	) => {
+		if (result.changed) {
+			const notice = await trackTemplateRuleMove(
+				host,
+				"folder",
+				from,
+				result.path,
+			);
+			if (notice) notify(notice);
+		}
+		return result;
+	};
 	const treeActions: TreeActions = {
 		pinAction: (path) => {
 			const note = byPath.get(path);
@@ -1209,7 +1258,11 @@ export function App({ host }: { host: Host }) {
 				notice: (await createFolder(vaultHost, parent, name)).notice,
 			})),
 		renameFolder: (path, name) =>
-			void changeTree((host) => renameFolder(host, path, name), true),
+			void changeTree(
+				async (host) =>
+					trackFolderMove(host, path, await renameFolder(host, path, name)),
+				true,
+			),
 		deleteFolder: (path) =>
 			void changeTree(async () => {
 				await trashFolder(vaultHost, path);
@@ -1235,9 +1288,13 @@ export function App({ host }: { host: Host }) {
 		move: (item, into) => {
 			const at = afterSave(item.path);
 			void changeTree(
-				(host) =>
+				async (host) =>
 					item.kind === "folder"
-						? moveFolder(host, item.path, into)
+						? trackFolderMove(
+								host,
+								item.path,
+								await moveFolder(host, item.path, into),
+							)
 						: moveNote(host, at(), into, { readOnly: item.readOnly }),
 				true,
 			);

@@ -541,3 +541,29 @@ A `kanban` block stores its board in `attrs.columns`. Each column has a string
 `id`, a plain-text `title` and an ordered `cards` array. Each card has a string
 `id`, plain `text` and an optional `tone` (note, info, tip, warning or danger).
 Array order determines display order. The board occupies one block record.
+## Folder template rules
+
+The optional vault-relative file `.vaultops/templates/rules.json` uses version 1.
+
+```json
+{
+  "version": 1,
+  "rules": [
+    {
+      "folder": "Meetings",
+      "template": ".vaultops/templates/Meeting.vnote",
+      "subfolders": true
+    }
+  ]
+}
+```
+
+An empty folder path means the vault root. Rules inherit into subfolders
+by default. Set `subfolders` to `false` for an exact folder match. The deepest
+matching folder wins. Duplicate folder names are compared like Mac paths and
+the last entry wins. Folder and template renames update matching paths. A
+missing or unreadable template produces a blank note and a notice.
+
+The app creates the templates folder on first write and saves rules atomically.
+It copies malformed file contents to `.vaultops/recovery/` before replacing
+them. Files from newer versions are preserved.

@@ -15,10 +15,11 @@ import {
 	templateDateKey,
 	templateTime,
 } from "./template-dates";
+import { TEMPLATES, trackTemplateRuleMove } from "./template-rules";
 import { moveToRecovery } from "./trash";
 
 /** Where templates live: ordinary note files, hidden from the tree and search. */
-export const TEMPLATES = ".vaultops/templates";
+export { TEMPLATES };
 
 export interface TemplateEntry {
 	/** The template's name (the file name without `.vnote`). */
@@ -210,7 +211,7 @@ export async function saveTemplate(
 	return { path, ok: true, replaced: Boolean(same) };
 }
 
-async function readTemplate(host: Host, path: string): Promise<Note> {
+export async function readTemplate(host: Host, path: string): Promise<Note> {
 	if (!inside(path) || (await host.kindOf(path)) !== "file") {
 		throw new Error("That template was not found.");
 	}
@@ -267,7 +268,7 @@ export async function renameTemplateEntry(
 	host: Host,
 	path: string,
 	newName: string,
-): Promise<{ path: string }> {
+): Promise<{ path: string; notice?: string }> {
 	const title = newName.trim();
 	if (title === "") throw new Error("Give it a name.");
 	if (!inside(path)) throw new Error("That template was not found.");
@@ -288,18 +289,19 @@ export async function renameTemplateEntry(
 	) {
 		throw new Error(`"${title}" already exists here.`);
 	}
-	if (kind === "folder") {
-		const target = `${dir}/${safeName(title)}`;
-		if (target !== path) await host.move(path, target);
-		return { path: target };
+	const target =
+		kind === "folder"
+			? `${dir}/${safeName(title)}`
+			: `${dir}/${fileNameFor(title, others)}`;
+	if (kind === "file") {
+		const note = await readTemplate(host, path);
+		const check = prepareSave({ ...note, header: { ...note.header, title } });
+		if (!check.ok) throw new Error("That template can't be saved.");
+		await host.writeTextAtomic(path, check.text);
 	}
-	const note = await readTemplate(host, path);
-	const check = prepareSave({ ...note, header: { ...note.header, title } });
-	if (!check.ok) throw new Error("That template can't be saved.");
-	await host.writeTextAtomic(path, check.text);
-	const target = `${dir}/${fileNameFor(title, others)}`;
 	if (target !== path) await host.move(path, target);
-	return { path: target };
+	const notice = await trackTemplateRuleMove(host, "template", path, target);
+	return notice ? { path: target, notice } : { path: target };
 }
 
 /** A copy named "<name> copy" (then " copy 2", ...) next to it, with its own note id. */

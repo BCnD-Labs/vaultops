@@ -381,6 +381,35 @@ Fixtures: `test-fixtures/resource-card.vnote` and
 `test-fixtures/resource-types.json` (read back in
 `src/core/resources/resources.test.ts`).
 
+## Types, version 2 (`types.json` gains optional keys; no new file, no header key)
+
+- **A note's type** is `resource.type` in its header, the id of a type in
+  `.vaultops/resources/types.json`: the same key resource cards already use, so
+  the note format does not change. Any note can carry it; a card is just a note
+  in the hidden cards folder.
+- **`types.json` v2** is the same file with `"v":2`. It only adds optional keys,
+  so a v1 file reads unchanged:
+  - a field `kind` may also be `select`, `checkbox` or `list` (stored on a note
+    as the property type of the same name); a `select` field may carry
+    `"options":["A","B"]`, the choices a new property starts with;
+  - a type may carry `"icon"` (a name or emoji), `"folder"` (a folder inside the
+    vault, relative, no `..`) and `"template"` (a path under `.vaultops/templates`).
+- **The file stays v1 until it needs v2.** The app writes `"v":1` unless some type
+  uses a v2 kind, `options`, `icon`, `folder` or `template`, so a v1 file loads
+  and saves byte for byte unchanged and older builds keep reading it. Once a v2
+  feature is used the file is `"v":2`; an older build then treats it as newer than
+  it knows and the manager is view-only there, as for any newer file.
+- **Applying a type to a note** (pure, `src/core/types/apply.ts`) sets
+  `resource.type` and adds only the fields the note does not have, as empty typed
+  properties. It never overwrites a value, never retypes a property that has the
+  same name and another type (that one is reported as not matching), and never
+  touches the body. **Removing a type** clears `resource.type` only; every value
+  stays as an ordinary property.
+- **Older build:** reads a v1-shaped file as before; a v2 file is read-only there.
+
+Tests: `src/core/resources/resources.test.ts` (a v1 file loads and saves
+unchanged, a v2 file round-trips) and `src/core/types/apply.test.ts`.
+
 ## Recovery folder (storage layout, already in use)
 
 - `.vaultops/recovery/<time>/<original path>` holds anything removed for good,

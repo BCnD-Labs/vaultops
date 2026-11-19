@@ -13,6 +13,7 @@ import {
 } from "../note-format";
 import {
 	cleanName,
+	cleanOptions,
 	findName,
 	fits,
 	headerProps,
@@ -39,10 +40,15 @@ export const RESOURCES = ".vaultops/resources";
 export const TYPES_FILE = `${RESOURCES}/types.json`;
 export const CARDS = `${RESOURCES}/cards`;
 export const TYPES_FORMAT = "vaultops-resource-types";
-export const TYPES_VERSION = 1;
+/** The newest `types.json` version this build reads. */
+export const TYPES_VERSION = 2;
 
+/** The kinds a v1 file can hold. The field pickers still offer only these. */
 export const FIELD_KINDS = ["text", "long", "date", "link", "number"] as const;
-export type FieldKind = (typeof FIELD_KINDS)[number];
+/** Added in v2; they map to the note property types select, checkbox and list. */
+export const V2_FIELD_KINDS = ["select", "checkbox", "list"] as const;
+export const ALL_FIELD_KINDS = [...FIELD_KINDS, ...V2_FIELD_KINDS] as const;
+export type FieldKind = (typeof ALL_FIELD_KINDS)[number];
 
 export const KIND_LABELS: Record<FieldKind, string> = {
 	text: "Text",
@@ -50,6 +56,9 @@ export const KIND_LABELS: Record<FieldKind, string> = {
 	date: "Date",
 	link: "Link",
 	number: "Number",
+	select: "Select",
+	checkbox: "Checkbox",
+	list: "List",
 };
 
 export interface ResourceField {
@@ -57,6 +66,8 @@ export interface ResourceField {
 	label: string;
 	kind: FieldKind;
 	required: boolean;
+	/** v2, `select` only: the choices a new property starts with. */
+	options?: string[];
 }
 
 export interface ResourceType {
@@ -65,6 +76,12 @@ export interface ResourceType {
 	/** What the card's own name is called: "Name", "Title". Always required. */
 	titleLabel: string;
 	fields: ResourceField[];
+	/** v2: a template path under `.vaultops/templates`, used for new notes of this type. */
+	template?: string;
+	/** v2: the vault folder new notes of this type are created in. */
+	folder?: string;
+	/** v2: an icon name or emoji. */
+	icon?: string;
 }
 
 const field = (label: string, kind: FieldKind = "text"): ResourceField => ({
@@ -123,9 +140,49 @@ function parseField(raw: unknown): ResourceField | null {
 	if (typeof raw !== "object" || raw === null) return null;
 	const f = raw as Record<string, unknown>;
 	if (typeof f.label !== "string" || cleanName(f.label) === "") return null;
-	if (!(FIELD_KINDS as readonly unknown[]).includes(f.kind)) return null;
+	if (!(ALL_FIELD_KINDS as readonly unknown[]).includes(f.kind)) return null;
 	if (typeof f.required !== "boolean") return null;
-	return { label: f.label, kind: f.kind as FieldKind, required: f.required };
+	const out: ResourceField = {
+		label: f.label,
+		kind: f.kind as FieldKind,
+		required: f.required,
+	};
+	if (f.options !== undefined) {
+		if (
+			f.kind !== "select" ||
+			!Array.isArray(f.options) ||
+			!f.options.every((o) => typeof o === "string")
+		) {
+			return null;
+		}
+		out.options = f.options as string[];
+	}
+	return out;
+}
+
+/** A folder inside the vault: relative, no `..`, no backslashes. */
+function safeFolder(folder: string): boolean {
+	return (
+		folder !== "" &&
+		!folder.startsWith("/") &&
+		!folder.includes("\\") &&
+		!folder.split("/").some((part) => part === ".." || part === "")
+	);
+}
+
+/** Read the optional v2 keys of a type; null when one is present but unusable. */
+function parseTypeExtras(
+	t: Record<string, unknown>,
+): Pick<ResourceType, "template" | "folder" | "icon"> | null {
+	const out: Pick<ResourceType, "template" | "folder" | "icon"> = {};
+	for (const key of ["icon", "folder", "template"] as const) {
+		const v = t[key];
+		if (v === undefined) continue;
+		if (typeof v !== "string" || v.trim() === "") return null;
+		if (key === "folder" && !safeFolder(v)) return null;
+		out[key] = v;
+	}
+	return out;
 }
 
 function parseTypes(data: unknown): ResourceType[] {
@@ -165,7 +222,15 @@ function parseTypes(data: unknown): ResourceType[] {
 			if (!f || fields.some((x) => sameName(x.label, f.label))) throw bad;
 			fields.push(f);
 		}
-		types.push({ id: t.id, name: t.name, titleLabel: t.titleLabel, fields });
+		const extras = parseTypeExtras(t);
+		if (!extras) throw bad;
+		types.push({
+			id: t.id,
+			name: t.name,
+			titleLabel: t.titleLabel,
+			fields,
+			...extras,
+		});
 	}
 	return types;
 }
@@ -188,10 +253,45 @@ export async function loadTypes(host: Host): Promise<ResourceType[]> {
 	return parseTypes(data);
 }
 
+/** True when a type needs the v2 file (a v2 field kind or an optional v2 key). */
+function usesV2(type: ResourceType): boolean {
+	return (
+		type.template !== undefined ||
+		type.folder !== undefined ||
+		type.icon !== undefined ||
+		type.fields.some(
+			(f) =>
+				(V2_FIELD_KINDS as readonly string[]).includes(f.kind) ||
+				f.options !== undefined,
+		)
+	);
+}
+
+/**
+ * The text of a types file. The file stays v1 until a type really uses a v2
+ * feature, so a v1 file loads and saves byte for byte unchanged and older
+ * builds keep reading it.
+ */
+export function typesFileText(types: ResourceType[]): string {
+	const v = types.some(usesV2) ? 2 : 1;
+	const body = { format: TYPES_FORMAT, v, types };
+	return `${JSON.stringify(body, null, 2)}\n`;
+}
+
 async function saveTypes(host: Host, types: ResourceType[]): Promise<void> {
 	await host.makeFolder(RESOURCES);
-	const body = { format: TYPES_FORMAT, v: TYPES_VERSION, types };
-	await host.writeTextAtomic(TYPES_FILE, `${JSON.stringify(body, null, 2)}\n`);
+	await host.writeTextAtomic(TYPES_FILE, typesFileText(types));
+}
+
+/** A field as stored: only `select` keeps options, trimmed and without repeats. */
+function cleanField(f: ResourceField): ResourceField {
+	const out: ResourceField = {
+		label: f.label,
+		kind: f.kind,
+		required: f.required,
+	};
+	if (f.kind === "select") out.options = cleanOptions(f.options ?? []);
+	return out;
 }
 
 const slug = (name: string) =>
@@ -258,10 +358,45 @@ export async function addField(
 		};
 	}
 	const next = types.map((t) =>
-		t.id === typeId ? { ...t, fields: [...t.fields, { ...input, label }] } : t,
+		t.id === typeId
+			? { ...t, fields: [...t.fields, cleanField({ ...input, label })] }
+			: t,
 	);
 	await saveTypes(host, next);
 	return { ok: true, types: next };
+}
+
+/**
+ * Set or clear (null) a type's icon, home folder and template. Keys left out
+ * stay as they are. Notes already made are not touched.
+ */
+export async function updateType(
+	host: Host,
+	typeId: string,
+	changes: {
+		icon?: string | null;
+		folder?: string | null;
+		template?: string | null;
+	},
+): Promise<TypesResult> {
+	const types = await loadTypes(host);
+	const type = types.find((t) => t.id === typeId);
+	if (!type) return { ok: false, message: "That type was not found." };
+	const next: ResourceType = { ...type };
+	for (const key of ["icon", "folder", "template"] as const) {
+		const v = changes[key];
+		if (v === undefined) continue;
+		if (v === null || v.trim() === "") {
+			delete next[key];
+		} else if (key === "folder" && !safeFolder(v)) {
+			return { ok: false, message: "Choose a folder inside the vault." };
+		} else {
+			next[key] = v;
+		}
+	}
+	const all = types.map((t) => (t.id === typeId ? next : t));
+	await saveTypes(host, all);
+	return { ok: true, types: all };
 }
 
 /**
@@ -448,9 +583,10 @@ export function completeness(
 }
 
 function entryFor(
-	kind: FieldKind,
+	field: ResourceField,
 	text: string,
 ): { ok: true; entry: JsonValue } | { ok: false; message: string } {
+	const kind = field.kind;
 	if (kind === "number") {
 		const n = Number(text);
 		if (text === "" || !Number.isFinite(n)) {
@@ -461,6 +597,25 @@ function entryFor(
 	if (kind === "date") {
 		if (!fits("date", text)) return { ok: false, message: "must be a date" };
 		return { ok: true, entry: { type: "date", value: text } };
+	}
+	if (kind === "checkbox") {
+		return {
+			ok: true,
+			entry: { type: "checkbox", value: /^(yes|true|checked)$/i.test(text) },
+		};
+	}
+	if (kind === "list") {
+		const items = text
+			.split(",")
+			.map((x) => x.trim())
+			.filter((x) => x !== "");
+		return { ok: true, entry: { type: "list", value: items } };
+	}
+	if (kind === "select") {
+		return {
+			ok: true,
+			entry: { type: "select", value: text, options: field.options ?? [] },
+		};
 	}
 	return { ok: true, entry: { type: "text", value: text } };
 }
@@ -486,7 +641,7 @@ export function applyValues(
 			}
 			continue;
 		}
-		const made = entryFor(f.kind, text);
+		const made = entryFor(f, text);
 		if (!made.ok) return { ok: false, message: `${f.label} ${made.message}.` };
 		const old = key ? next[key] : undefined;
 		const keepRest =
@@ -499,9 +654,16 @@ export function applyValues(
 			old.type === made.entry.type
 				? old
 				: {};
+		// A select that already has its own options keeps them.
+		const { options: fresh, ...entry } = made.entry as { options?: JsonValue };
+		const options = "options" in keepRest ? undefined : fresh;
 		next = {
 			...next,
-			[key ?? f.label]: { ...keepRest, ...(made.entry as object) } as JsonValue,
+			[key ?? f.label]: {
+				...keepRest,
+				...entry,
+				...(options === undefined ? {} : { options }),
+			} as JsonValue,
 		};
 	}
 	return { ok: true, props: next };
@@ -737,12 +899,7 @@ export async function deleteType(
 		throw new Error("Choose another type to move the cards to.");
 	}
 	const now = options.now ?? new Date();
-	await copyToRecovery(
-		host,
-		`${JSON.stringify({ format: TYPES_FORMAT, v: TYPES_VERSION, types }, null, 2)}\n`,
-		"resources/types.json",
-		now,
-	);
+	await copyToRecovery(host, typesFileText(types), "resources/types.json", now);
 	let moved = 0;
 	for (const card of await listCards(host)) {
 		if (card.typeId !== typeId || card.problem) continue;

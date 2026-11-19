@@ -18,6 +18,7 @@ import {
 	listCards,
 	loadTypes,
 	missingRequired,
+	RESOURCES,
 	removeCard,
 	removeField,
 	searchCards,
@@ -25,6 +26,7 @@ import {
 	setFieldRequired,
 	TYPES_FILE,
 	updateCard,
+	updateType,
 } from "./resources";
 
 async function vault() {
@@ -34,6 +36,14 @@ async function vault() {
 }
 
 const NOW = new Date("2026-11-08T12:00:00Z");
+
+// What the app wrote for a v1 file (two-space JSON, as saved on disk).
+const V1_FILE =
+	'{\n  "format": "vaultops-resource-types",\n  "v": 1,\n  "types": [\n    {\n      "id": "contact",\n      "name": "Contact",\n      "titleLabel": "Name",\n      "fields": [\n        {\n          "label": "Phone",\n          "kind": "text",\n          "required": false\n        },\n        {\n          "label": "Email",\n          "kind": "text",\n          "required": true\n        }\n      ]\n    },\n    {\n      "id": "book",\n      "name": "Book",\n      "titleLabel": "Title",\n      "fields": [\n        {\n          "label": "Author",\n          "kind": "text",\n          "required": false\n        },\n        {\n          "label": "Year",\n          "kind": "number",\n          "required": false\n        },\n        {\n          "label": "Notes",\n          "kind": "long",\n          "required": false\n        }\n      ]\n    }\n  ]\n}\n';
+
+// What the app wrote for a v2 file (two-space JSON, as saved on disk).
+const V2_FILE =
+	'{\n  "format": "vaultops-resource-types",\n  "v": 2,\n  "types": [\n    {\n      "id": "book",\n      "name": "Book",\n      "titleLabel": "Title",\n      "fields": [\n        {\n          "label": "Author",\n          "kind": "text",\n          "required": false\n        },\n        {\n          "label": "Status",\n          "kind": "select",\n          "required": false,\n          "options": [\n            "To read",\n            "Reading",\n            "Done"\n          ]\n        },\n        {\n          "label": "Owned",\n          "kind": "checkbox",\n          "required": false\n        },\n        {\n          "label": "Genres",\n          "kind": "list",\n          "required": false\n        }\n      ],\n      "icon": "book",\n      "folder": "Books",\n      "template": "Book review.vnote"\n    }\n  ]\n}\n';
 
 async function contact(host: MemoryHost, name: string, values = {}) {
 	const types = await loadTypes(host);
@@ -480,5 +490,110 @@ describe("fixtures", () => {
 		expect(cardExtras(card, type)).toEqual([
 			{ name: "Mood", value: "kept as an extra property" },
 		]);
+	});
+
+	it("loads a v1 file and saves it back byte for byte", async () => {
+		const host = await vault();
+		const text = V1_FILE;
+		await host.makeFolder(RESOURCES);
+		await host.writeTextAtomic(TYPES_FILE, text);
+		const types = await loadTypes(host);
+		await setFieldRequired(host, "contact", "Email", true);
+		expect(await host.readText(TYPES_FILE)).toBe(text);
+		expect(types.map((t) => t.id)).toEqual(["contact", "book"]);
+	});
+
+	it("reads a v2 file and writes it back unchanged", async () => {
+		const host = await vault();
+		const text = V2_FILE;
+		await host.makeFolder(RESOURCES);
+		await host.writeTextAtomic(TYPES_FILE, text);
+		const [book] = await loadTypes(host);
+		expect(book).toMatchObject({
+			icon: "book",
+			folder: "Books",
+			template: "Book review.vnote",
+		});
+		expect(book?.fields[1]).toMatchObject({
+			kind: "select",
+			options: ["To read", "Reading", "Done"],
+		});
+		await setFieldRequired(host, "book", "Author", false);
+		expect(await host.readText(TYPES_FILE)).toBe(text);
+	});
+
+	it("stays v1 until a v2 feature is used, then becomes v2", async () => {
+		const host = await vault();
+		await addType(host, { name: "Film", titleLabel: "Title" });
+		expect(JSON.parse(await host.readText(TYPES_FILE)).v).toBe(1);
+		await addField(host, "film", {
+			label: "Seen",
+			kind: "select",
+			required: false,
+			options: [" Yes ", "No", "Yes", ""],
+		});
+		const saved = JSON.parse(await host.readText(TYPES_FILE));
+		expect(saved.v).toBe(2);
+		expect(saved.types.at(-1).fields[0].options).toEqual(["Yes", "No"]);
+		await updateType(host, "film", { folder: "Films", icon: "film" });
+		expect((await loadTypes(host)).at(-1)).toMatchObject({
+			folder: "Films",
+			icon: "film",
+		});
+		await updateType(host, "film", { folder: null, icon: null });
+		expect((await loadTypes(host)).at(-1)).not.toHaveProperty("folder");
+	});
+
+	it("refuses a folder outside the vault and unusable v2 keys", async () => {
+		const host = await vault();
+		expect((await updateType(host, "book", { folder: "../x" })).ok).toBe(false);
+		expect((await updateType(host, "book", { folder: "/abs" })).ok).toBe(false);
+		for (const extra of [{ folder: "a/../b" }, { icon: 3 }, { template: "" }]) {
+			await host.makeFolder(RESOURCES);
+			await host.writeTextAtomic(
+				TYPES_FILE,
+				JSON.stringify({
+					format: "vaultops-resource-types",
+					v: 2,
+					types: [
+						{ id: "a", name: "A", titleLabel: "T", fields: [], ...extra },
+					],
+				}),
+			);
+			await expect(loadTypes(host)).rejects.toThrow();
+		}
+	});
+
+	it("writes select, checkbox and list values from the card form", () => {
+		const type = {
+			id: "t",
+			name: "T",
+			titleLabel: "Title",
+			fields: [
+				{
+					label: "S",
+					kind: "select" as const,
+					required: false,
+					options: ["a", "b"],
+				},
+				{ label: "C", kind: "checkbox" as const, required: false },
+				{ label: "L", kind: "list" as const, required: false },
+			],
+		};
+		const r = applyValues({}, type, { S: "a", C: "Yes", L: "x, y" });
+		expect(r).toEqual({
+			ok: true,
+			props: {
+				S: { type: "select", value: "a", options: ["a", "b"] },
+				C: { type: "checkbox", value: true },
+				L: { type: "list", value: ["x", "y"] },
+			},
+		});
+		// A note's own options are kept when the value changes.
+		const own = { S: { type: "select", value: "z", options: ["z"] } };
+		expect(applyValues(own, type, { S: "a" })).toEqual({
+			ok: true,
+			props: { S: { type: "select", value: "a", options: ["z"] } },
+		});
 	});
 });

@@ -110,6 +110,14 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "forms",
+		name: "Forms",
+		description:
+			"Form blocks that fill a note's properties or create a new note.",
+		group: "Planning",
+		defaultOn: true,
+	},
+	{
 		id: "canvas",
 		name: "Canvas",
 		description: "Creating new canvases. Canvases you already have still open.",

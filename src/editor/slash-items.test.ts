@@ -59,6 +59,7 @@ describe("slash menu items", () => {
 			"table",
 			"database",
 			"kanban",
+			"form",
 			"date",
 			"toc",
 		]);
@@ -73,7 +74,7 @@ describe("slash menu items", () => {
 			"plot",
 		]);
 		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
-		expect(SLASH_ITEMS).toHaveLength(49);
+		expect(SLASH_ITEMS).toHaveLength(50);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {
@@ -264,6 +265,7 @@ describe("slash menu items", () => {
 			["template", "templates"],
 			["database", "database-blocks"],
 			["kanban", "kanban"],
+			["form", "forms"],
 			...SLASH_ITEMS.filter((i) => i.section === "Visual").map((i) => [
 				i.id,
 				i.feature,

@@ -181,6 +181,14 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 		type: "plotBlock",
 		attrs: { id: "plot", expr: "y = sin(x)", xmin: -5, xmax: 5 },
 	},
+	formBlock: {
+		type: "formBlock",
+		attrs: {
+			id: "form",
+			mode: "create",
+			fields: [{ name: "Title", type: "text" }],
+		},
+	},
 };
 
 /** Blocks that are only ever reached through a top-level block that holds them. */

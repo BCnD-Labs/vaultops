@@ -567,3 +567,32 @@ missing or unreadable template produces a blank note and a notice.
 The app creates the templates folder on first write and saves rules atomically.
 It copies malformed file contents to `.vaultops/recovery/` before replacing
 them. Files from newer versions are preserved.
+## `formBlock` (block type, added later)
+
+- **Where it lives:** a block line, top level or inside a container. No content,
+  no children.
+- **Attributes (all optional, left out at their default):**
+  - `mode`: `"fill"` (default) or `"create"`.
+  - `fields`: a list of `{"name": "<property>", "type": "<property type>", "label"?: "<text>"}`
+    (default `[]`). `type` is one of the property types; a field called `tags`
+    is always a list.
+  - `template`: create mode only, the template's label inside the templates
+    folder (for example `School/Lecture`); `""` (default) makes a blank note.
+  - `folder`: create mode only, a vault-relative folder; `""` (default) means
+    where new notes normally go.
+- **No answers are stored in the block.** In `fill` mode a field reads and
+  writes the note's own header property of the same name (found ignoring
+  capital letters, added with the field's type when missing), so nothing is
+  duplicated and the edit goes through the open note's normal save. In `create`
+  mode a Create button makes a new note from the template (a template prompt
+  with the same label as a field takes its answer) with the answers added as
+  properties, then clears the form; this note is not changed.
+- **Bad attrs:** an unknown `mode` reads as `fill`; a `fields` that is not a
+  list, or entries without a name, with a repeated name or an unknown type
+  (read as text), are ignored when showing the form (at most 30 fields); a
+  `folder` containing `.` or `..` reads as the default. The stored value is only
+  replaced when the form is edited.
+- **Example line:** `{"id":"f1","type":"formBlock","parent":null,"attrs":{"mode":"create","fields":[{"name":"Title","type":"text"},{"name":"Due","type":"date","label":"Due date"}],"template":"School/Lecture","folder":"Projects"}}`
+- **Older build:** opens the note read-only (`checkBlocks`), so nothing is lost.
+
+Round-trip: `src/editor/doc-blocks.test.ts` (fixture block `form`).

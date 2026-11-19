@@ -24,6 +24,7 @@ import { DateChip } from "./date-chip";
 import { Divider } from "./divider";
 import { DropSlot } from "./drop-slot";
 import { Folding } from "./folding";
+import { FormBlock } from "./form-block";
 import { ImageBlock } from "./image-block";
 import { KanbanBlock } from "./kanban-block";
 import { Kbd } from "./kbd";
@@ -133,6 +134,7 @@ export function createExtensions(): Extensions {
 		KanbanBlock,
 		ChartBlock,
 		PlotBlock,
+		FormBlock,
 		SlashMenu,
 		Folding,
 		DropSlot,

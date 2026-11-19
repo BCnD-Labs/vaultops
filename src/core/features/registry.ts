@@ -131,6 +131,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "kanban",
+		name: "Quick kanban",
+		description: "Plan work with cards and columns inside a note.",
+		group: "Planning",
+		defaultOn: true,
+	},
+	{
 		id: "charts",
 		name: "Charts",
 		description: "Charts drawn from database blocks in a note.",

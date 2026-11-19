@@ -535,3 +535,9 @@ and stays absent on save. Unknown colours also display yellow and retain their s
 `new-note-template`), and `target` (a command id or a template name with its
 path relative to the templates folder, without the `.vnote` extension).
 Loading or pasting the block never runs its action.
+## Quick kanban
+
+A `kanban` block stores its board in `attrs.columns`. Each column has a string
+`id`, a plain-text `title` and an ordered `cards` array. Each card has a string
+`id`, plain `text` and an optional `tone` (note, info, tip, warning or danger).
+Array order determines display order. The board occupies one block record.

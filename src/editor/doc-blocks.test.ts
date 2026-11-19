@@ -20,6 +20,20 @@ const FIXTURE: Block[] = [
 		attrs: { label: "Open Trash", action: "command", target: "open-trash" },
 	},
 	{
+		id: "board",
+		type: "kanban",
+		parent: null,
+		attrs: {
+			columns: [
+				{
+					id: "todo",
+					title: "To do",
+					cards: [{ id: "first", text: "Plan", tone: "info" }],
+				},
+			],
+		},
+	},
+	{
 		id: "frame",
 		type: "canvasFrame",
 		parent: null,

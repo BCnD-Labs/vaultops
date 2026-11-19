@@ -167,6 +167,7 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 	column: firstColumn,
 	database,
 	databaseRow,
+	kanban: { type: "kanban", attrs: { id: "kanban", columns: [] } },
 	chart: {
 		type: "chart",
 		attrs: {

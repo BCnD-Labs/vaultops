@@ -145,6 +145,7 @@ import {
 	type PaneView,
 	useWorkspaceHost,
 } from "./useWorkspaceHost";
+import { createViewRows } from "./view-rows";
 import { type PaneDoc, WorkspacePanes } from "./WorkspacePanes";
 import "../ui/theme.css";
 import "./app.css";
@@ -253,6 +254,9 @@ export function App({ host }: { host: Host }) {
 	// note, then open it) already sees the new rows.
 	const viewRef = useRef(view);
 	viewRef.current = view;
+	// Live views read these rows; typing in a note does not wake them.
+	const [viewRows] = useState(createViewRows);
+	useEffect(() => viewRows.sync(view?.notes ?? []), [viewRows, view?.notes]);
 	const changeView = useCallback(
 		(next: VaultView | null | ((v: VaultView | null) => VaultView | null)) => {
 			const value = typeof next === "function" ? next(viewRef.current) : next;
@@ -1879,6 +1883,15 @@ export function App({ host }: { host: Host }) {
 				templatesOn && writable && !busy ? startNoteFromTemplate : undefined,
 		};
 	};
+	const openRow = useRef(open);
+	openRow.current = open;
+	const liveViews = useMemo(
+		() => ({
+			rows: viewRows,
+			open: (path: string) => void openRow.current(path),
+		}),
+		[viewRows],
+	);
 
 	const renderNote = (pane: PaneView) => (
 		<SessionNoteView
@@ -1889,6 +1902,7 @@ export function App({ host }: { host: Host }) {
 					? { documents: ws.documents, rows: view?.notes ?? [] }
 					: undefined
 			}
+			views={liveViews}
 			writable={writable}
 			reading={reading}
 			onToggleReading={() => setReading((on) => !on)}

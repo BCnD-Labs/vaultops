@@ -596,3 +596,21 @@ them. Files from newer versions are preserved.
 - **Older build:** opens the note read-only (`checkBlocks`), so nothing is lost.
 
 Round-trip: `src/editor/doc-blocks.test.ts` (fixture block `form`).
+## `liveView`: a table of the notes that match a rule
+
+- **Shape (decision D1 A):** the whole view lives in the block's attrs, e.g.
+  `{"id":"…","type":"liveView","parent":null,"attrs":{"v":1,"title":"Reading","layout":"table","rule":{"match":"all","conditions":[{"field":"folder","op":"in","value":"Books","sub":false}]},"sort":[{"field":"title","dir":"asc"}],"columns":["title","prop:tags"]}}`.
+  Also allowed: `group`, `date` and `limit` (rows shown before "Show more",
+  default 200). Every attr is optional and left out when unset, so a view saves
+  back byte for byte. The matching notes are never stored; they are read from
+  the vault each time the view shows.
+- **Reading:** `src/core/views/rule.ts` and `view-attrs.ts` normalize every attr,
+  so a bad condition, sort key or column is dropped instead of breaking the
+  note. A `v` above 1 (a newer view format) shows a notice instead of rows.
+- **What a view never lists:** the note that holds it, anything in
+  `.vaultops/` (trash, templates), and canvases unless the rule names a Type.
+- **New views:** `/view` inserts a table of the notes in the same folder as the
+  note, sorted by title, with a Tags column.
+- **Older build:** opens the note read-only (`checkBlocks`), so nothing is lost.
+
+Round-trip: `src/editor/doc-blocks.test.ts` (fixture block `view`).

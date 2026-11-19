@@ -34,6 +34,7 @@ export const BLOCK_TYPES = [
 	"plotBlock",
 	"kanban",
 	"formBlock",
+	"liveView",
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];

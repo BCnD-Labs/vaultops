@@ -83,7 +83,7 @@ import { syncRowName } from "./row-note";
 import "./database.css";
 
 /** A JSON attribute stored on the element as `data-<name>`. */
-function jsonAttr(name: string, fallback: unknown) {
+export function jsonAttr(name: string, fallback: unknown) {
 	return {
 		default: fallback,
 		parseHTML: (element: HTMLElement) => {

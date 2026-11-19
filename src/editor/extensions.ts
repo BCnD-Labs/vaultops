@@ -29,6 +29,7 @@ import { ImageBlock } from "./image-block";
 import { KanbanBlock } from "./kanban-block";
 import { Kbd } from "./kbd";
 import { ListMarkers, ListTabGuard } from "./list-nesting";
+import { LiveView } from "./live-view/live-view";
 import { MathBlock } from "./math-block";
 import { MoveOut } from "./move-out";
 import { LinkMenu, NoteLink } from "./note-link";
@@ -135,6 +136,7 @@ export function createExtensions(): Extensions {
 		ChartBlock,
 		PlotBlock,
 		FormBlock,
+		LiveView,
 		SlashMenu,
 		Folding,
 		DropSlot,

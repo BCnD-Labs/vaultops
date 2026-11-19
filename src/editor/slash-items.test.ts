@@ -52,6 +52,7 @@ describe("slash menu items", () => {
 			"mention",
 			"frame",
 			"button",
+			"view",
 			"template",
 		]);
 		expect(ids("Plan")).toEqual([
@@ -74,7 +75,7 @@ describe("slash menu items", () => {
 			"plot",
 		]);
 		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
-		expect(SLASH_ITEMS).toHaveLength(50);
+		expect(SLASH_ITEMS).toHaveLength(51);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {
@@ -262,6 +263,7 @@ describe("slash menu items", () => {
 			["math", "math"],
 			["frame", "canvas"],
 			["button", "button-blocks"],
+			["view", "live-views"],
 			["template", "templates"],
 			["database", "database-blocks"],
 			["kanban", "kanban"],
@@ -317,4 +319,14 @@ it("offers Frame only when the surface and Canvas feature allow it", () => {
 	expect(frames({ columns: true, enabled: (id) => id !== "canvas" })).toBe(
 		false,
 	);
+});
+
+it("offers Live view only in a note's own editor with the feature on", () => {
+	const views = (where: Parameters<typeof filterSlashItems>[1]) =>
+		filterSlashItems("view", where).some((item) => item.id === "view");
+	expect(views({ columns: true, views: true })).toBe(true);
+	expect(views({ columns: true, views: false })).toBe(false);
+	expect(
+		views({ columns: true, views: true, enabled: (id) => id !== "live-views" }),
+	).toBe(false);
 });

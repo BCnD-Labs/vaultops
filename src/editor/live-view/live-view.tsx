@@ -1,0 +1,258 @@
+import { mergeAttributes, Node } from "@tiptap/core";
+import {
+	type NodeViewProps,
+	NodeViewWrapper,
+	ReactNodeViewRenderer,
+} from "@tiptap/react";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import {
+	createContext,
+	type RefObject,
+	useContext,
+	useMemo,
+	useState,
+	useSyncExternalStore,
+} from "react";
+import { Button } from "@/components/ui/button";
+import { useInViewport } from "@/components/ui/use-in-viewport";
+import type { ViewRow } from "../../app/view-rows";
+import { compileRule } from "../../core/views/match";
+import { sortRows } from "../../core/views/sort";
+import {
+	DEFAULT_LIMIT as PAGE,
+	readViewSettings,
+} from "../../core/views/view-attrs";
+import { Cell } from "../database/cells";
+import { jsonAttr } from "../database/database";
+import { TYPE_ICONS } from "../database/icons";
+import { DEFAULT_WIDTH } from "../database/model";
+import { todayIso } from "../date-chip";
+import { cellOf, columnHeader } from "./columns";
+import "./live-view.css";
+
+export const LIVE_VIEW = "liveView";
+
+/** What a note's views read: the vault's rows, the note that holds them, and how to open a row. */
+export interface LiveViewSource {
+	rows: {
+		subscribe: (listener: () => void) => () => void;
+		getSnapshot: () => readonly ViewRow[];
+	};
+	hostPath: string | null;
+	open: (path: string) => void;
+}
+
+export const LiveViewSource = createContext<LiveViewSource | null>(null);
+
+const NO_ROWS: readonly ViewRow[] = [];
+const NO_STORE: LiveViewSource["rows"] = {
+	subscribe: () => () => {},
+	getSnapshot: () => NO_ROWS,
+};
+const noop = () => {};
+
+function LiveViewNode({ node, editor, getPos }: NodeViewProps) {
+	const source = useContext(LiveViewSource);
+	const store = source?.rows ?? NO_STORE;
+	const rows = useSyncExternalStore(store.subscribe, store.getSnapshot);
+	const hostPath = source?.hostPath ?? null;
+	const settings = useMemo(() => readViewSettings(node.attrs), [node.attrs]);
+	const [more, setMore] = useState(0);
+	// A view scrolled out of sight does no work.
+	const { ref, visible } = useInViewport();
+	const result = useMemo(() => {
+		if (!visible || settings.newer) return null;
+		const test = compileRule(settings.rule, {
+			today: todayIso(),
+			hostPath: hostPath ?? undefined,
+			linksOf: (id) => rows.find((row) => row.id === id)?.links,
+		});
+		const matched = rows.filter(test);
+		const shown = sortRows(matched, settings.sort, settings.limit + more);
+		return { total: matched.length, shown };
+	}, [visible, settings, rows, hostPath, more]);
+	const fields = settings.columns.slice(1);
+	const headers = settings.columns.map((field) =>
+		columnHeader(field, result?.shown ?? []),
+	);
+	const setTitle = (title: string) => {
+		const pos = getPos();
+		if (!editor.isEditable || typeof pos !== "number") return;
+		editor.view.dispatch(
+			editor.state.tr.setNodeMarkup(pos, undefined, {
+				...node.attrs,
+				title: title === "" ? null : title,
+			}),
+		);
+	};
+
+	return (
+		<NodeViewWrapper
+			className="database-block live-view"
+			data-type="live-view"
+			contentEditable={false}
+		>
+			<div className="db-chrome" ref={ref as RefObject<HTMLDivElement>}>
+				<div className="db-head">
+					<input
+						className="db-title"
+						aria-label="View name"
+						placeholder="Untitled view"
+						value={settings.title}
+						readOnly={!editor.isEditable}
+						onChange={(e) => setTitle(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === "Escape") {
+								e.preventDefault();
+								e.currentTarget.blur();
+							}
+						}}
+					/>
+					{result && (
+						<span className="lv-count">
+							{result.total === 1 ? "1 note" : `${result.total} notes`}
+						</span>
+					)}
+				</div>
+				{settings.newer ? (
+					<p className="db-empty-hint">
+						This view was made by a newer version of VaultOps.
+					</p>
+				) : (
+					<div className="db-scroll">
+						<table className="db-table">
+							<colgroup>
+								{headers.map((column) => (
+									<col
+										key={column.id}
+										style={{
+											width: DEFAULT_WIDTH * (column.type === "title" ? 2 : 1),
+										}}
+									/>
+								))}
+							</colgroup>
+							<thead>
+								<tr>
+									{headers.map((column) => {
+										const Icon = TYPE_ICONS[column.type];
+										const dir = settings.sort.find(
+											(key) => key.field === column.id,
+										)?.dir;
+										const Arrow = dir === "desc" ? ArrowDown : ArrowUp;
+										return (
+											<th
+												key={column.id}
+												className="db-th"
+												scope="col"
+												data-column-type={column.type}
+											>
+												<div className="db-th-button">
+													<Icon className="db-th-icon" aria-hidden="true" />
+													<span className="db-th-name">{column.name}</span>
+													{dir && (
+														<Arrow
+															className="db-th-sort"
+															aria-label={`Sorted ${dir === "asc" ? "ascending" : "descending"}`}
+														/>
+													)}
+												</div>
+											</th>
+										);
+									})}
+								</tr>
+							</thead>
+							<tbody>
+								{result?.shown.map((row) => (
+									<tr key={row.path} className="db-row" data-path={row.path}>
+										<td className="db-td" data-column-type="title">
+											<Button
+												type="button"
+												variant="link"
+												size="sm"
+												className="lv-title"
+												onClick={() => source?.open(row.path)}
+											>
+												{row.title || "Untitled"}
+											</Button>
+										</td>
+										{fields.map((field) => {
+											const { column, cells } = cellOf(field, row);
+											return (
+												<td
+													key={field}
+													className="db-td"
+													data-column-type={column.type}
+												>
+													<Cell
+														column={column}
+														cells={cells}
+														editable={false}
+														onChange={noop}
+														onOptionChange={noop}
+													/>
+												</td>
+											);
+										})}
+									</tr>
+								))}
+							</tbody>
+						</table>
+						{result?.total === 0 && (
+							<p className="db-empty-hint">No notes match this view</p>
+						)}
+					</div>
+				)}
+				{result && result.total > result.shown.length && (
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						className="db-new-row"
+						onClick={() => setMore((n) => n + PAGE)}
+					>
+						Show more ({result.total - result.shown.length})
+					</Button>
+				)}
+			</div>
+		</NodeViewWrapper>
+	);
+}
+
+/**
+ * A live view: a table of the notes that match a rule, kept in the block's
+ * attrs (decision D1 A). The rows are never stored in the note; they are read
+ * from the vault each time. Every attr defaults to null so a view saves back
+ * byte for byte.
+ */
+export const LiveView = Node.create({
+	name: LIVE_VIEW,
+	group: "block",
+	atom: true,
+	selectable: true,
+	addAttributes: () =>
+		Object.fromEntries(
+			[
+				"v",
+				"title",
+				"layout",
+				"rule",
+				"sort",
+				"group",
+				"columns",
+				"date",
+				"limit",
+			].map((name) => [name, jsonAttr(name, null)]),
+		),
+	parseHTML: () => [{ tag: 'div[data-type="live-view"]' }],
+	renderHTML: ({ HTMLAttributes }) => [
+		"div",
+		mergeAttributes(HTMLAttributes, { "data-type": "live-view" }),
+		"Live view",
+	],
+	addNodeView: () =>
+		ReactNodeViewRenderer(LiveViewNode, {
+			stopEvent: ({ event }) =>
+				event.target instanceof Element &&
+				event.target.closest("input, textarea, button") !== null,
+		}),
+});

@@ -57,7 +57,7 @@ import { abandonLift, liftBlock } from "./lift";
 import type { Anchor } from "./menu-placement";
 import { findMovable, type Movable, moveOut, nestLabel } from "./move-out";
 import { type LinkSource, setLinkSource } from "./note-link";
-import { FRAME_EVENT, TEMPLATE_EVENT } from "./slash-items";
+import { FRAME_EVENT, TEMPLATE_EVENT, VIEW_EVENT } from "./slash-items";
 import { setSlashFeatureCheck } from "./slash-menu";
 import { TableEdgeBars, TableMenuContent } from "./TableControls";
 import { WordComplete } from "./word-complete";
@@ -94,6 +94,8 @@ export interface NoteEditorProps {
 	onChooseFrame?: (request: TemplateRequest) => void;
 	onRunButton?: RunButton;
 	buttonOptions?: ButtonOptions;
+	/** Offers "Live view" in the slash menu; called with where to put it. */
+	onInsertView?: (request: TemplateRequest) => void;
 	onChooseTemplate?: (request: TemplateRequest) => void;
 	/** Turns on `[[` and `@` links; says what can be linked and how to open it. */
 	links?: LinkSource;
@@ -154,6 +156,7 @@ export function NoteEditor({
 	buttonOptions,
 	onChooseTemplate,
 	onChooseFrame,
+	onInsertView,
 	links,
 	featureOn,
 	images,
@@ -337,9 +340,14 @@ export function NoteEditor({
 		const dom = editor.view.dom;
 		dom.dataset.templates = onChooseTemplate ? "on" : "off";
 		dom.dataset.frames = onChooseFrame ? "on" : "off";
+		dom.dataset.views = onInsertView ? "on" : "off";
 		const ask = (event: Event) => {
 			const handler =
-				event.type === FRAME_EVENT ? onChooseFrame : chooseTemplate.current;
+				event.type === FRAME_EVENT
+					? onChooseFrame
+					: event.type === VIEW_EVENT
+						? onInsertView
+						: chooseTemplate.current;
 			if (!handler) return;
 			const { doc, selection } = editor.state;
 			const { from, to } = selection;
@@ -364,11 +372,13 @@ export function NoteEditor({
 		};
 		dom.addEventListener(TEMPLATE_EVENT, ask);
 		dom.addEventListener(FRAME_EVENT, ask);
+		dom.addEventListener(VIEW_EVENT, ask);
 		return () => {
 			dom.removeEventListener(TEMPLATE_EVENT, ask);
 			dom.removeEventListener(FRAME_EVENT, ask);
+			dom.removeEventListener(VIEW_EVENT, ask);
 		};
-	}, [editor, onChooseTemplate, onChooseFrame]);
+	}, [editor, onChooseTemplate, onChooseFrame, onInsertView]);
 
 	useEffect(() => {
 		if (editor && !editor.isDestroyed)

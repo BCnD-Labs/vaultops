@@ -88,6 +88,14 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "live-views",
+		name: "Live views",
+		description:
+			"Tables of the notes that match a rule, inside a note, from the slash menu.",
+		group: "Organising",
+		defaultOn: true,
+	},
+	{
 		id: "templates",
 		name: "Templates",
 		description: "The Template manager and starting a note from a template.",

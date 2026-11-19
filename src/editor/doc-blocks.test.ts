@@ -54,6 +54,28 @@ const FIXTURE: Block[] = [
 		attrs: { canvasId: "canvas", groupId: "group" },
 	},
 	{
+		id: "view",
+		type: "liveView",
+		parent: null,
+		attrs: {
+			v: 1,
+			title: "Reading",
+			layout: "table",
+			rule: {
+				match: "all",
+				conditions: [
+					{ field: "tag", op: "has", value: "reading", sub: true },
+					{ field: "prop:Status", op: "is", value: "Reading" },
+				],
+			},
+			sort: [{ field: "prop:Due", dir: "asc" }],
+			group: "prop:Status",
+			columns: ["title", "prop:Author"],
+			date: "prop:Due",
+			limit: 200,
+		},
+	},
+	{
 		id: "h",
 		type: "heading",
 		parent: null,
@@ -244,6 +266,14 @@ describe("checkBlocks", () => {
 		expect(
 			reason([{ id: "a", type: "databaseBlock", parent: null }]),
 		).toContain("databaseBlock");
+	});
+
+	it("opens a live view with a newer attr read-only", () => {
+		const view = (attrs: Record<string, unknown>): Block[] => [
+			{ id: "v", type: "liveView", parent: null, attrs: attrs as never },
+		];
+		expect(reason(view({ v: 1, layout: "table" }))).toBeNull();
+		expect(reason(view({ v: 2, formula: "x" }))).toContain("formula");
 	});
 
 	it("refuses an extra field on a known block", () => {

@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	render,
 	screen,
+	waitFor,
 	within,
 } from "@testing-library/react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -126,4 +127,42 @@ it("shows rows up to the limit, then more on request", async () => {
 	expect(titles()).toEqual(["A"]);
 	fireEvent.click(screen.getByRole("button", { name: "Show more (1)" }));
 	expect(titles()).toEqual(["A", "B"]);
+});
+
+it("edits the rule from menus: add and remove conditions, group, and flag a missing property", async () => {
+	show(
+		{
+			rule: {
+				match: "all",
+				conditions: [
+					{ field: "folder", op: "in", value: "Books", sub: true },
+					{ field: "prop:Gone", op: "notEmpty" },
+				],
+			},
+			group: "prop:Status",
+		},
+		[
+			note("Books/A.vnote", { fields: status("Reading") }),
+			note("Books/B.vnote", { fields: status("Done") }),
+		],
+	);
+	// A condition on a property no note has matches nothing.
+	expect(await screen.findByText("No notes match this view")).toBeTruthy();
+	fireEvent.click(screen.getByRole("button", { name: "Edit view" }));
+	expect(await screen.findByText("Property missing")).toBeTruthy();
+	const remove = screen.getAllByRole("button", { name: "Remove condition" });
+	fireEvent.click(remove[1] as HTMLElement);
+	await waitFor(() =>
+		expect(screen.queryByText("Property missing")).toBeNull(),
+	);
+	expect(await screen.findByText("2 notes")).toBeTruthy();
+	// Grouped by Status: one heading per value.
+	expect(
+		screen.getAllByRole("columnheader", { name: /^(Reading|Done)/ }),
+	).toHaveLength(2);
+	// Adding a condition writes it into the block and the view updates.
+	fireEvent.click(screen.getByRole("button", { name: "Add condition" }));
+	await waitFor(() =>
+		expect(document.querySelectorAll(".lv-condition")).toHaveLength(2),
+	);
 });

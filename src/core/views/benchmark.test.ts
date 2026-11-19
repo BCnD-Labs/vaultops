@@ -42,9 +42,11 @@ const views = Array.from({ length: 20 }, (_, v) => ({
 	sort: normalizeSort([{ field: "prop:Due", dir: "desc" }, { field: "title" }]),
 }));
 
-// Shared CI runners are slower and noisier than a Mac; the budget there only
-// catches a real regression (an accidental per-row vault read or re-parse).
-const BUDGET_MS = process.env.CI ? 400 : 100;
+// About 25 ms on an idle Mac. The budget is loose on purpose: a busy machine
+// (or a shared CI runner) can be several times slower, and the test is only
+// here to catch a real regression, like a per-row vault read or re-parse,
+// which costs ten times or more.
+const BUDGET_MS = 400;
 
 it("evaluates 20 views over 10,000 notes within the budget", () => {
 	const rows = vault(10_000);

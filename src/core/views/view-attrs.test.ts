@@ -19,6 +19,8 @@ describe("live view attrs", () => {
 			title: "",
 			rule: { match: "all", conditions: [] },
 			sort: [],
+			layout: "table",
+			group: null,
 			columns: ["title"],
 			limit: DEFAULT_LIMIT,
 			newer: false,

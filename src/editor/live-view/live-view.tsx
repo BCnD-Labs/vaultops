@@ -7,6 +7,7 @@ import {
 import { ArrowDown, ArrowUp } from "lucide-react";
 import {
 	createContext,
+	Fragment,
 	type RefObject,
 	useContext,
 	useMemo,
@@ -16,11 +17,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { useInViewport } from "@/components/ui/use-in-viewport";
 import type { ViewRow } from "../../app/view-rows";
+import { knownProps, viewChoices } from "../../core/views/edit";
 import { compileRule } from "../../core/views/match";
-import { sortRows } from "../../core/views/sort";
+import { groupRows, sortRows } from "../../core/views/sort";
 import {
+	BUILT_LAYOUTS,
 	DEFAULT_LIMIT as PAGE,
 	readViewSettings,
+	VIEW_VERSION,
 } from "../../core/views/view-attrs";
 import { Cell } from "../database/cells";
 import { jsonAttr } from "../database/database";
@@ -28,6 +32,7 @@ import { TYPE_ICONS } from "../database/icons";
 import { DEFAULT_WIDTH } from "../database/model";
 import { todayIso } from "../date-chip";
 import { cellOf, columnHeader } from "./columns";
+import { RuleEditor } from "./rule-editor";
 import "./live-view.css";
 
 export const LIVE_VIEW = "liveView";
@@ -51,7 +56,12 @@ const NO_STORE: LiveViewSource["rows"] = {
 };
 const noop = () => {};
 
-function LiveViewNode({ node, editor, getPos }: NodeViewProps) {
+function LiveViewNode({
+	node,
+	editor,
+	getPos,
+	updateAttributes,
+}: NodeViewProps) {
 	const source = useContext(LiveViewSource);
 	const store = source?.rows ?? NO_STORE;
 	const rows = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -60,17 +70,42 @@ function LiveViewNode({ node, editor, getPos }: NodeViewProps) {
 	const [more, setMore] = useState(0);
 	// A view scrolled out of sight does no work.
 	const { ref, visible } = useInViewport();
+	// What the menus offer, and which properties exist (a condition on any other matches nothing).
+	const choices = useMemo(
+		() => (visible && !settings.newer ? viewChoices(rows) : null),
+		[visible, settings.newer, rows],
+	);
 	const result = useMemo(() => {
-		if (!visible || settings.newer) return null;
+		if (!choices) return null;
 		const test = compileRule(settings.rule, {
 			today: todayIso(),
 			hostPath: hostPath ?? undefined,
 			linksOf: (id) => rows.find((row) => row.id === id)?.links,
+			knownProps: knownProps(choices),
 		});
 		const matched = rows.filter(test);
 		const shown = sortRows(matched, settings.sort, settings.limit + more);
-		return { total: matched.length, shown };
-	}, [visible, settings, rows, hostPath, more]);
+		return {
+			total: matched.length,
+			shown,
+			groups: settings.group ? groupRows(shown, settings.group) : null,
+		};
+	}, [choices, settings, rows, hostPath, more]);
+	// The stored conditions as written, so a half-finished one keeps its place.
+	const rawRule = useMemo(() => {
+		const stored = node.attrs.rule;
+		const conditions =
+			stored && Array.isArray(stored.conditions)
+				? stored.conditions.filter(
+						(c: unknown) => typeof c === "object" && c !== null,
+					)
+				: [];
+		return { match: settings.rule.match, conditions };
+	}, [node.attrs.rule, settings.rule.match]);
+	const change = (patch: Record<string, unknown>) => {
+		if (editor.isEditable)
+			updateAttributes({ v: node.attrs.v ?? VIEW_VERSION, ...patch });
+	};
 	const fields = settings.columns.slice(1);
 	const headers = settings.columns.map((field) =>
 		columnHeader(field, result?.shown ?? []),
@@ -113,7 +148,21 @@ function LiveViewNode({ node, editor, getPos }: NodeViewProps) {
 							{result.total === 1 ? "1 note" : `${result.total} notes`}
 						</span>
 					)}
+					{editor.isEditable && choices && (
+						<RuleEditor
+							rule={rawRule}
+							settings={settings}
+							choices={choices}
+							today={todayIso()}
+							onChange={change}
+						/>
+					)}
 				</div>
+				{!BUILT_LAYOUTS.includes(settings.layout) && (
+					<p className="lv-note">
+						The {settings.layout} layout isn't built yet; showing a table.
+					</p>
+				)}
 				{settings.newer ? (
 					<p className="db-empty-hint">
 						This view was made by a newer version of VaultOps.
@@ -162,38 +211,58 @@ function LiveViewNode({ node, editor, getPos }: NodeViewProps) {
 								</tr>
 							</thead>
 							<tbody>
-								{result?.shown.map((row) => (
-									<tr key={row.path} className="db-row" data-path={row.path}>
-										<td className="db-td" data-column-type="title">
-											<Button
-												type="button"
-												variant="link"
-												size="sm"
-												className="lv-title"
-												onClick={() => source?.open(row.path)}
+								{(
+									result?.groups ?? [
+										{ key: "", label: "", rows: result?.shown ?? [] },
+									]
+								).map((group) => (
+									<Fragment key={group.key ?? "none"}>
+										{result?.groups && (
+											<tr className="lv-group">
+												<th colSpan={headers.length} scope="colgroup">
+													{group.label}
+													<span>{group.rows.length}</span>
+												</th>
+											</tr>
+										)}
+										{group.rows.map((row) => (
+											<tr
+												key={row.path}
+												className="db-row"
+												data-path={row.path}
 											>
-												{row.title || "Untitled"}
-											</Button>
-										</td>
-										{fields.map((field) => {
-											const { column, cells } = cellOf(field, row);
-											return (
-												<td
-													key={field}
-													className="db-td"
-													data-column-type={column.type}
-												>
-													<Cell
-														column={column}
-														cells={cells}
-														editable={false}
-														onChange={noop}
-														onOptionChange={noop}
-													/>
+												<td className="db-td" data-column-type="title">
+													<Button
+														type="button"
+														variant="link"
+														size="sm"
+														className="lv-title"
+														onClick={() => source?.open(row.path)}
+													>
+														{row.title || "Untitled"}
+													</Button>
 												</td>
-											);
-										})}
-									</tr>
+												{fields.map((field) => {
+													const { column, cells } = cellOf(field, row);
+													return (
+														<td
+															key={field}
+															className="db-td"
+															data-column-type={column.type}
+														>
+															<Cell
+																column={column}
+																cells={cells}
+																editable={false}
+																onChange={noop}
+																onOptionChange={noop}
+															/>
+														</td>
+													);
+												})}
+											</tr>
+										))}
+									</Fragment>
 								))}
 							</tbody>
 						</table>

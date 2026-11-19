@@ -20,3 +20,111 @@
 .live-view .db-th-button {
 	cursor: default;
 }
+
+.live-view .lv-note {
+	margin: 0 var(--space-2);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+
+.live-view .lv-group th {
+	padding: var(--space-2) var(--space-2) var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+	text-align: left;
+}
+
+.live-view .lv-group th span {
+	margin-left: var(--space-2);
+	font-weight: 400;
+}
+
+/* Edit view panel (rendered in a portal, so not under .live-view) */
+.lv-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+	width: min(30rem, 92vw);
+	max-height: 70vh;
+	overflow-y: auto;
+	animation: lv-in 150ms ease-out;
+}
+
+@keyframes lv-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.lv-panel {
+		animation: none;
+	}
+}
+
+.lv-panel section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	align-items: flex-start;
+}
+
+.lv-panel h4 {
+	margin: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+}
+
+.lv-panel .lv-row,
+.lv-panel .lv-condition {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	align-items: center;
+	width: 100%;
+}
+
+.lv-panel .lv-select {
+	width: auto;
+	min-width: 7rem;
+}
+
+.lv-panel .lv-input {
+	width: 9rem;
+}
+
+.lv-panel .lv-pick {
+	max-width: 12rem;
+}
+
+.lv-panel .lv-pick-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.lv-pick-list {
+	width: 16rem;
+	padding: 0;
+}
+
+.lv-panel .lv-check {
+	display: flex;
+	gap: var(--space-1);
+	align-items: center;
+	font-size: var(--font-size-small);
+}
+
+.lv-panel .lv-warn {
+	color: var(--destructive);
+	font-size: var(--font-size-small);
+}
+
+.lv-panel .lv-columns {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-1) var(--space-3);
+	width: 100%;
+}

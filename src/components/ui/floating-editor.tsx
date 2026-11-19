@@ -5,6 +5,7 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	useEffect,
 	useEffectEvent,
+	useId,
 	useRef,
 	useState,
 } from "react";
@@ -44,6 +45,8 @@ function remembered(key: string, fallback: WindowRect): WindowRect {
 export function FloatingWindow({
 	anchor,
 	title,
+	description,
+	className,
 	open,
 	top,
 	editing,
@@ -59,6 +62,9 @@ export function FloatingWindow({
 	top?: boolean;
 	editing?: boolean;
 	title: string;
+	/** Read out with the title; not shown. */
+	description?: string;
+	className?: string;
 	open: boolean;
 	initial?: WindowRect;
 	kind?: string;
@@ -77,6 +83,7 @@ export function FloatingWindow({
 		resize: boolean;
 	} | null>(null);
 	const restore = useRef(false);
+	const descriptionId = useId();
 	const hovered = useRef(!focusRequest);
 	const [pinned, pin] = useState(false);
 	const key = kind && `vaultops.window.${kind}`;
@@ -202,11 +209,13 @@ export function FloatingWindow({
 					ref={panel}
 					role="dialog"
 					aria-label={title}
+					aria-describedby={description ? descriptionId : undefined}
 					inert={!open}
 					data-state={open ? "open" : "closed"}
 					className={cn(
 						"floating-window pointer-events-auto absolute flex flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground shadow-lg inert:pointer-events-none",
 						anchor && "floating-editor",
+						className,
 					)}
 					style={rect}
 					onPointerDownCapture={raise}
@@ -267,6 +276,11 @@ export function FloatingWindow({
 						)}
 						<CloseButton className="settings-close" onClick={close} />
 					</header>
+					{description && (
+						<p id={descriptionId} className="sr-only">
+							{description}
+						</p>
+					)}
 					{children}
 					{resizable && (
 						<div

@@ -28,14 +28,16 @@ it.each([
 	expect(bad).toEqual([]);
 });
 
-// One window for both managers, in one place.
-it("sizes both managers from the shared .manager-dialog rule only", () => {
-	const resources = read("src/app/resources.css");
-	const templates = read("src/app/templates.css");
+// The managers live in a resizable window, so their narrow layouts follow the
+// window's size (the .manager-content container), never the app's viewport.
+it("stacks the managers by the window's width, not the viewport's", () => {
 	expect(read("src/app/manager.css")).toMatch(
-		/\.manager-dialog\.manager-dialog\s*\{[^}]*width:/,
+		/\.manager-content\s*\{[^}]*container:\s*manager\s*\/\s*size;/,
 	);
-	for (const css of [resources, templates]) {
+	for (const file of ["src/app/resources.css", "src/app/templates.css"]) {
+		const css = read(file);
+		expect(css).toMatch(/@container manager \(max-width: 30rem\)/);
+		expect(css).not.toMatch(/@media[^{]*width/);
 		expect(css).not.toMatch(/\.(?:res|tpl)-manager\b/);
 	}
 });

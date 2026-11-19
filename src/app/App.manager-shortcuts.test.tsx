@@ -65,7 +65,8 @@ it("opens the managers from the keys the user chose", async () => {
 			screen.getByRole("dialog", { name: "Template manager" }),
 		).toBeTruthy(),
 	);
-	fireEvent.keyDown(document.body, { key: "Escape" });
+	// The window takes focus when it opens; Escape inside it closes it.
+	fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
 	await waitFor(() =>
 		expect(
 			screen.queryByRole("dialog", { name: "Template manager" }),

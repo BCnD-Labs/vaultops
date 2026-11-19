@@ -82,6 +82,7 @@ export function TemplateManager({
 	notes,
 	writable,
 	open,
+	focusRequest,
 	onClose,
 	onNewNoteFromTemplate,
 }: {
@@ -89,6 +90,8 @@ export function TemplateManager({
 	notes: NoteRow[];
 	writable: boolean;
 	open: boolean;
+	/** A new object brings the open window to the front and focuses it. */
+	focusRequest?: object;
 	onClose: () => void;
 	/** Makes a note from the saved template; the button is hidden without it. */
 	onNewNoteFromTemplate?: (entry: TemplateEntry) => void;
@@ -564,10 +567,11 @@ export function TemplateManager({
 			<ManagerDialog
 				open={open}
 				onRequestClose={() => guard(onClose)}
+				kind="template-manager"
+				focusRequest={focusRequest}
 				className="tpl-manager"
 				title="Template manager"
 				description="Add, edit, organise and preview templates for new content."
-				descriptionId="tpl-manager-about"
 			>
 				<div className="tpl-toolbar">
 					<Button

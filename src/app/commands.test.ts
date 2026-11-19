@@ -63,9 +63,12 @@ it("offers the template manager only when the app can open it, and opens it", ()
 	const c = { ...context(), onOpenTemplates };
 	expect(filterCommands("template", c).map((x) => x.id)).toEqual([
 		"open-templates",
+		"focus-templates",
 	]);
 	COMMANDS.find((x) => x.id === "open-templates")?.run(c);
-	expect(onOpenTemplates).toHaveBeenCalledTimes(1);
+	// Opening again brings an open window to the front.
+	COMMANDS.find((x) => x.id === "focus-templates")?.run(c);
+	expect(onOpenTemplates).toHaveBeenCalledTimes(2);
 });
 
 it("offers the resource manager only when the app can open it, and opens it", () => {
@@ -74,12 +77,14 @@ it("offers the resource manager only when the app can open it, and opens it", ()
 	const c = { ...context(), onOpenResources };
 	expect(filterCommands("resource", c).map((x) => x.id)).toEqual([
 		"open-resources",
+		"focus-resources",
 	]);
 	expect(filterCommands("contacts", c).map((x) => x.id)).toEqual([
 		"open-resources",
 	]);
 	COMMANDS.find((x) => x.id === "open-resources")?.run(c);
-	expect(onOpenResources).toHaveBeenCalledTimes(1);
+	COMMANDS.find((x) => x.id === "focus-resources")?.run(c);
+	expect(onOpenResources).toHaveBeenCalledTimes(2);
 });
 
 it.each([false, true])(

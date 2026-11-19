@@ -152,6 +152,13 @@ export const FEATURES: readonly Feature[] = [
 		defaultOn: true,
 	},
 	{
+		id: "highlights",
+		name: "Highlights tab",
+		description: "List highlights in the right sidebar.",
+		group: "Note tools",
+		defaultOn: true,
+	},
+	{
 		id: "tab-outline",
 		name: "Outline tab",
 		description: "The Outline tab in the right sidebar.",

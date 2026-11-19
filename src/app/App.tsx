@@ -1934,6 +1934,7 @@ export function App({ host }: { host: Host }) {
 									key={session?.opened?.path}
 									notes={view?.notes ?? []}
 									activeTag={selection.kind === "tag" ? selection.value : null}
+									highlights={session?.highlights}
 									outline={session?.outline ?? []}
 									linkedFrom={linkedFrom(
 										view?.notes ?? [],

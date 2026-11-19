@@ -520,3 +520,11 @@ Fixture: `test-fixtures/select-property.vnote` (round-trips byte for byte in
 - **Older build:** opens the note read-only (`checkBlocks`), so nothing is lost.
 
 Round-trip: `src/editor/doc-blocks.test.ts` (fixture block `frame`).
+
+### Highlight colours
+
+The existing inline `highlight` mark accepts an optional `attrs.color` of
+yellow, green, blue, pink, orange or purple. An absent colour displays yellow
+and stays absent on save. Unknown colours also display yellow and retain their stored value.
+- **Older build:** keeps `color` through its pass-through slot for future inline
+  attributes and shows the highlight yellow, so nothing is lost.

@@ -21,6 +21,7 @@ export interface MoveReceipt {
 	source: string;
 	destination: string;
 	copy?: boolean;
+	blockId?: string;
 	sourceBefore: string;
 	destinationBefore: string;
 	sourceAfter: string;
@@ -112,7 +113,7 @@ async function finishMove(
 	}
 }
 
-type ExpectedText = { source: string; destination: string };
+export type ExpectedText = { source: string; destination: string };
 
 /**
  * Copy a block (and its descendants) from `source` into `destination` with
@@ -270,6 +271,7 @@ async function moveNow(
 	return {
 		source,
 		destination,
+		blockId,
 		sourceBefore: sourceText,
 		destinationBefore: destinationText,
 		sourceAfter: sourceSave.text,

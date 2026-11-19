@@ -1,26 +1,39 @@
 import type { Host } from "../../host/host";
-import { linksIn } from "../links/links";
+import { LINK_NODE, type LinkRef, linksIn } from "../links/links";
 import {
 	type Block,
 	type JsonValue,
 	type Note,
 	parseNote,
 	prepareSave,
+	serializeNote,
 } from "../note-format";
 import { validDateKey } from "../planner/dates";
 import { dayOfLogPath, logPath, newLogNote } from "../planner/log";
-import { JOURNAL_FOLDER } from "../planner/task-note";
+import {
+	JOURNAL_FOLDER,
+	newTaskNote,
+	nextNumber,
+	PLANNER_FOLDER,
+	taskFromNote,
+} from "../planner/task-note";
 import { nameKey } from "../vault-path/vault-path";
 import { inOrder } from "./canvas-edit";
-import { reconcileProcessed } from "./inbox";
-import { type MoveReceipt, moveBlock, undoMove } from "./move-block";
-import { headerProps } from "./properties";
+import { moveOutOfInbox, reconcileProcessed } from "./inbox";
+import {
+	type ExpectedText,
+	type MoveReceipt,
+	moveBlock,
+	undoMove,
+} from "./move-block";
 import { createNote } from "./repository";
-import { tagsOf } from "./tags";
+import { scanVault } from "./scan";
 
 export interface DestinationRow {
 	path: string;
-	note: Note;
+	id?: string;
+	title: string;
+	tags: readonly string[];
 	readOnly?: boolean;
 }
 export type Suggestion =
@@ -63,25 +76,14 @@ export function suggestDestinations(
 		result.push({
 			kind: "note",
 			path: row.path,
-			title:
-				typeof row.note.header.title === "string" &&
-				row.note.header.title.trim()
-					? row.note.header.title
-					: row.path,
+			title: row.title.trim() ? row.title : row.path,
 		});
 	};
 	for (const link of linksIn([block]))
-		add(eligible.find((r) => r.note.header.noteId === link.target));
-	const tags = new Set(
-		tagsOf(headerProps(sourceNote.note.header)).map((t) => t.toLowerCase()),
-	);
+		add(eligible.find((r) => r.id === link.target));
+	const tags = new Set(sourceNote.tags.map((t) => t.toLowerCase()));
 	for (const row of eligible)
-		if (
-			tagsOf(headerProps(row.note.header)).some((t) =>
-				tags.has(t.toLowerCase()),
-			)
-		)
-			add(row);
+		if (row.tags.some((t) => tags.has(t.toLowerCase()))) add(row);
 	for (const path of recent)
 		add(eligible.find((r) => nameKey(r.path) === nameKey(path)));
 	if (
@@ -101,9 +103,18 @@ export async function sendToNote(
 	blockId: string,
 	day: string,
 	headingId?: string,
+	expected?: ExpectedText,
+	opts?: { link?: LinkRef },
 ): Promise<MoveReceipt> {
 	if (!validDateKey(day))
 		throw new Error("A valid processing date is required.");
+	// Only the destination is read: a note the app would open read-only
+	// (newer format, unreadable lines, block problems) is refused here, and
+	// moveBlock checks both files again. Duplicate ids are left out of the
+	// suggestions by the caller, which already has the vault's rows.
+	const target = parseNote(await host.readText(destination));
+	if (!target.note || target.problems.length || target.skippedLines.length)
+		throw new Error("The destination is read-only.");
 	if (headingId) {
 		const parsed = parseNote(await host.readText(destination));
 		if (
@@ -115,9 +126,17 @@ export async function sendToNote(
 		)
 			throw new Error("The destination heading was not found.");
 	}
-	const receipt = await moveBlock(host, source, destination, blockId, {
-		after: headingId ?? null,
-	});
+	const receipt = await moveBlock(
+		host,
+		source,
+		destination,
+		blockId,
+		{
+			after: headingId ?? null,
+		},
+		undefined,
+		expected,
+	);
 	if (headingId) {
 		const before = parseNote(receipt.destinationBefore);
 		if (
@@ -136,6 +155,16 @@ export async function sendToNote(
 			throw new Error("The destination heading changed; the move was undone.");
 		}
 	}
+	return finishSend(host, receipt, day, opts);
+}
+
+export async function finishSend(
+	host: Host,
+	receipt: MoveReceipt,
+	day: string,
+	opts?: { link?: LinkRef },
+): Promise<MoveReceipt> {
+	const { source } = receipt;
 	try {
 		return await inOrder(host, source, async () => {
 			if ((await host.readText(source)) !== receipt.sourceAfter)
@@ -143,7 +172,34 @@ export async function sendToNote(
 			const parsed = parseNote(receipt.sourceAfter);
 			if (!parsed.note || parsed.problems.length)
 				throw new Error("The source cannot be reconciled safely.");
-			const saved = prepareSave(reconcileProcessed(parsed.note, day));
+			let note = parsed.note;
+			if (opts?.link) {
+				const before = parseNote(receipt.sourceBefore).note;
+				if (!before) throw new Error("The original source could not be read.");
+				const index = before.blocks.findIndex((b) => b.id === receipt.blockId);
+				const original = before.blocks[index];
+				if (!original) throw new Error("Could not locate the moved block.");
+				const remaining = new Set(note.blocks.map((b) => b.id));
+				const next = before.blocks
+					.slice(index + 1)
+					.find((b) => remaining.has(b.id));
+				const id = crypto.randomUUID();
+				const blocks = [...note.blocks];
+				blocks.splice(
+					next ? blocks.findIndex((b) => b.id === next.id) : blocks.length,
+					0,
+					{
+						id,
+						type: "paragraph",
+						parent: remaining.has(original.parent ?? "")
+							? original.parent
+							: null,
+						content: [{ type: LINK_NODE, attrs: { ...opts.link } }],
+					},
+				);
+				note = moveOutOfInbox({ ...note, blocks }, id);
+			}
+			const saved = prepareSave(reconcileProcessed(note, day));
 			if (!saved.ok)
 				throw new Error("The processed state did not pass the save check.");
 			if (saved.text !== receipt.sourceAfter)
@@ -172,19 +228,25 @@ export async function sendToJournal(
 	blockId: string,
 	day: string,
 ): Promise<MoveReceipt> {
+	if (nameKey(logPath(day)) === nameKey(source))
+		throw new Error("Choose a different destination note.");
+	return sendToNote(host, source, await ensureJournal(host, day), blockId, day);
+}
+
+export async function ensureJournal(host: Host, day: string): Promise<string> {
 	if (!validDateKey(day)) throw new Error("A valid journal date is required.");
 	const path = logPath(day);
-	if (nameKey(path) === nameKey(source))
-		throw new Error("Choose a different destination note.");
-	if ((await host.kindOf(path)) === null) {
-		await host.makeFolder(JOURNAL_FOLDER);
-		const made = await createNote(host, JOURNAL_FOLDER, day, newLogNote(day));
-		if (dayOfLogPath(made.path) !== day)
-			throw new Error(
-				`The journal could not be created at ${path}; an empty note was created at ${made.path}.`,
-			);
-	}
-	return sendToNote(host, source, path, blockId, day);
+	return inOrder(host, path, async () => {
+		if ((await host.kindOf(path)) === null) {
+			await host.makeFolder(JOURNAL_FOLDER);
+			const made = await createNote(host, JOURNAL_FOLDER, day, newLogNote(day));
+			if (dayOfLogPath(made.path) !== day)
+				throw new Error(
+					`The journal could not be created at ${path}; an empty note was created at ${made.path}.`,
+				);
+		}
+		return path;
+	});
 }
 
 export async function sendToNewNote(
@@ -192,11 +254,44 @@ export async function sendToNewNote(
 	source: string,
 	blockId: string,
 	day: string,
-	folder = "",
+	folder: string | { link?: boolean } = "",
+	opts: { link?: boolean } = {},
 ): Promise<MoveReceipt> {
+	return sendToCreated(
+		host,
+		source,
+		blockId,
+		day,
+		typeof folder === "string" ? folder : "",
+		typeof folder === "string" ? opts : folder,
+	);
+}
+
+export function sendToNewTask(
+	host: Host,
+	source: string,
+	blockId: string,
+	day: string,
+	task: { due?: string } = {},
+) {
+	return inOrder(host, PLANNER_FOLDER, () =>
+		sendToCreated(host, source, blockId, day, PLANNER_FOLDER, {}, task),
+	);
+}
+
+async function sendToCreated(
+	host: Host,
+	source: string,
+	blockId: string,
+	day: string,
+	folder: string,
+	opts: { link?: boolean },
+	task?: { due?: string },
+) {
 	if (!validDateKey(day))
 		throw new Error("A valid processing date is required.");
-	const parsed = parseNote(await host.readText(source));
+	const sourceText = await host.readText(source);
+	const parsed = parseNote(sourceText);
 	const block = parsed.note?.blocks.find((b) => b.id === blockId);
 	if (!parsed.note || parsed.problems.length || !block)
 		throw new Error("The source block cannot be read safely.");
@@ -217,9 +312,39 @@ export async function sendToNewNote(
 		return plain(value.content);
 	};
 	const title = plain(block.content).split(/\r?\n/)[0]?.trim() || "Untitled";
-	const made = await createNote(host, folder, title, { blocks: [] });
+	let initial: Partial<Note> = {};
+	if (task) {
+		await host.makeFolder(folder);
+		const { notes } = await scanVault(host);
+		const tasks = notes.flatMap(
+			(row) => taskFromNote(row.path, row.note) ?? [],
+		);
+		initial = newTaskNote({
+			title,
+			number: nextNumber(tasks),
+			now: new Date(),
+			due: task.due,
+		});
+	}
+	const made = await createNote(host, folder, title, {
+		...initial,
+		blocks: [],
+	});
 	try {
-		return await sendToNote(host, source, made.path, blockId, day);
+		return await sendToNote(
+			host,
+			source,
+			made.path,
+			blockId,
+			day,
+			undefined,
+			{ source: sourceText, destination: serializeNote(made.note) },
+			{
+				link: opts.link
+					? { kind: "note", target: made.note.header.noteId, label: title }
+					: undefined,
+			},
+		);
 	} catch (error) {
 		throw new Error(
 			`The send could not be completed. Check the source and the new note at ${made.path}.`,

@@ -7,6 +7,7 @@ import {
 	isInboxEmpty,
 	isInboxHeading,
 	markProcessed,
+	moveOutOfInbox,
 	notesToProcess,
 	processedDay,
 	reconcileProcessed,
@@ -368,4 +369,18 @@ describe("notesToProcess", () => {
 		};
 		expect(notesToProcess([canvas])).toEqual([]);
 	});
+});
+
+it("keeps the moved item's descendants together after the following heading", () => {
+	const original = note([
+		h("i", "Inbox"),
+		{ ...p("t"), type: "toggle" },
+		p("child", "text", "t"),
+		h("n", "Notes"),
+		p("end"),
+	]);
+	const moved = moveOutOfInbox(original, "t");
+	expect(ids(moved.blocks)).toEqual(["i", "n", "t", "child", "end"]);
+	expect(moved.blocks[3]?.parent).toBe("t");
+	expect(isInboxEmpty(moved)).toBe(true);
 });

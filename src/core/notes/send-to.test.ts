@@ -1,12 +1,14 @@
 import { expect, it, vi } from "vitest";
 import { MemoryHost } from "../../host/memory-host";
 import { type Note, parseNote, serializeNote } from "../note-format";
-import { processedDay } from "./inbox";
+import { taskFromNote } from "../planner/task-note";
+import { isInboxEmpty, processedDay } from "./inbox";
 import { undoMove } from "./move-block";
 import {
 	rememberDestination,
 	sendToJournal,
 	sendToNewNote,
+	sendToNewTask,
 	sendToNote,
 	suggestDestinations,
 	turnIntoFlashcard,
@@ -48,13 +50,9 @@ const setup = async () => {
 it("ranks links, shared tags and recent paths, deduplicates, and keeps defaults", () => {
 	const row = (id: string, tags: string[] = []) => ({
 		path: `${id}.vnote`,
-		note: {
-			...note(id),
-			header: {
-				...note(id).header,
-				props: { tags: { type: "list", value: tags } },
-			},
-		},
+		id,
+		title: id,
+		tags,
 	});
 	const source = row("source", ["Work"]);
 	const linked = row("linked"),
@@ -159,4 +157,51 @@ it("rolls back both notes when the source or reconciliation write fails", async 
 it("sets the flashcard role without changing the original", () => {
 	expect(turnIntoFlashcard(block).attrs).toEqual({ role: "flashcard" });
 	expect(block).not.toHaveProperty("attrs");
+});
+
+it("creates a planner task with the block as its description", async () => {
+	const host = await setup();
+	const r = await sendToNewTask(host, "source.vnote", "b", day, { due: day });
+	expect(r.destination).toBe("Planner/An idea.vnote");
+	const task = parseNote(await host.readText(r.destination)).note!;
+	expect(taskFromNote(r.destination, task)).toMatchObject({
+		title: "An idea",
+		due: day,
+		number: 1,
+	});
+	expect(task.blocks).toEqual([block]);
+	expect(processedDay(parseNote(r.sourceAfter).note!)).toBe(day);
+});
+
+it("leaves a link outside the trailing inbox and undoes both writes exactly", async () => {
+	const host = await setup();
+	const before = await host.readText("source.vnote");
+	const r = await sendToNewNote(host, "source.vnote", "b", day, { link: true });
+	const source = parseNote(await host.readText(r.source)).note!;
+	expect(isInboxEmpty(source)).toBe(true);
+	expect(source.blocks.at(-1)?.content).toEqual([
+		{
+			type: "noteLink",
+			attrs: {
+				kind: "note",
+				target: parseNote(r.destinationAfter).note?.header.noteId,
+				label: "An idea",
+			},
+		},
+	]);
+	await undoMove(host, r);
+	expect(await host.readText(r.source)).toBe(before);
+	expect(await host.readText(r.destination)).toBe(r.destinationBefore);
+});
+
+it("refuses a destination the app would open read-only and changes nothing", async () => {
+	const host = await setup();
+	const target = `${await host.readText("target.vnote")}not a block line\n`;
+	await host.writeTextAtomic("target.vnote", target);
+	const source = await host.readText("source.vnote");
+	await expect(
+		sendToNote(host, "source.vnote", "target.vnote", "b", day),
+	).rejects.toThrow("read-only");
+	expect(await host.readText("source.vnote")).toBe(source);
+	expect(await host.readText("target.vnote")).toBe(target);
 });

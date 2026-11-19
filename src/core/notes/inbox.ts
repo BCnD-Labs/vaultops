@@ -168,6 +168,65 @@ export function inboxBlocks(note: Note): Block[] {
 	return out;
 }
 
+/** Keep a section item and its subtree together under the next ordinary heading. */
+export function moveOutOfInbox(note: Note, blockId: string): Note {
+	const byId = new Map(note.blocks.map((b) => [b.id, b]));
+	const ancestors = new Set<string>();
+	let id: string | null = blockId;
+	while (id && !ancestors.has(id)) {
+		ancestors.add(id);
+		id = byId.get(id)?.parent ?? null;
+	}
+	const section = findInboxSections(note).find((s) =>
+		s.blocks.some((b) => b.id && ancestors.has(b.id)),
+	);
+	if (!section) return note;
+	const moving = new Set([blockId]);
+	for (const b of note.blocks) {
+		if (b.parent && moving.has(b.parent) && b.id) moving.add(b.id);
+	}
+	const kept = note.blocks.filter((b) => !moving.has(b.id ?? ""));
+	const moved = note.blocks.filter((b) => moving.has(b.id ?? ""));
+	const parent = section.heading.parent;
+	const siblings = kept.filter((b) => b.parent === parent);
+	const following = siblings.slice(siblings.indexOf(section.heading) + 1);
+	const boundary = following.find(
+		(b) => b.type === "heading" && levelOf(b) <= section.level,
+	);
+	let at: number;
+	if (boundary && !isInboxHeading(boundary)) {
+		at = kept.indexOf(boundary) + 1;
+	} else {
+		// An inbox extending to the end needs an explicit heading to close it.
+		const last = siblings.at(-1) ?? section.heading;
+		at = boundary ? kept.indexOf(boundary) : kept.indexOf(last) + 1;
+		if (!boundary) {
+			const descendants = new Set([last.id]);
+			while (
+				at < kept.length &&
+				kept[at]?.parent &&
+				descendants.has(kept[at]?.parent ?? "")
+			) {
+				descendants.add(kept[at]?.id);
+				at++;
+			}
+		}
+		kept.splice(at++, 0, {
+			id: crypto.randomUUID(),
+			type: "heading",
+			parent,
+			attrs: { level: section.level },
+			content: [{ type: "text", text: "Processed" }],
+		});
+	}
+	kept.splice(
+		at,
+		0,
+		...moved.map((b) => (b.id === blockId ? { ...b, parent } : b)),
+	);
+	return { ...note, blocks: kept };
+}
+
 /** True when the note has no inbox content (also when it has no inbox at all). */
 export function isInboxEmpty(note: Note): boolean {
 	return inboxBlocks(note).length === 0;

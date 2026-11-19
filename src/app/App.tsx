@@ -1,7 +1,9 @@
+import type { Editor } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { LinkRef } from "../core/links/links";
+import type { Block } from "../core/note-format";
 import { NOTE_FORMAT, NOTE_FORMAT_VERSION } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import type { CanvasTemplate } from "../core/notes/canvas-templates";
@@ -13,10 +15,12 @@ import {
 	renameFolder,
 	within,
 } from "../core/notes/folders";
+import { outlineOf } from "../core/notes/outline";
 import { prunePins, savePin } from "../core/notes/pins";
 import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
 import { createNote, loadNote } from "../core/notes/repository";
 import { noteTitleFor, syncRowTitles } from "../core/notes/row-notes";
+import { rememberDestination } from "../core/notes/send-to";
 import {
 	planTagRename,
 	renameTagInProps,
@@ -33,6 +37,7 @@ import {
 	trashNote,
 } from "../core/notes/trash";
 import { buildTree } from "../core/notes/tree";
+import { keyOfDate } from "../core/planner/dates";
 import {
 	listCards,
 	loadTypes,
@@ -45,8 +50,9 @@ import { NEW_TAB, type PaneId } from "../core/workspace";
 import { DebugPanel } from "../debug/DebugPanel";
 import { getLogger } from "../debug/index";
 import { MaintainerPanel } from "../debug/MaintainerPanel";
-import { checkBlocks } from "../editor/doc-blocks";
+import { blocksToDoc, checkBlocks } from "../editor/doc-blocks";
 import { type TemplateCursor, templateCaret } from "../editor/insert-blocks";
+import { selectedSendBlock } from "../editor/NoteEditor";
 import type { RowNoteActions } from "../editor/note-link";
 import { createQuitGuard } from "../editor/quit";
 import { saveAsCopy } from "../editor/save-draft";
@@ -85,6 +91,7 @@ import { PlannerProvider } from "./planner/PlannerContext";
 import { ResourceManager } from "./ResourceManager";
 import { createRowNote } from "./row-note";
 import { ScreenPane } from "./ScreenPane";
+import { SendToBlock, SendToDialog } from "./SendToDialog";
 import { SettingsDialog } from "./SettingsScreen";
 import { Sidebar } from "./Sidebar";
 import {
@@ -397,6 +404,50 @@ export function App({ host }: { host: Host }) {
 	const focusedPane = ws.panes[ws.focused] ?? left;
 	// The focused pane's note, for the tools, status bar and breadcrumb.
 	const session = ws.focusedSession;
+	const [sendRequest, setSendRequest] = useState<{
+		noteId: string;
+		block: Block;
+		generation: number;
+	}>();
+	const sendEnabled = writable && features.isEnabled("send-to");
+	const openSend = (noteId: string, block: Block) =>
+		setSendRequest({ noteId, block, generation: vaultGeneration });
+	const caretSend = (origin: EventTarget | null) => {
+		if (!sendEnabled || !(origin instanceof Element)) return;
+		const field = origin.closest<HTMLElement & { editor?: Editor }>(".tiptap");
+		const editor = field?.editor;
+		const noteId =
+			field?.closest<HTMLElement>("[data-undo-note]")?.dataset.undoNote;
+		const block =
+			editor?.isEditable && !editor.isDestroyed
+				? selectedSendBlock(editor)
+				: undefined;
+		if (noteId && block?.id && block.type !== "listItem")
+			return () => openSend(noteId, block);
+	};
+	const caretSendRef = useRef(caretSend);
+	caretSendRef.current = caretSend;
+	const sendSource =
+		sendEnabled && sendRequest?.generation === vaultGeneration
+			? view?.notes.find(
+					(row) => row.id === sendRequest.noteId && !row.readOnly,
+				)
+			: undefined;
+	const recentKey = `vaultops.send-to.${vaultName}`;
+	const today = keyOfDate(new Date());
+	let recent: string[] = [];
+	if (sendSource) {
+		try {
+			const saved: unknown = JSON.parse(
+				localStorage.getItem(recentKey) ?? "[]",
+			);
+			if (Array.isArray(saved))
+				recent = saved.filter((path) => typeof path === "string");
+		} catch {
+			/* Storage is optional. */
+		}
+	}
+
 	const anyShown = [left, right].some(
 		(pane) => pane && (pane.kind === "note" || pane.kind === "canvas"),
 	);
@@ -505,6 +556,14 @@ export function App({ host }: { host: Host }) {
 
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
+			if (commandMatches(event, "send-block")) {
+				const run = caretSendRef.current(event.target);
+				if (run) {
+					event.preventDefault();
+					run();
+					return;
+				}
+			}
 			if (commandMatches(event, "debug")) {
 				event.preventDefault();
 				if (maintainerRef.current) setShowDebug((v) => !v);
@@ -1677,7 +1736,56 @@ export function App({ host }: { host: Host }) {
 		? (view?.notes.find((n) => n.path === focusedCanvas)?.title ?? null)
 		: (session?.title ?? null);
 
-	return (
+	const sendDialog = sendRequest && sendSource && view && (
+		<SendToDialog
+			block={sendRequest.block}
+			source={sendSource}
+			notes={view.notes}
+			recent={recent}
+			today={today}
+			close={() => setSendRequest(undefined)}
+			headings={async (path) => {
+				const entry = ws.documents?.subscribePassive({ path }, () => {});
+				try {
+					const doc = await entry?.ready;
+					return outlineOf(
+						blocksToDoc(
+							(doc?.draft ?? doc?.base)?.blocks.filter(
+								(b) => b.type === "heading" && b.parent === null,
+							) ?? [],
+						),
+					);
+				} finally {
+					entry?.unsubscribe();
+				}
+			}}
+			send={async (destination) => {
+				setSendRequest(undefined);
+				const result = await ws.sendBlock(
+					sendRequest.noteId,
+					sendRequest.block.id ?? "",
+					destination,
+					today,
+					async () => refreshVault(),
+				);
+				if (!result.ok) return setError(result.message);
+				announceMove(result);
+				if (result.moved) {
+					try {
+						localStorage.setItem(
+							recentKey,
+							JSON.stringify(
+								rememberDestination(recent, result.moved.destination),
+							),
+						);
+					} catch {
+						/* Storage is optional. */
+					}
+				}
+			}}
+		/>
+	);
+	const app = (
 		<TooltipProvider>
 			<div className="app">
 				{showDebug && (
@@ -1776,6 +1884,7 @@ export function App({ host }: { host: Host }) {
 									? treeActions.pinAction?.(shownPath)
 									: undefined
 							}
+							getSendBlock={caretSend}
 							onMoveNote={
 								screen === "note" &&
 								focusedPane.kind === "note" &&
@@ -2070,5 +2179,11 @@ export function App({ host }: { host: Host }) {
 				</AppearanceProvider>
 			</div>
 		</TooltipProvider>
+	);
+	return (
+		<SendToBlock.Provider value={sendEnabled ? openSend : null}>
+			{app}
+			{sendDialog}
+		</SendToBlock.Provider>
 	);
 }

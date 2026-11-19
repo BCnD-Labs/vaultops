@@ -23,11 +23,12 @@ let dragNoteId = "";
 let dragCanvasId = "";
 let realEditor = false;
 
-const { NoteEditor: ActualEditor } = await vi.importActual<
+const { NoteEditor: ActualEditor, selectedSendBlock } = await vi.importActual<
 	typeof import("../editor/NoteEditor")
 >("../editor/NoteEditor");
 
 vi.mock("../editor/NoteEditor", () => ({
+	selectedSendBlock: (editor: Editor) => selectedSendBlock(editor),
 	NoteEditor: ({
 		doc,
 		onChange,
@@ -626,5 +627,32 @@ it("sends a card to any other canvas, open or not, from its Move to… menu", as
 		expect(parseNote(await host.readText(canvas.path)).note?.blocks).toEqual(
 			[],
 		),
+	);
+});
+
+it("sends the list at the caret from the shortcut and announces an undoable move", async () => {
+	realEditor = true;
+	const { host, note, canvas } = await setup();
+	await openEditorAndCanvas(host);
+	const field = document.querySelector<HTMLElement & { editor: Editor }>(
+		".tiptap",
+	)!;
+	field.editor.commands.focus("start");
+	fireEvent.keyDown(field, {
+		key: "S",
+		shiftKey: true,
+		...(/Mac|iP(hone|[oa]d)/.test(navigator.platform)
+			? { metaKey: true }
+			: { ctrlKey: true }),
+	});
+	const dialog = await screen.findByRole("dialog", { name: "Send block to…" });
+	fireEvent.click(within(dialog).getByRole("option", { name: "Board" }));
+	expect((await moveNotice()).textContent).toContain('"Board"');
+	expect(
+		parseNote(await host.readText(canvas.path)).note?.blocks.map((b) => b.id),
+	).toEqual(["block", "item", "child"]);
+	cmdZ(document.body);
+	await waitFor(async () =>
+		expect(await host.readText(note.path)).toContain("Move me"),
 	);
 });

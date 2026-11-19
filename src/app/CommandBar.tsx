@@ -73,6 +73,7 @@ export function CommandBar({
 	onNewCanvasFromTemplate,
 	onOpenResources,
 	pinAction,
+	getSendBlock,
 	onMoveNote,
 	resources = [],
 	resourceTypes = [],
@@ -92,6 +93,7 @@ export function CommandBar({
 	onNewCanvasFromTemplate?: () => void;
 	onOpenResources?: () => void;
 	pinAction?: import("./commands").CommandContext["pinAction"];
+	getSendBlock?: (origin: Element | null) => (() => void) | undefined;
 	onMoveNote?: () => void;
 	/** Cards are found by name and by what is on them, like notes are by title. */
 	resources?: ResourceCard[];
@@ -196,6 +198,7 @@ export function CommandBar({
 		onNewCanvasFromTemplate,
 		onOpenResources,
 		pinAction,
+		onSendBlock: open ? getSendBlock?.(returnFocus.current) : undefined,
 		onMoveNote,
 	};
 	return (

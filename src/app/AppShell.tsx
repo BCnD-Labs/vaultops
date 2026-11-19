@@ -68,6 +68,7 @@ export function AppShell({
 	onForward = () => {},
 	onToggleReading,
 	pinAction,
+	getSendBlock,
 	onMoveNote,
 	onOpenTemplates,
 	onNewCanvasFromTemplate,
@@ -99,6 +100,7 @@ export function AppShell({
 	reading?: boolean;
 	onToggleReading?: () => void;
 	pinAction?: import("./commands").CommandContext["pinAction"];
+	getSendBlock?: (origin: Element | null) => (() => void) | undefined;
 	onMoveNote?: () => void;
 	/** Opens the template manager (the command bar offers it when this is set). */
 	onOpenTemplates?: () => void;
@@ -272,6 +274,7 @@ export function AppShell({
 								onToggle={toggle}
 								onToggleReading={onToggleReading}
 								pinAction={pinAction}
+								getSendBlock={getSendBlock}
 								onMoveNote={onMoveNote}
 								onOpenTemplates={onOpenTemplates}
 								onNewCanvasFromTemplate={onNewCanvasFromTemplate}

@@ -4,6 +4,7 @@ import {
 	type DragEvent,
 	Fragment,
 	type ReactNode,
+	useContext,
 	useEffect,
 	useRef,
 	useState,
@@ -24,6 +25,7 @@ import {
 } from "../editor/block-drag";
 import { quoteColorOf } from "../editor/blockquote";
 import { calloutColorOf, calloutIconOf, toneOf } from "../editor/callout";
+import { CanvasFrameView } from "../editor/canvas-frame";
 import { clipLines, isHighlighted, parseLines } from "../editor/code-highlight";
 import { codeLines, lineDigits, wrapOf } from "../editor/code-language";
 import { abandonLift, liftBlock } from "../editor/lift";
@@ -99,18 +101,35 @@ function codeText(value: JsonValue | undefined): string {
 		.join("");
 }
 
+type FrameRenderer = React.ContextType<typeof CanvasFrameView>;
+
 function renderBlock(
 	block: Block,
 	children: Map<string, Block[]>,
 	noteLinks?: boolean,
+	frameView?: FrameRenderer,
 ): ReactNode {
 	const nested = (children.get(block.id ?? "") ?? []).map((child) => (
 		<Fragment key={child.id}>
-			{renderBlock(child, children, noteLinks)}
+			{renderBlock(child, children, noteLinks, frameView)}
 		</Fragment>
 	));
 	const content = inline(block.content, noteLinks);
 	switch (block.type) {
+		case "canvasFrame": {
+			const attrs = block.attrs;
+			if (
+				attrs &&
+				typeof attrs === "object" &&
+				!Array.isArray(attrs) &&
+				typeof attrs.canvasId === "string" &&
+				typeof attrs.groupId === "string"
+			)
+				return (
+					frameView?.(attrs.canvasId, attrs.groupId) ?? "Frame unavailable"
+				);
+			return "Frame unavailable";
+		}
 		case "heading":
 			return <strong className="canvas-heading">{content}</strong>;
 		case "bulletList":
@@ -332,13 +351,14 @@ export function NoteBlocks({
 	noteLinks?: boolean;
 }) {
 	const children = childrenOf(blocks);
+	const frameView = useContext(CanvasFrameView);
 	return (
 		<>
 			{blocks
 				.filter((block) => block.parent === null)
 				.map((block, index) => (
 					<Fragment key={block.id ?? index}>
-						{renderBlock(block, children, noteLinks)}
+						{renderBlock(block, children, noteLinks, frameView)}
 					</Fragment>
 				))}
 		</>

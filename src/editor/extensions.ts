@@ -14,6 +14,7 @@ import { BlockRole } from "./block-role";
 import { QuoteColor } from "./blockquote";
 import { BLOCK_TYPES } from "./blocks";
 import { Callout } from "./callout";
+import { CanvasFrame } from "./canvas-frame";
 import { ChartBlock } from "./chart-block";
 import { CodeBlock, CodeLanguage } from "./code-language";
 import { Column, Columns, Document, PageDocument } from "./columns";
@@ -100,6 +101,7 @@ export function createExtensions(): Extensions {
 		Divider,
 		MathBlock,
 		ImageBlock,
+		CanvasFrame,
 		Callout,
 		Toggle,
 		Document,

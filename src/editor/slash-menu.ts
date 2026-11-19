@@ -262,6 +262,7 @@ export const SlashMenu = Extension.create({
 							columns: canInsertColumns(editor),
 							// Only a note's own editor can open the picker.
 							templates: editor.view.dom.dataset.templates === "on",
+							frames: editor.view.dom.dataset.frames === "on",
 							// Links need the app to say what there is to link to.
 							links: editor.storage.noteLink?.source != null,
 							// Read now, not at startup, so a switch flipped in Settings applies.

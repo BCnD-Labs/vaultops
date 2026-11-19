@@ -18,6 +18,7 @@ export const BLOCK_TYPES = [
 	"divider",
 	"mathBlock",
 	"image",
+	"canvasFrame",
 	"toggle",
 	"columns",
 	"column",

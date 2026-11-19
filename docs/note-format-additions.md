@@ -450,3 +450,15 @@ Fixture: `test-fixtures/select-property.vnote` (round-trips byte for byte in
   `file` icon ids still resolve.
 - **Older build:** ignores `parts`. We still write `tone` and `mode` when one tone
   covers the parts, so those rows look the same there.
+
+## `canvasFrame`: a canvas frame shown live in a note
+
+- **Shape:** `{"id":"…","type":"canvasFrame","parent":null,"attrs":{"canvasId":"<canvas noteId>","groupId":"<frame block id>"}}`.
+  Only a pointer is stored, never a copy of the frame's items. Text edited in
+  the note is saved to the canvas file through the shared canvas copy; the note
+  itself is not rewritten.
+- **Missing target:** a canvas that was deleted, or a frame removed from it,
+  shows "Frame unavailable" and the block is kept as it is.
+- **Older build:** opens the note read-only (`checkBlocks`), so nothing is lost.
+
+Round-trip: `src/editor/doc-blocks.test.ts` (fixture block `frame`).

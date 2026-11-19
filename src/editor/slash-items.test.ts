@@ -50,6 +50,7 @@ describe("slash menu items", () => {
 			"columns-3",
 			"link",
 			"mention",
+			"frame",
 			"template",
 		]);
 		expect(ids("Plan")).toEqual(["task", "table", "database", "date", "toc"]);
@@ -63,7 +64,7 @@ describe("slash menu items", () => {
 			"chart",
 		]);
 		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
-		expect(SLASH_ITEMS).toHaveLength(45);
+		expect(SLASH_ITEMS).toHaveLength(46);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {
@@ -249,6 +250,7 @@ describe("slash menu items", () => {
 		]);
 		expect(tagged).toEqual([
 			["math", "math"],
+			["frame", "canvas"],
 			["template", "templates"],
 			["database", "database-blocks"],
 			...SLASH_ITEMS.filter((i) => i.section === "Visual").map((i) => [
@@ -292,4 +294,14 @@ describe("slash menu items", () => {
 
 it("keeps Table ahead of Table of contents for a short prefix", () => {
 	expect(filterSlashItems("tab")[0]?.id).toBe("table");
+});
+
+it("offers Frame only when the surface and Canvas feature allow it", () => {
+	const frames = (where: Parameters<typeof filterSlashItems>[1]) =>
+		filterSlashItems("frame", where).some((item) => item.id === "frame");
+	expect(frames({ columns: true, frames: true })).toBe(true);
+	expect(frames({ columns: true, frames: false })).toBe(false);
+	expect(frames({ columns: true, enabled: (id) => id !== "canvas" })).toBe(
+		false,
+	);
 });

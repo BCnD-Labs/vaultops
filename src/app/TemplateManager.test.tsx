@@ -12,6 +12,7 @@ import type { Editor } from "@tiptap/core";
 import { afterEach, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Note } from "../core/note-format";
+import { loadTemplateRules } from "../core/notes/template-rules";
 import {
 	listTemplates,
 	saveTemplate,
@@ -75,6 +76,7 @@ async function setup(
 			<TemplateManager
 				host={host}
 				notes={rows}
+				folders={["Meetings"]}
 				writable={writable}
 				open
 				onClose={onClose}
@@ -379,6 +381,7 @@ it("shows Loading templates… until the list arrives", async () => {
 			<TemplateManager
 				host={host}
 				notes={rows}
+				folders={["Meetings"]}
 				writable
 				open
 				onClose={() => {}}
@@ -673,4 +676,61 @@ it("makes the row menu trigger a ghost icon Button that stays out of the Tab ord
 	expect(more.getAttribute("data-slot")).toBe("button");
 	expect(more.getAttribute("data-variant")).toBe("ghost");
 	expect(more.tabIndex).toBe(-1);
+});
+
+it("assigns the selected template to a folder, toggles inheritance, and removes the rule", async () => {
+	const u = user();
+	const { host } = await setup(seedMeeting);
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
+	await u.click(screen.getByText("Folder rules · None"));
+	await u.click(screen.getByRole("button", { name: "Add rule" }));
+	await u.click(await screen.findByRole("option", { name: "Meetings" }));
+	const inherit = await screen.findByRole("checkbox", {
+		name: "Include subfolders",
+	});
+	expect(await loadTemplateRules(host)).toEqual([
+		{
+			folder: "Meetings",
+			template: `${TEMPLATES}/Standup.vnote`,
+			subfolders: true,
+		},
+	]);
+	await u.click(inherit);
+	await waitFor(async () =>
+		expect((await loadTemplateRules(host))[0]?.subfolders).toBe(false),
+	);
+	await u.click(
+		screen.getByRole("button", { name: "Remove rule for Meetings" }),
+	);
+	await waitFor(async () => expect(await loadTemplateRules(host)).toEqual([]));
+});
+
+it("inserts a prompt at the caret and previews a sample answer in the body and title", async () => {
+	const u = user();
+	const { host } = await setup(seedMeeting);
+	await u.click(await screen.findByRole("treeitem", { name: "Standup" }));
+	act(() => {
+		editorOf().commands.setTextSelection(1);
+	});
+	await u.click(screen.getByRole("button", { name: "Insert {{…}}" }));
+	await u.click(
+		await screen.findByRole("menuitem", { name: "{{prompt:Name|text}}" }),
+	);
+	expect(editorOf().getText()).toBe("{{prompt:Name|text}}Daily");
+	await u.click(screen.getByText("Title pattern & properties"));
+	await u.click(screen.getByRole("textbox", { name: "Title pattern" }));
+	await u.paste("{{prompt:Name}} notes");
+	await u.click(screen.getByRole("button", { name: "Preview template" }));
+	await u.type(screen.getByRole("textbox", { name: "Name" }), "Ada");
+	const preview = screen.getByRole("region", { name: "Template preview" });
+	expect(preview.textContent).toContain("Ada notes");
+	expect(preview.textContent).toContain("AdaDaily");
+	await u.click(screen.getByRole("button", { name: "Save" }));
+	await waitFor(async () =>
+		expect(
+			(await listTemplates(host)).templates.find(
+				(entry) => entry.name === "Standup",
+			)?.note?.header.titleTemplate,
+		).toBe("{{prompt:Name}} notes"),
+	);
 });

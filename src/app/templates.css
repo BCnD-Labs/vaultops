@@ -231,3 +231,27 @@
 		transform: translateY(0);
 	}
 }
+
+.tpl-side {
+	overflow-y: auto;
+}
+.tpl-disclosure {
+	flex: none;
+	overflow-wrap: anywhere;
+}
+.tpl-disclosure summary {
+	cursor: pointer;
+	color: var(--muted-foreground);
+	padding-block: var(--space-1);
+}
+.tpl-rule {
+	display: grid;
+	justify-items: start;
+	gap: var(--space-1);
+	margin-block: var(--space-2);
+}
+@container manager (max-width: 30rem) {
+	.tpl-context-pick {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

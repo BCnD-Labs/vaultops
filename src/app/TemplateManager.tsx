@@ -1,4 +1,4 @@
-import type { JSONContent } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
 import {
 	ChevronDown,
 	ChevronRight,
@@ -9,8 +9,9 @@ import {
 	Plus,
 	RefreshCw,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -25,11 +26,27 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { NOTE_FORMAT, NOTE_FORMAT_VERSION } from "../core/note-format";
 import {
-	blocksFromTemplate,
+	NOTE_FORMAT,
+	NOTE_FORMAT_VERSION,
+	type Note,
+} from "../core/note-format";
+import {
+	headerProps,
+	type PropertyValue,
+	type Props,
+	withProps,
+} from "../core/notes/properties";
+import {
+	type FolderTemplateRule,
+	loadTemplateRules,
+	saveTemplateRules,
+} from "../core/notes/template-rules";
+import {
 	createTemplateFolder,
 	duplicateTemplate,
+	extractPrompts,
+	fillTemplate,
 	listTemplates,
 	removeTemplateEntry,
 	renameTemplateEntry,
@@ -38,11 +55,15 @@ import {
 	type TemplateList,
 	updateTemplate,
 } from "../core/notes/templates";
+import { nameKey } from "../core/vault-path/vault-path";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import { NoteEditor } from "../editor/NoteEditor";
 import type { Host } from "../host/host";
 import { notify } from "../ui/notify";
+import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
 import { ManagerDialog, messageOf, useDiscardGuard } from "./ManagerDialog";
+import { PropertiesBlock } from "./PropertiesBlock";
+import { Control } from "./PropertiesPanel";
 import type { NoteRow } from "./session";
 import { templateFormats, templateWeekStart } from "./settings";
 import { ConfirmDialog, NameDialog } from "./TemplateDialogs";
@@ -52,6 +73,18 @@ import "./templates.css";
 
 /** Radix Select items cannot have an empty value, so "no context note" gets a stand-in. */
 const UNTITLED = "__untitled__";
+
+const placeholders = [
+	"title",
+	"date",
+	"date:next Monday",
+	"time",
+	"prompt:Name|text",
+	"cursor",
+	"selection",
+];
+
+type Answers = Record<string, PropertyValue>;
 
 type Prompt =
 	| { kind: "new-template"; folder: string }
@@ -80,6 +113,7 @@ const parentOf = (label: string) =>
 export function TemplateManager({
 	host,
 	notes,
+	folders = [],
 	writable,
 	open,
 	focusRequest,
@@ -88,6 +122,7 @@ export function TemplateManager({
 }: {
 	host: Host;
 	notes: NoteRow[];
+	folders?: readonly string[];
 	writable: boolean;
 	open: boolean;
 	/** A new object brings the open window to the front and focuses it. */
@@ -114,12 +149,55 @@ export function TemplateManager({
 		name: string;
 		isFolder: boolean;
 	} | null>(null);
-	const [preview, setPreview] = useState<JSONContent | null>(null);
+	const [previewSource, setPreviewSource] = useState<{
+		note: Note;
+		title: string;
+		now: Date;
+	} | null>(null);
+	const [answers, setAnswers] = useState<Answers>({});
+	const [titlePattern, setTitlePattern] = useState<string>();
+	const [properties, setProperties] = useState<Props>();
+	const inserted = useRef(false);
+	const editorRoot = useRef<HTMLDivElement>(null);
+	const [rules, setRules] = useState<FolderTemplateRule[]>([]);
+	const [ruleError, setRuleError] = useState<string | null>(null);
+	const busyRules = useRef(false);
+	const [ruleBusy, setRuleBusy] = useState(false);
+	const [picker, setPicker] = useState<string | null>(null);
 	const [previewKey, setPreviewKey] = useState(0);
 	const [contextQuery, setContextQuery] = useState("");
 	const [contextPath, setContextPath] = useState("");
-	// Which row's "…" menu is open (opened by mouse, or by the keyboard on a row).
 	const [menuFor, setMenuFor] = useState<string | null>(null);
+
+	const refreshRules = useCallback(async () => {
+		try {
+			setRules(await loadTemplateRules(host));
+			setRuleError(null);
+		} catch (error) {
+			setRuleError(messageOf(error));
+		}
+	}, [host]);
+
+	const changeRules = async (folder: string, next?: FolderTemplateRule) => {
+		if (busyRules.current || !writable) return;
+		busyRules.current = true;
+		setRuleBusy(true);
+		try {
+			const current = await loadTemplateRules(host);
+			const updated = current.filter(
+				(rule) => nameKey(rule.folder) !== nameKey(folder),
+			);
+			if (next) updated.push(next);
+			await saveTemplateRules(host, updated);
+			setRules(updated);
+			setRuleError(null);
+		} catch (error) {
+			setRuleError(messageOf(error));
+		} finally {
+			busyRules.current = false;
+			setRuleBusy(false);
+		}
+	};
 
 	const refresh = useCallback(async (): Promise<TemplateList | null> => {
 		try {
@@ -136,9 +214,10 @@ export function TemplateManager({
 	useEffect(() => {
 		if (!open) return;
 		setProblem(null);
-		setPreview(null);
+		setPreviewSource(null);
 		void refresh();
-	}, [open, refresh]);
+		void refreshRules();
+	}, [open, refresh, refreshRules]);
 
 	const entry = list?.templates.find((t) => t.path === selected) ?? null;
 	const readable = entry?.note ? checkBlocks(entry.note.blocks) : null;
@@ -148,41 +227,68 @@ export function TemplateManager({
 		entry?.note && readable?.ok ? blocksToDoc(entry.note.blocks) : null;
 
 	// Anything that would drop typed edits asks first.
-	const { guard, dialog: discardDialog } = useDiscardGuard(dirty, {
-		title: "Discard your changes?",
-		description:
-			"This template has edits you haven't saved. Going on will drop them.",
-		confirmLabel: "Discard changes",
-		cancelLabel: "Keep editing",
-		onDiscard: () => setDirty(false),
-	});
+	const { guard: guardDiscard, dialog: discardDialog } = useDiscardGuard(
+		dirty,
+		{
+			title: "Discard your changes?",
+			description:
+				"This template has edits you haven't saved. Going on will drop them.",
+			confirmLabel: "Discard changes",
+			cancelLabel: "Keep editing",
+			onDiscard: () => setDirty(false),
+		},
+	);
+
+	const guard = (run: () => void) => {
+		if (!saving && !busyRules.current) guardDiscard(run);
+	};
 
 	const choose = (path: string | null, folderLabel?: string) => {
 		setSelected(path);
 		if (folderLabel !== undefined) setFolder(folderLabel);
 		setDirty(false);
-		setPreview(null);
+		setPreviewSource(null);
+		setTitlePattern(undefined);
+		setProperties(undefined);
 		setProblem(null);
 		edited.current = null;
 		setRevision((n) => n + 1);
 	};
 
 	const reload = async (select?: string | null) => {
-		const next = await refresh();
+		const [next] = await Promise.all([refresh(), refreshRules()]);
 		if (!next) return;
 		const wanted = select === undefined ? selected : select;
 		const found = next.templates.find((t) => t.path === wanted);
 		choose(found ? found.path : null, found?.folder ?? folder);
 	};
 
+	const draftHeader = (header: Note["header"]) => {
+		const next =
+			properties === undefined ? { ...header } : withProps(header, properties);
+		if (titlePattern !== undefined) {
+			if (titlePattern.trim()) next.titleTemplate = titlePattern;
+			else delete next.titleTemplate;
+		}
+		return next;
+	};
 	const save = async () => {
-		if (!entry || !edited.current) return;
+		if (!entry || !editable || !dirty || saving) return;
 		setSaving(true);
 		try {
-			await updateTemplate(host, entry.path, docToBlocks(edited.current));
-			setDirty(false);
-			notify(`Saved "${entry.label}".`);
+			await updateTemplate(
+				host,
+				entry.path,
+				edited.current ? docToBlocks(edited.current) : undefined,
+				draftHeader,
+			);
 			await refresh();
+			setTitlePattern(undefined);
+			setProperties(undefined);
+			setDirty(false);
+			setProblem(null);
+			edited.current = null;
+			notify(`Saved "${entry.label}".`);
 		} catch (error) {
 			setProblem(messageOf(error));
 		} finally {
@@ -190,22 +296,36 @@ export function TemplateManager({
 		}
 	};
 
+	const preview = useMemo(
+		() =>
+			previewSource &&
+			fillTemplate(previewSource.note, previewSource.title, {
+				now: previewSource.now,
+				formats: templateFormats(),
+				weekStartsOn: templateWeekStart(),
+				answers,
+			}),
+		[previewSource, answers],
+	);
 	const showPreview = () => {
 		if (!entry?.note) return;
-		const blocks = docToBlocks(
-			edited.current ?? blocksToDoc(entry.note.blocks),
-		);
-		const context = notes.find((n) => n.path === contextPath);
-		const filled = blocksFromTemplate(
-			{ header: entry.note.header, blocks },
-			context?.title ?? "Untitled",
-			new Date(),
-			templateFormats(),
-			templateWeekStart(),
-		);
-		setPreview(blocksToDoc(filled));
+		const source = {
+			note: {
+				header: draftHeader(entry.note.header),
+				blocks: edited.current
+					? docToBlocks(edited.current)
+					: entry.note.blocks,
+			},
+			title: notes.find((n) => n.path === contextPath)?.title ?? "Untitled",
+			now: new Date(),
+		};
+		setAnswers({});
+		setPreviewSource(source);
 		setPreviewKey((n) => n + 1);
 	};
+	const samplePrompts = previewSource
+		? extractPrompts(previewSource.note, previewSource.now, templateWeekStart())
+		: [];
 
 	const submitPrompt = async (name: string) => {
 		if (!prompt) return;
@@ -559,6 +679,7 @@ export function TemplateManager({
 				n.title.toLowerCase().includes(contextQuery.trim().toLowerCase()),
 		)
 		.slice(0, 200);
+	const assigned = rules.filter((rule) => rule.template === entry?.path);
 	const empty =
 		list !== null && list.templates.length === 0 && list.folders.length === 0;
 
@@ -636,6 +757,60 @@ export function TemplateManager({
 								{renderLevel("", 1)}
 							</ul>
 						</nav>
+						<details className="tpl-disclosure">
+							<summary>
+								Folder rules{assigned.length === 0 && " · None"}
+							</summary>
+							{ruleError && (
+								<p role="alert" className="tpl-error">
+									{ruleError}
+								</p>
+							)}
+							{assigned.map((rule) => {
+								const label = rule.folder || VAULT_ROOT;
+								return (
+									<div className="tpl-rule" key={rule.folder}>
+										<span>
+											{label} → {entry?.label}
+										</span>
+										<label
+											htmlFor={`tpl-inherit-${encodeURIComponent(rule.folder)}`}
+											className="flex items-center gap-2"
+										>
+											<Checkbox
+												id={`tpl-inherit-${encodeURIComponent(rule.folder)}`}
+												checked={rule.subfolders}
+												disabled={!editable || ruleBusy}
+												onCheckedChange={(checked) =>
+													void changeRules(rule.folder, {
+														...rule,
+														subfolders: checked === true,
+													})
+												}
+											/>
+											Include subfolders
+										</label>
+										<Button
+											size="sm"
+											variant="ghost"
+											disabled={!editable || ruleBusy}
+											aria-label={`Remove rule for ${label}`}
+											onClick={() => void changeRules(rule.folder)}
+										>
+											Remove
+										</Button>
+									</div>
+								);
+							})}
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={!entry || !editable || ruleBusy}
+								onClick={() => entry && setPicker(entry.path)}
+							>
+								<Plus aria-hidden="true" /> Add rule
+							</Button>
+						</details>
 						{list === null && !loadError && (
 							<p className="manager-empty">Loading templates…</p>
 						)}
@@ -657,6 +832,34 @@ export function TemplateManager({
 								<div className="tpl-path">
 									<strong>{entry.label}</strong>
 								</div>
+								{startDoc && (
+									<details key={entry.path} className="tpl-disclosure">
+										<summary>Title pattern &amp; properties</summary>
+										<Input
+											aria-label="Title pattern"
+											placeholder="Title pattern"
+											disabled={!editable || saving}
+											value={
+												titlePattern ??
+												(typeof entry.note?.header.titleTemplate === "string"
+													? entry.note.header.titleTemplate
+													: "")
+											}
+											onChange={(event) => {
+												setTitlePattern(event.target.value);
+												setDirty(true);
+											}}
+										/>
+										<PropertiesBlock
+											props={properties ?? headerProps(entry.note?.header)}
+											editable={editable && !saving}
+											onChange={(next) => {
+												setProperties(next);
+												setDirty(true);
+											}}
+										/>
+									</details>
+								)}
 								{entry.problem && (
 									<p role="alert" className="tpl-error">
 										{entry.problem}
@@ -669,11 +872,11 @@ export function TemplateManager({
 									</p>
 								)}
 								{startDoc && (
-									<div className="tpl-editor">
+									<div className="tpl-editor" ref={editorRoot}>
 										<NoteEditor
 											key={`${entry.path}:${revision}`}
 											doc={startDoc}
-											editable={editable}
+											editable={editable && !saving}
 											onChange={(doc) => {
 												edited.current = doc;
 												setDirty(true);
@@ -684,6 +887,40 @@ export function TemplateManager({
 									</div>
 								)}
 								<div className="tpl-actions">
+									{editable && (
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button size="sm" variant="outline" disabled={saving}>
+													Insert {"{{…}}"}
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent
+												onCloseAutoFocus={(event) => {
+													if (inserted.current) {
+														event.preventDefault();
+														inserted.current = false;
+													}
+												}}
+											>
+												{placeholders.map((token) => (
+													<DropdownMenuItem
+														key={token}
+														onSelect={() => {
+															const dom = editorRoot.current?.querySelector<
+																HTMLElement & { editor?: Editor }
+															>(".ProseMirror");
+															inserted.current =
+																dom?.editor
+																	?.chain()
+																	.focus()
+																	.insertContent(`{{${token}}}`)
+																	.run() ?? false;
+														}}
+													>{`{{${token}}}`}</DropdownMenuItem>
+												))}
+											</DropdownMenuContent>
+										</DropdownMenu>
+									)}
 									{writable && (
 										<Button
 											size="sm"
@@ -713,11 +950,10 @@ export function TemplateManager({
 									)}
 									{dirty && <span className="tpl-note">Unsaved changes</span>}
 								</div>
-								<div className="tpl-context">
+								<div className="tpl-context props !m-0">
 									<strong>Preview context</strong>
 									<p className="tpl-note">
-										Fills in {"{{title}}"}, {"{{date}}"} and {"{{time}}"} using
-										the document you choose, without changing it.
+										Choose a document to supply the preview title.
 									</p>
 									<div className="tpl-context-pick">
 										<Input
@@ -745,15 +981,42 @@ export function TemplateManager({
 											</SelectContent>
 										</Select>
 									</div>
+									{samplePrompts.map(
+										({ label, type, options, default: initial }) => (
+											<div className="prop-row" key={label}>
+												<span className="prop-name">{label}</span>
+												<Control
+													item={{
+														known: true,
+														name: label,
+														type,
+														options,
+														value: Object.hasOwn(answers, label)
+															? (answers[label] ?? null)
+															: initial,
+													}}
+													editable
+													onValue={(value) => {
+														setAnswers((current) => ({
+															...current,
+															[label]: value,
+														}));
+														setPreviewKey((n) => n + 1);
+													}}
+												/>
+											</div>
+										),
+									)}
 								</div>
 								{preview && (
 									<section
 										className="tpl-preview"
 										aria-label="Template preview"
 									>
+										<strong>{preview.title}</strong>
 										<NoteEditor
 											key={previewKey}
-											doc={preview}
+											doc={blocksToDoc(preview.blocks)}
 											editable={false}
 											onChange={() => {}}
 										/>
@@ -764,6 +1027,23 @@ export function TemplateManager({
 					</div>
 				</div>
 			</ManagerDialog>
+			{picker && (
+				<FolderPickerDialog
+					open={open}
+					folders={folders}
+					current="."
+					title="Assign template to folder"
+					onOpenChange={(next) => !next && setPicker(null)}
+					onPick={(folder) => {
+						setPicker(null);
+						void changeRules(folder, {
+							folder,
+							template: picker,
+							subfolders: true,
+						});
+					}}
+				/>
+			)}
 			<NameDialog
 				open={prompt !== null}
 				title={

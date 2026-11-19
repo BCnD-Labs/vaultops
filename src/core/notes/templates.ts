@@ -229,10 +229,14 @@ export async function readTemplate(host: Host, path: string): Promise<Note> {
 export async function updateTemplate(
 	host: Host,
 	path: string,
-	blocks: Block[],
+	blocks: Block[] | undefined,
+	editHeader?: (header: Note["header"]) => Note["header"],
 ): Promise<void> {
 	const note = await readTemplate(host, path);
-	const check = prepareSave({ ...note, blocks });
+	const check = prepareSave({
+		header: editHeader ? editHeader(note.header) : note.header,
+		blocks: blocks ?? note.blocks,
+	});
 	if (!check.ok) {
 		throw new Error(
 			`This template can't be saved:\n${describeSaveProblems(check.problems)}`,

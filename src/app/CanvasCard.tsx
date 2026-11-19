@@ -32,6 +32,7 @@ import { abandonLift, liftBlock } from "../editor/lift";
 import { MathField } from "../editor/MathField";
 import { latexOf } from "../editor/math-block";
 import type { NoteEditorProps } from "../editor/NoteEditor";
+import { SendToBlock } from "./SendToDialog";
 
 function inline(value: JsonValue | undefined, noteLinks?: boolean): ReactNode {
 	if (!Array.isArray(value)) return null;
@@ -483,6 +484,8 @@ export function CanvasCard({
 	/** Opens the picker to send this card to any note or canvas. */
 	onMoveTo?: () => void;
 }) {
+	const sendTo = useContext(SendToBlock);
+	const canSend = draggable && canvasId && sendTo;
 	const children = childrenOf(blocks);
 	useEffect(() => () => abandonLift(), []);
 	return (
@@ -504,7 +507,7 @@ export function CanvasCard({
 			}}
 		>
 			{renderBlock(root, children)}
-			{(onMoveToNote || onMoveTo) && (
+			{(onMoveToNote || onMoveTo || canSend) && (
 				<DropdownMenu>
 					<DropdownMenuTrigger
 						className="canvas-menu nodrag"
@@ -513,6 +516,11 @@ export function CanvasCard({
 						<Ellipsis size={16} aria-hidden="true" />
 					</DropdownMenuTrigger>
 					<DropdownMenuContent>
+						{canSend && (
+							<DropdownMenuItem onSelect={() => sendTo?.(canvasId, root)}>
+								Send to…
+							</DropdownMenuItem>
+						)}
 						{onMoveToNote && (
 							<DropdownMenuItem onSelect={onMoveToNote}>
 								Move to open note

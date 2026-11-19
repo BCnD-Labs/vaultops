@@ -6,15 +6,29 @@ import { dropPoint } from "@tiptap/pm/transform";
 import { EditorContent, Editor as TiptapEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { CornerLeftUp, GripVertical } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	useContext,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { SendToBlock } from "../app/SendToDialog";
 import { useFeature } from "../app/useFeature";
+import { turnIntoFlashcard } from "../core/notes/send-to";
 import {
 	autoScrollOnDrag,
 	BLOCK_DRAG_TYPE,
@@ -24,7 +38,9 @@ import {
 	setBlockDragData,
 	setDragEffect,
 } from "./block-drag";
+import { BLOCK_TYPES } from "./blocks";
 import { COLUMN_DRAG_RULES } from "./columns";
+import { docToBlocks } from "./doc-blocks";
 import { type DropSlotState, setDropSlot } from "./drop-slot";
 import { createExtensions } from "./extensions";
 import { FormatBar } from "./FormatBar";
@@ -95,6 +111,24 @@ export interface TemplateRequest {
 /** Where in the note a dropped block should land. */
 export type DropSlot = { after: string | null; near: string[]; start: boolean };
 
+function sendableBlock(node: ProseMirrorNode | null) {
+	if (!node?.attrs.id || !BLOCK_TYPES.some((type) => type === node.type.name))
+		return;
+	return docToBlocks({ type: "doc", content: [node.toJSON()] })[0];
+}
+
+export function selectedSendBlock(editor: Editor) {
+	const { $from, node } = editor.state
+		.selection as typeof editor.state.selection & { node?: ProseMirrorNode };
+	return sendableBlock(
+		node && !node.isInline && node.type.name !== "listItem"
+			? node
+			: $from.depth
+				? $from.node(1)
+				: null,
+	);
+}
+
 /** The Tiptap editor for one note. It does no file access. */
 export function NoteEditor({
 	doc,
@@ -110,6 +144,8 @@ export function NoteEditor({
 	featureOn,
 	images,
 }: NoteEditorProps) {
+	const sendTo = useContext(SendToBlock);
+	const [blockMenu, setBlockMenu] = useState(false);
 	const completeOn = useFeature("word-complete");
 	const localSlot = useRef<NoteEditorSlot>({});
 	const slot = sharedSlot ?? localSlot.current;
@@ -550,19 +586,79 @@ export function NoteEditor({
 								dragStartEvent.current = event;
 							}}
 						>
-							<Tooltip>
-								<TooltipTrigger asChild>
+							<DropdownMenu
+								modal={false}
+								open={blockMenu}
+								onOpenChange={(open) => {
+									if (!sendTo && open) return;
+									setBlockMenu(open);
+									if (open) editor.commands.lockDragHandle();
+									else editor.commands.unlockDragHandle();
+								}}
+							>
+								<DropdownMenuTrigger
+									asChild
+									onPointerDownCapture={(event) => event.stopPropagation()}
+									onClick={() => {
+										if (sendTo && !blockMenu) {
+											editor.commands.lockDragHandle();
+											setBlockMenu(true);
+										}
+									}}
+								>
 									<Button
 										type="button"
 										variant="ghost"
 										size="icon"
-										aria-label="Drag to move"
+										aria-label={sendTo ? "Block actions" : "Drag to move"}
 									>
 										<GripVertical size={16} aria-hidden="true" />
 									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Drag to move</TooltipContent>
-							</Tooltip>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent>
+									<DropdownMenuItem
+										disabled={!sendTo}
+										onSelect={() => {
+											const pos = draggedPos.current;
+											if (pos === null || !sendTo) return;
+											const at = editor.state.doc.resolve(pos);
+											const node = at.nodeAfter;
+											const picked =
+												node?.type.name === "listItem" && at.depth
+													? at.node(1)
+													: node;
+											const block = sendableBlock(picked);
+											if (block && block.type !== "listItem")
+												sendTo(noteId, block);
+										}}
+									>
+										Send to…
+									</DropdownMenuItem>
+									<DropdownMenuItem
+										onSelect={() => {
+											const pos = draggedPos.current;
+											const node =
+												pos === null ? null : editor.state.doc.nodeAt(pos);
+											if (pos === null || !node || !("role" in node.attrs))
+												return;
+											const block = turnIntoFlashcard({
+												id: node.attrs.id,
+												type: node.type.name,
+												parent: null,
+												attrs: node.attrs,
+											});
+											editor.view.dispatch(
+												editor.state.tr.setNodeMarkup(pos, undefined, {
+													...node.attrs,
+													...(block.attrs as object),
+												}),
+											);
+										}}
+									>
+										Turn into flashcard
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						</DragHandle>
 					)}
 					{editor && editable && (

@@ -3,7 +3,9 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { parseNote, serializeNote } from "../core/note-format";
 import { moveFolder } from "../core/notes/folders";
+import { processedDay } from "../core/notes/inbox";
 import { createCanvas, createNote } from "../core/notes/repository";
+import { ensureJournal } from "../core/notes/send-to";
 import { NEW_TAB } from "../core/workspace";
 import { createQuitGuard } from "../editor/quit";
 import { MemoryHost } from "../host/memory-host";
@@ -672,4 +674,63 @@ it("copies on Option-drag and resolves a source tab after a mid-drag tab switch"
 	);
 	expect(await blockIds(s.host, movedPath)).toEqual(["z"]);
 	expect(await blockIds(s.host, s.a)).toEqual(["new-source"]);
+});
+
+it("sends the last inbox block to an open journal and undoes the whole send", async () => {
+	const s = await setup();
+	const day = "2026-11-18";
+	const journal = await ensureJournal(s.host, day);
+	const refresh = async () =>
+		s.result.current.documents?.setNotes((await loadVault(s.host)).notes);
+	await refresh();
+	const original = parseNote(await s.host.readText(s.a)).note!;
+	await s.host.writeTextAtomic(
+		s.a,
+		serializeNote({
+			...original,
+			blocks: [
+				{
+					id: "inbox",
+					parent: null,
+					type: "heading",
+					attrs: { role: "inbox", level: 2 },
+				},
+				{
+					id: "idea",
+					parent: null,
+					type: "paragraph",
+					content: [{ type: "text", text: "Idea to keep" }],
+				},
+			],
+		}),
+	);
+	const before = await Promise.all([
+		s.host.readText(s.a),
+		s.host.readText(journal),
+	]);
+	await s.run(() => s.result.current.open(s.a));
+	await s.run(() => s.result.current.open(journal));
+	await s.run(() => s.result.current.moveTab(journal, "right"));
+	await s.ready("right");
+	const journalDoc = () =>
+		JSON.stringify(s.result.current.panes.right?.session.docRef.current);
+	const result = await act(() =>
+		s.result.current.sendBlock(
+			s.id(s.a),
+			"idea",
+			{ kind: "journal" },
+			day,
+			refresh,
+		),
+	);
+	expect(result).toMatchObject({ ok: true, moved: { destination: journal } });
+	expect(journalDoc()).toContain("Idea to keep");
+	expect(processedDay(parseNote(await s.host.readText(s.a)).note!)).toBe(day);
+	await act(async () =>
+		expect(await s.result.current.undo()).toMatchObject({ ok: true }),
+	);
+	expect(
+		await Promise.all([s.host.readText(s.a), s.host.readText(journal)]),
+	).toEqual(before);
+	expect(journalDoc()).not.toContain("Idea to keep");
 });

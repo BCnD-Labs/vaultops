@@ -59,6 +59,13 @@ export const SHORTCUT_COMMANDS: readonly ShortcutCommand[] = [
 		where: "Anywhere, once a vault is open. Not set until you choose keys",
 	},
 	{
+		id: "send-block",
+		label: "Send block to…",
+		section: "Notes",
+		keys: "Mod+Shift+S",
+		where: "In a writable note",
+	},
+	{
 		id: "save",
 		label: "Save open notes now",
 		section: "Notes",

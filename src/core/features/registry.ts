@@ -38,6 +38,13 @@ export const FEATURE_GROUPS = [
 
 export const FEATURES: readonly Feature[] = [
 	{
+		id: "send-to",
+		name: "Block actions",
+		description: "Send blocks to another note or turn them into flashcards.",
+		group: "Writing",
+		defaultOn: true,
+	},
+	{
 		id: "word-complete",
 		group: "Writing",
 		name: "Word completion",

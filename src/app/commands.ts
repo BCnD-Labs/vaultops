@@ -30,6 +30,7 @@ export interface CommandContext {
 	onOpenResources?: () => void;
 	/** Opens the folder picker for the note being shown. */
 	pinAction?: { pinned: boolean; run: () => void };
+	onSendBlock?: () => void;
 	onMoveNote?: () => void;
 }
 
@@ -89,6 +90,17 @@ export const COMMANDS: Command[] = [
 		needsWrite: true,
 		available: (c) => c.onNewCanvasFromTemplate !== undefined,
 		run: (c) => c.onNewCanvasFromTemplate?.(),
+	},
+	{
+		id: "send-block",
+		label: "Send block to…",
+		group: "Create",
+		icon: FolderInput,
+		keywords: ["move", "block"],
+		feature: "send-to",
+		needsWrite: true,
+		available: (c) => !!c.onSendBlock,
+		run: (c) => c.onSendBlock?.(),
 	},
 	{
 		id: "move-note",

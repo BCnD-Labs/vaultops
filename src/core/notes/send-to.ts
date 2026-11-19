@@ -295,6 +295,37 @@ async function sendToCreated(
 	const block = parsed.note?.blocks.find((b) => b.id === blockId);
 	if (!parsed.note || parsed.problems.length || !block)
 		throw new Error("The source block cannot be read safely.");
+	const made = await createSendDestination(host, block, folder, task);
+	const { title } = made;
+	try {
+		return await sendToNote(
+			host,
+			source,
+			made.path,
+			blockId,
+			day,
+			undefined,
+			{ source: sourceText, destination: serializeNote(made.note) },
+			{
+				link: opts.link
+					? { kind: "note", target: made.note.header.noteId, label: title }
+					: undefined,
+			},
+		);
+	} catch (error) {
+		throw new Error(
+			`The send could not be completed. Check the source and the new note at ${made.path}.`,
+			{ cause: error },
+		);
+	}
+}
+
+export async function createSendDestination(
+	host: Host,
+	block: Block,
+	folder: string,
+	task?: { due?: string },
+) {
 	const plain = (value: JsonValue | undefined): string => {
 		if (Array.isArray(value)) return value.map(plain).join("");
 		if (!value || typeof value !== "object") return "";
@@ -330,27 +361,7 @@ async function sendToCreated(
 		...initial,
 		blocks: [],
 	});
-	try {
-		return await sendToNote(
-			host,
-			source,
-			made.path,
-			blockId,
-			day,
-			undefined,
-			{ source: sourceText, destination: serializeNote(made.note) },
-			{
-				link: opts.link
-					? { kind: "note", target: made.note.header.noteId, label: title }
-					: undefined,
-			},
-		);
-	} catch (error) {
-		throw new Error(
-			`The send could not be completed. Check the source and the new note at ${made.path}.`,
-			{ cause: error },
-		);
-	}
+	return { ...made, title };
 }
 
 /** Pure edits can be saved and undone by the existing note editor. */

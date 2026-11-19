@@ -6,6 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import type { LinkRef } from "../core/links/links";
 import { prepareSave } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import {
@@ -23,6 +24,13 @@ import {
 	type MoveReceipt,
 	moveBlock,
 } from "../core/notes/move-block";
+import {
+	createSendDestination,
+	ensureJournal,
+	finishSend,
+} from "../core/notes/send-to";
+import { logPath } from "../core/planner/log";
+import { PLANNER_FOLDER } from "../core/planner/task-note";
 import {
 	closeSplit,
 	closeTab,
@@ -56,6 +64,10 @@ import {
 	UNSAVED_NOTE_MESSAGE,
 	useNoteSession,
 } from "./useNoteSession";
+
+export type SendDestination =
+	| { kind: "note"; path: string; heading?: string }
+	| { kind: "journal" | "new" | "link" | "task" };
 
 export type PaneKind = "note" | "canvas" | "empty" | "none";
 
@@ -321,6 +333,7 @@ export function useWorkspaceHost({
 		from: string,
 		placement: Placement,
 		copy = false,
+		send?: { day: string; link?: LinkRef },
 	): Promise<BlockMoveResult> => {
 		const registry = documents.current;
 		if (!writable)
@@ -388,6 +401,18 @@ export function useWorkspaceHost({
 				publish(saved.text, saved.text);
 				return null;
 			}
+			if (
+				send &&
+				"after" in placement &&
+				placement.after &&
+				!target.base.blocks.some(
+					(b) =>
+						b.id === placement.after &&
+						b.type === "heading" &&
+						b.parent === null,
+				)
+			)
+				throw new Error("The destination heading was not found.");
 			const receipt = copy
 				? {
 						copy: true,
@@ -408,15 +433,18 @@ export function useWorkspaceHost({
 						lost: { connectors: 0, groups: 0 },
 						recoveryPath: null,
 					}
-				: await moveBlock(
-						host,
-						path,
-						target.path,
-						blockId,
-						placement,
-						undefined,
-						expected,
-					);
+				: await (async () => {
+						const moved = await moveBlock(
+							host,
+							path,
+							target.path,
+							blockId,
+							placement,
+							undefined,
+							expected,
+						);
+						return send ? finishSend(host, moved, send.day, send) : moved;
+					})();
 			publish(receipt.sourceAfter, receipt.destinationAfter);
 			const undo = registry.recordMove(
 				{ ...receipt, source: from, destination: to },
@@ -444,6 +472,94 @@ export function useWorkspaceHost({
 			return receipt ? { ok: true, moved: receipt } : { ok: true };
 		} catch (reason) {
 			return failure(reason);
+		}
+	};
+
+	const sendBlock = async (
+		from: string,
+		blockId: string,
+		destination: SendDestination,
+		day: string,
+		refreshVault: () => Promise<unknown>,
+	): Promise<BlockMoveResult> => {
+		let created: string | undefined;
+		try {
+			const registry = documents.current;
+			if (!writable || !registry) throw new Error("The vault is read-only.");
+			const source = registry.subscribePassive(from, () => {});
+			let path = "";
+			let link: LinkRef | undefined;
+			try {
+				await source.ready;
+				await registry.run(async () => {
+					const doc = source.current();
+					const block = (doc?.draft ?? doc?.base)?.blocks.find(
+						(b) => b.id === blockId,
+					);
+					if (
+						documents.current !== registry ||
+						!latest.current.writable ||
+						!doc ||
+						doc.readOnly ||
+						!block ||
+						block.type === "listItem"
+					)
+						throw new Error("This block cannot be sent.");
+					if (destination.kind === "note") path = destination.path;
+					else if (destination.kind === "journal") {
+						if ((await host.kindOf(logPath(day))) === null)
+							created = logPath(day);
+						path = await ensureJournal(host, day);
+					} else {
+						if (destination.kind === "link" && doc.kind === "canvas")
+							throw new Error("Canvas cards cannot leave a link.");
+						const make = () =>
+							createSendDestination(
+								host,
+								block,
+								destination.kind === "task" ? PLANNER_FOLDER : "",
+								destination.kind === "task" ? {} : undefined,
+							);
+						const made =
+							destination.kind === "task"
+								? await inOrder(host, PLANNER_FOLDER, make)
+								: await make();
+						path = created = made.path;
+						if (destination.kind === "link")
+							link = {
+								kind: "note",
+								target: made.note.header.noteId,
+								label: made.title,
+							};
+					}
+				});
+				if (destination.kind !== "note") await refreshVault();
+				const to = registry.idAt(path);
+				if (documents.current !== registry || !to || to === from)
+					throw new Error("Choose a different writable destination.");
+				const result = await dropBlock(
+					to,
+					blockId,
+					from,
+					{
+						after:
+							destination.kind === "note"
+								? (destination.heading ?? null)
+								: null,
+					},
+					false,
+					{ day, link },
+				);
+				if (!result.ok && created) throw new Error(result.message);
+				return result;
+			} finally {
+				source.unsubscribe();
+			}
+		} catch (error) {
+			return {
+				ok: false,
+				message: `${error instanceof Error ? error.message : String(error)}${created ? ` Check the new note at ${created}.` : ""}`,
+			};
 		}
 	};
 
@@ -581,6 +697,7 @@ export function useWorkspaceHost({
 		moving,
 		/** Move a block between documents identified by their drag and drop surfaces. */
 		dropBlock,
+		sendBlock,
 		undo: () => documents.current?.undo(setMoving),
 		/** Move a block from the canvas in `from` into the note in the other pane. */
 		blockToNote,

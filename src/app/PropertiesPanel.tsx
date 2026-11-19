@@ -1,5 +1,5 @@
 import { Plus, Settings2 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { CloseButton } from "@/components/ui/close-button";
@@ -33,8 +33,10 @@ import {
 	setValue,
 } from "../core/notes/properties";
 import { addTag, removeTag, tagsOf } from "../core/notes/tags";
+import { groupByType } from "../core/types/new-note";
 import { useAppearance } from "./AppearanceContext";
 import { tagTone } from "./appearance";
+import { type TypeApi, TypeRow } from "./TypeRow";
 
 interface PanelProps {
 	/** The note's properties; null when the file keeps them in a form we can't edit. */
@@ -43,6 +45,8 @@ interface PanelProps {
 	onChange: (next: Props) => void;
 	/** A tag was clicked: show the notes that carry it. */
 	onOpenTag: (tag: string) => void;
+	/** Shows the type chip and puts the type's fields first. */
+	typeApi?: TypeApi;
 }
 
 export const TYPE_LABEL: Record<PropertyType, string> = {
@@ -298,6 +302,7 @@ export function PropertiesPanel({
 	editable,
 	onChange,
 	onOpenTag,
+	typeApi,
 }: PanelProps) {
 	const [adding, setAdding] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
@@ -313,7 +318,11 @@ export function PropertiesPanel({
 		);
 	}
 	const tagsKey = findName(props, "tags");
-	const items = readProps(props).filter((item) => item.name !== tagsKey);
+	const grouped = groupByType(
+		readProps(props).filter((item) => item.name !== tagsKey),
+		typeApi?.types.find((t) => t.id === typeApi.typeId),
+	);
+	const items = grouped.items;
 	const apply = (
 		change: { ok: true; props: Props } | { ok: false; message: string },
 	) => {
@@ -338,36 +347,41 @@ export function PropertiesPanel({
 					onPick={onOpenTag}
 				/>
 			</div>
-			{items.map((item) => (
-				<div
-					key={item.name}
-					className="prop-row"
-					data-property={item.name}
-					tabIndex={-1}
-				>
-					<span className="prop-name" title={item.name}>
-						{item.name}
-					</span>
-					{item.known ? (
-						<Control
-							item={item}
-							editable={editable}
-							onValue={(value) => apply(setValue(props, item.name, value))}
-							onOptions={(o) => apply(setOptions(props, item.name, o))}
-						/>
-					) : (
-						<span className="read-only-tag">
-							{item.type ? `${item.type} property` : "property"}: kept as it is
+			{typeApi && <TypeRow api={typeApi} editable={editable} />}
+			{items.map((item, index) => (
+				<Fragment key={item.name}>
+					{index === grouped.fieldCount && index > 0 && (
+						<p className="prop-group-title">Other properties</p>
+					)}
+					<div className="prop-row" data-property={item.name} tabIndex={-1}>
+						<span className="prop-name" title={item.name}>
+							{item.name}
 						</span>
-					)}
-					{editable && (
-						<CloseButton
-							label={`Remove property ${item.name}`}
-							title="Remove property"
-							onClick={() => onChange(removeProperty(props, item.name))}
-						/>
-					)}
-				</div>
+						{item.known ? (
+							<Control
+								item={item}
+								editable={editable}
+								onValue={(value) => apply(setValue(props, item.name, value))}
+								onOptions={(o) => apply(setOptions(props, item.name, o))}
+							/>
+						) : (
+							<span className="read-only-tag">
+								{item.type ? `${item.type} property` : "property"}: kept as it
+								is
+							</span>
+						)}
+						{grouped.mismatched.has(item.name) && (
+							<span className="read-only-tag">doesn't match the type</span>
+						)}
+						{editable && (
+							<CloseButton
+								label={`Remove property ${item.name}`}
+								title="Remove property"
+								onClick={() => onChange(removeProperty(props, item.name))}
+							/>
+						)}
+					</div>
+				</Fragment>
 			))}
 			{editable && (
 				<Popover open={adding} onOpenChange={setAdding}>

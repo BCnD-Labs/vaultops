@@ -31,6 +31,7 @@ import {
 	type NoteNode,
 	type TreeNode,
 } from "../core/notes/tree";
+import type { ResourceType } from "../core/resources/resources";
 import { useAppearance } from "./AppearanceContext";
 import { type ItemStyle, rowPaint } from "./appearance";
 import { ICON_BY_NAME, resolveIcon } from "./iconCatalog";
@@ -66,6 +67,9 @@ export interface TreeActions {
 	newNote?: (folder: string) => void;
 	newCanvas?: (folder: string) => void;
 	newCanvasFromTemplate?: (folder: string) => void;
+	/** The vault's types and how to make a note of one ("New Book" in a folder's menu). */
+	types?: ResourceType[];
+	newOfType?: (type: ResourceType, folder: string) => void;
 }
 
 interface Props {
@@ -573,6 +577,15 @@ function folderEntries(node: FolderNode, ctx: Ctx): TreeMenuEntry[] {
 			icon: LayoutTemplate,
 			run: () => fromTemplate(node.path),
 		});
+	}
+	if (a.newOfType) {
+		const newOfType = a.newOfType;
+		for (const type of a.types ?? [])
+			entries.push({
+				label: `New ${type.name}`,
+				icon: FilePlus,
+				run: () => newOfType(type, node.path),
+			});
 	}
 	entries.push(
 		{

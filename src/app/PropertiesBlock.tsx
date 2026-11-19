@@ -9,7 +9,7 @@ import {
 	Tag,
 	Type,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { CloseButton } from "@/components/ui/close-button";
 import {
 	Collapsible,
@@ -43,7 +43,9 @@ import {
 	setValue,
 } from "../core/notes/properties";
 import { addTag, removeTag, tagsOf } from "../core/notes/tags";
+import { groupByType } from "../core/types/new-note";
 import { Chips, Control, TYPE_LABEL } from "./PropertiesPanel";
+import { type TypeApi, TypeRow } from "./TypeRow";
 
 const OPEN_KEY = "vaultops:properties-block-open";
 
@@ -63,6 +65,10 @@ interface BlockProps {
 	onChange: (next: Props) => void;
 	/** A tag was clicked: show the notes that carry it. */
 	onOpenTag?: (tag: string) => void;
+	/** Shows the type chip and puts the type's fields first. */
+	typeApi?: TypeApi;
+	/** Puts the type's template into the note (its own button next to the chip). */
+	onInsertTemplate?: () => void;
 }
 
 /** The name column: edits in place, Enter or leaving the field renames, Escape reverts. */
@@ -107,6 +113,8 @@ export function PropertiesBlock({
 	editable,
 	onChange,
 	onOpenTag,
+	typeApi,
+	onInsertTemplate,
 }: BlockProps) {
 	const [open, setOpen] = useState(() => {
 		try {
@@ -142,8 +150,13 @@ export function PropertiesBlock({
 	}
 	const tagsKey = findName(props, "tags");
 	const tags = tagsOf(props);
-	const items = readProps(props).filter((item) => item.name !== tagsKey);
-	if (!editable && items.length === 0 && tags.length === 0) return null;
+	const grouped = groupByType(
+		readProps(props).filter((item) => item.name !== tagsKey),
+		typeApi?.types.find((t) => t.id === typeApi.typeId),
+	);
+	const items = grouped.items;
+	if (!editable && items.length === 0 && tags.length === 0 && !typeApi?.typeId)
+		return null;
 
 	/** Apply a change; returns the refusal message, or null when it worked. */
 	const apply = (change: Change): string | null => {
@@ -194,77 +207,97 @@ export function PropertiesBlock({
 							onPick={onOpenTag}
 						/>
 					</div>
-					{items.map((item) => {
+					{typeApi && (
+						<TypeRow
+							api={typeApi}
+							editable={editable}
+							icon
+							onInsertTemplate={onInsertTemplate}
+						/>
+					)}
+					{items.map((item, index) => {
 						const Icon = item.known ? PROPERTY_ICONS[item.type] : Type;
 						return (
-							<div
-								key={item.name}
-								className="prop-row"
-								data-property={item.name}
-							>
-								{item.known && editable ? (
-									<DropdownMenu>
-										<DropdownMenuTrigger
-											className="prop-type-icon"
-											aria-label={`Type of ${item.name}: ${TYPE_LABEL[item.type]}`}
-											title="Change type"
-										>
-											<Icon aria-hidden="true" />
-										</DropdownMenuTrigger>
-										<DropdownMenuContent align="start">
-											<DropdownMenuRadioGroup
-												value={item.type}
-												onValueChange={(value) =>
-													apply(
-														changeType(props, item.name, value as PropertyType),
-													)
-												}
+							<Fragment key={item.name}>
+								{index === grouped.fieldCount && index > 0 && (
+									<p className="prop-group-title">Other properties</p>
+								)}
+								<div className="prop-row" data-property={item.name}>
+									{item.known && editable ? (
+										<DropdownMenu>
+											<DropdownMenuTrigger
+												className="prop-type-icon"
+												aria-label={`Type of ${item.name}: ${TYPE_LABEL[item.type]}`}
+												title="Change type"
 											>
-												{PROPERTY_TYPES.map((t) => {
-													const TypeIcon = PROPERTY_ICONS[t];
-													return (
-														<DropdownMenuRadioItem key={t} value={t}>
-															<TypeIcon aria-hidden="true" /> {TYPE_LABEL[t]}
-														</DropdownMenuRadioItem>
-													);
-												})}
-											</DropdownMenuRadioGroup>
-										</DropdownMenuContent>
-									</DropdownMenu>
-								) : (
-									<span className="prop-type-icon" aria-hidden="true">
-										<Icon />
-									</span>
-								)}
-								<NameField
-									name={item.name}
-									editable={editable}
-									onRename={(to) => apply(renameProperty(props, item.name, to))}
-								/>
-								{item.known ? (
-									<Control
-										item={item}
+												<Icon aria-hidden="true" />
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="start">
+												<DropdownMenuRadioGroup
+													value={item.type}
+													onValueChange={(value) =>
+														apply(
+															changeType(
+																props,
+																item.name,
+																value as PropertyType,
+															),
+														)
+													}
+												>
+													{PROPERTY_TYPES.map((t) => {
+														const TypeIcon = PROPERTY_ICONS[t];
+														return (
+															<DropdownMenuRadioItem key={t} value={t}>
+																<TypeIcon aria-hidden="true" /> {TYPE_LABEL[t]}
+															</DropdownMenuRadioItem>
+														);
+													})}
+												</DropdownMenuRadioGroup>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									) : (
+										<span className="prop-type-icon" aria-hidden="true">
+											<Icon />
+										</span>
+									)}
+									<NameField
+										name={item.name}
 										editable={editable}
-										onValue={(value) =>
-											apply(setValue(props, item.name, value))
+										onRename={(to) =>
+											apply(renameProperty(props, item.name, to))
 										}
-										onOptions={(o) => apply(setOptions(props, item.name, o))}
 									/>
-								) : (
-									<span className="read-only-tag">
-										{item.type ? `${item.type} property` : "property"}: kept as
-										it is
-									</span>
-								)}
-								{editable && (
-									<CloseButton
-										className="prop-remove"
-										label={`Remove property ${item.name}`}
-										title="Remove property"
-										onClick={() => onChange(removeProperty(props, item.name))}
-									/>
-								)}
-							</div>
+									{item.known ? (
+										<Control
+											item={item}
+											editable={editable}
+											onValue={(value) =>
+												apply(setValue(props, item.name, value))
+											}
+											onOptions={(o) => apply(setOptions(props, item.name, o))}
+										/>
+									) : (
+										<span className="read-only-tag">
+											{item.type ? `${item.type} property` : "property"}: kept
+											as it is
+										</span>
+									)}
+									{grouped.mismatched.has(item.name) && (
+										<span className="read-only-tag">
+											doesn't match the type
+										</span>
+									)}
+									{editable && (
+										<CloseButton
+											className="prop-remove"
+											label={`Remove property ${item.name}`}
+											title="Remove property"
+											onClick={() => onChange(removeProperty(props, item.name))}
+										/>
+									)}
+								</div>
+							</Fragment>
 						);
 					})}
 					{message && (

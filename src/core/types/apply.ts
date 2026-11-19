@@ -118,3 +118,14 @@ export function removeType(header: NoteHeader): NoteHeader {
 		Object.keys(rest).length > 0 ? { ...others, resource: rest } : others
 	) as NoteHeader;
 }
+
+/**
+ * Set (an id) or clear (null) just the `resource.type` key. For an open note's
+ * draft, where the fields were already added through the props edit.
+ */
+export function withType(header: NoteHeader, id: string | null): NoteHeader {
+	if (id === null) return removeType(header);
+	const raw = (header as { [k: string]: JsonValue }).resource;
+	if (raw !== undefined && !isObject(raw)) return header;
+	return { ...header, resource: { ...(raw ?? {}), type: id } } as NoteHeader;
+}

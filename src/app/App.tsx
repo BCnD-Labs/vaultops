@@ -2459,6 +2459,7 @@ export function App({ host }: { host: Host }) {
 							}}
 						/>
 						<TemplateManager
+							folders={view?.folders ?? []}
 							host={vaultHost}
 							notes={(view?.notes ?? []).filter((n) => n.kind !== "canvas")}
 							writable={writable}

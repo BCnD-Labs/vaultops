@@ -1,13 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { CloseButton } from "@/components/ui/close-button";
-import {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { FloatingWindow } from "@/components/ui/floating-editor";
 import { ConfirmDialog } from "./TemplateDialogs";
 import "./manager.css";
 
@@ -16,54 +8,52 @@ export const messageOf = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
 /**
- * The modal shell the managers share: a window like Settings, with a light
- * overlay, a quiet centred title bar (the close button on its right; the
- * `.settings-*` title bar classes are reused so the two stay alike) and a
- * screen-reader-only description. Closing (Escape, the overlay, the X) goes
- * through `onRequestClose`, so a manager can ask before dropping edits.
+ * The window the managers share: the same movable, resizable floating window
+ * as Settings, so the note behind stays usable. It remembers its place per
+ * `kind`, comes to the front when clicked or when `focusRequest` changes, and
+ * closing (Escape inside it, the X) goes through `onRequestClose`, so a
+ * manager can ask before dropping edits. Narrow layouts follow the window's
+ * width (`.manager-content` is a size container), not the app's.
  */
 export function ManagerDialog({
 	open,
 	onRequestClose,
 	className,
+	kind,
+	focusRequest,
 	title,
 	description,
-	descriptionId,
 	children,
 }: {
 	open: boolean;
 	onRequestClose: () => void;
 	className: string;
+	/** Which manager: the key its window's place is remembered under. */
+	kind: string;
+	focusRequest?: object;
 	title: string;
 	description: string;
-	descriptionId: string;
 	children: ReactNode;
 }) {
+	const width = Math.min(928, innerWidth - 16);
 	return (
-		<Dialog
+		<FloatingWindow
 			open={open}
-			onOpenChange={(next) => {
-				if (!next) onRequestClose();
+			title={title}
+			description={description}
+			className={className}
+			kind={kind}
+			initial={{
+				left: (innerWidth - width) / 2,
+				top: 48,
+				width,
+				height: 640,
 			}}
+			focusRequest={focusRequest}
+			onClose={onRequestClose}
 		>
-			<DialogContent
-				className={cn("manager-dialog", className)}
-				lightOverlay
-				showClose={false}
-				aria-describedby={descriptionId}
-			>
-				<header className="settings-titlebar">
-					<DialogClose asChild>
-						<CloseButton className="settings-close" />
-					</DialogClose>
-					<DialogTitle className="settings-window-title">{title}</DialogTitle>
-					<DialogDescription id={descriptionId} className="sr-only">
-						{description}
-					</DialogDescription>
-				</header>
-				<div className="manager-content">{children}</div>
-			</DialogContent>
-		</Dialog>
+			<div className="manager-content">{children}</div>
+		</FloatingWindow>
 	);
 }
 

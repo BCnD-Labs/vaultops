@@ -145,6 +145,40 @@ it("asks before dropping what was typed", async () => {
 	expect((await listCards(host))[0]?.props).toEqual({});
 });
 
+it("asks before a link in the note switches away from a card being edited", async () => {
+	const u = user();
+	const host = new MemoryHost();
+	await openVault(host);
+	await addContact(host, "Mara");
+	await addContact(host, "Sam Rivera");
+	const sam = (await listCards(host)).find((c) => c.title === "Sam Rivera");
+	const manager = (focusRequest?: object) => (
+		<ResourceManager
+			host={host}
+			writable
+			open
+			onClose={vi.fn()}
+			focusId={focusRequest ? (sam?.noteId ?? null) : null}
+			focusRequest={focusRequest}
+		/>
+	);
+	const { rerender } = render(manager());
+	await u.click(await screen.findByRole("button", { name: /Mara/ }));
+	await u.click(screen.getByRole("button", { name: "Edit" }));
+	await u.type(screen.getByLabelText(/^Phone/), "123");
+	rerender(manager({}));
+	await u.click(await screen.findByRole("button", { name: "Keep editing" }));
+	expect((screen.getByLabelText(/^Phone/) as HTMLInputElement).value).toBe(
+		"123",
+	);
+	rerender(manager({}));
+	await u.click(await screen.findByRole("button", { name: "Discard" }));
+	const article = await screen.findByRole("article", { name: "Resource card" });
+	expect(
+		within(article).getByRole("heading", { name: "Sam Rivera" }),
+	).toBeTruthy();
+});
+
 it("removing a field keeps the values and shows them as extra properties", async () => {
 	const u = user();
 	await setup(async (h) => addContact(h, "Mara", { Phone: "555 0100" }));

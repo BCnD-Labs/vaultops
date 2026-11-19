@@ -278,7 +278,8 @@
 	flex-direction: column;
 }
 
-@media (max-width: 48rem) {
+/* Narrow window: the types move above the cards. */
+@container manager (max-width: 44rem) {
 	.res-body {
 		grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
 		grid-template-rows: auto minmax(0, 1fr);
@@ -287,7 +288,7 @@
 		grid-column: 1 / -1;
 		flex-flow: row wrap;
 		align-items: flex-start;
-		max-height: min(8rem, 25vh);
+		max-height: min(8rem, 25cqh);
 		border-right: 0;
 		border-bottom: var(--border-width) solid var(--border);
 	}
@@ -296,7 +297,8 @@
 	}
 }
 
-@media (max-width: 34rem) {
+/* Very narrow: the list and the card stack. */
+@container manager (max-width: 30rem) {
 	.res-body {
 		grid-template-columns: minmax(0, 1fr);
 		grid-template-rows: auto minmax(0, 1fr) minmax(0, 2fr);

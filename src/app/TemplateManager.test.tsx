@@ -122,16 +122,12 @@ it("says there are no templates, and offers the three toolbar buttons", async ()
 	expect(screen.getByText("Choose a template to edit it.")).toBeTruthy();
 });
 
-it("uses the light backdrop and keeps the empty state in its own column", async () => {
+it("has no backdrop and keeps the empty state in its own column", async () => {
 	await setup();
 	const empty = (await screen.findByText("Choose a template to edit it."))
 		.parentElement;
 	expect(empty?.className).toContain("tpl-empty");
-	expect(
-		document
-			.querySelector('[data-slot="dialog-overlay"]')
-			?.getAttribute("data-variant"),
-	).toBe("light");
+	expect(document.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
 });
 
 it("lists folders and templates as a tree, and folds a folder", async () => {

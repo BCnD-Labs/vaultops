@@ -104,6 +104,17 @@
 	overflow-y: auto;
 	padding: var(--space-3) var(--space-4);
 }
+/* Narrow window: the tree sits above the editor. */
+@container manager (max-width: 30rem) {
+	.tpl-body {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+	}
+	.tpl-side {
+		border-right: 0;
+		border-bottom: var(--border-width) solid var(--border);
+	}
+}
 .tpl-empty {
 	display: flex;
 	flex: 1;

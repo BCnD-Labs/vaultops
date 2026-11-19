@@ -123,9 +123,9 @@ export function App({ host }: { host: Host }) {
 	const [view, setView] = useState<VaultView | null>(null);
 	const [reading, setReading] = useState(false);
 	const [settingsRequest, setSettingsRequest] = useState<object>();
-	const [templatesOpen, setTemplatesOpen] = useState(false);
+	const [templatesRequest, setTemplatesRequest] = useState<object>();
 	const templatePrompt = useTemplatePrompt();
-	const [resourcesOpen, setResourcesOpen] = useState(false);
+	const [resourcesRequest, setResourcesRequest] = useState<object>();
 	// The card a link asked to see; the manager shows it when it opens.
 	const [focusResource, setFocusResource] = useState<string | null>(null);
 	// The block just moved, with the way to take it back.
@@ -486,12 +486,12 @@ export function App({ host }: { host: Host }) {
 	useEffect(() => {
 		const ready = view !== null && view.status !== "none";
 		openTemplatesRef.current =
-			ready && templatesOn ? () => setTemplatesOpen(true) : undefined;
+			ready && templatesOn ? () => setTemplatesRequest({}) : undefined;
 		openResourcesRef.current =
 			ready && resourcesOn
 				? () => {
 						setFocusResource(null);
-						setResourcesOpen(true);
+						setResourcesRequest({});
 					}
 				: undefined;
 	});
@@ -814,7 +814,7 @@ export function App({ host }: { host: Host }) {
 		const title = filled.title.trim() || defaultTitle;
 		const understood = checkBlocks(blocks);
 		if (!understood.ok) {
-			setTemplatesOpen(false);
+			setTemplatesRequest(undefined);
 			setError(
 				`"${title}" has ${understood.reason}, which this version can't use for a new note.`,
 			);
@@ -823,7 +823,7 @@ export function App({ host }: { host: Host }) {
 		creating.current = true;
 		try {
 			if (!(await ws.settleAll())) return;
-			setTemplatesOpen(false);
+			setTemplatesRequest(undefined);
 			setBusy(true);
 			try {
 				const folder = newNoteFolder(
@@ -1371,7 +1371,7 @@ export function App({ host }: { host: Host }) {
 		if (link.kind === "resource") {
 			if (!resources.cards.some((card) => card.noteId === link.target)) return;
 			setFocusResource(link.target);
-			setResourcesOpen(true);
+			setResourcesRequest({});
 			return;
 		}
 		const row = viewRef.current?.notes.find((n) => n.id === link.target);
@@ -1531,7 +1531,7 @@ export function App({ host }: { host: Host }) {
 			onSaveCopy={() => void saveCopy(pane)}
 			onMoveToTrash={() => void moveToTrash(pane)}
 			onMoveTo={() => setMovePicker(pane.id)}
-			templates={{ host: vaultHost, onManage: () => setTemplatesOpen(true) }}
+			templates={{ host: vaultHost, onManage: () => setTemplatesRequest({}) }}
 			links={links}
 			locked={ws.moving}
 			onDropBlock={
@@ -1705,19 +1705,19 @@ export function App({ host }: { host: Host }) {
 							resourceTypes={resources.types}
 							onOpenResource={(noteId) => {
 								setFocusResource(noteId);
-								setResourcesOpen(true);
+								setResourcesRequest({});
 							}}
 							onOpenResources={
 								view && view.status !== "none" && resourcesOn
 									? () => {
 											setFocusResource(null);
-											setResourcesOpen(true);
+											setResourcesRequest({});
 										}
 									: undefined
 							}
 							onOpenTemplates={
 								view && view.status !== "none" && templatesOn
-									? () => setTemplatesOpen(true)
+									? () => setTemplatesRequest({})
 									: undefined
 							}
 							titleInPanes={
@@ -1805,13 +1805,13 @@ export function App({ host }: { host: Host }) {
 									journalActive={screen === "journal"}
 									onOpenSettings={() => void navigate("settings")}
 									onOpenTemplates={
-										templatesOn ? () => setTemplatesOpen(true) : undefined
+										templatesOn ? () => setTemplatesRequest({}) : undefined
 									}
 									onOpenResources={
 										resourcesOn
 											? () => {
 													setFocusResource(null);
-													setResourcesOpen(true);
+													setResourcesRequest({});
 												}
 											: undefined
 									}
@@ -1983,22 +1983,24 @@ export function App({ host }: { host: Host }) {
 							host={vaultHost}
 							notes={(view?.notes ?? []).filter((n) => n.kind !== "canvas")}
 							writable={writable}
-							open={templatesOpen}
+							open={!!templatesRequest}
+							focusRequest={templatesRequest}
 							onNewNoteFromTemplate={startNoteFromTemplate}
-							onClose={() => setTemplatesOpen(false)}
+							onClose={() => setTemplatesRequest(undefined)}
 						/>
 						{templatePrompt.dialog}
 						<ResourceManager
 							host={vaultHost}
 							writable={writable}
-							open={resourcesOpen}
+							open={!!resourcesRequest}
+							focusRequest={resourcesRequest}
 							focusId={focusResource}
 							onOpenNote={(path) => {
-								setResourcesOpen(false);
+								setResourcesRequest(undefined);
 								void open(path);
 							}}
 							onClose={() => {
-								setResourcesOpen(false);
+								setResourcesRequest(undefined);
 								setFocusResource(null);
 								void reloadResources();
 							}}

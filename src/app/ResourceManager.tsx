@@ -1,5 +1,12 @@
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useEffectEvent,
+	useId,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type Backlink, backlinks } from "../core/links/links";
@@ -62,6 +69,7 @@ export function ResourceManager({
 	host,
 	writable,
 	open,
+	focusRequest,
 	onClose,
 	focusId = null,
 	onOpenNote,
@@ -69,6 +77,8 @@ export function ResourceManager({
 	host: Host;
 	writable: boolean;
 	open: boolean;
+	/** A new object brings the open window to the front and focuses it. */
+	focusRequest?: object;
 	onClose: () => void;
 	/** The `noteId` of a card to show when the manager opens (from a link). */
 	focusId?: string | null;
@@ -91,6 +101,9 @@ export function ResourceManager({
 	const [fieldDialog, setFieldDialog] = useState<string | null>(null);
 	const [fieldRemoval, setFieldRemoval] = useState<FieldRemoval | null>(null);
 	const [typeRemoval, setTypeRemoval] = useState<TypeRemoval | null>(null);
+
+	// The link request whose card was last shown (see the effect below).
+	const shownFor = useRef<unknown>(null);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -115,19 +128,9 @@ export function ResourceManager({
 		setProblem(null);
 		setMode("view");
 		setForm(null);
+		shownFor.current = null;
 		void refresh();
 	}, [open, refresh]);
-
-	// A link in a note opens the manager on its card.
-	useEffect(() => {
-		if (!open || !loaded || !focusId) return;
-		const target = cards.find((c) => c.noteId === focusId);
-		if (!target) return;
-		setFilter("all");
-		setQuery("");
-		setSelected(target.path);
-		setMode("view");
-	}, [open, loaded, focusId, cards]);
 
 	// The notes and canvases that link to the shown card.
 	const shownId = cards.find((c) => c.path === selected)?.noteId ?? null;
@@ -195,6 +198,25 @@ export function ResourceManager({
 			},
 		},
 	);
+
+	// A link in a note opens the manager on its card, once per request. The
+	// note stays usable beside the manager, so a card being edited asks first.
+	const showCard = useEffectEvent((path: string) =>
+		guard(() => {
+			setFilter("all");
+			setQuery("");
+			setSelected(path);
+			setMode("view");
+		}),
+	);
+	useEffect(() => {
+		const request = focusRequest ?? focusId;
+		if (!open || !loaded || !focusId || shownFor.current === request) return;
+		const target = cards.find((c) => c.noteId === focusId);
+		if (!target) return;
+		shownFor.current = request;
+		showCard(target.path);
+	}, [open, loaded, focusId, focusRequest, cards]);
 
 	const startForm = (type: ResourceType, existing: ResourceCard | null) => {
 		const values: Record<string, string> = {};
@@ -381,10 +403,11 @@ export function ResourceManager({
 			<ManagerDialog
 				open={open}
 				onRequestClose={() => guard(onClose)}
+				kind="resource-manager"
+				focusRequest={focusRequest}
 				className="res-manager"
 				title="Resource manager"
 				description="Contacts, books, articles and your own kinds of resource, kept apart from your notes."
-				descriptionId="res-manager-about"
 			>
 				<div className="res-toolbar">
 					<Input

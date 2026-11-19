@@ -54,7 +54,14 @@ describe("slash menu items", () => {
 			"button",
 			"template",
 		]);
-		expect(ids("Plan")).toEqual(["task", "table", "database", "date", "toc"]);
+		expect(ids("Plan")).toEqual([
+			"task",
+			"table",
+			"database",
+			"kanban",
+			"date",
+			"toc",
+		]);
 		expect(ids("Visual")).toEqual([
 			"mermaid-flowchart",
 			"mermaid-sequence",
@@ -66,7 +73,7 @@ describe("slash menu items", () => {
 			"plot",
 		]);
 		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
-		expect(SLASH_ITEMS).toHaveLength(48);
+		expect(SLASH_ITEMS).toHaveLength(49);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {
@@ -256,6 +263,7 @@ describe("slash menu items", () => {
 			["button", "button-blocks"],
 			["template", "templates"],
 			["database", "database-blocks"],
+			["kanban", "kanban"],
 			...SLASH_ITEMS.filter((i) => i.section === "Visual").map((i) => [
 				i.id,
 				i.feature,

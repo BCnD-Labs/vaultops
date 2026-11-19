@@ -1,0 +1,32 @@
+.kanban {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	overflow: auto;
+	max-height: min(36rem, 65vh);
+	padding: 0.25rem;
+}
+.kanban section {
+	flex: 0 0 15rem;
+	padding: 0.5rem;
+	border-radius: var(--radius-control);
+	background: var(--surface-container);
+}
+.kanban-card {
+	margin: 0.4rem 0;
+	padding: 0.4rem;
+	background: var(--background);
+	border-left: 3px solid var(--line);
+}
+.kanban [data-card] {
+	cursor: grab;
+	touch-action: none;
+}
+.kanban [data-gap="true"] {
+	margin-top: 1.8rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+	:root:not([data-reduce-motion]) .kanban :is(.kanban-card, .kanban-foot) {
+		transition: margin-top 150ms ease-out;
+	}
+}

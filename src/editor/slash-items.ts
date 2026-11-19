@@ -37,6 +37,7 @@ import {
 	ToggleRight,
 	Workflow,
 } from "lucide-react";
+import { defaultColumns } from "../core/kanban";
 import { CALLOUT_ICONS, CALLOUT_TONES } from "./callout";
 import { insertColumns } from "./columns";
 import { insertDatabase } from "./database/commands";
@@ -375,6 +376,18 @@ const ITEMS: SlashItem[] = [
 		run: (e, r) => {
 			insertDatabase(e, r);
 		},
+	},
+	{
+		id: "kanban",
+		label: "Quick kanban",
+		keywords: ["board", "cards", "kanban"],
+		section: "Plan",
+		icon: Columns2,
+		feature: "kanban",
+		run: (e, r) =>
+			start(e, r)
+				.insertContent({ type: "kanban", attrs: { columns: defaultColumns() } })
+				.run(),
 	},
 	{
 		id: "chart",

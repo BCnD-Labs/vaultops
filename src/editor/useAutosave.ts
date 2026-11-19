@@ -6,6 +6,7 @@ import {
 	useState,
 } from "react";
 import { linksIn } from "../core/links/links";
+import type { Note } from "../core/note-format";
 import { headerIcon } from "../core/notes/icon";
 import { headerProps } from "../core/notes/properties";
 import { previewOf, searchTextOf } from "../core/notes/scan";
@@ -59,6 +60,29 @@ export interface DraftAutosaveOwner {
 	autosave(
 		create: (written: Written) => Autosave<Draft>,
 	): Autosave<Draft> | null;
+}
+
+/** What the note list learns from a note that was just written. */
+export function savedInfoOf(
+	oldPath: string,
+	path: string,
+	note: Note,
+): SavedInfo {
+	return {
+		oldPath,
+		path,
+		title: typeof note.header.title === "string" ? note.header.title : path,
+		preview: previewOf(note.blocks),
+		icon: headerIcon(note.header),
+		text: searchTextOf(note.blocks),
+		...searchFieldsOf(note),
+		...viewFieldsOf(note),
+		updatedAt: Date.now(),
+		links: [...new Set(linksIn(note.blocks).map((link) => link.target))],
+		titleChanged: false,
+		tags: tagsOf(headerProps(note.header)),
+		flashcards: flashcardIds(note),
+	};
 }
 
 /**
@@ -145,25 +169,9 @@ export function useAutosave(
 					baseText: result.text,
 				};
 				written(note, draft, {
-					oldPath,
-					path: result.path,
+					...savedInfoOf(oldPath, result.path, result.note),
 					...(base.baseText === null ? { created: true } : {}),
-					title:
-						typeof result.note.header.title === "string"
-							? result.note.header.title
-							: result.path,
-					preview: previewOf(result.note.blocks),
-					icon: headerIcon(result.note.header),
-					text: searchTextOf(result.note.blocks),
-					...searchFieldsOf(result.note),
-					...viewFieldsOf(result.note),
-					updatedAt: Date.now(),
-					links: [
-						...new Set(linksIn(result.note.blocks).map((link) => link.target)),
-					],
 					titleChanged: result.titleChanged,
-					tags: tagsOf(headerProps(result.note.header)),
-					flashcards: flashcardIds(result.note),
 					...(result.notice ? { notice: result.notice } : {}),
 				});
 				return { ok: true };

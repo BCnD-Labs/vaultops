@@ -128,3 +128,7 @@
 	gap: var(--space-1) var(--space-3);
 	width: 100%;
 }
+
+.live-view .lv-problem {
+	color: var(--destructive);
+}

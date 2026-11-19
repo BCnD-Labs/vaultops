@@ -1,8 +1,19 @@
-import type { PropertyType } from "../../core/notes/properties";
+import {
+	addProperty,
+	type Change,
+	cleanName,
+	findName,
+	optionsOf,
+	type PropertyType,
+	type PropertyValue,
+	type Props,
+	setOptions,
+	setValue,
+} from "../../core/notes/properties";
 import type { MatchRow } from "../../core/views/match";
 import type { ViewField } from "../../core/views/row";
 import { propName } from "../../core/views/rule";
-import type { Cells, ColumnType, DbColumn } from "../database/model";
+import type { Cells, CellValue, ColumnType, DbColumn } from "../database/model";
 
 /** Property types as database column types (the design's `propToColumn`). */
 const COLUMN_OF: Readonly<Record<PropertyType, ColumnType>> = {
@@ -12,6 +23,16 @@ const COLUMN_OF: Readonly<Record<PropertyType, ColumnType>> = {
 	checkbox: "checkbox",
 	select: "select",
 	list: "multiSelect",
+};
+
+/** Back again: the property type a table column writes. */
+const PROPERTY_OF: Partial<Record<ColumnType, PropertyType>> = {
+	text: "text",
+	number: "number",
+	date: "date",
+	checkbox: "checkbox",
+	select: "select",
+	multiSelect: "list",
 };
 
 /**
@@ -51,10 +72,14 @@ export function columnHeader(
 	return propToColumn(field, found?.name ?? name, found);
 }
 
-/** One row's cell for a view column, in the database cell shape. */
+/**
+ * One row's cell for a view column, in the database cell shape. A note without
+ * the property gets the column's header, so filling the cell adds it.
+ */
 export function cellOf(
 	field: string,
 	row: MatchRow,
+	header?: DbColumn,
 ): { column: DbColumn; cells: Cells } {
 	if (field === "type")
 		return {
@@ -64,7 +89,49 @@ export function cellOf(
 	const name = propName(field) ?? field;
 	const f = row.fields[name.toLowerCase()];
 	return {
-		column: propToColumn(field, f?.name ?? name, f),
+		column: !f && header ? header : propToColumn(field, f?.name ?? name, f),
 		cells: { [field]: f?.value ?? null },
+	};
+}
+
+/**
+ * A cell's value as the property stores it: option names, not option ids (a
+ * new option made in the picker has a fresh id until it is saved).
+ */
+export function cellToValue(column: DbColumn, value: CellValue): PropertyValue {
+	const name = (id: string) =>
+		column.options?.find((o) => o.id === id)?.name ?? id;
+	if (Array.isArray(value)) return value.map(name);
+	return column.type === "select" && typeof value === "string"
+		? name(value)
+		: value;
+}
+
+/**
+ * The property change a table cell makes. A missing property is added with the
+ * column's type, and a new select option joins the property's options.
+ */
+export function cellEdit(
+	column: DbColumn,
+	value: PropertyValue,
+): (props: Props) => Change {
+	return (props) => {
+		const type = PROPERTY_OF[column.type];
+		if (!type) return { ok: false, message: "This column can't be edited." };
+		let next = props;
+		let name = findName(next, column.name);
+		if (name === null) {
+			const added = addProperty(next, column.name, type);
+			if (!added.ok) return added;
+			next = added.props;
+			name = cleanName(column.name);
+		}
+		const options = optionsOf(next[name]);
+		if (typeof value === "string" && options && !options.includes(value)) {
+			const grown = setOptions(next, name, [...options, value]);
+			if (!grown.ok) return grown;
+			next = grown.props;
+		}
+		return setValue(next, name, value);
 	};
 }

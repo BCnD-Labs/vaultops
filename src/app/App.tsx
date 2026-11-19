@@ -1889,8 +1889,9 @@ export function App({ host }: { host: Host }) {
 		() => ({
 			rows: viewRows,
 			open: (path: string) => void openRow.current(path),
+			setProps: ws.setProps,
 		}),
-		[viewRows],
+		[viewRows, ws.setProps],
 	);
 
 	const renderNote = (pane: PaneView) => (

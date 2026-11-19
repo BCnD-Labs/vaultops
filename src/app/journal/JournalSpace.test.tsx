@@ -91,3 +91,62 @@ it("keeps an unsaved first entry in quit recovery", async () => {
 	expect(recovery).toContain("Keep this draft");
 	expect(await host.kindOf(path)).toBeNull();
 });
+
+function calendarDay(day: string) {
+	const calendar = screen.getByRole("complementary", {
+		name: "Journal calendar",
+	});
+	const cell = calendar.querySelector<HTMLElement>(`[data-mini-date="${day}"]`);
+	if (!cell) throw new Error(`No calendar cell for ${day}.`);
+	return cell;
+}
+
+it("marks logged days on the calendar and scrolls to a day when clicked", async () => {
+	const host = new MemoryHost();
+	const today = keyOfDate(new Date());
+	const yesterday = addDaysToKey(today, -1);
+	await loadVault(host);
+	await appendLogEntry(host, yesterday, null, "Yesterday");
+	const scroll = vi.fn();
+	Element.prototype.scrollIntoView = scroll;
+	await openJournal(host);
+	await waitFor(() =>
+		expect(calendarDay(yesterday).getAttribute("aria-label")).toContain(
+			"has a log",
+		),
+	);
+	fireEvent.click(calendarDay(yesterday));
+	await waitFor(() =>
+		expect(scroll.mock.contexts).toContain(
+			document.getElementById(`journal-day-${yesterday}`),
+		),
+	);
+});
+
+it("adds a picked day without a log to the feed and writes nothing", async () => {
+	const host = new MemoryHost();
+	const today = keyOfDate(new Date());
+	const empty = addDaysToKey(today, -1);
+	await loadVault(host);
+	Element.prototype.scrollIntoView = vi.fn();
+	const journal = await openJournal(host);
+	fireEvent.click(calendarDay(empty));
+	await waitFor(() =>
+		expect(
+			[...journal.querySelectorAll("time")].map((node) => node.dateTime),
+		).toEqual([today, empty]),
+	);
+	expect(await host.kindOf(logPath(empty))).toBeNull();
+});
+
+it("lists the same date in earlier years under On this day", async () => {
+	const host = new MemoryHost();
+	const today = keyOfDate(new Date());
+	const lastYear = `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`;
+	await loadVault(host);
+	await appendLogEntry(host, lastYear, null, "A year ago");
+	await appendLogEntry(host, addDaysToKey(today, -3), null, "Not this day");
+	await openJournal(host);
+	const memories = await screen.findByRole("region", { name: "On this day" });
+	expect(within(memories).getAllByRole("button")).toHaveLength(1);
+});

@@ -29,6 +29,7 @@ import { ListMarkers, ListTabGuard } from "./list-nesting";
 import { MathBlock } from "./math-block";
 import { MoveOut } from "./move-out";
 import { LinkMenu, NoteLink } from "./note-link";
+import { PlotBlock } from "./plot-block";
 import { SlashMenu } from "./slash-menu";
 import { SwitchBlock } from "./switch";
 import { TaskBlock } from "./task-block";
@@ -116,6 +117,7 @@ export function createExtensions(): Extensions {
 		Database.configure({ pageExtensions: createPageExtensions }),
 		DatabaseRow,
 		ChartBlock,
+		PlotBlock,
 		SlashMenu,
 		Folding,
 		DropSlot,

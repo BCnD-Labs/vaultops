@@ -18,6 +18,11 @@ import {
 import type { Block, JsonValue } from "../core/note-format";
 import type { ItemTone } from "../core/notes/canvas-ops";
 import {
+	DEFAULT_XMAX,
+	DEFAULT_XMIN,
+	normalizeRange,
+} from "../core/plot/layout";
+import {
 	BLOCK_DRAG_TYPE,
 	blockDragData,
 	findBlockDropTarget,
@@ -32,6 +37,7 @@ import { abandonLift, liftBlock } from "../editor/lift";
 import { MathField } from "../editor/MathField";
 import { latexOf } from "../editor/math-block";
 import type { NoteEditorProps } from "../editor/NoteEditor";
+import { computePlot, exprOf, PlotGraph } from "../editor/plot-block";
 import { SendToBlock } from "./SendToDialog";
 
 function inline(value: JsonValue | undefined, noteLinks?: boolean): ReactNode {
@@ -191,6 +197,32 @@ function renderBlock(
 					/>
 				</div>
 			);
+		case "plotBlock": {
+			const attrs =
+				block.attrs &&
+				typeof block.attrs === "object" &&
+				!Array.isArray(block.attrs)
+					? block.attrs
+					: {};
+			const [xmin, xmax] = normalizeRange(
+				attrs.xmin ?? DEFAULT_XMIN,
+				attrs.xmax ?? DEFAULT_XMAX,
+			);
+			const { shown } = computePlot(
+				exprOf(attrs.expr ?? undefined),
+				xmin,
+				xmax,
+			);
+			return (
+				<div className="plot-block">
+					{shown ? (
+						<PlotGraph shown={shown} />
+					) : (
+						<p className="plot-empty">No graph</p>
+					)}
+				</div>
+			);
+		}
 		case "callout": {
 			const attrs =
 				block.attrs &&

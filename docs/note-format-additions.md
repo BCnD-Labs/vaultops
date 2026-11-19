@@ -208,6 +208,35 @@ A block for an equation, edited visually in the app and written as plain LaTeX.
 Fixture: `test-fixtures/math-block.vnote` (round-trips byte for byte in
 `src/editor/doc-blocks.test.ts`).
 
+## `plotBlock` (block type, added later)
+
+A block that draws a graph of one or more formulas. Only the formulas and the
+x range are saved, never the drawn graph: it is worked out again each time the
+note opens.
+
+- **Where it lives:** its own line, `type` `plotBlock`, with no inline `content`.
+- **Attributes:**
+  - `expr`, a string: up to 4 formulas separated by `;` or new lines, for
+    example `y = sin(x); y = cos(x)`. A leading `y =` or `f(x) =` is allowed.
+    Left out when it is the starter `y = x^2`. An empty string is kept (the
+    block then shows a hint instead of a graph); a value that is not text is
+    shown as the starter formula and kept until the block is edited.
+  - `xmin` and `xmax`, numbers: the left and right edge of the graph. Each is
+    left out when it is the default (`-10`, `10`). If the two make no sense
+    (not numbers, or `xmin` is not below `xmax`) the app draws `-10` to `10`
+    and does not change what is saved.
+- **Formulas:** `x`, numbers, `+ - * / ^`, brackets, `2x` for 2 times x, `pi`,
+  `e`, and `sin cos tan asin acos atan sqrt abs ln log exp floor ceil round
+  min max`. The app reads them with its own small reader; nothing is run as
+  code.
+- **Example line:** `{"id":"g2","type":"plotBlock","parent":null,"attrs":{"expr":"y = sin(x); y = cos(x)","xmax":6.28,"xmin":-6.28}}`
+- **In previews and search:** not counted as text yet.
+- **Older build:** opens the note read-only (it does not know the block type),
+  so nothing is lost.
+
+Fixture: `test-fixtures/plot-block.vnote` (round-trips byte for byte in
+`src/editor/doc-blocks.test.ts`, including a range that is not a number).
+
 ## `databaseRow` `noteId` (attribute, added later)
 
 A database row (`databaseRow`, a child line of a `database`; its own page is

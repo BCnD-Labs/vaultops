@@ -1,0 +1,103 @@
+.plot-block {
+	--chart-1: var(--primary);
+	--chart-2: var(--accent);
+	--chart-3: var(--callout-info-accent);
+	--chart-4: var(--callout-tip-accent);
+	display: block;
+	margin: 1rem 0;
+	padding: 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	color: var(--foreground);
+}
+.plot-setup {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: end;
+	margin-bottom: 0.5rem;
+}
+.plot-setup .plot-input {
+	flex: 1 1 14rem;
+	min-height: 0;
+	font-family: var(--font-mono);
+	resize: vertical;
+}
+.plot-ranges {
+	display: flex;
+	gap: 0.5rem;
+}
+.plot-range {
+	display: grid;
+	gap: 0.2rem;
+	width: 5rem;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plot-error {
+	margin: 0 0 0.5rem;
+	color: var(--destructive);
+	font-size: var(--font-size-small);
+}
+.plot-empty {
+	margin: 0;
+	padding: 0.8rem;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-ui);
+}
+.plot-figure {
+	margin: 0;
+}
+.plot-svg {
+	display: block;
+	width: min(100%, 42rem);
+	height: auto;
+}
+.plot-grid {
+	stroke: var(--border);
+	stroke-width: 0.5;
+}
+.plot-axis {
+	stroke: var(--muted-foreground);
+	stroke-width: 1;
+}
+.plot-tick {
+	fill: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plot-curve {
+	fill: none;
+	stroke-width: 2;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+	animation: plot-fade var(--motion-normal) var(--ease-standard) both;
+}
+.plot-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 1rem;
+	margin-top: 0.25rem;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.plot-legend i {
+	display: inline-block;
+	width: 0.7rem;
+	height: 0.2rem;
+	margin-right: 0.35rem;
+	vertical-align: middle;
+	border-radius: var(--radius-control);
+}
+@keyframes plot-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.plot-curve {
+		animation: none;
+	}
+}

@@ -62,9 +62,10 @@ describe("slash menu items", () => {
 			"mermaid-gantt",
 			"mermaid-pie",
 			"chart",
+			"plot",
 		]);
 		expect(ids("Media")).toEqual(["image", "guitar-tab", "sheet-music"]);
-		expect(SLASH_ITEMS).toHaveLength(46);
+		expect(SLASH_ITEMS).toHaveLength(47);
 		expect(SLASH_ITEMS.every((i) => i.icon)).toBe(true);
 	});
 	it("shows charts in Visual only while the charts feature is on", () => {

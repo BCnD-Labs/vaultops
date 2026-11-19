@@ -30,6 +30,7 @@ export const BLOCK_TYPES = [
 	"database",
 	"databaseRow",
 	"chart",
+	"plotBlock",
 ] as const;
 
 export type BlockType = (typeof BLOCK_TYPES)[number];

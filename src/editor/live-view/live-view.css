@@ -1,0 +1,22 @@
+/* A live view borrows the database block's look (database.css); only its own bits are here. */
+.live-view .lv-count {
+	flex-shrink: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+
+.live-view .lv-title {
+	justify-content: flex-start;
+	width: 100%;
+	height: var(--db-row);
+	padding: 0 var(--space-2);
+	overflow: hidden;
+	color: var(--editor-text, var(--foreground));
+	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.live-view .db-th-button {
+	cursor: default;
+}

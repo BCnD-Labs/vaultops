@@ -189,6 +189,7 @@ const blocks: Record<(typeof BLOCK_TYPES)[number], JSONContent> = {
 			fields: [{ name: "Title", type: "text" }],
 		},
 	},
+	liveView: { type: "liveView", attrs: { id: "view" } },
 };
 
 /** Blocks that are only ever reached through a top-level block that holds them. */

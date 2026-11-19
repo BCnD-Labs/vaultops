@@ -24,6 +24,7 @@ import {
 	Link2,
 	List,
 	ListChecks,
+	ListFilter,
 	ListOrdered,
 	ListTree,
 	type LucideIcon,
@@ -122,6 +123,8 @@ const ABC_STARTER =
 
 /** Asked of the note's own editor, which opens the template picker beside the caret. */
 export const FRAME_EVENT = "vaultops:frame";
+/** Asked of the note's own editor, which knows the note's folder for a new view's rule. */
+export const VIEW_EVENT = "vaultops:view";
 export const TEMPLATE_EVENT = "vaultops:template";
 
 const HEADINGS: {
@@ -514,6 +517,18 @@ const ITEMS: SlashItem[] = [
 				.run(),
 	},
 	{
+		id: "view",
+		label: "Live view",
+		keywords: ["query", "filter", "collection", "notes", "dashboard"],
+		section: "Organise",
+		icon: ListFilter,
+		feature: "live-views",
+		run: (e, r) => {
+			start(e, r).run();
+			e.view.dom.dispatchEvent(new CustomEvent(VIEW_EVENT));
+		},
+	},
+	{
 		id: "template",
 		label: "Template",
 		keywords: ["insert", "starter", "snippet", "boilerplate"],
@@ -606,6 +621,7 @@ export function filterSlashItems(
 		columns: boolean;
 		templates?: boolean;
 		frames?: boolean;
+		views?: boolean;
 		links?: boolean;
 		/** Whether a feature is on (asked when the menu opens). Absent means all are on. */
 		enabled?: (featureId: string) => boolean;
@@ -622,6 +638,7 @@ export function filterSlashItems(
 			(where.templates !== false || !isTemplate(item)) &&
 			(where.links !== false || !isLink(item)) &&
 			(item.id !== "frame" || where.frames !== false) &&
+			(item.id !== "view" || where.views !== false) &&
 			featureOn(item),
 	);
 	if (query === "" && recent.length) {

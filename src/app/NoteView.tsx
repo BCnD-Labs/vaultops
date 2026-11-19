@@ -25,11 +25,13 @@ import { findName, type Props } from "../core/notes/properties";
 import { listTemplates, type TemplateEntry } from "../core/notes/templates";
 import type { ResourceType } from "../core/resources/resources";
 import { findTypeTemplate } from "../core/types/new-note";
+import { newViewAttrs } from "../core/views/view-attrs";
 import type { AutosaveState } from "../editor/autosave";
 import type { ButtonOptions, RunButton } from "../editor/button-block";
 import { CanvasFrameView } from "../editor/canvas-frame";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
 import { insertBlocksAtCaret } from "../editor/insert-blocks";
+import { LiveViewSource } from "../editor/live-view/live-view";
 import {
 	type DropSlot,
 	NoteEditor,
@@ -65,6 +67,8 @@ export interface TemplatesApi {
 	host: Host;
 	onManage: () => void;
 }
+
+export type LiveViewsApi = Omit<LiveViewSource, "hostPath">;
 
 export interface NoteViewProps {
 	opened: OpenedNote;
@@ -119,6 +123,8 @@ export interface NoteViewProps {
 	/** Shows the type chip in the Properties block. */
 	typeApi?: TypeApi;
 	frames?: FramesApi;
+	/** Turns on live views: the vault's rows, and how to open one. */
+	views?: LiveViewsApi;
 	/** Turns on `[[` and `@` links. */
 	links?: LinkSource;
 	/** The note cannot be typed in for a moment (a block is being moved). */
@@ -197,6 +203,7 @@ export function NoteView({
 	forms,
 	typeApi,
 	frames,
+	views,
 	links,
 	locked = false,
 }: NoteViewProps) {
@@ -262,6 +269,20 @@ export function NoteView({
 		onProps: onPropsChange,
 		api: forms,
 	});
+	const viewSource = useMemo(
+		() => (views ? { ...views, hostPath: path } : null),
+		[views, path],
+	);
+	const insertView = (request: TemplateRequest) => {
+		if (
+			!request.insert(
+				[{ type: "liveView", attrs: newViewAttrs(path) }],
+				null,
+				false,
+			)
+		)
+			request.focus();
+	};
 	const Body = editorElsewhere ? NotePreview : NoteEditor;
 	const prompt = useTemplatePrompt();
 	const insertTemplate = (
@@ -531,50 +552,53 @@ export function NoteView({
 						Allow editing
 					</Button>
 				))}
-			<CanvasFrameView.Provider
-				value={
-					frames
-						? (canvasId, groupId) => (
-								<NoteCanvasFrame
-									key={`${canvasId}:${groupId}`}
-									documents={frames.documents}
-									canvasId={canvasId}
-									groupId={groupId}
-									editable={Boolean(canFrame)}
-								/>
-							)
-						: null
-				}
-			>
-				<Body
-					key={`${opened.path}:${editorRevision}`}
-					slot={editorSlot}
-					focusOnAttach={focusEditor}
-					onResumeEditing={onResumeEditing}
-					doc={liveDoc ?? opened.doc}
-					noteId={opened.note?.header.noteId}
-					editable={opened.editable && !reading && !locked}
-					onChange={(next) => {
-						setDoc(next);
-						onDocChange(next);
-					}}
-					onDropBlock={onDropBlock}
-					onRunButton={buttonCommands ? runButton : undefined}
-					buttonOptions={
-						buttonCommands && {
-							commands: buttonCommands,
-							templates: buttonTemplates,
-							canCreate: !!onButtonNewNote,
-						}
+			<LiveViewSource.Provider value={viewSource}>
+				<CanvasFrameView.Provider
+					value={
+						frames
+							? (canvasId, groupId) => (
+									<NoteCanvasFrame
+										key={`${canvasId}:${groupId}`}
+										documents={frames.documents}
+										canvasId={canvasId}
+										groupId={groupId}
+										editable={Boolean(canFrame)}
+									/>
+								)
+							: null
 					}
-					onChooseTemplate={canTemplate ? setPicker : undefined}
-					onChooseFrame={canFrame ? setFramePicker : undefined}
-					links={links}
-					featureOn={featureEnabled}
-					images={images}
-					forms={formSource}
-				/>
-			</CanvasFrameView.Provider>
+				>
+					<Body
+						key={`${opened.path}:${editorRevision}`}
+						slot={editorSlot}
+						focusOnAttach={focusEditor}
+						onResumeEditing={onResumeEditing}
+						doc={liveDoc ?? opened.doc}
+						noteId={opened.note?.header.noteId}
+						editable={opened.editable && !reading && !locked}
+						onChange={(next) => {
+							setDoc(next);
+							onDocChange(next);
+						}}
+						onDropBlock={onDropBlock}
+						onRunButton={buttonCommands ? runButton : undefined}
+						buttonOptions={
+							buttonCommands && {
+								commands: buttonCommands,
+								templates: buttonTemplates,
+								canCreate: !!onButtonNewNote,
+							}
+						}
+						onChooseTemplate={canTemplate ? setPicker : undefined}
+						onChooseFrame={canFrame ? setFramePicker : undefined}
+						links={links}
+						featureOn={featureEnabled}
+						images={images}
+						onInsertView={viewSource ? insertView : undefined}
+						forms={formSource}
+					/>
+				</CanvasFrameView.Provider>
+			</LiveViewSource.Provider>
 			{frames && canFrame && framePicker && (
 				<FramePicker
 					api={frames}
@@ -676,6 +700,7 @@ export interface SessionNoteViewProps {
 	/** The vault's types; with them the note shows a type chip. */
 	types?: ResourceType[];
 	frames?: FramesApi;
+	views?: LiveViewsApi;
 	links?: LinkSource;
 	locked?: boolean;
 }
@@ -714,6 +739,7 @@ function PaneNote({
 	forms,
 	types,
 	frames,
+	views,
 	links,
 	locked = false,
 }: SessionNoteViewProps & { opened: OpenedNote }) {
@@ -781,6 +807,7 @@ function PaneNote({
 					: undefined
 			}
 			frames={frames}
+			views={views}
 			links={links}
 			locked={locked || editorElsewhere}
 			onRetry={session.retry}

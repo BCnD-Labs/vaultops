@@ -1699,3 +1699,13 @@ input.canvas-item-field {
 	border-radius: 0;
 	background: var(--panel);
 }
+
+/* "Other properties" under a type's own fields. */
+.prop-group-title {
+	margin: var(--space-2) 0 var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-ui);
+}
+.props-block .prop-group-title {
+	padding-left: calc(var(--space-unit) * 1.5);
+}

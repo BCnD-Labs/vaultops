@@ -11,6 +11,7 @@ import { renameNote } from "../core/notes/rename";
 import { createNote } from "../core/notes/repository";
 import { dayOfLogPath, newLogNote } from "../core/planner/log";
 import { JOURNAL_FOLDER } from "../core/planner/task-note";
+import { withType } from "../core/types/apply";
 import { type Host, HostError } from "../host/host";
 import { docToBlocks } from "./doc-blocks";
 import { type OpenedNote, saveDoc } from "./note-io";
@@ -25,6 +26,8 @@ export interface Draft {
 	icon?: string | null;
 	/** Null removes the cover. Omitted keeps the saved value. */
 	cover?: string | null;
+	/** The note's type id (`resource.type`). Null removes it. Omitted keeps the saved value. */
+	type?: string | null;
 }
 
 export type DraftOutcome =
@@ -45,6 +48,7 @@ function withDraftMetadata(header: Note["header"], draft: Draft) {
 	if (draft.props !== undefined) header = withProps(header, draft.props);
 	if (draft.icon !== undefined) header = withIcon(header, draft.icon);
 	if (draft.cover !== undefined) header = withCover(header, draft.cover);
+	if (draft.type !== undefined) header = withType(header, draft.type);
 	return header;
 }
 

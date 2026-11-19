@@ -4,8 +4,14 @@ import { headerCover } from "../core/notes/cover";
 import { type HighlightItem, highlightsOf } from "../core/notes/highlights";
 import { headerIcon } from "../core/notes/icon";
 import { type OutlineItem, outlineOf } from "../core/notes/outline";
-import { headerProps, type Props as NoteProps } from "../core/notes/properties";
+import {
+	headerProps,
+	type Props as NoteProps,
+	withProps,
+} from "../core/notes/properties";
 import { type TextStats, textStats } from "../core/notes/text-stats";
+import type { ResourceType } from "../core/resources/resources";
+import { applyType, typeIdOf, withType } from "../core/types/apply";
 import { getLogger } from "../debug/index";
 import {
 	lockedForReadOnlyVault,
@@ -55,6 +61,8 @@ export function useNoteSession({
 	const [coverEdit, setCoverEdit] = useState<string | null>();
 	const coverRef = useRef<string | null>(undefined);
 	const iconRef = useRef<string | null>(undefined);
+	const [typeEdit, setTypeEdit] = useState<string | null>();
+	const typeRef = useRef<string | null>(undefined);
 	const [title, setTitle] = useState("");
 	const [notice, setNotice] = useState<string | null>(null);
 	const [props, setProps] = useState<NoteProps | null>({});
@@ -115,6 +123,8 @@ export function useNoteSession({
 		setIconEdit(draft?.icon);
 		coverRef.current = draft?.cover;
 		setCoverEdit(draft?.cover);
+		typeRef.current = draft?.type;
+		setTypeEdit(draft?.type);
 		setStats(textStats(docRef.current));
 		setHighlights(highlightsOf(docRef.current?.content));
 		setOutline(outlineOf(docRef.current));
@@ -217,6 +227,7 @@ export function useNoteSession({
 		title: nextTitle,
 		icon: iconRef.current,
 		cover: coverRef.current,
+		...(typeRef.current !== undefined ? { type: typeRef.current } : {}),
 		...(propsRef.current ? { props: propsRef.current } : {}),
 	});
 
@@ -240,6 +251,39 @@ export function useNoteSession({
 		setProps(next);
 		if (docRef.current)
 			autosave.change(draftOf(docRef.current, titleRef.current), opened);
+	};
+
+	/**
+	 * Give the open note a type, or take it off (null). Adding fields and setting
+	 * the type are one edit in this note's own draft, so nothing on disk is
+	 * written around the editor. Returns why it was refused, or null.
+	 */
+	const editType = (type: ResourceType | null): string | null => {
+		const header = opened?.note?.header;
+		if (!opened?.editable || !header) return "This note can't be edited.";
+		if (type === null) {
+			typeRef.current = null;
+			setTypeEdit(null);
+		} else {
+			if (propsRef.current === null)
+				return "This note's properties can't be edited here, so its type was not set.";
+			const current = withType(
+				withProps(header, propsRef.current),
+				typeRef.current === undefined ? typeIdOf(header) : typeRef.current,
+			);
+			const applied = applyType(current, type);
+			if (!applied.ok) return applied.message;
+			const next = headerProps(applied.header);
+			if (next) {
+				propsRef.current = next;
+				setProps(next);
+			}
+			typeRef.current = type.id;
+			setTypeEdit(type.id);
+		}
+		if (docRef.current)
+			autosave.change(draftOf(docRef.current, titleRef.current), opened);
+		return null;
 	};
 
 	const editTitle = (next: string) => {
@@ -299,6 +343,14 @@ export function useNoteSession({
 		host,
 		editCover,
 		editProps,
+		/** The note's type id, or null. */
+		typeId:
+			typeEdit === undefined
+				? opened?.note
+					? typeIdOf(opened.note.header)
+					: null
+				: typeEdit,
+		editType,
 		editTitle,
 		editDoc,
 	};

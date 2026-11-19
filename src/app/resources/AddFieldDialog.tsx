@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-	FIELD_KINDS,
+	ALL_FIELD_KINDS,
 	type FieldKind,
 	KIND_LABELS,
 	type ResourceField,
@@ -33,8 +33,10 @@ export function AddFieldDialog({
 	const [label, setLabel] = useState("");
 	const [kind, setKind] = useState<FieldKind>("text");
 	const [required, setRequired] = useState(false);
+	const [options, setOptions] = useState("");
 	useEffect(() => {
 		if (open) {
+			setOptions("");
 			setLabel("");
 			setKind("text");
 			setRequired(false);
@@ -56,7 +58,18 @@ export function AddFieldDialog({
 				<form
 					onSubmit={(event) => {
 						event.preventDefault();
-						if (hint === "") onCreate({ label: clean, kind, required });
+						if (hint === "")
+							onCreate({
+								label: clean,
+								kind,
+								required,
+								...(kind === "select" && {
+									options: options
+										.split(",")
+										.map((o) => o.trim())
+										.filter(Boolean),
+								}),
+							});
 					}}
 				>
 					<DialogHeader>
@@ -77,7 +90,7 @@ export function AddFieldDialog({
 					</label>
 					<fieldset className="res-starters">
 						<legend>Kind</legend>
-						{FIELD_KINDS.map((k) => (
+						{ALL_FIELD_KINDS.map((k) => (
 							<Button
 								key={k}
 								type="button"
@@ -90,6 +103,17 @@ export function AddFieldDialog({
 							</Button>
 						))}
 					</fieldset>
+					{kind === "select" && (
+						<label className="res-field" htmlFor={`${uid}-options`}>
+							<span>Options, separated by commas</span>
+							<Input
+								id={`${uid}-options`}
+								placeholder="To read, Reading, Done"
+								value={options}
+								onChange={(event) => setOptions(event.target.value)}
+							/>
+						</label>
+					)}
 					<div>
 						<Button
 							type="button"

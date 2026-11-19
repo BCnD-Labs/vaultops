@@ -1,4 +1,4 @@
-import { Contact, FileText } from "lucide-react";
+import { Contact, FilePlus, FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
 	CommandDialog,
@@ -71,6 +71,7 @@ export function CommandBar({
 	onToggleReading,
 	onOpenTemplates,
 	onNewCanvasFromTemplate,
+	onNewOfType,
 	onOpenResources,
 	pinAction,
 	getSendBlock,
@@ -92,6 +93,8 @@ export function CommandBar({
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
 	onNewCanvasFromTemplate?: () => void;
+	/** Makes a new note of a type; "New <Type>" shows for each type when set. */
+	onNewOfType?: (type: ResourceType) => void;
 	onOpenResources?: () => void;
 	workspaceCommands?: import("./commands").Command[];
 	pinAction?: import("./commands").CommandContext["pinAction"];
@@ -288,6 +291,13 @@ export function CommandBar({
 							))}
 						</CommandGroup>
 					)}
+					{onNewOfType && writable && (
+						<NewOfTypeItems
+							types={resourceTypes}
+							query={query}
+							onPick={(type) => closeAnd(() => onNewOfType(type))}
+						/>
+					)}
 					{groupCommands(filterCommands(query, context, features.state)).map(
 						(entry) => (
 							<CommandGroup key={entry.group} heading={entry.group}>
@@ -307,5 +317,35 @@ export function CommandBar({
 				</CommandList>
 			</CommandDialog>
 		</>
+	);
+}
+
+/** "New <Type>" for each type whose name matches what was typed. */
+function NewOfTypeItems({
+	types,
+	query,
+	onPick,
+}: {
+	types: ResourceType[];
+	query: string;
+	onPick: (type: ResourceType) => void;
+}) {
+	const q = query.trim().toLowerCase();
+	const shown = types.filter(
+		(t) => q === "" || `new ${t.name}`.toLowerCase().includes(q),
+	);
+	if (shown.length === 0) return null;
+	return (
+		<CommandGroup heading="New from a type">
+			{shown.map((type) => (
+				<CommandItem
+					key={type.id}
+					value={`new-type:${type.id}`}
+					onSelect={() => onPick(type)}
+				>
+					<FilePlus aria-hidden="true" /> New {type.name}
+				</CommandItem>
+			))}
+		</CommandGroup>
 	);
 }

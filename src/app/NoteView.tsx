@@ -23,10 +23,13 @@ import {
 import { REMOVED_BUTTON_TARGET, resolveButtonTarget } from "../core/buttons";
 import { findName, type Props } from "../core/notes/properties";
 import { listTemplates, type TemplateEntry } from "../core/notes/templates";
+import type { ResourceType } from "../core/resources/resources";
+import { findTypeTemplate } from "../core/types/new-note";
 import type { AutosaveState } from "../editor/autosave";
 import type { ButtonOptions, RunButton } from "../editor/button-block";
 import { CanvasFrameView } from "../editor/canvas-frame";
 import { blocksToDoc, checkBlocks, docToBlocks } from "../editor/doc-blocks";
+import { insertBlocksAtCaret } from "../editor/insert-blocks";
 import {
 	type DropSlot,
 	NoteEditor,
@@ -51,6 +54,7 @@ import { PropertiesBlock } from "./PropertiesBlock";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { TemplatePicker } from "./TemplatePicker";
 import { useTemplatePrompt } from "./TemplatePromptDialog";
+import type { TypeApi } from "./TypeRow";
 import { featureEnabled } from "./useFeature";
 import { type FormsApi, useFormSource } from "./useFormSource";
 import type { NoteSession } from "./useNoteSession";
@@ -112,6 +116,8 @@ export interface NoteViewProps {
 	onButtonNewNote?: (entry: TemplateEntry) => void;
 	/** What form blocks that create notes need. */
 	forms?: FormsApi;
+	/** Shows the type chip in the Properties block. */
+	typeApi?: TypeApi;
 	frames?: FramesApi;
 	/** Turns on `[[` and `@` links. */
 	links?: LinkSource;
@@ -189,6 +195,7 @@ export function NoteView({
 	onButtonCommand,
 	onButtonNewNote,
 	forms,
+	typeApi,
 	frames,
 	links,
 	locked = false,
@@ -301,6 +308,31 @@ export function NoteView({
 			else if (action === "new-note-template") onButtonNewNote?.(entry);
 		}
 	};
+	// The explicit "Insert the type's template" button: the template goes in at
+	// the caret like the slash menu's Template item, and its properties only add.
+	const insertTypeTemplate = async () => {
+		const editor = editorSlot?.editor;
+		const type = typeApi?.types.find((t) => t.id === typeApi.typeId);
+		if (!editor || editor.isDestroyed || !type?.template || !templates) return;
+		const entry = findTypeTemplate(
+			(await listTemplates(templates.host)).templates,
+			type.template,
+		);
+		if (!entry) {
+			setTemplateNotice(
+				`The template of ${type.name} ("${type.template}") was not found or can't be read.`,
+			);
+			return;
+		}
+		insertTemplate(entry, {
+			selection: "",
+			focus: () => editor.commands.focus(),
+			insert: (nodes, cursor) =>
+				!editor.isDestroyed &&
+				editor.isEditable &&
+				insertBlocksAtCaret(editor, nodes, cursor),
+		});
+	};
 	return (
 		<>
 			{coverHost && cover && (
@@ -365,6 +397,12 @@ export function NoteView({
 				props={props}
 				editable={opened.editable && !reading && !locked}
 				onChange={onPropsChange}
+				typeApi={typeApi}
+				onInsertTemplate={
+					canTemplate && !editorElsewhere && editorSlot
+						? () => void insertTypeTemplate()
+						: undefined
+				}
 			/>
 			<div className="status-line">
 				{onToggleReading && (
@@ -635,6 +673,8 @@ export interface SessionNoteViewProps {
 	onButtonCommand?: (id: string) => void;
 	onButtonNewNote?: (entry: TemplateEntry) => void;
 	forms?: FormsApi;
+	/** The vault's types; with them the note shows a type chip. */
+	types?: ResourceType[];
 	frames?: FramesApi;
 	links?: LinkSource;
 	locked?: boolean;
@@ -672,6 +712,7 @@ function PaneNote({
 	onButtonCommand,
 	onButtonNewNote,
 	forms,
+	types,
 	frames,
 	links,
 	locked = false,
@@ -730,6 +771,15 @@ function PaneNote({
 			onButtonCommand={onButtonCommand}
 			onButtonNewNote={onButtonNewNote}
 			forms={forms}
+			typeApi={
+				types
+					? {
+							types,
+							typeId: session.typeId,
+							onChange: session.editType,
+						}
+					: undefined
+			}
 			frames={frames}
 			links={links}
 			locked={locked || editorElsewhere}

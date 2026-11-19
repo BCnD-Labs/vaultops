@@ -8,7 +8,11 @@ import {
 } from "@/components/ui/dialog";
 import type { Note } from "../core/note-format";
 import type { PropertyValue } from "../core/notes/properties";
-import { extractPrompts, fillTemplate } from "../core/notes/template-prompts";
+import {
+	extractPrompts,
+	fillTemplate,
+	type TemplatePrompt,
+} from "../core/notes/template-prompts";
 import { PROPERTY_ICONS } from "./PropertiesBlock";
 import { Control } from "./PropertiesPanel";
 import { templateFormats, templateWeekStart } from "./settings";
@@ -19,7 +23,9 @@ type Answers = Record<string, PropertyValue>;
 type Request = {
 	name: string;
 	selection?: string;
-	onFill: (filled: ReturnType<typeof fillTemplate>) => void;
+	/** A type's fields: asked in the same dialog, after the template's own questions. */
+	fields?: TemplatePrompt[];
+	onFill: (filled: ReturnType<typeof fillTemplate>, answers: Answers) => void;
 	onCancel?: () => void;
 };
 
@@ -30,7 +36,14 @@ export function useTemplatePrompt() {
 		const now = new Date();
 		const weekStartsOn = templateWeekStart();
 		const formats = templateFormats();
-		const prompts = extractPrompts(template, now, weekStartsOn);
+		const asked = extractPrompts(template, now, weekStartsOn);
+		const prompts = [
+			...asked,
+			...(request.fields ?? []).filter(
+				(f) =>
+					!asked.some((p) => p.label.toLowerCase() === f.label.toLowerCase()),
+			),
+		];
 		const fill = (answers?: Answers) => {
 			setDialog(null);
 			request.onFill(
@@ -41,6 +54,7 @@ export function useTemplatePrompt() {
 					answers,
 					selection: request.selection,
 				}),
+				answers ?? {},
 			);
 		};
 		if (!prompts.length) fill();

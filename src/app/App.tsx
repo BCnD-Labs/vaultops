@@ -8,6 +8,7 @@ import {
 	NOTE_FORMAT,
 	NOTE_FORMAT_VERSION,
 	type Note,
+	type NoteHeader,
 } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import type { CanvasTemplate } from "../core/notes/canvas-templates";
@@ -26,6 +27,7 @@ import {
 } from "../core/notes/forms";
 import { outlineOf } from "../core/notes/outline";
 import { prunePins, savePin } from "../core/notes/pins";
+import { headerProps, type PropertyValue } from "../core/notes/properties";
 import { type MoveResult, moveNote, renameNote } from "../core/notes/rename";
 import { createNote, loadNote } from "../core/notes/repository";
 import { noteTitleFor, syncRowTitles } from "../core/notes/row-notes";
@@ -64,6 +66,12 @@ import {
 } from "../core/resources/resources";
 import { parseMaintainer } from "../core/session/maintainer";
 import { joinRecovery } from "../core/session/recovery";
+import {
+	blankTemplate,
+	fieldPrompts,
+	findTypeTemplate,
+	typedHeader,
+} from "../core/types/new-note";
 import { sameViewFields } from "../core/views/row";
 import { NEW_TAB, type PaneId } from "../core/workspace";
 import { DebugPanel } from "../debug/DebugPanel";
@@ -952,6 +960,37 @@ export function App({ host }: { host: Host }) {
 			});
 	};
 
+	// "New <Type>": the type's template (or a blank note) through the same prompt
+	// and create flow, with the type's fields asked in the same dialog.
+	const startNoteOfType = async (type: ResourceType, inFolder?: string) => {
+		if (!view || !writable || creating.current) return;
+		let template: Note | null = null;
+		if (type.template) {
+			const entry = findTypeTemplate(
+				(await listTemplates(vaultHost)).templates,
+				type.template,
+			);
+			if (!entry?.note) {
+				setError(
+					`The template of ${type.name} ("${type.template}") was not found or can't be read. Pick another in the Resource manager.`,
+				);
+				return;
+			}
+			template = entry.note;
+		}
+		const name = `Untitled ${type.name}`;
+		templatePrompt.ask(template ?? blankTemplate(), name, {
+			name: `New ${type.name}`,
+			fields: fieldPrompts(type),
+			onFill: (filled, answers) =>
+				void createFromTemplate(filled, name, undefined, undefined, {
+					type,
+					answers,
+					folder: inFolder,
+				}),
+		});
+	};
+
 	const createFromTemplate = async (
 		filled: ReturnType<typeof fillTemplate>,
 		defaultTitle: string,
@@ -960,9 +999,25 @@ export function App({ host }: { host: Host }) {
 			view?.folders ?? [],
 		),
 		pane?: PaneId,
+		typed?: {
+			type: ResourceType;
+			answers: Record<string, PropertyValue>;
+			folder?: string;
+		},
 	) => {
 		if (!view || !writable || creating.current) return;
-		const { blocks, props, cursor } = filled;
+		const { blocks, cursor } = filled;
+		let { props } = filled;
+		let header: NoteHeader | undefined;
+		if (typed) {
+			const made = typedHeader(typed.type, props, typed.answers);
+			if (!made.ok) {
+				setError(made.message);
+				return;
+			}
+			header = made.header;
+			props = (headerProps(header) ?? {}) as typeof props;
+		}
 		const title = filled.title.trim() || defaultTitle;
 		const understood = checkBlocks(blocks);
 		if (!understood.ok) {
@@ -978,21 +1033,38 @@ export function App({ host }: { host: Host }) {
 			setTemplatesRequest(undefined);
 			setBusy(true);
 			try {
-				const made = await createNote(vaultHost, folder, title, {
+				// A type's home folder wins; it is made the first time it is needed.
+				const target = typed?.type.folder
+					? typed.type.folder
+					: typed
+						? newNoteFolder(
+								typed.folder ??
+									(selection.kind === "folder" ? selection.value : ""),
+								view.folders,
+							)
+						: folder;
+				if (typed?.type.folder) await vaultHost.makeFolder(target);
+				const made = await createNote(vaultHost, target, title, {
 					blocks,
-					...(Object.keys(props).length > 0 && {
-						header: {
-							format: NOTE_FORMAT,
-							v: NOTE_FORMAT_VERSION,
-							noteId: "",
-							props,
-						},
-					}),
+					...(header
+						? { header }
+						: Object.keys(props).length > 0 && {
+								header: {
+									format: NOTE_FORMAT,
+									v: NOTE_FORMAT_VERSION,
+									noteId: "",
+									props,
+								},
+							}),
 				});
 				changeView(await loadVault(host));
 				focusBody.current = { path: made.path, cursor };
 				if (!(await open(made.path, { pane }))) focusBody.current = false;
-				notify(`Created "${title}" from the template.`);
+				notify(
+					typed
+						? `Created "${title}".`
+						: `Created "${title}" from the template.`,
+				);
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			} finally {
@@ -1415,6 +1487,11 @@ export function App({ host }: { host: Host }) {
 		},
 		moveTo: setTreeMove,
 		newNote: (folder) => void startNote(folder),
+		types: resourcesOn && writable ? resources.types : undefined,
+		newOfType:
+			resourcesOn && writable
+				? (type, folder) => void startNoteOfType(type, folder)
+				: undefined,
 		newCanvas: canvasOn ? (folder) => void startCanvas(folder) : undefined,
 		newCanvasFromTemplate: canvasOn
 			? (folder) => setCanvasPicker({ folder })
@@ -1831,6 +1908,7 @@ export function App({ host }: { host: Host }) {
 					})),
 				create: createFromForm,
 			}}
+			types={resourcesOn ? resources.types : undefined}
 			links={links}
 			locked={ws.moving}
 			onDropBlock={
@@ -2069,6 +2147,11 @@ export function App({ host }: { host: Host }) {
 										}
 									: undefined
 							}
+							onNewOfType={
+								view && view.status !== "none" && resourcesOn
+									? (type) => void startNoteOfType(type)
+									: undefined
+							}
 							onNewCanvasFromTemplate={
 								view && view.status !== "none" && canvasOn
 									? () =>
@@ -2128,6 +2211,15 @@ export function App({ host }: { host: Host }) {
 									props={session?.props ?? null}
 									editable={!!session?.opened?.editable}
 									onChange={(next) => session?.editProps(next)}
+									typeApi={
+										session && resourcesOn
+											? {
+													types: resources.types,
+													typeId: session.typeId,
+													onChange: session.editType,
+												}
+											: undefined
+									}
 									onOpenTag={(tag) => setSelection({ kind: "tag", value: tag })}
 									onRenameTag={writable ? renameTag : undefined}
 								/>

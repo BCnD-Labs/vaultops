@@ -73,6 +73,7 @@ export function AppShell({
 	onMoveNote,
 	onOpenTemplates,
 	onNewCanvasFromTemplate,
+	onNewOfType,
 	onOpenResources,
 	resources,
 	resourceTypes,
@@ -108,6 +109,8 @@ export function AppShell({
 	onOpenTemplates?: () => void;
 	/** Opens the canvas template picker (the command bar offers it when this is set). */
 	onNewCanvasFromTemplate?: () => void;
+	/** Makes a new note of a type (the command bar lists "New <Type>" when this is set). */
+	onNewOfType?: (type: ResourceType) => void;
 	/** Opens the resource manager (the command bar offers it when this is set). */
 	onOpenResources?: () => void;
 	/** Resource cards and their types, so the search bar can find them. */
@@ -281,6 +284,7 @@ export function AppShell({
 								onMoveNote={onMoveNote}
 								onOpenTemplates={onOpenTemplates}
 								onNewCanvasFromTemplate={onNewCanvasFromTemplate}
+								onNewOfType={onNewOfType}
 								onOpenResources={onOpenResources}
 								resources={resources}
 								resourceTypes={resourceTypes}

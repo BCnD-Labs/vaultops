@@ -1,4 +1,5 @@
 import {
+	normalizeGroup,
 	normalizeRule,
 	normalizeSort,
 	propName,
@@ -10,11 +11,19 @@ import {
 export const VIEW_VERSION = 1;
 export const DEFAULT_LIMIT = 200;
 
+/** Layouts the picker lists. Only the table is built; the others fall back to it. */
+export const LAYOUTS = ["table", "board", "gallery", "calendar"] as const;
+export type Layout = (typeof LAYOUTS)[number];
+export const BUILT_LAYOUTS: readonly Layout[] = ["table"];
+
 /** A liveView block's attrs as this build reads them (decision D1 A). */
 export interface ViewSettings {
 	title: string;
 	rule: Rule;
 	sort: SortKey[];
+	layout: Layout;
+	/** `tag`, `type`, a `prop:` field, or null for no groups. */
+	group: string | null;
 	/** `title` first, then `type` or `prop:` fields, no repeats. */
 	columns: string[];
 	limit: number;
@@ -51,6 +60,8 @@ export function readViewSettings(attrs: Record<string, unknown>): ViewSettings {
 		title: typeof attrs.title === "string" ? attrs.title : "",
 		rule: normalizeRule(attrs.rule),
 		sort: normalizeSort(attrs.sort),
+		layout: LAYOUTS.find((l) => l === attrs.layout) ?? "table",
+		group: normalizeGroup(attrs.group),
 		columns: normalizeColumns(attrs.columns),
 		limit: normalizeLimit(attrs.limit),
 		newer: typeof attrs.v === "number" && attrs.v > VIEW_VERSION,

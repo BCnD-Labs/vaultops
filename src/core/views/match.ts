@@ -21,6 +21,11 @@ export interface MatchContext {
 	hostPath?: string;
 	/** The `noteId`s a note links to, for "linked from". */
 	linksOf?: (noteId: string) => readonly string[] | undefined;
+	/**
+	 * The lower-cased names of properties some note has. A condition on any other
+	 * property is "missing" and matches nothing. Left out, every name counts.
+	 */
+	knownProps?: ReadonlySet<string>;
 }
 
 type Test = (row: MatchRow) => boolean;
@@ -56,6 +61,7 @@ function dateOf(field: ViewField | undefined): string | null {
 
 function propTest(c: Condition, ctx: MatchContext): Test {
 	const key = lower(propName(c.field) ?? "");
+	if (ctx.knownProps && !ctx.knownProps.has(key)) return () => false;
 	const get = (row: MatchRow) => row.fields[key];
 	const v = c.value;
 	const between =

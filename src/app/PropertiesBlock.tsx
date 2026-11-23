@@ -1,14 +1,4 @@
-import {
-	Calendar,
-	CheckSquare,
-	ChevronRight,
-	ChevronsUpDown,
-	Hash,
-	List,
-	Plus,
-	Tag,
-	Type,
-} from "lucide-react";
+import { ChevronRight, Plus, Tag, Type } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { CloseButton } from "@/components/ui/close-button";
 import {
@@ -17,23 +7,10 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/components/ui/popover";
-import {
 	addProperty,
 	type Change,
-	changeType,
 	findName,
-	PROPERTY_TYPES,
+	nextPropertyName,
 	type PropertyType,
 	type Props,
 	readProps,
@@ -44,19 +21,15 @@ import {
 } from "../core/notes/properties";
 import { addTag, removeTag, tagsOf } from "../core/notes/tags";
 import { groupByType } from "../core/types/new-note";
-import { Chips, Control, TYPE_LABEL } from "./PropertiesPanel";
+import { Control } from "./PropertiesPanel";
+import { AddPropertyMenu, PropertySettings } from "./PropertySettings";
+import { PROPERTY_ICONS, TYPE_LABEL } from "./property-meta";
+import { TagChips } from "./TagChips";
 import { type TypeApi, TypeRow } from "./TypeRow";
 
 const OPEN_KEY = "vaultops:properties-block-open";
 
-export const PROPERTY_ICONS = {
-	text: Type,
-	number: Hash,
-	date: Calendar,
-	checkbox: CheckSquare,
-	list: List,
-	select: ChevronsUpDown,
-};
+export { PROPERTY_ICONS };
 
 interface BlockProps {
 	/** The note's properties; null when the file keeps them in a form we can't edit. */
@@ -124,21 +97,9 @@ export function PropertiesBlock({
 		}
 	});
 	const [message, setMessage] = useState<string | null>(null);
-	const [adding, setAdding] = useState(false);
-	const [name, setName] = useState("");
-	const [focusName, setFocusName] = useState<string | null>(null);
+	/** The property whose settings popover is open. */
+	const [settingsFor, setSettingsFor] = useState<string | null>(null);
 	const root = useRef<HTMLElement>(null);
-
-	// After adding, put the cursor in the new row's value field.
-	useEffect(() => {
-		if (focusName === null) return;
-		const rows = root.current?.querySelectorAll<HTMLElement>("[data-property]");
-		const row = Array.from(rows ?? []).find(
-			(r) => r.dataset.property === focusName,
-		);
-		row?.querySelector<HTMLElement>("input:not(.prop-name-field)")?.focus();
-		setFocusName(null);
-	}, [focusName]);
 
 	if (props === null) {
 		return (
@@ -176,13 +137,10 @@ export function PropertiesBlock({
 			/* Storage is optional. */
 		}
 	};
+	/** Add a property named after its type (Date, Date 2…) and open its settings. */
 	const add = (type: PropertyType) => {
-		const made = addProperty(props, name, type);
-		if (apply(made) === null) {
-			setFocusName(name.trim().replace(/\s+/g, " "));
-			setName("");
-			setAdding(false);
-		}
+		const name = nextPropertyName(props, TYPE_LABEL[type]);
+		if (apply(addProperty(props, name, type)) === null) setSettingsFor(name);
 	};
 
 	return (
@@ -198,9 +156,8 @@ export function PropertiesBlock({
 							<Tag />
 						</span>
 						<span className="prop-name">tags</span>
-						<Chips
-							label="tags"
-							items={tags}
+						<TagChips
+							tags={tags}
 							editable={editable}
 							onAdd={(tag) => apply(addTag(props, tag))}
 							onRemove={(tag) => onChange(removeTag(props, tag))}
@@ -224,38 +181,26 @@ export function PropertiesBlock({
 								)}
 								<div className="prop-row" data-property={item.name}>
 									{item.known && editable ? (
-										<DropdownMenu>
-											<DropdownMenuTrigger
-												className="prop-type-icon"
-												aria-label={`Type of ${item.name}: ${TYPE_LABEL[item.type]}`}
-												title="Change type"
-											>
-												<Icon aria-hidden="true" />
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="start">
-												<DropdownMenuRadioGroup
-													value={item.type}
-													onValueChange={(value) =>
-														apply(
-															changeType(
-																props,
-																item.name,
-																value as PropertyType,
-															),
-														)
-													}
+										<PropertySettings
+											item={item}
+											props={props}
+											open={settingsFor === item.name}
+											onOpenChange={(next) =>
+												setSettingsFor(next ? item.name : null)
+											}
+											apply={apply}
+											onRenamed={setSettingsFor}
+											trigger={
+												<button
+													type="button"
+													className="prop-type-icon"
+													aria-label={`Settings for ${item.name} (${TYPE_LABEL[item.type]})`}
+													title="Property settings"
 												>
-													{PROPERTY_TYPES.map((t) => {
-														const TypeIcon = PROPERTY_ICONS[t];
-														return (
-															<DropdownMenuRadioItem key={t} value={t}>
-																<TypeIcon aria-hidden="true" /> {TYPE_LABEL[t]}
-															</DropdownMenuRadioItem>
-														);
-													})}
-												</DropdownMenuRadioGroup>
-											</DropdownMenuContent>
-										</DropdownMenu>
+													<Icon aria-hidden="true" />
+												</button>
+											}
+										/>
 									) : (
 										<span className="prop-type-icon" aria-hidden="true">
 											<Icon />
@@ -306,49 +251,14 @@ export function PropertiesBlock({
 						</p>
 					)}
 					{editable && (
-						<Popover
-							open={adding}
-							onOpenChange={(next) => {
-								setAdding(next);
-								if (!next) setMessage(null);
-							}}
-						>
-							<PopoverTrigger className="prop-add-row">
-								<Plus aria-hidden="true" /> Add property
-							</PopoverTrigger>
-							<PopoverContent align="start" className="prop-add-popover">
-								<input
-									aria-label="New property name"
-									placeholder="Property name"
-									value={name}
-									// biome-ignore lint/a11y/noAutofocus: the popover exists to type a name.
-									autoFocus
-									onChange={(e) => setName(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.preventDefault();
-											add("text");
-										}
-									}}
-								/>
-								<ul className="prop-type-list">
-									{PROPERTY_TYPES.map((t) => {
-										const TypeIcon = PROPERTY_ICONS[t];
-										return (
-											<li key={t}>
-												<button
-													type="button"
-													aria-label={`Add ${TYPE_LABEL[t]} property`}
-													onClick={() => add(t)}
-												>
-													<TypeIcon aria-hidden="true" /> {TYPE_LABEL[t]}
-												</button>
-											</li>
-										);
-									})}
-								</ul>
-							</PopoverContent>
-						</Popover>
+						<AddPropertyMenu
+							onAdd={add}
+							trigger={
+								<button type="button" className="prop-add-row">
+									<Plus aria-hidden="true" /> Add property
+								</button>
+							}
+						/>
 					)}
 				</CollapsibleContent>
 			</section>

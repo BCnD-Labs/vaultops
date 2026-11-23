@@ -13,8 +13,8 @@ import {
 	fillTemplate,
 	type TemplatePrompt,
 } from "../core/notes/template-prompts";
-import { PROPERTY_ICONS } from "./PropertiesBlock";
 import { Control } from "./PropertiesPanel";
+import { PROPERTY_ICONS } from "./property-meta";
 import { templateFormats, templateWeekStart } from "./settings";
 import "./pane.css";
 import "./templates.css";

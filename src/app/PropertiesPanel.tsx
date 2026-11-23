@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/select";
 import {
 	addProperty,
+	type Change,
 	cleanOptions,
 	findName,
 	isStray,
-	PROPERTY_TYPES,
+	nextPropertyName,
 	type PropertyItem,
 	type PropertyType,
 	type PropertyValue,
@@ -36,6 +37,9 @@ import { addTag, removeTag, tagsOf } from "../core/notes/tags";
 import { groupByType } from "../core/types/new-note";
 import { useAppearance } from "./AppearanceContext";
 import { tagTone } from "./appearance";
+import { AddPropertyMenu, PropertySettings } from "./PropertySettings";
+import { TYPE_LABEL } from "./property-meta";
+import { TagChips } from "./TagChips";
 import { type TypeApi, TypeRow } from "./TypeRow";
 
 interface PanelProps {
@@ -49,14 +53,7 @@ interface PanelProps {
 	typeApi?: TypeApi;
 }
 
-export const TYPE_LABEL: Record<PropertyType, string> = {
-	text: "Text",
-	number: "Number",
-	date: "Date",
-	checkbox: "Checkbox",
-	list: "List",
-	select: "Select",
-};
+export { TYPE_LABEL };
 
 /** Up to this many options show as segments; more use a dropdown. */
 export const SEGMENT_MAX = 5;
@@ -304,10 +301,8 @@ export function PropertiesPanel({
 	onOpenTag,
 	typeApi,
 }: PanelProps) {
-	const [adding, setAdding] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
-	const [name, setName] = useState("");
-	const [type, setType] = useState<PropertyType>("text");
+	const [settingsFor, setSettingsFor] = useState<string | null>(null);
 
 	if (props === null) {
 		return (
@@ -323,24 +318,26 @@ export function PropertiesPanel({
 		typeApi?.types.find((t) => t.id === typeApi.typeId),
 	);
 	const items = grouped.items;
-	const apply = (
-		change: { ok: true; props: Props } | { ok: false; message: string },
-	) => {
+	const apply = (change: Change): string | null => {
 		if (change.ok) {
 			setMessage(null);
 			onChange(change.props);
-		} else {
-			setMessage(change.message);
+			return null;
 		}
+		setMessage(change.message);
+		return change.message;
+	};
+	const add = (type: PropertyType) => {
+		const name = nextPropertyName(props, TYPE_LABEL[type]);
+		if (apply(addProperty(props, name, type)) === null) setSettingsFor(name);
 	};
 
 	return (
 		<section className="props" aria-label="Properties">
 			<div className="prop-row">
 				<span className="prop-name">Tags</span>
-				<Chips
-					label="tags"
-					items={tagsOf(props)}
+				<TagChips
+					tags={tagsOf(props)}
 					editable={editable}
 					onAdd={(tag) => apply(addTag(props, tag))}
 					onRemove={(tag) => onChange(removeTag(props, tag))}
@@ -373,6 +370,26 @@ export function PropertiesPanel({
 						{grouped.mismatched.has(item.name) && (
 							<span className="read-only-tag">doesn't match the type</span>
 						)}
+						{editable && item.known && (
+							<PropertySettings
+								item={item}
+								props={props}
+								open={settingsFor === item.name}
+								onOpenChange={(next) => setSettingsFor(next ? item.name : null)}
+								apply={apply}
+								onRenamed={setSettingsFor}
+								trigger={
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										aria-label={`Settings for ${item.name} (${TYPE_LABEL[item.type]})`}
+										title="Property settings"
+									>
+										<Settings2 aria-hidden="true" />
+									</Button>
+								}
+							/>
+						)}
 						{editable && (
 							<CloseButton
 								label={`Remove property ${item.name}`}
@@ -384,59 +401,16 @@ export function PropertiesPanel({
 				</Fragment>
 			))}
 			{editable && (
-				<Popover open={adding} onOpenChange={setAdding}>
-					<PopoverTrigger asChild>
+				<AddPropertyMenu
+					onAdd={add}
+					trigger={
 						<Button variant="ghost" size="sm" className="prop-add-trigger">
 							<Plus aria-hidden="true" /> Add property
 						</Button>
-					</PopoverTrigger>
-					<PopoverContent align="start">
-						<form
-							className="prop-add"
-							onSubmit={(e) => {
-								e.preventDefault();
-								const made = addProperty(props, name, type);
-								apply(made);
-								if (made.ok) {
-									setName("");
-									setAdding(false);
-								}
-							}}
-						>
-							<input
-								aria-label="New property name"
-								placeholder="New property"
-								value={name}
-								onChange={(e) => setName(e.target.value)}
-							/>
-							<Select
-								value={type}
-								onValueChange={(value) => setType(value as PropertyType)}
-							>
-								<SelectTrigger aria-label="New property type">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{PROPERTY_TYPES.map((t) => (
-										<SelectItem key={t} value={t}>
-											{TYPE_LABEL[t]}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-							<Button size="sm" variant="secondary" type="submit">
-								Add property
-							</Button>
-						</form>
-						{message && (
-							<p role="alert" className="notice">
-								{message}
-							</p>
-						)}
-					</PopoverContent>
-				</Popover>
+					}
+				/>
 			)}
-			{message && !adding && (
+			{message && (
 				<p role="alert" className="notice">
 					{message}
 				</p>

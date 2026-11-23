@@ -108,11 +108,13 @@ it("sets, flags and removes a type on an open note through the editor", async ()
 	const u = userEvent.setup();
 	for (const name of ["Mood", "Status"]) {
 		await u.click(block().getByRole("button", { name: "Add property" }));
-		await u.type(
-			screen.getByRole("textbox", { name: "New property name" }),
-			name,
+		await u.click(
+			await screen.findByRole("button", { name: "Add Text property" }),
 		);
-		await u.click(screen.getByRole("button", { name: "Add Text property" }));
+		const field = await screen.findByRole("textbox", { name: "Property name" });
+		await u.clear(field);
+		await u.type(field, `${name}{Enter}`);
+		await u.keyboard("{Escape}");
 	}
 	await u.click(block().getByRole("button", { name: "Note type" }));
 	await u.click(await screen.findByRole("menuitemradio", { name: "Book" }));

@@ -373,3 +373,19 @@ export function setOptions(
 		props: { ...props, [name]: { ...entry, options: cleanOptions(options) } },
 	};
 }
+
+/**
+ * A free name for a new property based on `base` (usually its type's label):
+ * `Date`, then `Date 2`, `Date 3`… unique ignoring capital letters. `Tags` is
+ * kept for the tags list, so it is skipped.
+ */
+export function nextPropertyName(props: Props, base: string): string {
+	const clean = cleanName(base) || "Property";
+	const free = (name: string) =>
+		findName(props, name) === null && name.toLowerCase() !== "tags";
+	if (free(clean)) return clean;
+	for (let n = 2; ; n++) {
+		const name = `${clean} ${n}`;
+		if (free(name)) return name;
+	}
+}

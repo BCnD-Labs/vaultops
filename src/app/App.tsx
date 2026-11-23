@@ -37,6 +37,7 @@ import {
 	renameTagInProps,
 	renameTagOnDisk,
 } from "../core/notes/tag-rename";
+import { knownTags } from "../core/notes/tag-suggest";
 import type { fillTemplate } from "../core/notes/template-prompts";
 import {
 	loadTemplateRules,
@@ -135,6 +136,7 @@ import {
 import { newNoteFolder, templateFormats, templateWeekStart } from "./settings";
 import { commandMatches } from "./shortcuts";
 import { type Selection, selectionForPath } from "./sidebar-selection";
+import { VaultTags } from "./TagChips";
 import { TemplateManager } from "./TemplateManager";
 import { useTemplatePrompt } from "./TemplatePromptDialog";
 import { browserTabs, pruneTabs } from "./tabs";
@@ -257,6 +259,7 @@ export function App({ host }: { host: Host }) {
 	// Live views read these rows; typing in a note does not wake them.
 	const [viewRows] = useState(createViewRows);
 	useEffect(() => viewRows.sync(view?.notes ?? []), [viewRows, view?.notes]);
+	const vaultTags = useMemo(() => knownTags(view?.notes ?? []), [view?.notes]);
 	const changeView = useCallback(
 		(next: VaultView | null | ((v: VaultView | null) => VaultView | null)) => {
 			const value = typeof next === "function" ? next(viewRef.current) : next;
@@ -2513,7 +2516,7 @@ export function App({ host }: { host: Host }) {
 	);
 	return (
 		<SendToBlock.Provider value={sendEnabled ? openSend : null}>
-			{app}
+			<VaultTags.Provider value={vaultTags}>{app}</VaultTags.Provider>
 			{sendDialog}
 		</SendToBlock.Provider>
 	);

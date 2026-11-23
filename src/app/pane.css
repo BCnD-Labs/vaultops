@@ -1709,3 +1709,78 @@ input.canvas-item-field {
 .props-block .prop-group-title {
 	padding-left: calc(var(--space-unit) * 1.5);
 }
+
+/* Tag suggestions under the add-tag field. */
+.tag-suggest [role="option"] {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	padding: var(--space-1) calc(var(--space-unit) * 1.5);
+	border-radius: var(--radius-control);
+	cursor: pointer;
+}
+.tag-suggest [role="option"][data-active] {
+	background: var(--accent);
+}
+.tag-suggest-count {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.tag-suggest-new {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	color: var(--muted-foreground);
+}
+.tag-suggest-new svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* One property's settings popover: name, type, options, remove. */
+.prop-settings {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.prop-settings-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+}
+.prop-settings-field input {
+	font: inherit;
+	padding: 3px 6px;
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-control);
+	background: transparent;
+	color: inherit;
+}
+.prop-settings-field input:focus {
+	border-color: var(--ring);
+	outline: none;
+}
+.prop-settings-field > span,
+.prop-settings-label {
+	margin: 0;
+	padding: 0;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.prop-settings-types {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	min-width: 0;
+}
+.prop-settings-types button[aria-pressed="true"] {
+	background: var(--accent);
+}
+.prop-settings-check {
+	margin-left: auto;
+}
+.prop-settings-remove {
+	align-self: flex-start;
+	color: var(--destructive, inherit);
+}

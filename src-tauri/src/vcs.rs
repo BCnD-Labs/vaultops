@@ -776,6 +776,81 @@ pub fn merge_abort(root: &Path) -> Result<Status, GitError> {
     status(root)
 }
 
+/// What restoring the vault to a save point did.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultRestore {
+    /// Files that existed at the save point, now back to how they were then.
+    pub restored: u32,
+    /// Files created after it, still in the vault (the app may move notes among
+    /// them to the trash when asked).
+    pub newer: Vec<String>,
+    pub status: Status,
+}
+
+/// Put every file that existed at `commit` back to how it was then. Files
+/// created later are kept and listed. Nothing is committed: the caller makes
+/// the "Restored to …" save point. Refused while anything is unsaved.
+pub fn restore_vault(root: &Path, commit: &str) -> Result<VaultRestore, GitError> {
+    enabled(root)?;
+    let commit = git_ops::checked_commit(commit)?;
+    require_clean(root)?;
+    let then = nul_list(&git_ops::run(
+        root,
+        &["ls-tree", "-r", "-z", "--name-only", commit],
+        None,
+        true,
+    )?);
+    let now = nul_list(&git_ops::run(root, &["ls-files", "-z"], None, true)?);
+    if !then.is_empty() {
+        // The paths go on stdin, so no file name is ever read as an option.
+        let list = then.join("\0");
+        git_ops::run_long(
+            root,
+            &[
+                "checkout",
+                commit,
+                "--pathspec-from-file=-",
+                "--pathspec-file-nul",
+            ],
+            Some(list.as_bytes()),
+        )?;
+    }
+    let newer = now.into_iter().filter(|p| !then.contains(p)).collect();
+    Ok(VaultRestore {
+        restored: then.len() as u32,
+        newer,
+        status: status(root)?,
+    })
+}
+
+/// Undo one save point with a new save point that reverses it. If later save
+/// points changed the same files, nothing is changed and the reason is given.
+pub fn undo_save_point(root: &Path, commit: &str) -> Result<Status, GitError> {
+    enabled(root)?;
+    let commit = git_ops::checked_commit(commit)?;
+    require_clean(root)?;
+    let parents = git_ops::run(root, &["log", "-1", "--format=%P", commit], None, true)?;
+    if String::from_utf8_lossy(&parents).split_whitespace().count() != 1 {
+        return Err(GitError::invalid(
+            "this save point can't be undone on its own (it is a merge or the first one)",
+        ));
+    }
+    if let Err(e) = git_ops::run(root, &["revert", "--no-edit", commit], None, false) {
+        let _ = git_ops::run(root, &["revert", "--abort"], None, false);
+        return Err(
+            if e.message.contains("conflict") || e.message.contains("could not revert") {
+                GitError::invalid(
+                    "later save points changed the same notes, so this one can't be undone automatically; restore the notes from their History instead",
+                )
+            } else {
+                e
+            },
+        );
+    }
+    status(root)
+}
+
 /// A display name for save points: trimmed, 1 to 80 characters, no control
 /// characters or `<>` (git uses them around the email).
 pub fn checked_name(raw: &str) -> Result<String, GitError> {
@@ -1256,6 +1331,52 @@ mod tests {
         std::fs::write(root.join("a.vnote"), "unsaved").unwrap();
         assert!(merge_start(root, "try-out").is_err());
         assert!(merge_stages(root, "a.vnote").is_err());
+    }
+
+    #[test]
+    fn restoring_the_vault_brings_old_files_back_and_keeps_newer_ones() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        let first = git_out(root, &["rev-parse", "HEAD"]);
+        std::fs::write(root.join("a.vnote"), "changed").unwrap();
+        std::fs::write(root.join("-tricky.vnote"), "new").unwrap();
+        std::fs::remove_file(root.join(".vaultops/trash/t1/b.vnote")).unwrap();
+        save_point(root, "later", None).unwrap();
+        std::fs::write(root.join("a.vnote"), "unsaved").unwrap();
+        assert!(restore_vault(root, &first).is_err());
+        save_point(root, "even later", None).unwrap();
+        let done = restore_vault(root, &first).unwrap();
+        assert_eq!(std::fs::read_to_string(root.join("a.vnote")).unwrap(), "x");
+        assert!(root.join(".vaultops/trash/t1/b.vnote").exists());
+        assert_eq!(done.newer, vec!["-tricky.vnote"]);
+        assert!(root.join("-tricky.vnote").exists());
+        assert!(!done.status.changes.is_empty());
+        assert!(restore_vault(root, "--all").is_err());
+    }
+
+    #[test]
+    fn undoing_a_save_point_reverses_it_or_refuses_cleanly() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        std::fs::write(root.join("b.vnote"), "added").unwrap();
+        save_point(root, "Added b", None).unwrap();
+        let added = git_out(root, &["rev-parse", "HEAD"]);
+        std::fs::write(root.join("a.vnote"), "one").unwrap();
+        save_point(root, "Edit a once", None).unwrap();
+        let once = git_out(root, &["rev-parse", "HEAD"]);
+        std::fs::write(root.join("a.vnote"), "two").unwrap();
+        save_point(root, "Edit a twice", None).unwrap();
+        undo_save_point(root, &added).unwrap();
+        assert!(!root.join("b.vnote").exists());
+        assert!(git_out(root, &["log", "-1", "--format=%s"]).starts_with("Revert"));
+        let err = undo_save_point(root, &once).unwrap_err();
+        assert!(err.message.contains("can't be undone automatically"));
+        let s = status(root).unwrap();
+        assert!(s.changes.is_empty() && !s.merging);
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.vnote")).unwrap(),
+            "two"
+        );
     }
 
     #[test]

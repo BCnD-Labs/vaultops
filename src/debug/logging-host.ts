@@ -109,6 +109,12 @@ export function loggingHost(host: Host, logger: Logger): Host {
 				host.vcs.mergeFinish(m),
 			),
 			mergeAbort: timed("vcs.mergeAbort", () => host.vcs.mergeAbort()),
+			restoreVault: timed("vcs.restoreVault", (c: string) =>
+				host.vcs.restoreVault(c),
+			),
+			undoSavePoint: timed("vcs.undoSavePoint", (c: string) =>
+				host.vcs.undoSavePoint(c),
+			),
 			savePoint: timed("vcs.savePoint", (message: string, paths?: string[]) =>
 				host.vcs.savePoint(message, paths),
 			),

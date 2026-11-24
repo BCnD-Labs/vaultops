@@ -44,7 +44,7 @@ function join(folder: string, name: string): string {
  * path inside `.vaultops/` is refused. Returns where the note went.
  */
 export async function trashNote(
-	host: Host,
+	host: Pick<Host, "kindOf" | "makeFolder" | "move">,
 	path: string,
 	now: Date = new Date(),
 ): Promise<{ trashPath: string }> {
@@ -61,7 +61,10 @@ export async function trashNote(
 }
 
 /** A fresh time folder inside the trash, so two deletions never share one. */
-async function newTrashFolder(host: Host, now: Date): Promise<string> {
+async function newTrashFolder(
+	host: Pick<Host, "kindOf" | "makeFolder">,
+	now: Date,
+): Promise<string> {
 	await host.makeFolder(TRASH);
 	const base = stamp(now);
 	let folder = `${TRASH}/${base}`;

@@ -45,6 +45,8 @@ const COMMANDS: &[&str] = &[
     "vcs_merge_mark_resolved",
     "vcs_merge_finish",
     "vcs_merge_abort",
+    "vcs_restore_vault",
+    "vcs_undo_save_point",
 ];
 
 fn main() {

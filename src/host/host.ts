@@ -102,6 +102,15 @@ export interface MergeStart {
 	changed: string[];
 }
 
+/** What restoring the vault to a save point did. */
+export interface VaultRestore {
+	/** Files that existed then, now back to how they were. */
+	restored: number;
+	/** Files created after it, still in the vault. */
+	newer: string[];
+	status: VcsStatus;
+}
+
 /** A conflicted file's three versions; null where a side added or deleted it. */
 export interface MergeStages {
 	base: string | null;
@@ -240,6 +249,17 @@ export interface VcsHost {
 	mergeFinish(message: string): Promise<VcsStatus>;
 	/** Cancel the merge: every file goes back to the current branch's last save point. */
 	mergeAbort(): Promise<VcsStatus>;
+	/**
+	 * Put every file that existed at save point `commit` back to how it was.
+	 * Newer files are kept and listed; nothing becomes a save point yet. Refused
+	 * while anything is unsaved in history.
+	 */
+	restoreVault(commit: string): Promise<VaultRestore>;
+	/**
+	 * Undo one save point with a new one that reverses it. Refused, changing
+	 * nothing, when later save points changed the same files.
+	 */
+	undoSavePoint(commit: string): Promise<VcsStatus>;
 }
 
 export type EntryKind = "file" | "folder";

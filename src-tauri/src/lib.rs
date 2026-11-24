@@ -167,6 +167,22 @@ fn vcs_merge_abort(state: tauri::State<'_, VaultState>) -> Result<vcs::Status, g
     vcs::merge_abort(&vcs::vault_root(&state)?)
 }
 
+#[tauri::command(async)]
+fn vcs_restore_vault(
+    state: tauri::State<'_, VaultState>,
+    commit: String,
+) -> Result<vcs::VaultRestore, git_ops::GitError> {
+    vcs::restore_vault(&vcs::vault_root(&state)?, &commit)
+}
+
+#[tauri::command(async)]
+fn vcs_undo_save_point(
+    state: tauri::State<'_, VaultState>,
+    commit: String,
+) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::undo_save_point(&vcs::vault_root(&state)?, &commit)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -699,7 +715,9 @@ pub fn run() {
             vcs_merge_stages,
             vcs_merge_mark_resolved,
             vcs_merge_finish,
-            vcs_merge_abort
+            vcs_merge_abort,
+            vcs_restore_vault,
+            vcs_undo_save_point
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

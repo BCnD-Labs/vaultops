@@ -33,6 +33,8 @@ export function readOnlyHost(host: Host): Host {
 			mergeMarkResolved: refuse,
 			mergeFinish: refuse,
 			mergeAbort: refuse,
+			restoreVault: refuse,
+			undoSavePoint: refuse,
 			switchBranch: refuse,
 			renameBranch: refuse,
 			deleteBranch: refuse,

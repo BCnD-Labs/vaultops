@@ -84,6 +84,7 @@ export const tauriHost: Host = {
 	vcs: {
 		detect: () => vcsCall<GitInfo>("vcs_detect"),
 		status: () => vcsCall<VcsStatus>("vcs_status"),
+		enable: (name) => vcsCall<VcsStatus>("vcs_enable", { name }),
 	},
 	chooseVault: () => call<string | null>("choose_vault"),
 	currentVault: () => call<string | null>("current_vault"),

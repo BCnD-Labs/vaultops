@@ -25,6 +25,8 @@ use crate::vault::check_relative;
 
 /// How long one git command may run before it is stopped.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+/// For commands that touch every file (the first save point of a big vault).
+pub const LONG_TIMEOUT: Duration = Duration::from_secs(600);
 /// Only this much of stderr is kept for an error message.
 const MAX_ERROR_CHARS: usize = 300;
 
@@ -299,6 +301,13 @@ pub fn run(
     let (binary, _) =
         git().ok_or_else(|| GitError::new(GitErrorCode::Missing, "git is not installed"))?;
     run_with(binary, root, args, stdin, read_only, DEFAULT_TIMEOUT)
+}
+
+/// The same with a longer time limit, for adding a whole vault at once.
+pub fn run_long(root: &Path, args: &[&str], stdin: Option<&[u8]>) -> Result<Vec<u8>, GitError> {
+    let (binary, _) =
+        git().ok_or_else(|| GitError::new(GitErrorCode::Missing, "git is not installed"))?;
+    run_with(binary, root, args, stdin, false, LONG_TIMEOUT)
 }
 
 pub fn run_with(

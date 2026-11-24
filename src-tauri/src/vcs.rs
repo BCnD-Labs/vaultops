@@ -21,11 +21,52 @@ pub fn vault_root(state: &VaultState) -> Result<PathBuf, GitError> {
         .ok_or_else(|| GitError::io("no vault is open"))
 }
 
-/// True when history is on: the vault root holds its own `.git` folder. A
-/// `.git` file (a linked worktree) or a repo in a folder above the vault does
-/// not count, so git never works on files outside the vault.
+/// A file inside `.git` that marks a repo VaultOps turned on itself.
+const MARKER: &str = ".git/vaultops-history";
+/// Ignore rules for the vault's history, committed so every copy uses them.
+const IGNORE_FILE: &str = ".vaultops/.gitignore";
+/// Git attributes kept local to this copy: never line-merge notes.
+const ATTRIBUTES_FILE: &str = ".git/info/attributes";
+const ATTRIBUTES: &str =
+    "# Written by VaultOps: notes are merged by the app, block by block.\n*.vnote -merge\n";
+const IGNORE_RULES: &str = "\
+# Written by VaultOps when history was turned on. Kept out of the history:
+# the recovery folder (a local last resort), caches and other generated files.
+/recovery/
+/cache/
+/index/
+/pending/
+*.tmp
+.DS_Store
+._*
+";
+
+/// True when history is on: the vault root holds its own `.git` folder that
+/// VaultOps set up. A `.git` file (a linked worktree), a repo in a folder above
+/// the vault, or a repo someone else made does not count, so git never works
+/// on files outside the vault or takes over an existing project.
 pub fn is_enabled(root: &Path) -> bool {
-    root.join(".git").is_dir()
+    root.join(".git").is_dir() && root.join(MARKER).is_file()
+}
+
+/// The vault folder already is a git repo VaultOps didn't set up.
+fn is_other_repo(root: &Path) -> bool {
+    root.join(".git").exists() && !is_enabled(root)
+}
+
+/// The cloud service that syncs this folder, if it looks like one. Their sync
+/// can damage a `.git` folder, so the History settings warn about it.
+pub fn synced_folder(root: &Path) -> Option<&'static str> {
+    let path = root.to_string_lossy();
+    if path.contains("/Library/Mobile Documents/") {
+        Some("iCloud Drive")
+    } else if path.contains("/Dropbox/") || path.contains("CloudStorage/Dropbox") {
+        Some("Dropbox")
+    } else if path.contains("/Library/CloudStorage/") {
+        Some("a cloud storage folder")
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -54,6 +95,10 @@ pub struct Change {
 pub struct Status {
     /// False when history is off for this vault; the rest is then empty.
     pub enabled: bool,
+    /// History is off because the folder already is someone else's git repo.
+    pub other_repo: bool,
+    /// The cloud service syncing the vault folder, if any (a warning).
+    pub synced_folder: Option<&'static str>,
     /// The current branch, or None when detached or before the first save point.
     pub branch: Option<String>,
     pub changes: Vec<Change>,
@@ -137,6 +182,8 @@ pub fn status(root: &Path) -> Result<Status, GitError> {
     if !is_enabled(root) {
         return Ok(Status {
             enabled: false,
+            other_repo: is_other_repo(root),
+            synced_folder: synced_folder(root),
             branch: None,
             changes: Vec::new(),
         });
@@ -156,9 +203,100 @@ pub fn status(root: &Path) -> Result<Status, GitError> {
     let (branch, changes) = parse_status(&out);
     Ok(Status {
         enabled: true,
+        other_repo: false,
+        synced_folder: synced_folder(root),
         branch,
         changes,
     })
+}
+
+/// A display name for save points: trimmed, 1 to 80 characters, no control
+/// characters or `<>` (git uses them around the email).
+pub fn checked_name(raw: &str) -> Result<String, GitError> {
+    let name = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    let ok = !name.is_empty()
+        && name.chars().count() <= 80
+        && !name.chars().any(|c| c.is_control() || c == '<' || c == '>');
+    if ok {
+        Ok(name)
+    } else {
+        Err(GitError::invalid("give a name of 1 to 80 characters"))
+    }
+}
+
+/// The email shown on save points: the name as `letters-and-digits@vaultops.local`.
+fn local_email(name: &str) -> String {
+    let slug: String = name
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let slug = slug.trim_matches('-');
+    let slug = if slug.is_empty() { "me" } else { slug };
+    format!("{slug}@vaultops.local")
+}
+
+fn write_new_or_keep(path: &Path, text: &str) -> Result<(), GitError> {
+    if path.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|_| GitError::io("could not create a folder"))?;
+    }
+    std::fs::write(path, text).map_err(|_| GitError::io("could not write a history file"))
+}
+
+/// Settings that live in `.git` (not synced): re-applied whenever the vault
+/// opens, so a copy cloned elsewhere gets them too.
+pub fn apply_local_settings(root: &Path) -> Result<(), GitError> {
+    if !is_enabled(root) {
+        return Ok(());
+    }
+    let attributes = root.join(ATTRIBUTES_FILE);
+    let current = std::fs::read_to_string(&attributes).unwrap_or_default();
+    if !current.contains("*.vnote -merge") {
+        if let Some(parent) = attributes.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|_| GitError::io("could not create a folder"))?;
+        }
+        std::fs::write(&attributes, format!("{current}{ATTRIBUTES}"))
+            .map_err(|_| GitError::io("could not write git attributes"))?;
+    }
+    for (key, value) in [
+        ("core.precomposeunicode", "true"),
+        ("core.quotepath", "false"),
+    ] {
+        git_ops::run(root, &["config", key, value], None, false)?;
+    }
+    Ok(())
+}
+
+/// Turn history on: a new repo on branch `main` with the vault's ignore rules,
+/// the local settings, the person's name, and a first save point of everything.
+pub fn enable(root: &Path, raw_name: &str) -> Result<Status, GitError> {
+    let name = checked_name(raw_name)?;
+    if is_enabled(root) {
+        return Err(GitError::invalid("history is already on for this vault"));
+    }
+    if root.join(".git").exists() {
+        return Err(GitError::invalid(
+            "this vault folder already is a git repository, so VaultOps left it alone",
+        ));
+    }
+    let run = |args: &[&str], stdin: Option<&[u8]>| git_ops::run(root, args, stdin, false);
+    run(&["-c", "init.defaultBranch=main", "init", "-q"], None)?;
+    run(&["config", "user.name", &name], None)?;
+    run(&["config", "user.email", &local_email(&name)], None)?;
+    std::fs::write(root.join(MARKER), "1\n")
+        .map_err(|_| GitError::io("could not mark the history"))?;
+    write_new_or_keep(&root.join(IGNORE_FILE), IGNORE_RULES)?;
+    apply_local_settings(root)?;
+    git_ops::run_long(root, &["add", "-A", "--", "."], None)?;
+    run(
+        &["commit", "-q", "--allow-empty", "-F", "-"],
+        Some(b"History turned on\n"),
+    )?;
+    status(root)
 }
 
 impl GitError {
@@ -215,6 +353,92 @@ mod tests {
         assert_eq!(branch, None);
     }
 
+    fn enabled_vault() -> TempDir {
+        let dir = TempDir::new();
+        std::fs::write(dir.path().join("a.vnote"), "x").unwrap();
+        std::fs::create_dir_all(dir.path().join(".vaultops/recovery")).unwrap();
+        std::fs::write(dir.path().join(".vaultops/recovery/old.vnote"), "y").unwrap();
+        std::fs::create_dir_all(dir.path().join(".vaultops/trash/t1")).unwrap();
+        std::fs::write(dir.path().join(".vaultops/trash/t1/b.vnote"), "z").unwrap();
+        enable(dir.path(), "  Sam   Rivera ").unwrap();
+        dir
+    }
+
+    fn git_out(root: &Path, args: &[&str]) -> String {
+        String::from_utf8_lossy(&git_ops::run(root, args, None, true).unwrap())
+            .trim()
+            .to_string()
+    }
+
+    #[test]
+    fn turning_history_on_takes_a_first_save_point_with_the_rules() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        let s = status(root).unwrap();
+        assert!(s.enabled);
+        assert_eq!(s.branch.as_deref(), Some("main"));
+        assert!(s.changes.is_empty(), "{:?}", s.changes);
+        let files = git_out(root, &["ls-files"]);
+        assert!(files.contains("a.vnote"));
+        assert!(files.contains(".vaultops/.gitignore"));
+        assert!(files.contains(".vaultops/trash/t1/b.vnote"));
+        assert!(!files.contains("recovery"));
+        assert_eq!(
+            git_out(root, &["log", "-1", "--format=%s"]),
+            "History turned on"
+        );
+        assert_eq!(
+            git_out(root, &["log", "-1", "--format=%an <%ae>"]),
+            "Sam Rivera <sam-rivera@vaultops.local>"
+        );
+        let attributes = std::fs::read_to_string(root.join(ATTRIBUTES_FILE)).unwrap();
+        assert!(attributes.contains("*.vnote -merge"));
+    }
+
+    #[test]
+    fn refuses_twice_a_bad_name_and_someone_elses_repo() {
+        let dir = enabled_vault();
+        assert!(enable(dir.path(), "Sam").is_err());
+        let other = TempDir::new();
+        assert_eq!(
+            checked_name("  ").unwrap_err().code,
+            GitErrorCode::InvalidArgument
+        );
+        assert!(checked_name("Sam <x>").is_err());
+        git_ops::run(other.path(), &["init", "-q"], None, false).unwrap();
+        let s = status(other.path()).unwrap();
+        assert!(!s.enabled && s.other_repo);
+        assert!(enable(other.path(), "Sam").is_err());
+    }
+
+    #[test]
+    fn local_settings_come_back_after_they_are_lost() {
+        let dir = enabled_vault();
+        std::fs::remove_file(dir.path().join(ATTRIBUTES_FILE)).unwrap();
+        apply_local_settings(dir.path()).unwrap();
+        assert!(
+            std::fs::read_to_string(dir.path().join(ATTRIBUTES_FILE))
+                .unwrap()
+                .contains("*.vnote -merge")
+        );
+    }
+
+    #[test]
+    fn names_the_cloud_service_syncing_the_folder() {
+        assert_eq!(
+            synced_folder(Path::new(
+                "/Users/a/Library/Mobile Documents/com~apple~CloudDocs/V"
+            )),
+            Some("iCloud Drive")
+        );
+        assert_eq!(
+            synced_folder(Path::new("/Users/a/Dropbox/V")),
+            Some("Dropbox")
+        );
+        assert_eq!(synced_folder(Path::new("/Users/a/Notes")), None);
+        assert_eq!(local_email("Zoë O'Neil"), "zo--o-neil@vaultops.local");
+    }
+
     #[test]
     fn history_is_off_without_the_vaults_own_git_folder() {
         let dir = TempDir::new();
@@ -233,6 +457,7 @@ mod tests {
         let root = dir.path();
         let git = |args: &[&str]| git_ops::run(root, args, None, false).unwrap();
         git(&["init", "-q", "-b", "main"]);
+        std::fs::write(root.join(MARKER), "1").unwrap();
         std::fs::write(root.join("a.vnote"), "x").unwrap();
         let s = status(root).unwrap();
         assert!(s.enabled);

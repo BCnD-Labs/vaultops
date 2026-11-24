@@ -15,6 +15,7 @@ import {
 	type UpdateChannels,
 	type UpdateScriptStatus,
 	type VcsChange,
+	VcsError,
 	type VcsHost,
 } from "./host";
 
@@ -55,11 +56,22 @@ export class MemoryHost implements Host {
 		branch: string;
 		/** Every file's content at the last save point. */
 		saved: Map<string, string>;
+		/** The name shown on save points. */
+		author: string;
 	} | null = null;
+	/** Test helper: the folder already is someone else's git repo. */
+	otherRepo = false;
+	/** Test helper: the cloud service syncing the folder. */
+	syncedFolder: string | null = null;
 
 	/** Test helper: turn history on (no save point yet). */
 	enableHistory(branch = "main"): void {
-		this.history = { branch, saved: new Map() };
+		this.history = { branch, saved: new Map(), author: "Test" };
+	}
+
+	/** The name history was turned on with (tests). */
+	get historyAuthor(): string | null {
+		return this.history?.author ?? null;
 	}
 
 	/** Test helper: take a save point of every file as it is now. */
@@ -91,7 +103,15 @@ export class MemoryHost implements Host {
 	readonly vcs: VcsHost = {
 		detect: async () => ({ ...this.gitInfo }),
 		status: async () => {
-			if (!this.history) return { enabled: false, branch: null, changes: [] };
+			const { otherRepo, syncedFolder } = this;
+			if (!this.history)
+				return {
+					enabled: false,
+					otherRepo,
+					syncedFolder,
+					branch: null,
+					changes: [],
+				};
 			const now = this.allFiles();
 			const { saved, branch } = this.history;
 			const changes: VcsChange[] = [];
@@ -103,7 +123,35 @@ export class MemoryHost implements Host {
 			for (const path of saved.keys())
 				if (!now.has(path)) changes.push({ path, kind: "deleted" });
 			changes.sort((a, b) => a.path.localeCompare(b.path));
-			return { enabled: true, branch, changes };
+			return {
+				enabled: true,
+				otherRepo: false,
+				syncedFolder,
+				branch,
+				changes,
+			};
+		},
+		enable: async (raw) => {
+			const name = raw.trim().replace(/\s+/g, " ");
+			if (name === "" || name.length > 80 || /[<>]/.test(name))
+				throw new VcsError(
+					"invalid-argument",
+					"give a name of 1 to 80 characters",
+				);
+			if (this.history)
+				throw new VcsError(
+					"invalid-argument",
+					"history is already on for this vault",
+				);
+			if (this.otherRepo)
+				throw new VcsError(
+					"invalid-argument",
+					"this vault folder already is a git repository, so VaultOps left it alone",
+				);
+			if (!this.gitInfo.found)
+				throw new VcsError("missing", "git is not installed");
+			this.history = { branch: "main", saved: this.allFiles(), author: name };
+			return this.vcs.status();
 		},
 	};
 

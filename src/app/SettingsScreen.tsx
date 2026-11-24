@@ -46,6 +46,7 @@ import {
 } from "../ui/appearance";
 import { themes } from "../ui/themes";
 import { buildCommit } from "./build-info";
+import { type HistoryHost, HistorySection } from "./HistorySection";
 import { SettingControl } from "./SettingControl";
 import { ShortcutsList } from "./ShortcutsSection";
 import { SETTING_DEFS, settings } from "./settings";
@@ -56,7 +57,12 @@ type Def = SettingDef;
 const ALL_DEFS: readonly SettingDef[] = SETTING_DEFS;
 
 /** Sections that show something besides generated settings. */
-const CUSTOM_SECTIONS = new Set(["general", "shortcuts", "advanced"]);
+const CUSTOM_SECTIONS = new Set([
+	"general",
+	"shortcuts",
+	"advanced",
+	"history",
+]);
 
 /** The icon beside each section in the left list, as in Obsidian's settings. */
 const SECTION_ICONS: Record<string, LucideIcon> = {
@@ -249,7 +255,7 @@ export function SettingsScreen({
 	updatePollMs,
 	initialSection = "appearance",
 }: {
-	host: UpdateHost;
+	host: UpdateHost & HistoryHost;
 	updatePollMs?: number;
 	/** The section shown first. */
 	initialSection?: string;
@@ -417,6 +423,11 @@ export function SettingsScreen({
 				{id === "advanced" && (
 					<Group>
 						<SettingsTransfer />
+					</Group>
+				)}
+				{id === "history" && (
+					<Group title="Save points">
+						<HistorySection host={host} />
 					</Group>
 				)}
 			</>
@@ -632,7 +643,7 @@ export function SettingsDialog({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	host: UpdateHost;
+	host: UpdateHost & HistoryHost;
 	focusRequest?: object;
 }) {
 	return (

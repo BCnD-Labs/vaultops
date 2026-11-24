@@ -42,6 +42,15 @@ fn vcs_status(state: tauri::State<'_, VaultState>) -> Result<vcs::Status, git_op
     vcs::status(&vcs::vault_root(&state)?)
 }
 
+/// Turn history on for the open vault (see vcs::enable).
+#[tauri::command(async)]
+fn vcs_enable(
+    state: tauri::State<'_, VaultState>,
+    name: String,
+) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::enable(&vcs::vault_root(&state)?, &name)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -214,7 +223,12 @@ fn open_vault_at(state: &VaultState, path: &Path) -> Result<String, HostError> {
         .0
         .lock()
         .map_err(|_| HostError::new(ErrorCode::Io, "vault state is unavailable"))?;
+    let root = vault.root().to_path_buf();
     *guard = Some(vault);
+    drop(guard);
+    // Settings kept inside .git (not synced) come back on every open. Best effort:
+    // without git, or with history off, there is nothing to do.
+    let _ = vcs::apply_local_settings(&root);
     Ok(name)
 }
 
@@ -555,7 +569,8 @@ pub fn run() {
             build_info,
             update_channels,
             vcs_detect,
-            vcs_status
+            vcs_status,
+            vcs_enable
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

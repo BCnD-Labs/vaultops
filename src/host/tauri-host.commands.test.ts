@@ -265,6 +265,11 @@ describe("tauriHost version control", () => {
 			["vcs_undo_save_point", { commit: "abc1234" }],
 		]);
 		invoke.mockReset();
+		invoke.mockRejectedValueOnce({ code: "busy", message: "history is busy" });
+		await expect(tauriHost.vcs.savePoint("x")).rejects.toMatchObject({
+			code: "busy",
+			message: "history is busy",
+		});
 		invoke.mockRejectedValueOnce("command not allowed");
 		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });
 	});

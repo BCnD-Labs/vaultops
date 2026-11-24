@@ -171,6 +171,7 @@ export const VCS_ERROR_CODES = [
 	"invalid-argument",
 	"failed",
 	"timed-out",
+	"busy",
 	"io",
 ] as const;
 export type VcsErrorCode = (typeof VCS_ERROR_CODES)[number];

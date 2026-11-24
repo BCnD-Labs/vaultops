@@ -4,6 +4,7 @@ import { SegmentedInput } from "@/components/ui/segmented";
 import type { Host, VcsLogEntry, VcsStatus } from "../host/host";
 import { BranchMenu } from "./BranchMenu";
 import { HistoryGraph } from "./HistoryGraph";
+import { MergeReview } from "./MergeReview";
 
 const MODE_KEY = "vaultops:history-view";
 type Mode = "list" | "graph";
@@ -41,7 +42,7 @@ export function HistoryScreen({
 	beforeSwitch,
 	onSwitched,
 }: {
-	host: Pick<Host, "vcs">;
+	host: Pick<Host, "vcs" | "writeTextAtomic" | "makeFolder" | "kindOf">;
 	/** History is off: open Settings → History to turn it on. */
 	onOpenSettings?: () => void;
 	/** Save open notes to disk before the branch changes; false when one couldn't be. */
@@ -55,6 +56,8 @@ export function HistoryScreen({
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [mode, setMode] = useState<Mode>(loadMode);
+	/** The branch being merged in, while its review is open. */
+	const [merging, setMerging] = useState<string | null>(null);
 
 	const load = useCallback(
 		async (skip: number) => {
@@ -117,6 +120,7 @@ export function HistoryScreen({
 									void load(0);
 									if (switched) onSwitched?.();
 								}}
+								onMerge={setMerging}
 							/>{" "}
 							{plural(entries.length, "save point")}
 							{hasMore ? " shown" : ""}
@@ -140,6 +144,36 @@ export function HistoryScreen({
 							}}
 						/>
 					</div>
+					{merging && (
+						<MergeReview
+							host={host}
+							branch={merging}
+							current={status.branch}
+							beforeStart={beforeSwitch}
+							onDone={(filesChanged) => {
+								setMerging(null);
+								void load(0);
+								if (filesChanged) onSwitched?.();
+							}}
+						/>
+					)}
+					{!merging && status.merging && (
+						<p role="alert" className="notice">
+							A merge was left unfinished.{" "}
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() =>
+									void host.vcs.mergeAbort().then(() => {
+										void load(0);
+										onSwitched?.();
+									})
+								}
+							>
+								Cancel it
+							</Button>
+						</p>
+					)}
 					{mode === "graph" && <HistoryGraph entries={entries} />}
 					<ol className="history-list" hidden={mode === "graph"}>
 						<li

@@ -9,6 +9,8 @@ import {
 	NOTE_FORMAT_VERSION,
 	type Note,
 	type NoteHeader,
+	parseNote,
+	prepareSave,
 } from "../core/note-format";
 import type { Placement } from "../core/notes/block-move";
 import type { CanvasTemplate } from "../core/notes/canvas-templates";
@@ -1547,6 +1549,43 @@ export function App({ host }: { host: Host }) {
 		});
 	};
 
+	// Write a version of a note built from history (restore, copy a block back).
+	// The current text goes into a save point first, so it stays in history,
+	// and the open editor reloads the result.
+	const applyVersion = async (
+		path: string,
+		build: (current: Note | null) => Note,
+		label: string,
+	): Promise<string | null> => {
+		try {
+			if (!(await ws.flushAll()))
+				return "A note couldn't be saved to disk, so nothing was changed.";
+			const status = await vaultHost.vcs.status();
+			if (status.changes.some((c) => c.path === path))
+				await vaultHost.vcs.savePoint(`Before ${label}`, [path]);
+			let current: Note | null = null;
+			try {
+				current = parseNote(await vaultHost.readText(path)).note;
+			} catch {
+				current = null;
+			}
+			const check = prepareSave(build(current));
+			if (!check.ok)
+				return "The result couldn't be saved, so nothing was changed.";
+			await vaultHost.writeTextAtomic(path, check.text);
+			for (const pane of [left, right])
+				if (
+					pane &&
+					pane.kind === "note" &&
+					pane.session.livePathRef.current === path
+				)
+					await reloadPane(pane);
+			return null;
+		} catch (e) {
+			return e instanceof Error ? e.message : String(e);
+		}
+	};
+
 	// Another branch's files are now on disk: read the vault, the resources
 	// and the open notes again, so nothing shows (or saves) the old branch.
 	const afterBranchSwitch = async () => {
@@ -2245,6 +2284,7 @@ export function App({ host }: { host: Host }) {
 									noteTitle={session?.title}
 									historyHost={vaultHost}
 									notePath={session?.opened?.path}
+									onApplyVersion={applyVersion}
 									onOpenNote={(path) => void open(path)}
 									hasNote={screen === "note" && !!session?.opened}
 									props={session?.props ?? null}

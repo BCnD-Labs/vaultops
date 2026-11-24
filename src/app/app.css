@@ -1079,3 +1079,18 @@ select {
 	display: flex;
 	gap: var(--space-1);
 }
+.note-history-actions {
+	margin: var(--space-1) 0;
+}
+.note-history-copy ul {
+	list-style: none;
+	margin: var(--space-1) 0;
+	padding: 0;
+}
+.note-history-copy li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-1);
+	font-size: var(--font-size-small);
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { diffNotes, summarizeDiff } from "../core/history/diff";
+import { blockText, diffNotes, summarizeDiff } from "../core/history/diff";
+import { copyBlockBack, restoreVersion } from "../core/history/restore";
 import { type Note, parseNote } from "../core/note-format";
 import type { Host, VcsLogEntry } from "../host/host";
 import { NoteBlocks } from "./CanvasCard";
@@ -30,10 +31,20 @@ type Version =
 export function NoteHistoryPanel({
 	host,
 	path,
+	onApply,
 }: {
 	host: Pick<Host, "vcs" | "readText">;
 	/** The open note's vault path. */
 	path: string;
+	/**
+	 * Write a new version of the note made from what's on disk now (the app
+	 * saves open notes first, keeps the current text in history and reloads
+	 * the editor). Resolves to a reason when it didn't happen.
+	 */
+	onApply?: (
+		build: (current: Note | null) => Note,
+		label: string,
+	) => Promise<string | null>;
 }) {
 	const [enabled, setEnabled] = useState<boolean | null>(null);
 	const [entries, setEntries] = useState<VcsLogEntry[]>([]);
@@ -41,6 +52,28 @@ export function NoteHistoryPanel({
 	const [error, setError] = useState<string | null>(null);
 	const [picked, setPicked] = useState<VcsLogEntry | null>(null);
 	const [version, setVersion] = useState<Version | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	const apply = async (
+		build: (current: Note | null) => Note,
+		label: string,
+		done: string,
+	) => {
+		if (!onApply) return;
+		setBusy(true);
+		setNotice(null);
+		try {
+			const refused = await onApply(build, label);
+			setNotice(refused ?? done);
+			if (!refused) {
+				await load(0);
+				if (picked) await pick(picked);
+			}
+		} finally {
+			setBusy(false);
+		}
+	};
 
 	const load = async (skip: number) => {
 		try {
@@ -159,6 +192,67 @@ export function NoteHistoryPanel({
 						<p role="alert" className="notice">
 							{version.message}
 						</p>
+					)}
+					{version.state === "ready" && onApply && (
+						<div className="note-history-actions">
+							<Button
+								size="sm"
+								disabled={busy}
+								onClick={() =>
+									void apply(
+										(current) => restoreVersion(version.note, current),
+										`restoring ${when(picked.date)}`,
+										"Restored. The text it replaced is kept in history.",
+									)
+								}
+							>
+								Restore this version
+							</Button>
+						</div>
+					)}
+					{notice && (
+						<p className="notice" role="status">
+							{notice}
+						</p>
+					)}
+					{version.state === "ready" && onApply && (
+						<details className="note-history-copy">
+							<summary>Copy a block back</summary>
+							<ul>
+								{version.note.blocks
+									.filter(
+										(b) =>
+											b.parent === null && b.id && blockText(b).trim() !== "",
+									)
+									.map((b) => (
+										<li key={b.id}>
+											<span>{blockText(b).slice(0, 80)}</span>
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={busy}
+												aria-label={`Copy back: ${blockText(b).slice(0, 40)}`}
+												onClick={() =>
+													void apply(
+														(current) =>
+															current
+																? copyBlockBack(
+																		current,
+																		version.note,
+																		b.id as string,
+																	)
+																: version.note,
+														"copying a block back",
+														"Block copied back into the note.",
+													)
+												}
+											>
+												Copy back
+											</Button>
+										</li>
+									))}
+							</ul>
+						</details>
 					)}
 					{version.state === "ready" && (
 						<div className="note-editor note-history-blocks">

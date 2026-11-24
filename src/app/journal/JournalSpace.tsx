@@ -2,7 +2,9 @@ import { useEffect, useLayoutEffect, useReducer, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useInViewport } from "@/components/ui/use-in-viewport";
 import { keyOfDate } from "../../core/planner/dates";
+import type { DigestNote } from "../../core/planner/digest";
 import { dayOfLogPath, logPath } from "../../core/planner/log";
+import type { PlannerTask } from "../../core/planner/rules";
 import type { DocumentDrop } from "../../editor/block-drag";
 import { openNote } from "../../editor/note-io";
 import type { LinkSource } from "../../editor/note-link";
@@ -14,6 +16,7 @@ import { fmtLong } from "../planner/fmt";
 import { MiniCalendar } from "../planner/MiniCalendar";
 import { usePlanner } from "../planner/PlannerContext";
 import type { VaultView } from "../session";
+import { JournalInsights, TodaySoFar } from "./JournalDigest";
 
 export interface JournalOptions {
 	documents: LiveDocuments;
@@ -26,12 +29,18 @@ function JournalDay({
 	day,
 	today,
 	duplicate,
+	digest,
 	...options
 }: JournalOptions & {
 	day: string;
 	today: string;
 	duplicate: boolean;
 	locked: boolean;
+	digest: {
+		notes: readonly DigestNote[];
+		tasks: readonly PlannerTask[];
+		onOpen: (path: string) => void;
+	};
 }) {
 	const { documents, host, links, locked, onDropBlock } = options;
 	// Any listed day may be one picked on the calendar that has no file yet;
@@ -92,6 +101,7 @@ function JournalDay({
 			<h2 className="mx-auto max-w-[var(--editor-width)] font-semibold">
 				<time dateTime={day}>{fmtLong(day)}</time>
 			</h2>
+			<TodaySoFar day={day} {...digest} />
 			{notice && (
 				<p role="status" className="notice">
 					{notice}
@@ -180,6 +190,7 @@ export function JournalSpace({
 							today={today}
 							duplicate={duplicates.has(logPath(day))}
 							locked={locked || !view.writable}
+							digest={{ notes: view.notes, tasks, onOpen: openFloating }}
 						/>
 					))}
 			</section>
@@ -200,6 +211,12 @@ export function JournalSpace({
 							}),
 						);
 					}}
+				/>
+				<JournalInsights
+					host={options.host}
+					today={today}
+					notes={view.notes}
+					tasks={tasks}
 				/>
 				{memories.length > 0 && (
 					<section aria-label="On this day" className="mt-4">

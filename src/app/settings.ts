@@ -8,6 +8,11 @@ import {
 	SLOT_LABEL,
 } from "../core/planner/check-in";
 import {
+	DEFAULT_PROMPTS,
+	PROMPT_PLACEHOLDERS,
+	type PromptKind,
+} from "../core/planner/digest";
+import {
 	createSettings,
 	type SettingDef,
 	type SettingsStorage,
@@ -46,6 +51,29 @@ const checkInToggle = (slot: CheckInSlot) => ({
 	type: "toggle" as const,
 	default: true,
 	keywords: ["journal", "log", "check in", "mood", "energy", "focus", slot],
+	sparse: true as const,
+});
+
+const journalToggle = (label: string, description: string) => ({
+	section: "planner",
+	group: "Journal",
+	label,
+	description,
+	type: "toggle" as const,
+	default: true,
+	keywords: ["journal", "review", "summary", "prompt", "daily"],
+	sparse: true as const,
+});
+
+const promptText = (kind: PromptKind, label: string) => ({
+	section: "planner",
+	group: "Journal prompts",
+	label,
+	description: `Your own wording. Fills in ${PROMPT_PLACEHOLDERS[kind]}. Empty uses the default.`,
+	type: "text" as const,
+	default: DEFAULT_PROMPTS[kind],
+	maxLength: 200,
+	keywords: ["journal", "prompt", "wording", "message", kind],
 	sparse: true as const,
 });
 
@@ -514,6 +542,43 @@ export const SETTING_DEFS = [
 	{ key: "planner.checkIn.afternoonStart", ...checkInStart("afternoon") },
 	{ key: "planner.checkIn.evening", ...checkInToggle("evening") },
 	{ key: "planner.checkIn.eveningStart", ...checkInStart("evening") },
+	{
+		key: "planner.journal.today",
+		...journalToggle(
+			"Today, so far",
+			"On each journal day, list the notes saved and tasks finished that day.",
+		),
+	},
+	{
+		key: "planner.journal.weeklyReview",
+		...journalToggle(
+			"Weekly review",
+			"Beside the journal: the week's tasks done, notes saved, days written and check-in averages.",
+		),
+	},
+	{
+		key: "planner.journal.prompts",
+		...journalToggle(
+			"Prompts",
+			"Beside the journal: short notes drawn from your data, such as a dip in energy or a tag left alone.",
+		),
+	},
+	{
+		key: "planner.journal.prompt.dip",
+		...promptText("dip", "A scale dipping"),
+	},
+	{
+		key: "planner.journal.prompt.stale",
+		...promptText("stale", "A tag left alone"),
+	},
+	{
+		key: "planner.journal.prompt.overdue",
+		...promptText("overdue", "Overdue tasks"),
+	},
+	{
+		key: "planner.journal.prompt.streak",
+		...promptText("streak", "Journaling streak"),
+	},
 	...NEW_DEFS,
 	...styleDefs,
 	...featureDefs,
@@ -598,4 +663,10 @@ export function newNoteFolder(selected: string, folders: readonly string[]) {
 		return folders.includes(named) ? named : "";
 	}
 	return selected;
+}
+
+/** A journal prompt's wording: the user's own, or the default when left empty. */
+export function promptTemplate(kind: PromptKind): string {
+	const own = String(settings.get(`planner.journal.prompt.${kind}`)).trim();
+	return own === "" ? DEFAULT_PROMPTS[kind] : own;
 }

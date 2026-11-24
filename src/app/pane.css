@@ -1784,3 +1784,61 @@ input.canvas-item-field {
 	align-self: flex-start;
 	color: var(--destructive, inherit);
 }
+
+/* Journal: "Today, so far" under a day's date, and the insights beside it. */
+.journal-digest {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	margin-block: var(--space-1) var(--space-2);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.journal-digest p {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0;
+}
+.journal-digest svg {
+	width: 14px;
+	height: 14px;
+}
+.journal-digest-label {
+	font-weight: 600;
+}
+.journal-insight h2 {
+	margin: 0 0 var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+	font-weight: 600;
+}
+.journal-insight ul {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	margin: 0;
+	padding-left: var(--space-3);
+	font-size: var(--font-size-small);
+}
+.journal-insight dl {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: var(--space-1) var(--space-2);
+	margin: 0;
+	font-size: var(--font-size-small);
+}
+.journal-insight dt {
+	color: var(--muted-foreground);
+}
+.journal-insight dd {
+	margin: 0;
+	text-align: right;
+}
+.journal-insight-range,
+.journal-insight-before {
+	margin: 0 0 var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}

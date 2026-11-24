@@ -24,6 +24,7 @@ export function readOnlyHost(host: Host): Host {
 			detect: () => host.vcs.detect(),
 			status: () => host.vcs.status(),
 			enable: refuse,
+			savePoint: refuse,
 		},
 		chooseVault: () => host.chooseVault(),
 		currentVault: () => host.currentVault(),

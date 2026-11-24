@@ -555,6 +555,36 @@ body {
 	gap: calc(var(--shell-gap) * 2);
 }
 
+/* The Save point button: as small as the status bar it sits in. */
+.status-bar-extra {
+	display: flex;
+	align-items: center;
+	margin-left: auto;
+}
+.status-bar .save-point-button {
+	height: calc(var(--shell-gap) * 2.5);
+	padding-inline: var(--shell-gap);
+	color: inherit;
+	font-size: inherit;
+	gap: calc(var(--shell-gap) * 0.75);
+}
+.save-point-count {
+	min-width: 1.4em;
+	padding-inline: 0.35em;
+	border-radius: var(--radius-control);
+	background: var(--accent);
+	color: var(--foreground);
+	text-align: center;
+}
+.save-point-popover form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+.save-point-popover button[type="submit"] {
+	align-self: flex-end;
+}
+
 .outline-list {
 	margin: 0;
 	padding: 0;

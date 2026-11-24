@@ -71,6 +71,9 @@ export function loggingHost(host: Host, logger: Logger): Host {
 			detect: timed("vcs.detect", () => host.vcs.detect()),
 			status: timed("vcs.status", () => host.vcs.status()),
 			enable: timed("vcs.enable", (name: string) => host.vcs.enable(name)),
+			savePoint: timed("vcs.savePoint", (message: string, paths?: string[]) =>
+				host.vcs.savePoint(message, paths),
+			),
 		},
 		chooseVault: timed("chooseVault", () => host.chooseVault()),
 		currentVault: timed("currentVault", () => host.currentVault()),

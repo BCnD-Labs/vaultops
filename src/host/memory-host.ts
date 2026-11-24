@@ -58,6 +58,8 @@ export class MemoryHost implements Host {
 		saved: Map<string, string>;
 		/** The name shown on save points. */
 		author: string;
+		/** Every save point's description, oldest first. */
+		log: string[];
 	} | null = null;
 	/** Test helper: the folder already is someone else's git repo. */
 	otherRepo = false;
@@ -66,7 +68,12 @@ export class MemoryHost implements Host {
 
 	/** Test helper: turn history on (no save point yet). */
 	enableHistory(branch = "main"): void {
-		this.history = { branch, saved: new Map(), author: "Test" };
+		this.history = { branch, saved: new Map(), author: "Test", log: [] };
+	}
+
+	/** Every save point's description, oldest first (tests). */
+	get historyLog(): string[] {
+		return [...(this.history?.log ?? [])];
 	}
 
 	/** The name history was turned on with (tests). */
@@ -150,8 +157,43 @@ export class MemoryHost implements Host {
 				);
 			if (!this.gitInfo.found)
 				throw new VcsError("missing", "git is not installed");
-			this.history = { branch: "main", saved: this.allFiles(), author: name };
+			this.history = {
+				branch: "main",
+				saved: this.allFiles(),
+				author: name,
+				log: ["History turned on"],
+			};
 			return this.vcs.status();
+		},
+		savePoint: async (message, paths) => {
+			const history = this.history;
+			if (!history)
+				throw new VcsError("invalid-argument", "history is off for this vault");
+			if (paths && paths.length === 0)
+				throw new VcsError(
+					"invalid-argument",
+					"choose at least one file to save",
+				);
+			const now = this.allFiles();
+			const take = (path: string) => !paths || paths.includes(path);
+			let changed = false;
+			const next = new Map(history.saved);
+			for (const [path, text] of now)
+				if (take(path) && history.saved.get(path) !== text) {
+					next.set(path, text);
+					changed = true;
+				}
+			for (const path of history.saved.keys())
+				if (take(path) && !now.has(path)) {
+					next.delete(path);
+					changed = true;
+				}
+			if (!changed)
+				return { saved: false, commit: null, status: await this.vcs.status() };
+			history.saved = next;
+			history.log.push(message.trim() || "Save point");
+			const commit = history.log.length.toString(16).padStart(7, "0");
+			return { saved: true, commit, status: await this.vcs.status() };
 		},
 	};
 

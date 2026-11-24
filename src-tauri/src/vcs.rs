@@ -210,6 +210,80 @@ pub fn status(root: &Path) -> Result<Status, GitError> {
     })
 }
 
+/// The longest description a save point keeps (characters).
+const MAX_MESSAGE_CHARS: usize = 10_000;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavePoint {
+    /// False when there was nothing to save; no save point was made.
+    pub saved: bool,
+    /// The new save point's short id.
+    pub commit: Option<String>,
+    pub status: Status,
+}
+
+/// Make a save point of every change, or only of `paths` (vault-relative).
+/// The description goes to git on stdin. An empty one becomes "Save point".
+pub fn save_point(
+    root: &Path,
+    message: &str,
+    paths: Option<&[String]>,
+) -> Result<SavePoint, GitError> {
+    if !is_enabled(root) {
+        return Err(GitError::invalid("history is off for this vault"));
+    }
+    let trimmed = message.trim();
+    let text: String = if trimmed.is_empty() {
+        "Save point".to_string()
+    } else {
+        trimmed.chars().take(MAX_MESSAGE_CHARS).collect()
+    };
+    let checked: Vec<String> = match paths {
+        Some([]) => {
+            return Err(GitError::invalid("choose at least one file to save"));
+        }
+        Some(list) => list
+            .iter()
+            .map(|p| git_ops::checked_path(p))
+            .collect::<Result<_, _>>()?,
+        None => vec![".".to_string()],
+    };
+    if status(root)?.changes.is_empty() {
+        return Ok(SavePoint {
+            saved: false,
+            commit: None,
+            status: status(root)?,
+        });
+    }
+    let mut add: Vec<&str> = vec!["add", "-A", "--"];
+    add.extend(checked.iter().map(String::as_str));
+    git_ops::run_long(root, &add, None)?;
+    // Only what was just added is staged (the app never stages anything else),
+    // so a commit of the index is a save point of exactly those files.
+    let staged = git_ops::run(root, &["diff", "--cached", "--name-only", "-z"], None, true)?;
+    if staged.is_empty() {
+        return Ok(SavePoint {
+            saved: false,
+            commit: None,
+            status: status(root)?,
+        });
+    }
+    let message = format!("{text}\n");
+    git_ops::run(
+        root,
+        &["commit", "-q", "-F", "-"],
+        Some(message.as_bytes()),
+        false,
+    )?;
+    let id = git_ops::run(root, &["rev-parse", "--short", "HEAD"], None, true)?;
+    Ok(SavePoint {
+        saved: true,
+        commit: Some(String::from_utf8_lossy(&id).trim().to_string()),
+        status: status(root)?,
+    })
+}
+
 /// A display name for save points: trimmed, 1 to 80 characters, no control
 /// characters or `<>` (git uses them around the email).
 pub fn checked_name(raw: &str) -> Result<String, GitError> {
@@ -437,6 +511,51 @@ mod tests {
         );
         assert_eq!(synced_folder(Path::new("/Users/a/Notes")), None);
         assert_eq!(local_email("Zoë O'Neil"), "zo--o-neil@vaultops.local");
+    }
+
+    #[test]
+    fn a_save_point_saves_everything_or_only_the_chosen_files() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        std::fs::write(root.join("a.vnote"), "changed").unwrap();
+        std::fs::write(root.join("b.vnote"), "new").unwrap();
+        let only_b = save_point(root, "Just b", Some(&["b.vnote".to_string()])).unwrap();
+        assert!(only_b.saved);
+        assert_eq!(git_out(root, &["log", "-1", "--format=%s"]), "Just b");
+        assert_eq!(
+            only_b
+                .status
+                .changes
+                .iter()
+                .map(|c| c.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a.vnote"]
+        );
+        let all = save_point(root, "   ", None).unwrap();
+        assert!(all.saved && all.status.changes.is_empty());
+        assert_eq!(git_out(root, &["log", "-1", "--format=%s"]), "Save point");
+        assert_eq!(
+            all.commit.unwrap(),
+            git_out(root, &["rev-parse", "--short", "HEAD"])
+        );
+    }
+
+    #[test]
+    fn nothing_to_save_makes_no_save_point_and_bad_paths_are_refused() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        let before = git_out(root, &["rev-parse", "HEAD"]);
+        let none = save_point(root, "Nothing", None).unwrap();
+        assert!(!none.saved && none.commit.is_none());
+        assert_eq!(git_out(root, &["rev-parse", "HEAD"]), before);
+        std::fs::write(root.join("a.vnote"), "changed").unwrap();
+        for bad in ["../x", "/etc/passwd", "-p"] {
+            let err = save_point(root, "x", Some(&[bad.to_string()]));
+            assert!(err.is_err(), "{bad}");
+        }
+        assert!(save_point(root, "x", Some(&[])).is_err());
+        let off = TempDir::new();
+        assert!(save_point(off.path(), "x", None).is_err());
     }
 
     #[test]

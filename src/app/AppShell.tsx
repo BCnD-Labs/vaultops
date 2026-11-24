@@ -64,6 +64,7 @@ export function AppShell({
 	canGoBack = false,
 	canGoForward = false,
 	stats = null,
+	statusExtra,
 	onBack = () => {},
 	onForward = () => {},
 	onToggleReading,
@@ -97,6 +98,8 @@ export function AppShell({
 	canGoBack?: boolean;
 	canGoForward?: boolean;
 	stats?: TextStats | null;
+	/** Extra controls at the end of the status bar (the Save point button). */
+	statusExtra?: ReactNode;
 	onBack?: () => void;
 	onForward?: () => void;
 	reading?: boolean;
@@ -260,7 +263,12 @@ export function AppShell({
 									/>
 								)}
 								<div className="editor-column-body">{children}</div>
-								<StatusBar vault={vault} stats={stats} build={buildCommit} />
+								<StatusBar
+									vault={vault}
+									stats={stats}
+									build={buildCommit}
+									extra={statusExtra}
+								/>
 							</div>
 							<CommandBar
 								notes={notes}

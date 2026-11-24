@@ -121,6 +121,7 @@ import { ResourceManager } from "./ResourceManager";
 import { useReviewState } from "./review/useReviewState";
 import { createRowNote } from "./row-note";
 import { useSavedWorkspaces } from "./SavedWorkspaces";
+import { SavePointButton } from "./SavePointButton";
 import { ScreenPane } from "./ScreenPane";
 import { SendToBlock, SendToDialog } from "./SendToDialog";
 import { SettingsDialog } from "./SettingsScreen";
@@ -2211,6 +2212,14 @@ export function App({ host }: { host: Host }) {
 									: undefined
 							}
 							stats={screen === "note" && session ? session.stats : null}
+							statusExtra={
+								view?.writable ? (
+									<SavePointButton
+										host={vaultHost}
+										flush={() => wsRef.current.flushAll()}
+									/>
+								) : null
+							}
 							tools={
 								<NoteTools
 									key={session?.opened?.path}

@@ -10,6 +10,7 @@ import {
 	type Host,
 	HostError,
 	type HostErrorCode,
+	type SavePointResult,
 	type UpdateChannels,
 	type UpdateScriptStatus,
 	VCS_ERROR_CODES,
@@ -85,6 +86,11 @@ export const tauriHost: Host = {
 		detect: () => vcsCall<GitInfo>("vcs_detect"),
 		status: () => vcsCall<VcsStatus>("vcs_status"),
 		enable: (name) => vcsCall<VcsStatus>("vcs_enable", { name }),
+		savePoint: (message, paths) =>
+			vcsCall<SavePointResult>("vcs_save_point", {
+				message,
+				paths: paths ?? null,
+			}),
 	},
 	chooseVault: () => call<string | null>("choose_vault"),
 	currentVault: () => call<string | null>("current_vault"),

@@ -65,3 +65,24 @@ it("turns history on with a first save point, and refuses twice or someone else'
 		readOnlyHost(new MemoryHost()).vcs.enable("Sam"),
 	).rejects.toThrow(/read-only/);
 });
+
+it("makes save points of everything or chosen files, and nothing when nothing changed", async () => {
+	const host = new MemoryHost();
+	await host.writeTextAtomic("a.vnote", "1");
+	await host.vcs.enable("Sam");
+	expect((await host.vcs.savePoint("x")).saved).toBe(false);
+	await host.writeTextAtomic("a.vnote", "2");
+	await host.writeTextAtomic("b.vnote", "new");
+	const onlyB = await host.vcs.savePoint("Just b", ["b.vnote"]);
+	expect(onlyB.saved).toBe(true);
+	expect(onlyB.status.changes).toEqual([{ path: "a.vnote", kind: "modified" }]);
+	await host.vcs.savePoint("  ");
+	expect(host.historyLog).toEqual([
+		"History turned on",
+		"Just b",
+		"Save point",
+	]);
+	await expect(host.vcs.savePoint("x", [])).rejects.toMatchObject({
+		code: "invalid-argument",
+	});
+});

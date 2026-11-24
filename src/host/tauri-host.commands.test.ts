@@ -235,6 +235,17 @@ describe("tauriHost version control", () => {
 			"vcs_show",
 			{ commit: "abc1234", path: "a.vnote" },
 		]);
+		invoke.mockResolvedValue([]);
+		await tauriHost.vcs.createBranch("try-out", true);
+		await tauriHost.vcs.switchBranch("main");
+		await tauriHost.vcs.renameBranch("a", "b");
+		await tauriHost.vcs.deleteBranch("b");
+		expect(invoke.mock.calls.slice(-4)).toEqual([
+			["vcs_create_branch", { name: "try-out", switchTo: true }],
+			["vcs_switch_branch", { name: "main" }],
+			["vcs_rename_branch", { from: "a", to: "b" }],
+			["vcs_delete_branch", { name: "b" }],
+		]);
 		invoke.mockReset();
 		invoke.mockRejectedValueOnce("command not allowed");
 		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });

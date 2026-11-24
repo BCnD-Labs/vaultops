@@ -35,6 +35,11 @@ const COMMANDS: &[&str] = &[
     "vcs_save_point",
     "vcs_log",
     "vcs_show",
+    "vcs_branches",
+    "vcs_create_branch",
+    "vcs_switch_branch",
+    "vcs_rename_branch",
+    "vcs_delete_branch",
 ];
 
 fn main() {

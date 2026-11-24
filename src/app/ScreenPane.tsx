@@ -35,6 +35,8 @@ interface ScreenPaneProps {
 	/** For the History screen. */
 	historyHost?: Pick<Host, "vcs">;
 	onOpenSettings?: () => void;
+	beforeBranchSwitch?: () => Promise<boolean>;
+	onBranchSwitched?: () => void;
 }
 
 /**
@@ -61,6 +63,8 @@ export function ScreenPane({
 	onOpen,
 	historyHost,
 	onOpenSettings,
+	beforeBranchSwitch,
+	onBranchSwitched,
 }: ScreenPaneProps) {
 	const [trashView, setTrashView] = useState(loadTrashView);
 	if (screen === "planner") {
@@ -130,7 +134,12 @@ export function ScreenPane({
 				/>
 			)}
 			{screen === "history" && historyHost && (
-				<HistoryScreen host={historyHost} onOpenSettings={onOpenSettings} />
+				<HistoryScreen
+					host={historyHost}
+					onOpenSettings={onOpenSettings}
+					beforeSwitch={beforeBranchSwitch}
+					onSwitched={onBranchSwitched}
+				/>
 			)}
 			{screen === "health" && view && (
 				<HealthScreen report={view.report} onOpen={onOpen} />

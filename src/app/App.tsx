@@ -1547,6 +1547,15 @@ export function App({ host }: { host: Host }) {
 		});
 	};
 
+	// Another branch's files are now on disk: read the vault, the resources
+	// and the open notes again, so nothing shows (or saves) the old branch.
+	const afterBranchSwitch = async () => {
+		await refreshVault();
+		await reloadResources();
+		for (const pane of [left, right])
+			if (pane && pane.kind === "note") await reloadPane(pane);
+	};
+
 	// A note changed on disk while it was open: take the disk version...
 	const loadDisk = async (pane: PaneView) => {
 		pane.session.discard();
@@ -2392,6 +2401,8 @@ export function App({ host }: { host: Host }) {
 									onOpen={(path) => void open(path)}
 									historyHost={vaultHost}
 									onOpenSettings={() => void navigate("settings")}
+									beforeBranchSwitch={() => ws.settleAll()}
+									onBranchSwitched={() => void afterBranchSwitch()}
 								/>
 							)}
 						</AppShell>

@@ -30,6 +30,7 @@ const COMMANDS: &[&str] = &[
     "build_info",
     "update_channels",
     "vcs_detect",
+    "vcs_status",
 ];
 
 fn main() {

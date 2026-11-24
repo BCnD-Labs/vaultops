@@ -5,12 +5,17 @@ import {
 	type BuildInfo,
 	type DirEntry,
 	type EntryKind,
+	type GitInfo,
 	HOST_ERROR_CODES,
 	type Host,
 	HostError,
 	type HostErrorCode,
 	type UpdateChannels,
 	type UpdateScriptStatus,
+	VCS_ERROR_CODES,
+	VcsError,
+	type VcsErrorCode,
+	type VcsStatus,
 } from "./host";
 
 /**
@@ -43,6 +48,32 @@ async function call<T>(
 	}
 }
 
+/** The same for version-control commands, which reject with `{ code, message }` from git_ops.rs. */
+export function toVcsError(raw: unknown): VcsError {
+	if (raw instanceof VcsError) return raw;
+	if (raw && typeof raw === "object" && "code" in raw && "message" in raw) {
+		const { code, message } = raw as { code: unknown; message: unknown };
+		if (
+			typeof message === "string" &&
+			(VCS_ERROR_CODES as readonly unknown[]).includes(code)
+		) {
+			return new VcsError(code as VcsErrorCode, message);
+		}
+	}
+	return new VcsError("io", "the app's native side could not do that");
+}
+
+async function vcsCall<T>(
+	command: string,
+	args?: Record<string, unknown>,
+): Promise<T> {
+	try {
+		return await invoke<T>(command, args);
+	} catch (raw) {
+		throw toVcsError(raw);
+	}
+}
+
 /** Raw bytes from Rust arrive as an ArrayBuffer (or, in older shells, a number list). */
 const toBuffer = (bytes: ArrayBuffer | number[]): ArrayBuffer =>
 	Array.isArray(bytes) ? Uint8Array.from(bytes).buffer : bytes;
@@ -50,6 +81,10 @@ const toBuffer = (bytes: ArrayBuffer | number[]): ArrayBuffer =>
 /** The real host: forwards each call to a Rust command in src-tauri/src/lib.rs. */
 export const tauriHost: Host = {
 	appInfo: () => call<AppInfo>("app_info"),
+	vcs: {
+		detect: () => vcsCall<GitInfo>("vcs_detect"),
+		status: () => vcsCall<VcsStatus>("vcs_status"),
+	},
 	chooseVault: () => call<string | null>("choose_vault"),
 	currentVault: () => call<string | null>("current_vault"),
 	readText: (path) => call<string>("read_text", { path }),

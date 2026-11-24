@@ -67,6 +67,10 @@ export function loggingHost(host: Host, logger: Logger): Host {
 
 	return {
 		appInfo: timed("appInfo", () => host.appInfo()),
+		vcs: {
+			detect: timed("vcs.detect", () => host.vcs.detect()),
+			status: timed("vcs.status", () => host.vcs.status()),
+		},
 		chooseVault: timed("chooseVault", () => host.chooseVault()),
 		currentVault: timed("currentVault", () => host.currentVault()),
 		readText: timed("readText", (p: string) => host.readText(p)),

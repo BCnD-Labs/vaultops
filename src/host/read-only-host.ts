@@ -19,6 +19,11 @@ const refuse = (): Promise<never> =>
 export function readOnlyHost(host: Host): Host {
 	return {
 		appInfo: () => host.appInfo(),
+		// Reading history is fine; anything that writes it is refused once added.
+		vcs: {
+			detect: () => host.vcs.detect(),
+			status: () => host.vcs.status(),
+		},
 		chooseVault: () => host.chooseVault(),
 		currentVault: () => host.currentVault(),
 		readText: (path) => host.readText(path),

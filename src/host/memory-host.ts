@@ -5,6 +5,7 @@ import {
 	type BuildInfo,
 	type DirEntry,
 	type EntryKind,
+	type GitInfo,
 	type Host,
 	HostError,
 	isCachePath,
@@ -13,6 +14,8 @@ import {
 	type UpdateChannelName,
 	type UpdateChannels,
 	type UpdateScriptStatus,
+	type VcsChange,
+	type VcsHost,
 } from "./host";
 
 interface FileNode {
@@ -40,6 +43,68 @@ export class MemoryHost implements Host {
 		kind: "folder",
 		name: "",
 		children: new Map(),
+	};
+
+	/** What `vcs.detect()` reports; tests can set "git missing". */
+	gitInfo: GitInfo = {
+		found: true,
+		version: "2.50.1",
+		needsDeveloperTools: false,
+	};
+	private history: {
+		branch: string;
+		/** Every file's content at the last save point. */
+		saved: Map<string, string>;
+	} | null = null;
+
+	/** Test helper: turn history on (no save point yet). */
+	enableHistory(branch = "main"): void {
+		this.history = { branch, saved: new Map() };
+	}
+
+	/** Test helper: take a save point of every file as it is now. */
+	saveAll(): void {
+		if (!this.history) throw new HostError("io", "history is off");
+		this.history.saved = this.allFiles();
+	}
+
+	/** Every file as `path -> content` (bytes as a comparable string). */
+	private allFiles(): Map<string, string> {
+		const out = new Map<string, string>();
+		const walk = (folder: FolderNode, prefix: string) => {
+			for (const node of folder.children.values()) {
+				const path = prefix ? `${prefix}/${node.name}` : node.name;
+				if (node.kind === "folder") walk(node, path);
+				else
+					out.set(
+						path,
+						typeof node.text === "string"
+							? node.text
+							: `bytes:${node.text.join(",")}`,
+					);
+			}
+		};
+		walk(this.root, "");
+		return out;
+	}
+
+	readonly vcs: VcsHost = {
+		detect: async () => ({ ...this.gitInfo }),
+		status: async () => {
+			if (!this.history) return { enabled: false, branch: null, changes: [] };
+			const now = this.allFiles();
+			const { saved, branch } = this.history;
+			const changes: VcsChange[] = [];
+			for (const [path, text] of now) {
+				const before = saved.get(path);
+				if (before === undefined) changes.push({ path, kind: "untracked" });
+				else if (before !== text) changes.push({ path, kind: "modified" });
+			}
+			for (const path of saved.keys())
+				if (!now.has(path)) changes.push({ path, kind: "deleted" });
+			changes.sort((a, b) => a.path.localeCompare(b.path));
+			return { enabled: true, branch, changes };
+		},
 	};
 
 	async appInfo(): Promise<AppInfo> {

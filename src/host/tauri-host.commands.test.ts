@@ -192,3 +192,31 @@ describe("toHostError", () => {
 		}
 	});
 });
+
+describe("tauriHost version control", () => {
+	it("sends the vcs commands and maps their errors to VcsError", async () => {
+		invoke.mockResolvedValueOnce({
+			found: true,
+			version: "2.50.1",
+			needsDeveloperTools: false,
+		});
+		invoke.mockResolvedValueOnce({ enabled: false, branch: null, changes: [] });
+		expect((await tauriHost.vcs.detect()).found).toBe(true);
+		expect((await tauriHost.vcs.status()).enabled).toBe(false);
+		expect(invoke.mock.calls).toEqual([
+			["vcs_detect", undefined],
+			["vcs_status", undefined],
+		]);
+		invoke.mockRejectedValueOnce({
+			code: "missing",
+			message: "git is not installed",
+		});
+		await expect(tauriHost.vcs.status()).rejects.toMatchObject({
+			name: "VcsError",
+			code: "missing",
+			message: "git is not installed",
+		});
+		invoke.mockRejectedValueOnce("command not allowed");
+		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });
+	});
+});

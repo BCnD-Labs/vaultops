@@ -11,6 +11,7 @@ mod test_util;
 pub mod trash_ops;
 pub mod update_script;
 pub mod vault;
+pub mod vcs;
 
 use std::path::{Path, PathBuf};
 
@@ -34,6 +35,13 @@ fn app_info_value() -> AppInfo {
 }
 
 /// Basic app facts.
+/// What changed in the vault since the last save point (or that history is off).
+/// Runs off the main thread; the vault lock is released before git runs.
+#[tauri::command(async)]
+fn vcs_status(state: tauri::State<'_, VaultState>) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::status(&vcs::vault_root(&state)?)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -546,7 +554,8 @@ pub fn run() {
             update_script_status,
             build_info,
             update_channels,
-            vcs_detect
+            vcs_detect,
+            vcs_status
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

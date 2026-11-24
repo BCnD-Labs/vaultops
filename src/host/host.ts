@@ -105,6 +105,10 @@ export interface VcsLogEntry {
 	date: string;
 	/** Parent ids (two for a merge). */
 	parents: string[];
+	/** Branch names pointing at this save point. */
+	branches: string[];
+	/** True for the save point the vault is on now. */
+	head: boolean;
 	/** The description's first line. */
 	subject: string;
 	/** The rest of the description ("" when none). */
@@ -164,9 +168,15 @@ export interface VcsHost {
 	/**
 	 * A page of save points on the current branch, newest first: skip `skip`,
 	 * then up to `limit` (at most 200). With `path`, only those that changed
-	 * that file, following renames.
+	 * that file, following renames. With `allBranches`, every branch.
 	 */
-	log(options: { path?: string; skip: number; limit: number }): Promise<VcsLog>;
+	log(options: {
+		path?: string;
+		skip: number;
+		limit: number;
+		/** Every branch, children before parents (for the graph). */
+		allBranches?: boolean;
+	}): Promise<VcsLog>;
 	/** A file's text as it was at save point `commit` (an id from `log`). */
 	show(commit: string, path: string): Promise<string>;
 }

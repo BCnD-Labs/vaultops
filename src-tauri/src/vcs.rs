@@ -295,6 +295,10 @@ pub struct LogEntry {
     pub date: String,
     /// Parent ids (two for a merge), for the history graph.
     pub parents: Vec<String>,
+    /// Branch names pointing at this save point ("main", "try-out").
+    pub branches: Vec<String>,
+    /// True for the save point the vault is on now.
+    pub head: bool,
     /// The first line of the description.
     pub subject: String,
     /// The rest of the description ("" when there is none).
@@ -318,7 +322,7 @@ pub struct Log {
 const MAX_LOG_PAGE: u32 = 200;
 const RECORD: char = '\u{1e}';
 
-/// Parse `git log --format=<RECORD>%H%x00%h%x00%an%x00%aI%x00%P%x00%s%x00%b%x00 --shortstat`.
+/// Parse `git log --format=<RECORD>%H%x00%h%x00%an%x00%aI%x00%P%x00%D%x00%s%x00%b%x00 --shortstat`.
 pub fn parse_log(out: &[u8]) -> Vec<LogEntry> {
     let text = String::from_utf8_lossy(out);
     text.split(RECORD)
@@ -330,6 +334,24 @@ pub fn parse_log(out: &[u8]) -> Vec<LogEntry> {
             let author = f.next()?.to_string();
             let date = f.next()?.to_string();
             let parents = f.next()?.split_whitespace().map(str::to_string).collect();
+            // Only branch names are decorated (--decorate-refs=refs/heads/).
+            let mut head = false;
+            let mut branches = Vec::new();
+            for d in f
+                .next()?
+                .split(", ")
+                .map(str::trim)
+                .filter(|d| !d.is_empty())
+            {
+                if d == "HEAD" {
+                    head = true;
+                } else if let Some(name) = d.strip_prefix("HEAD -> ") {
+                    head = true;
+                    branches.push(name.to_string());
+                } else {
+                    branches.push(d.to_string());
+                }
+            }
             let subject = f.next()?.to_string();
             let body = f.next()?.trim().to_string();
             let stat = f.next().unwrap_or("");
@@ -344,6 +366,8 @@ pub fn parse_log(out: &[u8]) -> Vec<LogEntry> {
                 author,
                 date,
                 parents,
+                branches,
+                head,
                 subject,
                 body,
                 files_changed,
@@ -355,16 +379,36 @@ pub fn parse_log(out: &[u8]) -> Vec<LogEntry> {
 
 /// A page of save points, newest first, on the current branch. With `path`,
 /// only those that changed that file (following renames).
-pub fn log(root: &Path, path: Option<&str>, skip: u32, limit: u32) -> Result<Log, GitError> {
+pub fn log(
+    root: &Path,
+    path: Option<&str>,
+    skip: u32,
+    limit: u32,
+    all_branches: bool,
+) -> Result<Log, GitError> {
     if !is_enabled(root) {
         return Err(GitError::invalid("history is off for this vault"));
     }
     let limit = limit.clamp(1, MAX_LOG_PAGE);
     let count = format!("-n{}", limit + 1);
     let skip = format!("--skip={skip}");
-    let format = format!("--format={RECORD}%H%x00%h%x00%an%x00%aI%x00%P%x00%s%x00%b%x00");
+    let format = format!("--format={RECORD}%H%x00%h%x00%an%x00%aI%x00%P%x00%D%x00%s%x00%b%x00");
     let checked = path.map(git_ops::checked_path).transpose()?;
-    let mut args = vec!["log", &count, &skip, &format, "--shortstat"];
+    let mut args = vec![
+        "log",
+        &count,
+        &skip,
+        &format,
+        "--shortstat",
+        "--decorate=short",
+        "--decorate-refs=refs/heads/",
+        "--decorate-refs=HEAD",
+    ];
+    if all_branches && path.is_none() {
+        // Every branch, children before parents, for the graph.
+        args.push("--branches");
+        args.push("--topo-order");
+    }
     if checked.is_some() {
         args.push("--follow");
     }
@@ -711,7 +755,7 @@ mod tests {
         save_point(root, "Edited a\n\nMore words", None).unwrap();
         std::fs::write(root.join("b.vnote"), "new").unwrap();
         save_point(root, "Added b", None).unwrap();
-        let all = log(root, None, 0, 50).unwrap();
+        let all = log(root, None, 0, 50, false).unwrap();
         let subjects: Vec<_> = all.entries.iter().map(|e| e.subject.as_str()).collect();
         assert_eq!(subjects, vec!["Added b", "Edited a", "History turned on"]);
         assert!(!all.has_more);
@@ -721,10 +765,10 @@ mod tests {
         assert_eq!(edited.author, "Sam Rivera");
         assert_eq!(edited.parents, vec![all.entries[2].id.clone()]);
         assert!(all.entries[2].parents.is_empty());
-        let page = log(root, None, 1, 1).unwrap();
+        let page = log(root, None, 1, 1, false).unwrap();
         assert_eq!(page.entries[0].subject, "Edited a");
         assert!(page.has_more);
-        let of_a = log(root, Some("a.vnote"), 0, 50).unwrap();
+        let of_a = log(root, Some("a.vnote"), 0, 50, false).unwrap();
         assert_eq!(
             of_a.entries
                 .iter()
@@ -732,7 +776,38 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["Edited a", "History turned on"]
         );
-        assert!(log(root, Some("../x"), 0, 5).is_err());
+        assert!(log(root, Some("../x"), 0, 5, false).is_err());
+        assert_eq!(all.entries[0].branches, vec!["main"]);
+        assert!(all.entries[0].head && !all.entries[1].head);
+    }
+
+    #[test]
+    fn lists_every_branch_for_the_graph() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        git_ops::run(root, &["branch", "try-out"], None, false).unwrap();
+        std::fs::write(root.join("a.vnote"), "on main").unwrap();
+        save_point(root, "Main work", None).unwrap();
+        git_ops::run(root, &["switch", "-q", "try-out"], None, false).unwrap();
+        std::fs::write(root.join("b.vnote"), "on try-out").unwrap();
+        save_point(root, "Try-out work", None).unwrap();
+        let current = log(root, None, 0, 50, false).unwrap();
+        assert_eq!(current.entries.len(), 2);
+        let all = log(root, None, 0, 50, true).unwrap();
+        let mut subjects: Vec<_> = all.entries.iter().map(|e| e.subject.as_str()).collect();
+        subjects.sort();
+        assert_eq!(
+            subjects,
+            vec!["History turned on", "Main work", "Try-out work"]
+        );
+        let tip = all
+            .entries
+            .iter()
+            .find(|e| e.subject == "Try-out work")
+            .unwrap();
+        assert_eq!(tip.branches, vec!["try-out"]);
+        assert!(tip.head);
+        assert_eq!(all.entries.last().unwrap().subject, "History turned on");
     }
 
     #[test]
@@ -745,7 +820,7 @@ mod tests {
         std::fs::rename(root.join("a.vnote"), root.join("Renamed.vnote")).unwrap();
         save_point(root, "Renamed", None).unwrap();
         assert_eq!(show(root, &first, "a.vnote").unwrap(), "x");
-        let history = log(root, Some("Renamed.vnote"), 0, 10).unwrap();
+        let history = log(root, Some("Renamed.vnote"), 0, 10, false).unwrap();
         let paths: Vec<_> = history
             .entries
             .iter()

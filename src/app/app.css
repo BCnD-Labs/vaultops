@@ -979,3 +979,49 @@ select {
 	border: var(--border-width) dashed var(--line);
 	border-radius: var(--radius-container);
 }
+
+/* History graph: one fixed-height row per save point, lanes drawn per row. */
+.history-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-2);
+	margin-bottom: var(--space-2);
+}
+.history-graph {
+	list-style: none;
+	margin: 0 0 var(--space-3);
+	padding: 0;
+}
+.history-graph-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	height: 36px;
+	overflow: hidden;
+}
+.history-graph-row[aria-current="true"] .history-subject {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.history-lanes {
+	flex: none;
+}
+.history-lanes line {
+	stroke-width: 2;
+}
+.history-graph-text {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-2);
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.history-branch {
+	padding: 0 var(--space-1);
+	border: var(--border-width) solid;
+	border-radius: var(--radius-control);
+	font-size: var(--font-size-small);
+}

@@ -5,7 +5,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { MemoryHost } from "../host/memory-host";
 import { HISTORY_PAGE, HistoryScreen } from "./HistoryScreen";
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	localStorage.clear();
+});
 
 it("says history is off and offers Settings", async () => {
 	const user = userEvent.setup();
@@ -56,4 +59,28 @@ it("loads older save points a page at a time", async () => {
 	expect(
 		screen.queryByRole("button", { name: "Load older save points" }),
 	).toBeNull();
+});
+
+it("switches to the graph, shows branch names on their tips, and remembers the choice", async () => {
+	const user = userEvent.setup();
+	const host = new MemoryHost();
+	await host.writeTextAtomic("a.vnote", "1");
+	await host.vcs.enable("Sam");
+	await host.writeTextAtomic("a.vnote", "2");
+	await host.vcs.savePoint("Edited a");
+	render(<HistoryScreen host={host} />);
+	await screen.findByText("Edited a");
+	await user.click(screen.getByRole("radio", { name: "Graph" }));
+	const graph = await screen.findByRole("list", { name: "History graph" });
+	const rows = within(graph).getAllByRole("listitem");
+	expect(rows).toHaveLength(2);
+	expect(rows[0]?.textContent).toContain("main");
+	expect(rows[0]?.getAttribute("aria-current")).toBe("true");
+	expect(rows[0]?.querySelector("circle")).toBeTruthy();
+	expect(localStorage.getItem("vaultops:history-view")).toBe("graph");
+	cleanup();
+	render(<HistoryScreen host={host} />);
+	expect(
+		await screen.findByRole("list", { name: "History graph" }),
+	).toBeTruthy();
 });

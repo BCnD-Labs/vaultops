@@ -72,8 +72,12 @@ export function loggingHost(host: Host, logger: Logger): Host {
 			status: timed("vcs.status", () => host.vcs.status()),
 			log: timed(
 				"vcs.log",
-				(options: { path?: string; skip: number; limit: number }) =>
-					host.vcs.log(options),
+				(options: {
+					path?: string;
+					skip: number;
+					limit: number;
+					allBranches?: boolean;
+				}) => host.vcs.log(options),
 			),
 			enable: timed("vcs.enable", (name: string) => host.vcs.enable(name)),
 			show: timed("vcs.show", (commit: string, path: string) =>

@@ -185,6 +185,8 @@ export class MemoryHost implements Host {
 						author: history.author,
 						date: new Date(Date.UTC(2026, 10, 1, 0, n)).toISOString(),
 						parents: n === 0 ? [] : [id(n)],
+						branches: n === history.log.length - 1 ? [history.branch] : [],
+						head: n === history.log.length - 1,
 						subject,
 						body: rest.join("\n").trim(),
 						filesChanged: entry.files.length,

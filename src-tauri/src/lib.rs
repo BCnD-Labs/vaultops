@@ -68,8 +68,15 @@ fn vcs_log(
     path: Option<String>,
     skip: u32,
     limit: u32,
+    all_branches: Option<bool>,
 ) -> Result<vcs::Log, git_ops::GitError> {
-    vcs::log(&vcs::vault_root(&state)?, path.as_deref(), skip, limit)
+    vcs::log(
+        &vcs::vault_root(&state)?,
+        path.as_deref(),
+        skip,
+        limit,
+        all_branches.unwrap_or(false),
+    )
 }
 
 /// A file's text as it was at a save point.

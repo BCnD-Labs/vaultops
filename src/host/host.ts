@@ -110,6 +110,8 @@ export interface VcsLogEntry {
 	/** The rest of the description ("" when none). */
 	body: string;
 	filesChanged: number;
+	/** In a one-file history: the file's path at this save point (it may have been renamed since). */
+	path?: string;
 }
 
 export interface VcsLog {
@@ -165,6 +167,8 @@ export interface VcsHost {
 	 * that file, following renames.
 	 */
 	log(options: { path?: string; skip: number; limit: number }): Promise<VcsLog>;
+	/** A file's text as it was at save point `commit` (an id from `log`). */
+	show(commit: string, path: string): Promise<string>;
 }
 
 export type EntryKind = "file" | "folder";

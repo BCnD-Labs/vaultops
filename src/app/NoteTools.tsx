@@ -1,6 +1,7 @@
 import {
 	GitCompareArrows,
 	Highlighter,
+	History,
 	Link2,
 	ListTree,
 	type LucideIcon,
@@ -18,9 +19,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { HighlightItem } from "../core/notes/highlights";
 import type { OutlineItem } from "../core/notes/outline";
+import type { Host } from "../host/host";
 import { ShellNavigation } from "./AppShell";
 import { HighlightsPanel } from "./HighlightsPanel";
 import { LinkedFromPanel } from "./LinkedFromPanel";
+import { NoteHistoryPanel } from "./NoteHistoryPanel";
 import { OutlinePanel } from "./OutlinePanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { PlannerPanel } from "./planner/PlannerPanel";
@@ -35,6 +38,7 @@ const TOOLS: [string, string, LucideIcon, string?][] = [
 	["highlights", "Highlights", Highlighter, "highlights"],
 	["links", "Connections", Link2, "tab-links"],
 	["tags", "Tags", Tags],
+	["history", "History", History],
 	["changes", "Changes", GitCompareArrows],
 	["planner", "Planner", PencilLine, "planner"],
 ];
@@ -44,6 +48,7 @@ function loadTab() {
 	try {
 		const saved = localStorage.getItem(TAB_KEY);
 		return saved === "changes" ||
+			saved === "history" ||
 			saved === "outline" ||
 			saved === "highlights" ||
 			saved === "links" ||
@@ -67,8 +72,14 @@ export function NoteTools({
 	noteTitle,
 	onOpenNote = () => {},
 	onRenameTag,
+	historyHost,
+	notePath,
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & {
+	/** For the History tab. */
+	historyHost?: Pick<Host, "vcs" | "readText">;
+	/** The open note's vault path, for the History tab. */
+	notePath?: string;
 	hasNote: boolean;
 	/** Vault notes, used to list tags and counts in the Tags tool. */
 	notes?: NoteRow[];
@@ -220,6 +231,13 @@ export function NoteTools({
 			</TabsContent>
 			<TabsContent value="planner">
 				<PlannerPanel />
+			</TabsContent>
+			<TabsContent value="history">
+				{historyHost && notePath && hasNote ? (
+					<NoteHistoryPanel host={historyHost} path={notePath} />
+				) : (
+					<p className="settings-note">Open a note to see its history.</p>
+				)}
 			</TabsContent>
 			<TabsContent value="changes">
 				<p>Commit, history and sync arrive soon.</p>

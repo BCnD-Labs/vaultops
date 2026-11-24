@@ -118,3 +118,20 @@ it("lists save points newest first, in pages and per file", async () => {
 		"History turned on",
 	]);
 });
+
+it("shows a file as it was at a save point", async () => {
+	const host = new MemoryHost();
+	await host.writeTextAtomic("a.vnote", "1");
+	await host.vcs.enable("Sam");
+	await host.writeTextAtomic("a.vnote", "2");
+	await host.vcs.savePoint("Two");
+	const [two, first] = (
+		await host.vcs.log({ path: "a.vnote", skip: 0, limit: 5 })
+	).entries;
+	expect(two?.path).toBe("a.vnote");
+	expect(await host.vcs.show(first?.id ?? "", "a.vnote")).toBe("1");
+	expect(await host.vcs.show(two?.id ?? "", "a.vnote")).toBe("2");
+	await expect(host.vcs.show(first?.id ?? "", "b.vnote")).rejects.toMatchObject(
+		{ code: "failed" },
+	);
+});

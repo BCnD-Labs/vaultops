@@ -300,6 +300,10 @@ pub struct LogEntry {
     /// The rest of the description ("" when there is none).
     pub body: String,
     pub files_changed: u32,
+    /// In a one-file history: the file's path at this save point (it may have
+    /// been renamed since). None in the vault-wide list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -343,6 +347,7 @@ pub fn parse_log(out: &[u8]) -> Vec<LogEntry> {
                 subject,
                 body,
                 files_changed,
+                path: None,
             })
         })
         .collect()
@@ -376,7 +381,52 @@ pub fn log(root: &Path, path: Option<&str>, skip: u32, limit: u32) -> Result<Log
     let mut entries = parse_log(&out);
     let has_more = entries.len() > limit as usize;
     entries.truncate(limit as usize);
+    if let Some(p) = checked.as_deref() {
+        // The file's name at each save point, following renames.
+        let names = git_ops::run(
+            root,
+            &[
+                "log",
+                &count,
+                &skip,
+                "--follow",
+                "--name-only",
+                &format!("--format={RECORD}%H"),
+                "--",
+                p,
+            ],
+            None,
+            true,
+        )?;
+        let text = String::from_utf8_lossy(&names).to_string();
+        for record in text.split(RECORD).filter(|r| !r.trim().is_empty()) {
+            let mut lines = record.lines().map(str::trim).filter(|l| !l.is_empty());
+            if let (Some(id), Some(name)) = (lines.next(), lines.next())
+                && let Some(entry) = entries.iter_mut().find(|e| e.id == id)
+            {
+                entry.path = Some(name.to_string());
+            }
+        }
+    }
     Ok(Log { entries, has_more })
+}
+
+/// The most a stored version may be to be shown (bytes).
+const MAX_SHOW_BYTES: usize = 25 * 1024 * 1024;
+
+/// A file's text as it was at a save point.
+pub fn show(root: &Path, commit: &str, path: &str) -> Result<String, GitError> {
+    if !is_enabled(root) {
+        return Err(GitError::invalid("history is off for this vault"));
+    }
+    let commit = git_ops::checked_commit(commit)?;
+    let path = git_ops::checked_path(path)?;
+    // `<commit>:<path>` starts with hex, so git never reads it as an option.
+    let out = git_ops::run(root, &["show", &format!("{commit}:{path}")], None, true)?;
+    if out.len() > MAX_SHOW_BYTES {
+        return Err(GitError::invalid("this version is too large to show"));
+    }
+    String::from_utf8(out).map_err(|_| GitError::invalid("this version is not text"))
 }
 
 /// A display name for save points: trimmed, 1 to 80 characters, no control
@@ -683,6 +733,35 @@ mod tests {
             vec!["Edited a", "History turned on"]
         );
         assert!(log(root, Some("../x"), 0, 5).is_err());
+    }
+
+    #[test]
+    fn shows_a_file_as_it_was_and_follows_renames() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        let first = git_out(root, &["rev-parse", "HEAD"]);
+        std::fs::write(root.join("a.vnote"), "two").unwrap();
+        save_point(root, "Edited", None).unwrap();
+        std::fs::rename(root.join("a.vnote"), root.join("Renamed.vnote")).unwrap();
+        save_point(root, "Renamed", None).unwrap();
+        assert_eq!(show(root, &first, "a.vnote").unwrap(), "x");
+        let history = log(root, Some("Renamed.vnote"), 0, 10).unwrap();
+        let paths: Vec<_> = history
+            .entries
+            .iter()
+            .map(|e| (e.subject.as_str(), e.path.as_deref()))
+            .collect();
+        assert_eq!(
+            paths,
+            vec![
+                ("Renamed", Some("Renamed.vnote")),
+                ("Edited", Some("a.vnote")),
+                ("History turned on", Some("a.vnote")),
+            ]
+        );
+        assert!(show(root, "--output=/tmp/x", "a.vnote").is_err());
+        assert!(show(root, &first, "../etc").is_err());
+        assert!(show(root, &first, "missing.vnote").is_err());
     }
 
     #[test]

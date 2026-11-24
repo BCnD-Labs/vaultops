@@ -72,6 +72,16 @@ fn vcs_log(
     vcs::log(&vcs::vault_root(&state)?, path.as_deref(), skip, limit)
 }
 
+/// A file's text as it was at a save point.
+#[tauri::command(async)]
+fn vcs_show(
+    state: tauri::State<'_, VaultState>,
+    commit: String,
+    path: String,
+) -> Result<String, git_ops::GitError> {
+    vcs::show(&vcs::vault_root(&state)?, &commit, &path)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -593,7 +603,8 @@ pub fn run() {
             vcs_status,
             vcs_enable,
             vcs_save_point,
-            vcs_log
+            vcs_log,
+            vcs_show
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

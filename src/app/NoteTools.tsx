@@ -17,6 +17,7 @@ import {
 	useState,
 } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { Note } from "../core/note-format";
 import type { HighlightItem } from "../core/notes/highlights";
 import type { OutlineItem } from "../core/notes/outline";
 import type { Host } from "../host/host";
@@ -74,12 +75,19 @@ export function NoteTools({
 	onRenameTag,
 	historyHost,
 	notePath,
+	onApplyVersion,
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & {
 	/** For the History tab. */
 	historyHost?: Pick<Host, "vcs" | "readText">;
 	/** The open note's vault path, for the History tab. */
 	notePath?: string;
+	/** Write a note version built from history (see NoteHistoryPanel). */
+	onApplyVersion?: (
+		path: string,
+		build: (current: Note | null) => Note,
+		label: string,
+	) => Promise<string | null>;
 	hasNote: boolean;
 	/** Vault notes, used to list tags and counts in the Tags tool. */
 	notes?: NoteRow[];
@@ -234,7 +242,15 @@ export function NoteTools({
 			</TabsContent>
 			<TabsContent value="history">
 				{historyHost && notePath && hasNote ? (
-					<NoteHistoryPanel host={historyHost} path={notePath} />
+					<NoteHistoryPanel
+						host={historyHost}
+						path={notePath}
+						onApply={
+							onApplyVersion
+								? (build, label) => onApplyVersion(notePath, build, label)
+								: undefined
+						}
+					/>
 				) : (
 					<p className="settings-note">Open a note to see its history.</p>
 				)}

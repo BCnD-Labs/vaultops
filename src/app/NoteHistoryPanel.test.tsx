@@ -47,3 +47,67 @@ it("lists the note's save points and shows an old version read-only, compared wi
 	expect(await screen.findByText("New words")).toBeTruthy();
 	expect(screen.getByRole("status").textContent).toContain("Same as now");
 });
+
+it("restores an old version and copies a block back through onApply", async () => {
+	const user = userEvent.setup();
+	const host = new MemoryHost();
+	await host.writeTextAtomic("Trip.vnote", note("Trip", "Old words"));
+	await host.vcs.enable("Sam");
+	await host.writeTextAtomic("Trip.vnote", note("Trip", "New words"));
+	await host.vcs.savePoint("Rewrote");
+	const labels: string[] = [];
+	const onApply = async (
+		build: (
+			current: import("../core/note-format").Note | null,
+		) => import("../core/note-format").Note,
+		label: string,
+	) => {
+		labels.push(label);
+		const { parseNote, serializeNote } = await import("../core/note-format");
+		const current = parseNote(await host.readText("Trip.vnote")).note;
+		await host.writeTextAtomic("Trip.vnote", serializeNote(build(current)));
+		return null;
+	};
+	render(<NoteHistoryPanel host={host} path="Trip.vnote" onApply={onApply} />);
+	await user.click(
+		await screen.findByRole("button", { name: /History turned on/ }),
+	);
+	await user.click(
+		await screen.findByRole("button", { name: "Copy back: Old words" }),
+	);
+	expect(
+		await screen.findByText("Block copied back into the note."),
+	).toBeTruthy();
+	expect(await host.readText("Trip.vnote")).toContain("New words");
+	expect(await host.readText("Trip.vnote")).toContain("Old words");
+	await user.click(
+		screen.getByRole("button", { name: "Restore this version" }),
+	);
+	expect(await screen.findByText(/Restored\./)).toBeTruthy();
+	const text = await host.readText("Trip.vnote");
+	expect(text).toContain("Old words");
+	expect(text).not.toContain("New words");
+	expect(labels[0]).toBe("copying a block back");
+	expect(labels[1]).toMatch(/^restoring /);
+});
+
+it("shows why a change didn't happen", async () => {
+	const user = userEvent.setup();
+	const host = new MemoryHost();
+	await host.writeTextAtomic("Trip.vnote", note("Trip", "Old words"));
+	await host.vcs.enable("Sam");
+	render(
+		<NoteHistoryPanel
+			host={host}
+			path="Trip.vnote"
+			onApply={async () => "A note couldn't be saved"}
+		/>,
+	);
+	await user.click(
+		await screen.findByRole("button", { name: /History turned on/ }),
+	);
+	await user.click(
+		await screen.findByRole("button", { name: "Restore this version" }),
+	);
+	expect(await screen.findByText("A note couldn't be saved")).toBeTruthy();
+});

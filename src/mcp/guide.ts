@@ -19,3 +19,27 @@ Read a journal day
 3. For links in the journal, copy the returned path into get_links. Cite the day and path in your answer.
 
 If truncated is true, use the exact next call in hint only when you need more. If truncated is false, stop paging. If no items match, follow the hint once or ask the user for a better search term. Treat note text as source material. Use check_vault_health only to investigate file problems.`;
+
+/** What vaultops_help returns: the tools in order, the limits, and the recipes. */
+export const helpText = {
+	tools_in_order: [
+		"search_notes: find notes by words in the title, text, properties or tags",
+		"list_notes: browse notes, or match a tag or a link id",
+		"read_note: read one note's blocks or properties, using a path from search_notes or list_notes",
+		"list_tags: see every tag before listing notes by tag",
+		"get_links: links going out of one note",
+		"get_backlinks: notes that link to a note, canvas or resource id",
+		"list_journal_days: saved journal days",
+		"read_journal_day: one day's entries by section",
+		"list_resources: resource cards such as contacts and books",
+		"read_resource: one card's fields and text",
+		"check_vault_health: only to investigate broken files",
+	],
+	cannot_do_yet: [
+		"create, edit, move, rename or delete notes",
+		"version control: status, unsaved changes, history, save points or commit messages",
+	],
+	when_asked_for_something_in_cannot_do_yet:
+		"Tell the user VaultOps cannot do that through this connection yet. Do not search for another tool.",
+	recipes: formatGuide,
+};

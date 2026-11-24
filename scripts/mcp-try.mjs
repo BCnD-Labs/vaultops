@@ -6,13 +6,17 @@ import { parseArgs } from "node:util";
 
 async function main() {
 	const { values, positionals } = parseArgs({
-		options: { vault: { type: "string" } },
+		options: {
+			vault: { type: "string" },
+			list: { type: "boolean" },
+			verbose: { type: "boolean" },
+		},
 		allowPositionals: true,
 	});
 	const [name, json = "{}"] = positionals;
-	if (!values.vault || !name || positionals.length > 2) {
+	if (!values.vault || (!name && !values.list) || positionals.length > 2) {
 		throw new Error(
-			"Usage: node scripts/mcp-try.mjs --vault <folder> <tool> '<JSON object>'",
+			"Usage: node scripts/mcp-try.mjs --vault <folder> --list\n       node scripts/mcp-try.mjs --vault <folder> <tool> '<JSON object>' [--verbose]",
 		);
 	}
 	const args = JSON.parse(json);
@@ -69,12 +73,19 @@ async function main() {
 		const { tools } = await call("tools/list");
 		const { resources } = await call("resources/list");
 		const { prompts } = await call("prompts/list");
-		console.log(
-			JSON.stringify({ initialized, tools, resources, prompts }, null, 2),
-		);
+		// Like a real app: the tool list is seen once, not with every answer.
+		if (values.verbose)
+			console.log(
+				JSON.stringify({ initialized, tools, resources, prompts }, null, 2),
+			);
+		if (values.list) {
+			for (const tool of tools)
+				console.log(`${tool.name}: ${tool.description}`);
+			return;
+		}
 		if (!tools.some((tool) => tool.name === name))
 			throw new Error(
-				`Choose a tool from the list above. No tool named ${name}.`,
+				`No tool named ${name}. Tools: ${tools.map((t) => t.name).join(", ")}.`,
 			);
 		const result = await call("tools/call", { name, arguments: args });
 		const text = result.content[0].text;

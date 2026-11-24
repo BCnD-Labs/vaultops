@@ -14,11 +14,14 @@ npm run --silent mcp -- --vault "/path/to/Test Vault"
 
 The server waits for a client to send requests. Stop it with Ctrl+C. Clients launch the single file `dist-mcp/server.mjs` directly. Rebuild it after updating VaultOps, then restart the client.
 
-The hand-test client starts its own server, lists the tools, resources and prompts, and calls one tool with your JSON arguments. This example reads a note shipped with the repo.
+The hand-test client starts its own server and calls one tool with your JSON arguments, printing only the answer. `--list` prints each tool with its description, and `--verbose` also prints the handshake and full tool definitions. This example reads a note shipped with the repo.
 
 ```sh
+node scripts/mcp-try.mjs --vault test-fixtures --list
 node scripts/mcp-try.mjs --vault test-fixtures read_note '{"path":"note-links.vnote"}'
 ```
+
+`vaultops_help` is the first tool in the list. It returns the tools in the order to use them, what the server can't do yet (so a model says so instead of searching), and the recipes. Many apps show a model only the tools, not resources or prompts, so keep this tool up to date whenever a tool is added.
 
 ## LM Studio
 

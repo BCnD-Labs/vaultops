@@ -8,7 +8,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import { checkVaultPath } from "../core/vault-path/vault-path";
 import { openNodeHost } from "../host/node-host";
-import { formatGuide, formatUri, guideTitle } from "./guide";
+import { formatGuide, formatUri, guideTitle, helpText } from "./guide";
 import {
 	blockRows,
 	chunks,
@@ -128,6 +128,21 @@ async function start() {
 			},
 		);
 	}
+
+	// Listed first: many apps show a small model only the tools, so the help
+	// lives in a tool as well as in the format resource and prompt.
+	server.registerTool(
+		"vaultops_help",
+		{
+			description:
+				"Returns every VaultOps tool in the order to use them, what this server cannot do yet, and step-by-step recipes. Use it first when you are unsure which tool to call. Do not call it twice in a row. For example, call vaultops_help({}).",
+			inputSchema: z.strictObject({}),
+			annotations: { readOnlyHint: true, openWorldHint: false },
+		},
+		async () => ({
+			content: [{ type: "text" as const, text: JSON.stringify(helpText) }],
+		}),
+	);
 
 	register(
 		"list_notes",

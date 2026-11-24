@@ -106,6 +106,7 @@ test("serves tools, the format guide and the prompt over stdio", async () => {
 		send({ method: "notifications/initialized" });
 		const { tools } = await call("tools/list");
 		expect(tools.map(({ name }: { name: string }) => name)).toEqual([
+			"vaultops_help",
 			"list_notes",
 			"search_notes",
 			"read_note",
@@ -131,6 +132,14 @@ test("serves tools, the format guide and the prompt over stdio", async () => {
 				});
 			}
 		}
+
+		const help = await tool("vaultops_help", {});
+		expect(help.tools_in_order).toHaveLength(tools.length - 1);
+		for (const line of help.tools_in_order)
+			expect(tools.map((t: { name: string }) => t.name)).toContain(
+				line.split(":")[0],
+			);
+		expect(help.cannot_do_yet.join(" ")).toMatch(/move.*version control/s);
 
 		const path = "columns.vnote";
 		const first = await tool("read_note", { path });

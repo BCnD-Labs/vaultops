@@ -76,6 +76,9 @@ export function loggingHost(host: Host, logger: Logger): Host {
 					host.vcs.log(options),
 			),
 			enable: timed("vcs.enable", (name: string) => host.vcs.enable(name)),
+			show: timed("vcs.show", (commit: string, path: string) =>
+				host.vcs.show(commit, path),
+			),
 			savePoint: timed("vcs.savePoint", (message: string, paths?: string[]) =>
 				host.vcs.savePoint(message, paths),
 			),

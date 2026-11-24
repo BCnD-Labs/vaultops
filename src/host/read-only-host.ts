@@ -24,6 +24,7 @@ export function readOnlyHost(host: Host): Host {
 			detect: () => host.vcs.detect(),
 			status: () => host.vcs.status(),
 			log: (options) => host.vcs.log(options),
+			show: (commit, path) => host.vcs.show(commit, path),
 			enable: refuse,
 			savePoint: refuse,
 		},

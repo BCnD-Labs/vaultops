@@ -89,6 +89,7 @@ export const tauriHost: Host = {
 		enable: (name) => vcsCall<VcsStatus>("vcs_enable", { name }),
 		log: ({ path, skip, limit }) =>
 			vcsCall<VcsLog>("vcs_log", { path: path ?? null, skip, limit }),
+		show: (commit, path) => vcsCall<string>("vcs_show", { commit, path }),
 		savePoint: (message, paths) =>
 			vcsCall<SavePointResult>("vcs_save_point", {
 				message,

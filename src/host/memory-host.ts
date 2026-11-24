@@ -59,7 +59,7 @@ export class MemoryHost implements Host {
 		/** The name shown on save points. */
 		author: string;
 		/** Every save point, oldest first. */
-		log: { message: string; files: string[] }[];
+		log: { message: string; files: string[]; snapshot: Map<string, string> }[];
 	} | null = null;
 	/** Test helper: the folder already is someone else's git repo. */
 	otherRepo = false;
@@ -162,7 +162,11 @@ export class MemoryHost implements Host {
 				saved: this.allFiles(),
 				author: name,
 				log: [
-					{ message: "History turned on", files: [...this.allFiles().keys()] },
+					{
+						message: "History turned on",
+						files: [...this.allFiles().keys()],
+						snapshot: this.allFiles(),
+					},
 				],
 			};
 			return this.vcs.status();
@@ -185,6 +189,7 @@ export class MemoryHost implements Host {
 						body: rest.join("\n").trim(),
 						filesChanged: entry.files.length,
 						files: entry.files,
+						...(path ? { path } : {}),
 					};
 				})
 				.filter((entry) => !path || entry.files.includes(path))
@@ -194,6 +199,16 @@ export class MemoryHost implements Host {
 				entries: page.map(({ files: _files, ...entry }) => entry),
 				hasMore: skip + page.length < all.length,
 			};
+		},
+		show: async (commit, path) => {
+			const entry = this.history?.log[Number.parseInt(commit, 16) - 1];
+			const text = entry?.snapshot.get(path);
+			if (text === undefined)
+				throw new VcsError(
+					"failed",
+					`path '${path}' does not exist in '${commit}'`,
+				);
+			return text;
 		},
 		savePoint: async (message, paths) => {
 			const history = this.history;
@@ -221,7 +236,11 @@ export class MemoryHost implements Host {
 			if (files.length === 0)
 				return { saved: false, commit: null, status: await this.vcs.status() };
 			history.saved = next;
-			history.log.push({ message: message.trim() || "Save point", files });
+			history.log.push({
+				message: message.trim() || "Save point",
+				files,
+				snapshot: new Map(next),
+			});
 			const commit = history.log.length.toString(16).padStart(7, "0");
 			return { saved: true, commit, status: await this.vcs.status() };
 		},

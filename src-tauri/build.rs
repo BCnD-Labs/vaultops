@@ -29,6 +29,7 @@ const COMMANDS: &[&str] = &[
     "update_script_status",
     "build_info",
     "update_channels",
+    "vcs_detect",
 ];
 
 fn main() {

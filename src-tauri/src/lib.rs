@@ -2,6 +2,7 @@ pub mod app_files;
 pub mod cache_ops;
 pub mod file_ops;
 pub mod folder_ops;
+pub mod git_ops;
 pub mod host_error;
 pub mod log_file;
 pub mod reports;
@@ -33,6 +34,12 @@ fn app_info_value() -> AppInfo {
 }
 
 /// Basic app facts.
+/// Whether a working git is installed, for the History settings.
+#[tauri::command]
+fn vcs_detect() -> git_ops::GitInfo {
+    git_ops::info()
+}
+
 #[tauri::command]
 fn app_info() -> AppInfo {
     app_info_value()
@@ -538,7 +545,8 @@ pub fn run() {
             start_update_script,
             update_script_status,
             build_info,
-            update_channels
+            update_channels,
+            vcs_detect
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

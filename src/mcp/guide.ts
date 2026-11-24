@@ -23,7 +23,7 @@ If truncated is true, use the exact next call in hint only when you need more. I
 /** What vaultops_help returns: the tools in order, the limits, and the recipes. */
 export const helpText = {
 	tools_in_order: [
-		"search_notes: find notes by words in the title, text, properties or tags",
+		"search_notes: find notes by words in the title, text, properties or tags (not people or books: those are cards)",
 		"list_notes: browse all notes, one folder (folder), one tag (tag) or a link id (id)",
 		"read_note: read one note's blocks or properties, using a path from search_notes or list_notes",
 		"list_tags: see every tag before listing notes by tag",
@@ -31,7 +31,7 @@ export const helpText = {
 		"get_backlinks: notes that link to a note, canvas or resource id",
 		"list_journal_days: saved journal days",
 		"read_journal_day: one day's entries by section",
-		"list_resources: resource cards such as contacts and books",
+		"list_resources: people, books and other resource cards; start here for a person's or book's name",
 		"read_resource: one card's fields and text",
 		"check_vault_health: only to investigate broken files",
 	],

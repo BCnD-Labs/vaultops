@@ -161,7 +161,7 @@ test("serves tools, the format guide and the prompt over stdio", async () => {
 		expect(first).toMatchObject({
 			path,
 			id: "columns-1",
-			status: "good",
+			file_status: "ok",
 			truncated: true,
 			hint: 'Call read_note with {"path":"columns.vnote","section":"blocks","offset":8} to see more.',
 		});
@@ -177,7 +177,7 @@ test("serves tools, the format guide and the prompt over stdio", async () => {
 		expect(last).toMatchObject({ truncated: false, hint: null });
 		expect(last.items).toHaveLength(3);
 		expect(await tool("read_note", { path: "missing.vnote" })).toMatchObject({
-			status: "missing",
+			file_status: "missing: no file at this path.",
 			items: [],
 			truncated: false,
 			hint: expect.stringContaining("Call search_notes"),

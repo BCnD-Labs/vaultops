@@ -12,6 +12,7 @@ import { formatGuide, formatUri, guideTitle, helpText } from "./guide";
 import {
 	blockRows,
 	chunks,
+	fileStatus,
 	page,
 	pageSize,
 	propertyRows,
@@ -207,7 +208,7 @@ async function start() {
 	);
 	register(
 		"search_notes",
-		'Returns note and canvas paths, titles, IDs and matching text snippets. Use it to find words in titles, headings, tags, properties or text. To browse everything, use list_notes. For example, call search_notes({"query":"trip"}).',
+		'Returns note and canvas paths, titles, IDs and matching text snippets. Use it to find words in titles, headings, tags, properties or text. It does not search resource cards (people, books): use list_resources for those. To browse everything, use list_notes. For example, call search_notes({"query":"trip"}).',
 		z.strictObject(
 			{
 				query: textInput(
@@ -237,7 +238,7 @@ async function start() {
 						snippet,
 					}),
 				),
-				"No matches. Try one distinctive word from the title, or call list_notes to browse.",
+				"No matches in notes. Searching a person, book or other card? Call list_resources({}): cards are not searched here. Otherwise try one distinctive word from the title, or call list_notes to browse.",
 				(n) =>
 					`To read a match, call read_note({"path":${JSON.stringify(n.path)}}) with its path.`,
 			),
@@ -267,7 +268,7 @@ async function start() {
 				path: args.path,
 				title: note ? titlePreview(note.title) : null,
 				id: note?.noteId ?? null,
-				status: found?.health.group ?? "missing",
+				file_status: fileStatus(found?.health.group),
 				...page(
 					"read_note",
 					args,
@@ -432,7 +433,7 @@ async function start() {
 			return {
 				day: args.day,
 				path: found?.health.path ?? null,
-				status: found?.health.group ?? "missing",
+				file_status: fileStatus(found?.health.group),
 				...page(
 					"read_journal_day",
 					args,
@@ -538,7 +539,9 @@ async function start() {
 				title: card ? titlePreview(card.title) : null,
 				id: card?.noteId || null,
 				typeId: card?.typeId ?? null,
-				status: !card ? "missing" : card.problem ? "unreadable" : "good",
+				file_status: fileStatus(
+					!card ? undefined : card.problem ? "corrupt" : "good",
+				),
 				...page(
 					"read_resource",
 					args,

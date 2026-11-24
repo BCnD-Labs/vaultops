@@ -82,3 +82,24 @@ export function unknownFieldError(
 			? `${tool} does not take ${(issue.keys ?? []).map((k) => `"${k}"`).join(", ")}. It takes: ${fields.length ? fields.join(", ") : "no fields (pass {})"}.${instead ? ` ${instead}` : ""}`
 			: undefined;
 }
+
+/**
+ * A file's state in plain words. Named file_status (not "truncated") so it
+ * can't be mixed up with paging, where truncated means "more pages".
+ */
+export function fileStatus(group: string | undefined): string {
+	switch (group) {
+		case "good":
+			return "ok";
+		case "truncated":
+			return "partly unreadable: some lines of this file could not be read, so some text is missing and cannot be fetched. Tell the user; the VaultOps app's Vault health screen can repair it.";
+		case "newer-format":
+			return "newer format: made by a newer VaultOps, so some parts may not show.";
+		case "corrupt":
+			return "unreadable: this file could not be read. Tell the user to check it in the VaultOps app.";
+		case undefined:
+			return "missing: no file at this path.";
+		default:
+			return group;
+	}
+}

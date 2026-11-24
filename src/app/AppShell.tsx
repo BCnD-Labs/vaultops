@@ -93,7 +93,7 @@ export function AppShell({
 	onOpenNote?: (path: string) => void;
 	onCreateNote?: (folder: string, title: string) => void;
 	onNavigateScreen?: (
-		screen: "note" | "trash" | "health" | "settings" | "planner",
+		screen: "note" | "trash" | "health" | "history" | "settings" | "planner",
 	) => void;
 	canGoBack?: boolean;
 	canGoForward?: boolean;

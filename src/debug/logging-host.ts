@@ -70,6 +70,11 @@ export function loggingHost(host: Host, logger: Logger): Host {
 		vcs: {
 			detect: timed("vcs.detect", () => host.vcs.detect()),
 			status: timed("vcs.status", () => host.vcs.status()),
+			log: timed(
+				"vcs.log",
+				(options: { path?: string; skip: number; limit: number }) =>
+					host.vcs.log(options),
+			),
 			enable: timed("vcs.enable", (name: string) => host.vcs.enable(name)),
 			savePoint: timed("vcs.savePoint", (message: string, paths?: string[]) =>
 				host.vcs.savePoint(message, paths),

@@ -4,6 +4,7 @@ import {
 	FolderInput,
 	FolderPlus,
 	HeartPulse,
+	History,
 	LayoutTemplate,
 	type LucideIcon,
 	PanelLeft,
@@ -22,7 +23,7 @@ export type CommandGroup = (typeof COMMAND_GROUPS)[number];
 export interface CommandContext {
 	onNewFolder?: () => void;
 	onToggle?: (side: "left" | "right") => void;
-	onNavigate: (screen: "trash" | "health" | "settings") => void;
+	onNavigate: (screen: "trash" | "health" | "history" | "settings") => void;
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
 	/** Opens the canvas template picker; left out while canvases are off. */
@@ -196,6 +197,14 @@ export const COMMANDS: Command[] = [
 		icon: Settings,
 		keywords: ["preferences", "appearance"],
 		run: (c) => c.onNavigate("settings"),
+	},
+	{
+		id: "open-history",
+		label: "Open History",
+		group: "Go to",
+		icon: History,
+		keywords: ["save points", "versions", "log", "commits", "git"],
+		run: (c) => c.onNavigate("history"),
 	},
 	{
 		id: "open-health",

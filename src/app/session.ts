@@ -48,7 +48,8 @@ export type Screen =
 	| "health"
 	| "planner"
 	| "journal"
-	| "review";
+	| "review"
+	| "history";
 
 /** Everything the window shows about the open vault. */
 export interface VaultView {

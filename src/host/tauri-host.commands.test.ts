@@ -223,6 +223,12 @@ describe("tauriHost version control", () => {
 			["vcs_save_point", { message: "Packed", paths: null }],
 			["vcs_save_point", { message: "Just b", paths: ["b.vnote"] }],
 		]);
+		invoke.mockResolvedValueOnce({ entries: [], hasMore: false });
+		await tauriHost.vcs.log({ skip: 50, limit: 50 });
+		expect(invoke.mock.calls.at(-1)).toEqual([
+			"vcs_log",
+			{ path: null, skip: 50, limit: 50 },
+		]);
 		invoke.mockReset();
 		invoke.mockRejectedValueOnce("command not allowed");
 		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });

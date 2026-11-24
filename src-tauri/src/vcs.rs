@@ -284,6 +284,101 @@ pub fn save_point(
     })
 }
 
+/// One save point in the history list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntry {
+    pub id: String,
+    pub short_id: String,
+    pub author: String,
+    /// ISO 8601 time of the save point.
+    pub date: String,
+    /// Parent ids (two for a merge), for the history graph.
+    pub parents: Vec<String>,
+    /// The first line of the description.
+    pub subject: String,
+    /// The rest of the description ("" when there is none).
+    pub body: String,
+    pub files_changed: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Log {
+    pub entries: Vec<LogEntry>,
+    /// True when older save points follow (ask again with a larger `skip`).
+    pub has_more: bool,
+}
+
+/// The longest page of history one call returns.
+const MAX_LOG_PAGE: u32 = 200;
+const RECORD: char = '\u{1e}';
+
+/// Parse `git log --format=<RECORD>%H%x00%h%x00%an%x00%aI%x00%P%x00%s%x00%b%x00 --shortstat`.
+pub fn parse_log(out: &[u8]) -> Vec<LogEntry> {
+    let text = String::from_utf8_lossy(out);
+    text.split(RECORD)
+        .filter(|r| !r.trim().is_empty())
+        .filter_map(|record| {
+            let mut f = record.split('\0');
+            let id = f.next()?.trim().to_string();
+            let short_id = f.next()?.to_string();
+            let author = f.next()?.to_string();
+            let date = f.next()?.to_string();
+            let parents = f.next()?.split_whitespace().map(str::to_string).collect();
+            let subject = f.next()?.to_string();
+            let body = f.next()?.trim().to_string();
+            let stat = f.next().unwrap_or("");
+            let files_changed = stat
+                .split_whitespace()
+                .next()
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(0);
+            Some(LogEntry {
+                id,
+                short_id,
+                author,
+                date,
+                parents,
+                subject,
+                body,
+                files_changed,
+            })
+        })
+        .collect()
+}
+
+/// A page of save points, newest first, on the current branch. With `path`,
+/// only those that changed that file (following renames).
+pub fn log(root: &Path, path: Option<&str>, skip: u32, limit: u32) -> Result<Log, GitError> {
+    if !is_enabled(root) {
+        return Err(GitError::invalid("history is off for this vault"));
+    }
+    let limit = limit.clamp(1, MAX_LOG_PAGE);
+    let count = format!("-n{}", limit + 1);
+    let skip = format!("--skip={skip}");
+    let format = format!("--format={RECORD}%H%x00%h%x00%an%x00%aI%x00%P%x00%s%x00%b%x00");
+    let checked = path.map(git_ops::checked_path).transpose()?;
+    let mut args = vec!["log", &count, &skip, &format, "--shortstat"];
+    if checked.is_some() {
+        args.push("--follow");
+    }
+    args.push("--");
+    if let Some(p) = checked.as_deref() {
+        args.push(p);
+    }
+    let out = match git_ops::run(root, &args, None, true) {
+        Ok(out) => out,
+        // A brand-new repo has no save points yet.
+        Err(e) if e.message.contains("does not have any commits") => Vec::new(),
+        Err(e) => return Err(e),
+    };
+    let mut entries = parse_log(&out);
+    let has_more = entries.len() > limit as usize;
+    entries.truncate(limit as usize);
+    Ok(Log { entries, has_more })
+}
+
 /// A display name for save points: trimmed, 1 to 80 characters, no control
 /// characters or `<>` (git uses them around the email).
 pub fn checked_name(raw: &str) -> Result<String, GitError> {
@@ -556,6 +651,38 @@ mod tests {
         assert!(save_point(root, "x", Some(&[])).is_err());
         let off = TempDir::new();
         assert!(save_point(off.path(), "x", None).is_err());
+    }
+
+    #[test]
+    fn lists_save_points_newest_first_in_pages_and_per_file() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        std::fs::write(root.join("a.vnote"), "two").unwrap();
+        save_point(root, "Edited a\n\nMore words", None).unwrap();
+        std::fs::write(root.join("b.vnote"), "new").unwrap();
+        save_point(root, "Added b", None).unwrap();
+        let all = log(root, None, 0, 50).unwrap();
+        let subjects: Vec<_> = all.entries.iter().map(|e| e.subject.as_str()).collect();
+        assert_eq!(subjects, vec!["Added b", "Edited a", "History turned on"]);
+        assert!(!all.has_more);
+        let edited = &all.entries[1];
+        assert_eq!(edited.body, "More words");
+        assert_eq!(edited.files_changed, 1);
+        assert_eq!(edited.author, "Sam Rivera");
+        assert_eq!(edited.parents, vec![all.entries[2].id.clone()]);
+        assert!(all.entries[2].parents.is_empty());
+        let page = log(root, None, 1, 1).unwrap();
+        assert_eq!(page.entries[0].subject, "Edited a");
+        assert!(page.has_more);
+        let of_a = log(root, Some("a.vnote"), 0, 50).unwrap();
+        assert_eq!(
+            of_a.entries
+                .iter()
+                .map(|e| e.subject.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Edited a", "History turned on"]
+        );
+        assert!(log(root, Some("../x"), 0, 5).is_err());
     }
 
     #[test]

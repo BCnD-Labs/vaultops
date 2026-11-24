@@ -58,8 +58,8 @@ export class MemoryHost implements Host {
 		saved: Map<string, string>;
 		/** The name shown on save points. */
 		author: string;
-		/** Every save point's description, oldest first. */
-		log: string[];
+		/** Every save point, oldest first. */
+		log: { message: string; files: string[] }[];
 	} | null = null;
 	/** Test helper: the folder already is someone else's git repo. */
 	otherRepo = false;
@@ -73,7 +73,7 @@ export class MemoryHost implements Host {
 
 	/** Every save point's description, oldest first (tests). */
 	get historyLog(): string[] {
-		return [...(this.history?.log ?? [])];
+		return (this.history?.log ?? []).map((entry) => entry.message);
 	}
 
 	/** The name history was turned on with (tests). */
@@ -161,9 +161,39 @@ export class MemoryHost implements Host {
 				branch: "main",
 				saved: this.allFiles(),
 				author: name,
-				log: ["History turned on"],
+				log: [
+					{ message: "History turned on", files: [...this.allFiles().keys()] },
+				],
 			};
 			return this.vcs.status();
+		},
+		log: async ({ path, skip, limit }) => {
+			const history = this.history;
+			if (!history)
+				throw new VcsError("invalid-argument", "history is off for this vault");
+			const id = (n: number) => n.toString(16).padStart(40, "0");
+			const all = history.log
+				.map((entry, n) => {
+					const [subject = "", ...rest] = entry.message.split("\n");
+					return {
+						id: id(n + 1),
+						shortId: id(n + 1).slice(-7),
+						author: history.author,
+						date: new Date(Date.UTC(2026, 10, 1, 0, n)).toISOString(),
+						parents: n === 0 ? [] : [id(n)],
+						subject,
+						body: rest.join("\n").trim(),
+						filesChanged: entry.files.length,
+						files: entry.files,
+					};
+				})
+				.filter((entry) => !path || entry.files.includes(path))
+				.reverse();
+			const page = all.slice(skip, skip + Math.min(Math.max(limit, 1), 200));
+			return {
+				entries: page.map(({ files: _files, ...entry }) => entry),
+				hasMore: skip + page.length < all.length,
+			};
 		},
 		savePoint: async (message, paths) => {
 			const history = this.history;
@@ -176,22 +206,22 @@ export class MemoryHost implements Host {
 				);
 			const now = this.allFiles();
 			const take = (path: string) => !paths || paths.includes(path);
-			let changed = false;
+			const files: string[] = [];
 			const next = new Map(history.saved);
 			for (const [path, text] of now)
 				if (take(path) && history.saved.get(path) !== text) {
 					next.set(path, text);
-					changed = true;
+					files.push(path);
 				}
 			for (const path of history.saved.keys())
 				if (take(path) && !now.has(path)) {
 					next.delete(path);
-					changed = true;
+					files.push(path);
 				}
-			if (!changed)
+			if (files.length === 0)
 				return { saved: false, commit: null, status: await this.vcs.status() };
 			history.saved = next;
-			history.log.push(message.trim() || "Save point");
+			history.log.push({ message: message.trim() || "Save point", files });
 			const commit = history.log.length.toString(16).padStart(7, "0");
 			return { saved: true, commit, status: await this.vcs.status() };
 		},

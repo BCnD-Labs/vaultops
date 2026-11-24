@@ -16,6 +16,7 @@ import {
 	VCS_ERROR_CODES,
 	VcsError,
 	type VcsErrorCode,
+	type VcsLog,
 	type VcsStatus,
 } from "./host";
 
@@ -86,6 +87,8 @@ export const tauriHost: Host = {
 		detect: () => vcsCall<GitInfo>("vcs_detect"),
 		status: () => vcsCall<VcsStatus>("vcs_status"),
 		enable: (name) => vcsCall<VcsStatus>("vcs_enable", { name }),
+		log: ({ path, skip, limit }) =>
+			vcsCall<VcsLog>("vcs_log", { path: path ?? null, skip, limit }),
 		savePoint: (message, paths) =>
 			vcsCall<SavePointResult>("vcs_save_point", {
 				message,

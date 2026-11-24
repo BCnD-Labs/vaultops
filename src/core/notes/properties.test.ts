@@ -8,6 +8,7 @@ import {
 	cleanOptions,
 	headerProps,
 	isStray,
+	nextPropertyName,
 	type Props,
 	readProps,
 	removeProperty,
@@ -356,5 +357,18 @@ describe("select properties", () => {
 				},
 			),
 		);
+	});
+});
+
+describe("nextPropertyName", () => {
+	it("numbers repeats of a type's name, ignoring capitals", () => {
+		expect(nextPropertyName({}, "Date")).toBe("Date");
+		const one: Props = { date: { type: "date", value: null } };
+		expect(nextPropertyName(one, "Date")).toBe("Date 2");
+		const two: Props = { ...one, "Date 2": { type: "date", value: null } };
+		expect(nextPropertyName(two, "Date")).toBe("Date 3");
+	});
+	it("never hands out Tags", () => {
+		expect(nextPropertyName({}, "tags")).toBe("tags 2");
 	});
 });

@@ -99,7 +99,7 @@ it("edits properties and tags and creates a typed property from the popover", as
 			.value,
 	).toBe("hello!");
 	await user.type(
-		screen.getByRole("textbox", { name: "Add to tags" }),
+		screen.getByRole("combobox", { name: "Add to tags" }),
 		"idea{Enter}",
 	);
 	await user.click(
@@ -107,17 +107,12 @@ it("edits properties and tags and creates a typed property from the popover", as
 	);
 	expect(screen.queryByText("idea")).toBeNull();
 	await user.click(screen.getByRole("button", { name: "Add property" }));
-	await user.type(
-		screen.getByRole("textbox", { name: "New property name" }),
-		"Pages",
-	);
-	await user.click(screen.getByRole("combobox", { name: "New property type" }));
-	await user.click(screen.getByRole("option", { name: "Number" }));
 	await user.click(
-		within(screen.getByRole("dialog")).getByRole("button", {
-			name: "Add property",
-		}),
+		await screen.findByRole("button", { name: "Add Number property" }),
 	);
+	const name = await screen.findByRole("textbox", { name: "Property name" });
+	await user.clear(name);
+	await user.type(name, "Pages{Enter}");
 	expect(screen.getByRole("spinbutton", { name: "Pages" })).toBeTruthy();
 });
 

@@ -73,7 +73,7 @@
 		"@tiptap/react": "^3.32.2",
 		"@tiptap/starter-kit": "^3.35.0",
 		"@tiptap/suggestion": "^3.35.0",
-		"@xyflow/react": "^13.0.2",
+		"@xyflow/react": "^12.12.1",
 		"abcjs": "^6.7.3",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

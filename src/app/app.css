@@ -1059,3 +1059,23 @@ select {
 	display: flex;
 	gap: var(--space-1);
 }
+
+/* Merge review on the History screen. */
+.merge-review {
+	margin-bottom: var(--space-3);
+	padding: var(--space-2) var(--space-3);
+	border: var(--border-width) solid var(--line);
+	border-radius: var(--radius-container);
+}
+.merge-review h3 {
+	margin-top: 0;
+}
+.merge-outcomes {
+	margin: var(--space-2) 0;
+	padding-left: var(--space-3);
+	font-size: var(--font-size-small);
+}
+.merge-finish {
+	display: flex;
+	gap: var(--space-1);
+}

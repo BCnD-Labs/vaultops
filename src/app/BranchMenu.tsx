@@ -1,4 +1,4 @@
-import { Check, GitBranch, Trash2 } from "lucide-react";
+import { Check, GitBranch, GitMerge, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ export function BranchMenu({
 	current,
 	beforeSwitch,
 	onChanged,
+	onMerge,
 }: {
 	host: Pick<Host, "vcs">;
 	/** The current branch's name. */
@@ -27,6 +28,8 @@ export function BranchMenu({
 	beforeSwitch?: () => Promise<boolean>;
 	/** Branches changed; `switched` when the vault's files did too. */
 	onChanged: (switched: boolean) => void;
+	/** Merge this branch into the current one (opens the merge review). */
+	onMerge?: (branch: string) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [list, setList] = useState<VcsBranch[]>([]);
@@ -99,6 +102,21 @@ export function BranchMenu({
 								<span className="branch-name">{b.name}</span>
 								<span className="branch-subject">{b.subject}</span>
 							</Button>
+							{!b.current && onMerge && (
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									aria-label={`Merge ${b.name} into ${current ?? "this branch"}`}
+									title={`Merge ${b.name} into ${current ?? "this branch"}`}
+									disabled={busy}
+									onClick={() => {
+										setOpen(false);
+										onMerge(b.name);
+									}}
+								>
+									<GitMerge aria-hidden="true" />
+								</Button>
+							)}
 							{!b.current && (
 								<Button
 									variant="ghost"

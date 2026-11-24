@@ -33,7 +33,7 @@ interface ScreenPaneProps {
 	onDelete: (path: string) => void;
 	onOpen: (path: string) => void;
 	/** For the History screen. */
-	historyHost?: Pick<Host, "vcs">;
+	historyHost?: Pick<Host, "vcs" | "writeTextAtomic" | "makeFolder" | "kindOf">;
 	onOpenSettings?: () => void;
 	beforeBranchSwitch?: () => Promise<boolean>;
 	onBranchSwitched?: () => void;

@@ -152,7 +152,7 @@ export async function deleteForever(
 }
 
 async function recoveryTarget(
-	host: Host,
+	host: Pick<Host, "makeFolder" | "kindOf">,
 	keptAs: string,
 	now: Date,
 ): Promise<string> {
@@ -232,4 +232,20 @@ export async function restoreNote(
 	const path = join(dest, target);
 	await host.move(trashPath, path);
 	return { path };
+}
+
+/**
+ * Keep a copy of some text in the hidden recovery folder as
+ * `.vaultops/recovery/<time>/<keptAs>` (for example the other side of a merge
+ * that couldn't be combined). A fresh time folder per call, so nothing clashes.
+ */
+export async function writeToRecovery(
+	host: Pick<Host, "makeFolder" | "kindOf" | "writeTextAtomic">,
+	keptAs: string,
+	text: string,
+	now: Date = new Date(),
+): Promise<{ recoveryPath: string }> {
+	const target = await recoveryTarget(host, keptAs, now);
+	await host.writeTextAtomic(target, text);
+	return { recoveryPath: target };
 }

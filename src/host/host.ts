@@ -50,6 +50,70 @@ export interface UpdateChannels {
 	error: string | null;
 }
 
+/** Whether a working git is installed (src-tauri/src/git_ops.rs). */
+export interface GitInfo {
+	found: boolean;
+	/** For example `2.50.1`; null when not found. */
+	version: string | null;
+	/** macOS: git is missing because Apple's free Command Line Tools are. */
+	needsDeveloperTools: boolean;
+}
+
+export type VcsChangeKind =
+	| "modified"
+	| "added"
+	| "deleted"
+	| "renamed"
+	| "untracked"
+	| "conflicted";
+
+/** One file changed since the last save point. */
+export interface VcsChange {
+	path: string;
+	kind: VcsChangeKind;
+	/** The old path of a rename. */
+	from?: string;
+}
+
+export interface VcsStatus {
+	/** False when history is off for this vault; the rest is then empty. */
+	enabled: boolean;
+	/** The current branch, or null when detached or before the first save point. */
+	branch: string | null;
+	changes: VcsChange[];
+}
+
+/** Same codes as `GitErrorCode` in src-tauri/src/git_ops.rs. */
+export const VCS_ERROR_CODES = [
+	"missing",
+	"invalid-argument",
+	"failed",
+	"timed-out",
+	"io",
+] as const;
+export type VcsErrorCode = (typeof VCS_ERROR_CODES)[number];
+
+/** A version-control error: a code and a short message without the vault's location. */
+export class VcsError extends Error {
+	readonly code: VcsErrorCode;
+	constructor(code: VcsErrorCode, message: string) {
+		super(message);
+		this.name = "VcsError";
+		this.code = code;
+	}
+}
+
+/**
+ * The vault's history, run by git on the native side. Commands work on the open
+ * vault only and take checked values, never raw git arguments.
+ */
+export interface VcsHost {
+	/** Whether git is installed (found once per launch). */
+	detect(): Promise<GitInfo>;
+	/** What changed since the last save point, or `enabled: false`. */
+	status(): Promise<VcsStatus>;
+}
+
 export type EntryKind = "file" | "folder";
 
 export interface DirEntry {
@@ -81,6 +145,9 @@ export class HostError extends Error {
 
 export interface Host {
 	appInfo(): Promise<AppInfo>;
+
+	/** The vault's version history. */
+	readonly vcs: VcsHost;
 
 	/**
 	 * Let the user choose the vault folder with the system picker and make it

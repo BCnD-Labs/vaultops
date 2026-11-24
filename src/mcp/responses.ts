@@ -1,0 +1,65 @@
+import type { Block } from "../core/note-format";
+import { type Props, readProps } from "../core/notes/properties";
+import { plainTextOf } from "../core/notes/scan";
+
+// Keep each reply small, including notes with a single very long block.
+export const pageSize = 8;
+export function page(
+	tool: string,
+	args: { offset: number },
+	rows: object[],
+	emptyHint: string,
+) {
+	const { offset } = args;
+	const items = rows.slice(offset, offset + pageSize);
+	const nextOffset = offset + items.length;
+	const truncated = nextOffset < rows.length;
+	return {
+		items,
+		truncated,
+		hint: truncated
+			? `Call ${tool} with ${JSON.stringify({ ...args, offset: nextOffset })} to see more.`
+			: rows.length === 0
+				? emptyHint
+				: items.length === 0
+					? `No items at this offset. Call ${tool} with ${JSON.stringify({ ...args, offset: 0 })} to start over.`
+					: null,
+	};
+}
+
+export function chunks(text: string) {
+	return text.match(/.{1,400}/gsu) ?? [""];
+}
+
+export function titlePreview(title: string) {
+	return title.length > 160 ? `${title.slice(0, 159)}…` : title;
+}
+
+export function blockRows(blocks: Block[]) {
+	return blocks.flatMap((block) =>
+		chunks(plainTextOf([block])).map((text, index) => ({
+			id: block.id ?? null,
+			type: block.type,
+			parent: block.parent,
+			text,
+			chunk: index + 1,
+		})),
+	);
+}
+
+export function propertyRows(props: Props | null) {
+	return readProps(props ?? {}).flatMap((prop) => {
+		const value = prop.known ? prop.value : null;
+		const values = Array.isArray(value) ? value : [value];
+		return (values.length ? values : [null]).flatMap((entry, index) => {
+			const parts = typeof entry === "string" ? chunks(entry) : [entry];
+			return parts.map((part, chunk) => ({
+				name: titlePreview(prop.name),
+				type: prop.type,
+				value: part,
+				item: Array.isArray(value) && values.length ? index + 1 : null,
+				chunk: chunk + 1,
+			}));
+		});
+	});
+}

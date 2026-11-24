@@ -10,6 +10,8 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc --noEmit && vite build",
+		"build:mcp": "vite build --config vite.mcp.config.ts",
+		"mcp": "node dist-mcp/server.mjs",
 		"tauri": "tauri",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
@@ -39,6 +41,7 @@
 		"vitest": "^5.1.1"
 	},
 	"dependencies": {
+		"@modelcontextprotocol/server": "2.4.0",
 		"@radix-ui/react-alert-dialog": "^1.2.1",
 		"@radix-ui/react-checkbox": "^1.4.1",
 		"@radix-ui/react-collapsible": "^1.2.1",
@@ -86,6 +89,7 @@
 		"react-dom": "^19.3.1",
 		"react-resizable-panels": "^4.24.1",
 		"sonner": "^2.0.8",
-		"tailwind-merge": "^3.7.1"
+		"tailwind-merge": "^3.7.1",
+		"zod": "4.6.7"
 	}
 }

@@ -24,7 +24,7 @@ If truncated is true, use the exact next call in hint only when you need more. I
 export const helpText = {
 	tools_in_order: [
 		"search_notes: find notes by words in the title, text, properties or tags",
-		"list_notes: browse notes, or match a tag or a link id",
+		"list_notes: browse all notes, one folder (folder), one tag (tag) or a link id (id)",
 		"read_note: read one note's blocks or properties, using a path from search_notes or list_notes",
 		"list_tags: see every tag before listing notes by tag",
 		"get_links: links going out of one note",

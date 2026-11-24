@@ -141,6 +141,21 @@ test("serves tools, the format guide and the prompt over stdio", async () => {
 			);
 		expect(help.cannot_do_yet.join(" ")).toMatch(/move.*version control/s);
 
+		const listed = await tool("list_notes", {});
+		expect(listed.next_step).toBe(
+			`To read a note, call read_note({"path":${JSON.stringify(listed.items[0].path)}}) with its path.`,
+		);
+		const nowhere = await tool("list_notes", { folder: "No such folder" });
+		expect(nowhere.items).toEqual([]);
+		expect(nowhere.hint).toContain("look at the start of each path");
+		const wrong = await call("tools/call", {
+			name: "list_notes",
+			arguments: { query: "x" },
+		});
+		expect(JSON.stringify(wrong)).toContain(
+			'list_notes does not take \\"query\\". It takes: id, tag, folder, offset. To find words inside notes, use search_notes.',
+		);
+
 		const path = "columns.vnote";
 		const first = await tool("read_note", { path });
 		expect(first).toMatchObject({

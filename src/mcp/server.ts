@@ -16,6 +16,7 @@ import {
 	pageSize,
 	propertyRows,
 	titlePreview,
+	unknownFieldError,
 } from "./responses";
 import { createReadTools } from "./tools";
 
@@ -146,24 +147,42 @@ async function start() {
 
 	register(
 		"list_notes",
-		'Returns paths, titles and IDs of saved notes and canvases. Use it to browse or match a link ID or tag. For text search, use search_notes. For example, call list_notes({"tag":"travel"}).',
-		z.strictObject({
-			id: textInput(
-				`Exact stable ID string. ${noteLinkId}`,
-				"note-trip",
-				noteLinkId,
-			).optional(),
-			tag: textInput(
-				"Tag as returned in list_tags.items[].tag, for example travel. Includes subtags. Omit for all tags.",
-				"travel",
-				"Copy tag from list_tags or omit tag.",
-			).optional(),
-			offset,
-		}),
+		'Returns paths, titles and IDs of saved notes and canvases. Use it to browse everything, one folder, one tag, or to match a link ID. For text search, use search_notes. For example, call list_notes({"folder":"School"}).',
+		z.strictObject(
+			{
+				id: textInput(
+					`Exact stable ID string. ${noteLinkId}`,
+					"note-trip",
+					noteLinkId,
+				).optional(),
+				tag: textInput(
+					"Tag as returned in list_tags.items[].tag, for example travel. Includes subtags. Omit for all tags.",
+					"travel",
+					"Copy tag from list_tags or omit tag.",
+				).optional(),
+				folder: textInput(
+					"Folder name as it starts a path, for example School or Personal/Trips. Includes subfolders. Omit for the whole vault.",
+					"School",
+					"Pass a folder name such as School, or omit folder.",
+				).optional(),
+				offset,
+			},
+			{
+				error: unknownFieldError(
+					"list_notes",
+					["id", "tag", "folder", "offset"],
+					"To find words inside notes, use search_notes.",
+				),
+			},
+		),
 		async (args) => {
 			const notes = await tools.list_notes(args);
+			const folder = args.folder?.replace(/^\/+|\/+$/g, "").toLowerCase();
 			const rows = notes
 				.filter((note) => !args.id || note.noteId === args.id)
+				.filter(
+					(note) => !folder || note.path.toLowerCase().startsWith(`${folder}/`),
+				)
 				.map(({ path, title, noteId, kind }) => ({
 					path,
 					title: titlePreview(title),
@@ -174,25 +193,38 @@ async function start() {
 				"list_notes",
 				args,
 				rows,
-				args.id
-					? "No notes or canvases have this ID. Check the link kind. For a resource link call list_resources with its id."
-					: args.tag
-						? "No notes match this tag. Call list_tags to check the tag or call list_notes without a tag."
-						: "The vault has no readable notes or canvases. Call check_vault_health to look for unreadable files.",
+				args.folder
+					? `No notes in the folder ${args.folder}. Call list_notes({}) and look at the start of each path for the right folder name.`
+					: args.id
+						? "No notes or canvases have this ID. Check the link kind. For a resource link call list_resources with its id."
+						: args.tag
+							? "No notes match this tag. Call list_tags to check the tag or call list_notes without a tag."
+							: "The vault has no readable notes or canvases. Call check_vault_health to look for unreadable files.",
+				(n) =>
+					`To read a note, call read_note({"path":${JSON.stringify(n.path)}}) with its path.`,
 			);
 		},
 	);
 	register(
 		"search_notes",
 		'Returns note and canvas paths, titles, IDs and matching text snippets. Use it to find words in titles, headings, tags, properties or text. To browse everything, use list_notes. For example, call search_notes({"query":"trip"}).',
-		z.strictObject({
-			query: textInput(
-				'A few words such as trip or one quoted phrase such as "trip plan". All words must match.',
-				"trip",
-				"Pass one or two words from the note title or text as query.",
-			),
-			offset,
-		}),
+		z.strictObject(
+			{
+				query: textInput(
+					'A few words such as trip or one quoted phrase such as "trip plan". All words must match.',
+					"trip",
+					"Pass one or two words from the note title or text as query.",
+				),
+				offset,
+			},
+			{
+				error: unknownFieldError(
+					"search_notes",
+					["query", "offset"],
+					"To browse a folder or a tag, use list_notes.",
+				),
+			},
+		),
 		async (args) =>
 			page(
 				"search_notes",
@@ -206,12 +238,23 @@ async function start() {
 					}),
 				),
 				"No matches. Try one distinctive word from the title, or call list_notes to browse.",
+				(n) =>
+					`To read a match, call read_note({"path":${JSON.stringify(n.path)}}) with its path.`,
 			),
 	);
 	register(
 		"read_note",
 		'Returns a saved note or canvas as block text or typed properties. Use it with a path from search_notes or list_notes. For resource cards, use read_resource. For journal entries grouped by section, use read_journal_day. For example, call read_note({"path":"Notes/Trip.vnote"}).',
-		z.strictObject({ path: notePath, section, offset }),
+		z.strictObject(
+			{ path: notePath, section, offset },
+			{
+				error: unknownFieldError(
+					"read_note",
+					["path", "section", "offset"],
+					"For a journal day, use read_journal_day.",
+				),
+			},
+		),
 		async (args) => {
 			const found = await tools.read_note(args);
 			const note = found?.note;
@@ -228,7 +271,7 @@ async function start() {
 				...page(
 					"read_note",
 					args,
-					rows,
+					rows as object[],
 					!found
 						? `No note at ${args.path}. ${notePathHint}`
 						: !note
@@ -241,19 +284,39 @@ async function start() {
 	register(
 		"list_tags",
 		"Returns tags used by saved notes and canvases. Use it to learn the exact tag to pass to list_notes. To find a word inside notes, use search_notes. For example, call list_tags({}).",
-		z.strictObject({ offset }),
+		z.strictObject(
+			{ offset },
+			{
+				error: unknownFieldError(
+					"list_tags",
+					["offset"],
+					"To list notes with a tag, use list_notes.",
+				),
+			},
+		),
 		async (args) =>
 			page(
 				"list_tags",
 				args,
 				(await tools.list_tags()).map((tag) => ({ tag })),
 				"The vault has no saved tags. Call list_notes to browse all notes.",
+				(t) =>
+					`To list notes with a tag, call list_notes({"tag":${JSON.stringify(t.tag)}}).`,
 			),
 	);
 	register(
 		"get_links",
 		'Returns the IDs, kinds and saved labels of links from one note or canvas. Use it to follow a link out of the source note. Copy id into list_notes for a note or canvas, or list_resources for a resource. For links pointing in, use get_backlinks. For example, call get_links({"path":"Notes/Trip.vnote"}).',
-		z.strictObject({ path: notePath, offset }),
+		z.strictObject(
+			{ path: notePath, offset },
+			{
+				error: unknownFieldError(
+					"get_links",
+					["path", "offset"],
+					"For links pointing in, use get_backlinks.",
+				),
+			},
+		),
 		async (args) => {
 			const links = await tools.get_links(args);
 			return page(
@@ -267,20 +330,33 @@ async function start() {
 				!links
 					? `No readable note at ${args.path}. ${notePathHint}`
 					: "This note has no outgoing vault links. Use get_backlinks if you need links pointing to the note.",
+				(l) =>
+					l.kind === "resource"
+						? `To open a linked card, call list_resources({"id":${JSON.stringify(l.id)}}) and then read_resource with its path.`
+						: `To open a linked note, call list_notes({"id":${JSON.stringify(l.id)}}) and then read_note with its path.`,
 			);
 		},
 	);
 	register(
 		"get_backlinks",
 		'Returns paths, titles and IDs of notes and canvases linking to one target ID. Use it to find incoming links to a note, canvas or resource. For outgoing links from a note or canvas, use get_links. For example, call get_backlinks({"id":"note-trip"}).',
-		z.strictObject({
-			id: textInput(
-				`Exact stable ID string. ${targetId}`,
-				"note-trip",
-				targetId,
-			),
-			offset,
-		}),
+		z.strictObject(
+			{
+				id: textInput(
+					`Exact stable ID string. ${targetId}`,
+					"note-trip",
+					targetId,
+				),
+				offset,
+			},
+			{
+				error: unknownFieldError(
+					"get_backlinks",
+					["id", "offset"],
+					"For links going out, use get_links.",
+				),
+			},
+		),
 		async (args) =>
 			page(
 				"get_backlinks",
@@ -294,30 +370,52 @@ async function start() {
 					}),
 				),
 				"No backlinks for this ID. Verify the id in list_notes or list_resources, then report that no links point to it.",
+				(n) =>
+					`To read a linking note, call read_note({"path":${JSON.stringify(n.path)}}).`,
 			),
 	);
 	register(
 		"list_journal_days",
 		"Returns saved journal dates and paths, newest first. Use it to pick a date to pass to read_journal_day. For notes outside the journal, use list_notes. For example, call list_journal_days({}).",
-		z.strictObject({ offset }),
+		z.strictObject(
+			{ offset },
+			{
+				error: unknownFieldError(
+					"list_journal_days",
+					["offset"],
+					"To read one day, use read_journal_day.",
+				),
+			},
+		),
 		async (args) =>
 			page(
 				"list_journal_days",
 				args,
 				await tools.list_journal_days(),
 				"The vault has no saved journal days. Call list_notes if the user is looking for a regular note.",
+				(d) =>
+					`To read a day, call read_journal_day({"day":${JSON.stringify((d as { day: string }).day)}}).`,
 			),
 	);
 	register(
 		"read_journal_day",
 		'Returns text entries from one saved journal day with their section names. Use it after list_journal_days. For regular notes, use read_note. For the day’s outgoing links, copy the returned path into get_links. For example, call read_journal_day({"day":"2026-11-24"}).',
-		z.strictObject({
-			day: z.iso.date({ error: dayHint }).meta({
-				description: `Calendar date. ${dayHint}`,
-				examples: ["2026-11-24"],
-			}),
-			offset,
-		}),
+		z.strictObject(
+			{
+				day: z.iso.date({ error: dayHint }).meta({
+					description: `Calendar date. ${dayHint}`,
+					examples: ["2026-11-24"],
+				}),
+				offset,
+			},
+			{
+				error: unknownFieldError(
+					"read_journal_day",
+					["day", "offset"],
+					"To list days, use list_journal_days.",
+				),
+			},
+		),
 		async (args) => {
 			const found = await tools.read_journal_day(args);
 			const rows = (found?.sections ?? []).flatMap(({ name, entries }) =>
@@ -351,22 +449,33 @@ async function start() {
 	register(
 		"list_resources",
 		'Returns resource card paths, titles and IDs, or the names and IDs of card types. Use it to browse cards or find the card for a resource link ID. To open a card, use read_resource. To find regular notes, use list_notes. For example, call list_resources({"id":"resource-sam"}).',
-		z.strictObject({
-			id: textInput(
-				`Exact stable ID string. ${cardLinkId}`,
-				"resource-sam",
-				cardLinkId,
-			).optional(),
-			section: z
-				.enum(["cards", "types"], { error: 'Use section "cards" or "types".' })
-				.default("cards")
-				.meta({
-					description:
-						'Select "cards" (default) to browse cards or match a link id. Select "types" to list card types.',
-					examples: ["types"],
-				}),
-			offset,
-		}),
+		z.strictObject(
+			{
+				id: textInput(
+					`Exact stable ID string. ${cardLinkId}`,
+					"resource-sam",
+					cardLinkId,
+				).optional(),
+				section: z
+					.enum(["cards", "types"], {
+						error: 'Use section "cards" or "types".',
+					})
+					.default("cards")
+					.meta({
+						description:
+							'Select "cards" (default) to browse cards or match a link id. Select "types" to list card types.',
+						examples: ["types"],
+					}),
+				offset,
+			},
+			{
+				error: unknownFieldError(
+					"list_resources",
+					["id", "section", "offset"],
+					"To read one card, use read_resource.",
+				),
+			},
+		),
 		async (args) => {
 			const { cards, types } = await tools.list_resources();
 			const rows =
@@ -383,27 +492,40 @@ async function start() {
 			return page(
 				"list_resources",
 				args,
-				rows,
+				rows as object[],
 				args.id
 					? "No card matches this ID. Verify the id and kind in get_links, then report that the target is missing if the ID matches."
 					: args.section === "types"
 						? "No resource types. Call list_resources with section cards to check for cards."
 						: "The vault has no resource cards. Call list_notes if the user is looking for a regular note.",
+				(row) =>
+					"path" in row
+						? `To read a card, call read_resource({"path":${JSON.stringify(row.path)}}).`
+						: "To see cards, call list_resources({}).",
 			);
 		},
 	);
 	register(
 		"read_resource",
 		'Returns the typed fields or block text of one resource card. Use it with a card path from list_resources. For a regular note or canvas, use read_note. For example, call read_resource({"path":".vaultops/resources/cards/Sam.vnote"}).',
-		z.strictObject({
-			path: cardPath,
-			section: section.default("properties").meta({
-				description:
-					'Select "properties" for fields (default) or "blocks" for text.',
-				examples: ["blocks"],
-			}),
-			offset,
-		}),
+		z.strictObject(
+			{
+				path: cardPath,
+				section: section.default("properties").meta({
+					description:
+						'Select "properties" for fields (default) or "blocks" for text.',
+					examples: ["blocks"],
+				}),
+				offset,
+			},
+			{
+				error: unknownFieldError(
+					"read_resource",
+					["path", "section", "offset"],
+					"To list cards, use list_resources.",
+				),
+			},
+		),
 		async (args) => {
 			const card = await tools.read_resource(args);
 			const rows = !card
@@ -420,7 +542,7 @@ async function start() {
 				...page(
 					"read_resource",
 					args,
-					rows,
+					rows as object[],
 					!card
 						? `No resource card at ${args.path}. ${cardPathHint}`
 						: card.problem
@@ -433,7 +555,10 @@ async function start() {
 	register(
 		"check_vault_health",
 		"Returns paths and reasons for unreadable notes, incomplete files, newer formats or duplicate IDs. Use it to investigate file problems. To browse readable notes, use list_notes. For example, call check_vault_health({}).",
-		z.strictObject({ offset }),
+		z.strictObject(
+			{ offset },
+			{ error: unknownFieldError("check_vault_health", ["offset"]) },
+		),
 		async (args) => {
 			const report = await tools.vault_health();
 			return page(

@@ -4,18 +4,22 @@ import { plainTextOf } from "../core/notes/scan";
 
 // Keep each reply small, including notes with a single very long block.
 export const pageSize = 8;
-export function page(
+export function page<Row extends object>(
 	tool: string,
 	args: { offset: number },
-	rows: object[],
+	rows: Row[],
 	emptyHint: string,
+	/** The exact call to make with the first item, so a small model keeps going. */
+	nextStep?: (first: Row) => string,
 ) {
 	const { offset } = args;
 	const items = rows.slice(offset, offset + pageSize);
 	const nextOffset = offset + items.length;
 	const truncated = nextOffset < rows.length;
+	const first = items[0];
 	return {
 		items,
+		next_step: first && nextStep ? nextStep(first) : null,
 		truncated,
 		hint: truncated
 			? `Call ${tool} with ${JSON.stringify({ ...args, offset: nextOffset })} to see more.`
@@ -62,4 +66,19 @@ export function propertyRows(props: Props | null) {
 			}));
 		});
 	});
+}
+
+/**
+ * Strict inputs whose unknown-field error names the fields the tool does take
+ * and, when given, the tool to use instead (small models guess field names).
+ */
+export function unknownFieldError(
+	tool: string,
+	fields: string[],
+	instead?: string,
+) {
+	return (issue: { code?: string; keys?: string[] }) =>
+		issue.code === "unrecognized_keys"
+			? `${tool} does not take ${(issue.keys ?? []).map((k) => `"${k}"`).join(", ")}. It takes: ${fields.length ? fields.join(", ") : "no fields (pass {})"}.${instead ? ` ${instead}` : ""}`
+			: undefined;
 }

@@ -130,6 +130,43 @@ fn vcs_delete_branch(
     vcs::delete_branch(&vcs::vault_root(&state)?, &name)
 }
 
+#[tauri::command(async)]
+fn vcs_merge_start(
+    state: tauri::State<'_, VaultState>,
+    branch: String,
+) -> Result<vcs::MergeStart, git_ops::GitError> {
+    vcs::merge_start(&vcs::vault_root(&state)?, &branch)
+}
+
+#[tauri::command(async)]
+fn vcs_merge_stages(
+    state: tauri::State<'_, VaultState>,
+    path: String,
+) -> Result<vcs::MergeStages, git_ops::GitError> {
+    vcs::merge_stages(&vcs::vault_root(&state)?, &path)
+}
+
+#[tauri::command(async)]
+fn vcs_merge_mark_resolved(
+    state: tauri::State<'_, VaultState>,
+    paths: Vec<String>,
+) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::merge_mark_resolved(&vcs::vault_root(&state)?, &paths)
+}
+
+#[tauri::command(async)]
+fn vcs_merge_finish(
+    state: tauri::State<'_, VaultState>,
+    message: String,
+) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::merge_finish(&vcs::vault_root(&state)?, &message)
+}
+
+#[tauri::command(async)]
+fn vcs_merge_abort(state: tauri::State<'_, VaultState>) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::merge_abort(&vcs::vault_root(&state)?)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -657,7 +694,12 @@ pub fn run() {
             vcs_create_branch,
             vcs_switch_branch,
             vcs_rename_branch,
-            vcs_delete_branch
+            vcs_delete_branch,
+            vcs_merge_start,
+            vcs_merge_stages,
+            vcs_merge_mark_resolved,
+            vcs_merge_finish,
+            vcs_merge_abort
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

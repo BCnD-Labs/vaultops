@@ -246,6 +246,18 @@ describe("tauriHost version control", () => {
 			["vcs_rename_branch", { from: "a", to: "b" }],
 			["vcs_delete_branch", { name: "b" }],
 		]);
+		await tauriHost.vcs.mergeStart("try-out");
+		await tauriHost.vcs.mergeStages("a.vnote");
+		await tauriHost.vcs.mergeMarkResolved(["a.vnote"]);
+		await tauriHost.vcs.mergeFinish("Merged");
+		await tauriHost.vcs.mergeAbort();
+		expect(invoke.mock.calls.slice(-5)).toEqual([
+			["vcs_merge_start", { branch: "try-out" }],
+			["vcs_merge_stages", { path: "a.vnote" }],
+			["vcs_merge_mark_resolved", { paths: ["a.vnote"] }],
+			["vcs_merge_finish", { message: "Merged" }],
+			["vcs_merge_abort", undefined],
+		]);
 		invoke.mockReset();
 		invoke.mockRejectedValueOnce("command not allowed");
 		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });

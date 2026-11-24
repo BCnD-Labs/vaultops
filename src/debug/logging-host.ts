@@ -96,6 +96,19 @@ export function loggingHost(host: Host, logger: Logger): Host {
 			deleteBranch: timed("vcs.deleteBranch", (name: string) =>
 				host.vcs.deleteBranch(name),
 			),
+			mergeStart: timed("vcs.mergeStart", (b: string) =>
+				host.vcs.mergeStart(b),
+			),
+			mergeStages: timed("vcs.mergeStages", (p: string) =>
+				host.vcs.mergeStages(p),
+			),
+			mergeMarkResolved: timed("vcs.mergeMarkResolved", (paths: string[]) =>
+				host.vcs.mergeMarkResolved(paths),
+			),
+			mergeFinish: timed("vcs.mergeFinish", (m: string) =>
+				host.vcs.mergeFinish(m),
+			),
+			mergeAbort: timed("vcs.mergeAbort", () => host.vcs.mergeAbort()),
 			savePoint: timed("vcs.savePoint", (message: string, paths?: string[]) =>
 				host.vcs.savePoint(message, paths),
 			),

@@ -102,6 +102,8 @@ pub struct Status {
     /// The current branch, or None when detached or before the first save point.
     pub branch: Option<String>,
     pub changes: Vec<Change>,
+    /// A merge has started and is waiting to be finished or cancelled.
+    pub merging: bool,
 }
 
 fn kind_of(xy: &str) -> ChangeKind {
@@ -186,6 +188,7 @@ pub fn status(root: &Path) -> Result<Status, GitError> {
             synced_folder: synced_folder(root),
             branch: None,
             changes: Vec::new(),
+            merging: false,
         });
     }
     let out = git_ops::run(
@@ -207,6 +210,7 @@ pub fn status(root: &Path) -> Result<Status, GitError> {
         synced_folder: synced_folder(root),
         branch,
         changes,
+        merging: root.join(".git/MERGE_HEAD").is_file(),
     })
 }
 
@@ -608,6 +612,170 @@ pub fn delete_branch(root: &Path, name: &str) -> Result<Vec<Branch>, GitError> {
     }
 }
 
+/// What starting a merge did.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeStart {
+    /// Nothing to merge: the current branch already has everything.
+    pub up_to_date: bool,
+    /// Files changed on both sides, still holding the current branch's version.
+    /// Notes among them are merged block by block by the app.
+    pub conflicted: Vec<String>,
+    /// Every file the merge changes (including the conflicted ones).
+    pub changed: Vec<String>,
+}
+
+fn nul_list(out: &[u8]) -> Vec<String> {
+    String::from_utf8_lossy(out)
+        .split('\0')
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn require_merging(root: &Path) -> Result<(), GitError> {
+    if root.join(".git/MERGE_HEAD").is_file() {
+        Ok(())
+    } else {
+        Err(GitError::invalid("no merge is in progress"))
+    }
+}
+
+/// Start merging `branch` into the current branch, without making the save
+/// point yet. Git never line-merges notes (`*.vnote -merge`), so a note
+/// changed on both sides keeps the current branch's version and is listed in
+/// `conflicted` for the app to merge.
+pub fn merge_start(root: &Path, branch: &str) -> Result<MergeStart, GitError> {
+    enabled(root)?;
+    let name = git_ops::checked_branch(branch)?;
+    let list = branches(root)?;
+    match list.iter().find(|b| b.name == name) {
+        None => return Err(GitError::invalid("there is no branch with this name")),
+        Some(b) if b.current => {
+            return Err(GitError::invalid("choose another branch to merge in"));
+        }
+        Some(_) => {}
+    }
+    if root.join(".git/MERGE_HEAD").is_file() {
+        return Err(GitError::invalid(
+            "a merge is already in progress; finish or cancel it first",
+        ));
+    }
+    require_clean(root)?;
+    let result = git_ops::run_long(root, &["merge", "--no-commit", "--no-ff", name], None);
+    let merging = root.join(".git/MERGE_HEAD").is_file();
+    if let Err(e) = result {
+        // Conflicts leave a merge in progress; anything else is a real failure.
+        if !merging {
+            return Err(e);
+        }
+    }
+    if !merging {
+        return Ok(MergeStart {
+            up_to_date: true,
+            conflicted: Vec::new(),
+            changed: Vec::new(),
+        });
+    }
+    let conflicted = nul_list(&git_ops::run(
+        root,
+        &["diff", "--name-only", "-z", "--diff-filter=U"],
+        None,
+        true,
+    )?);
+    let mut changed = nul_list(&git_ops::run(
+        root,
+        &["diff", "--cached", "--name-only", "-z", "HEAD"],
+        None,
+        true,
+    )?);
+    for path in &conflicted {
+        if !changed.contains(path) {
+            changed.push(path.clone());
+        }
+    }
+    Ok(MergeStart {
+        up_to_date: false,
+        conflicted,
+        changed,
+    })
+}
+
+/// The three versions of a conflicted file during a merge: the common base,
+/// the current branch's (mine) and the merged branch's (theirs). A missing one
+/// (added or deleted on a side) is None.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeStages {
+    pub base: Option<String>,
+    pub mine: Option<String>,
+    pub theirs: Option<String>,
+}
+
+pub fn merge_stages(root: &Path, path: &str) -> Result<MergeStages, GitError> {
+    require_merging(root)?;
+    let path = git_ops::checked_path(path)?;
+    let stage = |n: u8| {
+        git_ops::run(root, &["show", &format!(":{n}:{path}")], None, true)
+            .ok()
+            .and_then(|out| String::from_utf8(out).ok())
+    };
+    Ok(MergeStages {
+        base: stage(1),
+        mine: stage(2),
+        theirs: stage(3),
+    })
+}
+
+/// Mark files as resolved after the app wrote (or removed) their merged result.
+pub fn merge_mark_resolved(root: &Path, paths: &[String]) -> Result<Status, GitError> {
+    require_merging(root)?;
+    if paths.is_empty() {
+        return status(root);
+    }
+    let checked: Vec<String> = paths
+        .iter()
+        .map(|p| git_ops::checked_path(p))
+        .collect::<Result<_, _>>()?;
+    let mut args = vec!["add", "-A", "--"];
+    args.extend(checked.iter().map(String::as_str));
+    git_ops::run(root, &args, None, false)?;
+    status(root)
+}
+
+/// Make the merge's save point. Refused while any file is still unresolved.
+pub fn merge_finish(root: &Path, message: &str) -> Result<Status, GitError> {
+    require_merging(root)?;
+    let unresolved = nul_list(&git_ops::run(
+        root,
+        &["diff", "--name-only", "-z", "--diff-filter=U"],
+        None,
+        true,
+    )?);
+    if !unresolved.is_empty() {
+        return Err(GitError::invalid("some files are not merged yet"));
+    }
+    let text = match message.trim() {
+        "" => "Merge".to_string(),
+        t => t.chars().take(MAX_MESSAGE_CHARS).collect(),
+    };
+    let message = format!("{text}\n");
+    git_ops::run(
+        root,
+        &["commit", "-q", "-F", "-"],
+        Some(message.as_bytes()),
+        false,
+    )?;
+    status(root)
+}
+
+/// Cancel a merge: every file goes back to the current branch's last save point.
+pub fn merge_abort(root: &Path) -> Result<Status, GitError> {
+    require_merging(root)?;
+    git_ops::run(root, &["merge", "--abort"], None, false)?;
+    status(root)
+}
+
 /// A display name for save points: trimmed, 1 to 80 characters, no control
 /// characters or `<>` (git uses them around the email).
 pub fn checked_name(raw: &str) -> Result<String, GitError> {
@@ -1006,6 +1174,88 @@ mod tests {
             assert!(create_branch(root, bad, false).is_err(), "{bad}");
         }
         assert!(switch_branch(root, "nope").is_err());
+    }
+
+    fn diverged() -> TempDir {
+        let dir = enabled_vault();
+        let root = dir.path();
+        std::fs::write(root.join("keep.vnote"), "k").unwrap();
+        save_point(root, "base", None).unwrap();
+        create_branch(root, "try-out", true).unwrap();
+        std::fs::write(root.join("a.vnote"), "theirs").unwrap();
+        std::fs::write(root.join("new.vnote"), "new").unwrap();
+        save_point(root, "try-out work", None).unwrap();
+        switch_branch(root, "main").unwrap();
+        std::fs::write(root.join("a.vnote"), "mine").unwrap();
+        std::fs::remove_file(root.join("keep.vnote")).unwrap();
+        save_point(root, "main work", None).unwrap();
+        dir
+    }
+
+    #[test]
+    fn a_merge_lists_notes_changed_on_both_sides_and_finishes_once_resolved() {
+        let dir = diverged();
+        let root = dir.path();
+        let started = merge_start(root, "try-out").unwrap();
+        assert!(!started.up_to_date);
+        assert_eq!(started.conflicted, vec!["a.vnote"]);
+        assert!(started.changed.contains(&"new.vnote".to_string()));
+        // Git left mine in place, with no conflict markers.
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.vnote")).unwrap(),
+            "mine"
+        );
+        assert!(status(root).unwrap().merging);
+        let stages = merge_stages(root, "a.vnote").unwrap();
+        assert_eq!(
+            (
+                stages.base.as_deref(),
+                stages.mine.as_deref(),
+                stages.theirs.as_deref()
+            ),
+            (Some("x"), Some("mine"), Some("theirs"))
+        );
+        assert!(merge_finish(root, "Merged").is_err());
+        std::fs::write(root.join("a.vnote"), "merged").unwrap();
+        merge_mark_resolved(root, &["a.vnote".to_string()]).unwrap();
+        let done = merge_finish(root, "Merged try-out into main").unwrap();
+        assert!(!done.merging && done.changes.is_empty());
+        assert_eq!(
+            git_out(root, &["log", "-1", "--format=%P"])
+                .split_whitespace()
+                .count(),
+            2
+        );
+        assert_eq!(
+            git_out(root, &["log", "-1", "--format=%s"]),
+            "Merged try-out into main"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("new.vnote")).unwrap(),
+            "new"
+        );
+        assert!(merge_start(root, "try-out").unwrap().up_to_date);
+    }
+
+    #[test]
+    fn a_merge_can_be_cancelled_and_is_refused_when_it_cannot_start() {
+        let dir = diverged();
+        let root = dir.path();
+        assert!(merge_start(root, "main").is_err());
+        assert!(merge_start(root, "nope").is_err());
+        assert!(merge_abort(root).is_err());
+        merge_start(root, "try-out").unwrap();
+        assert!(merge_start(root, "try-out").is_err());
+        let back = merge_abort(root).unwrap();
+        assert!(!back.merging && back.changes.is_empty());
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.vnote")).unwrap(),
+            "mine"
+        );
+        assert!(!root.join("new.vnote").exists());
+        std::fs::write(root.join("a.vnote"), "unsaved").unwrap();
+        assert!(merge_start(root, "try-out").is_err());
+        assert!(merge_stages(root, "a.vnote").is_err());
     }
 
     #[test]

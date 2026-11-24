@@ -1,7 +1,7 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
-	"description": "Permissions for the main window: window basics and the app's own file commands (all limited to the open vault in Rust). The only network use is the update check, which the Settings button starts. The stopgap Update VaultOps button starts the maintainer's install script (which pulls and builds) and can start nothing else; its status check runs git fetch for main and develop in the code folder. vcs_detect only looks for an installed git vcs_status reads the vault's own history vcs_enable starts one in the vault folder vcs_save_point records a save point there vcs_log reads the list of save points vcs_show reads a file as it was at one, and the vcs_*_branch commands list, create, switch, rename and safely delete the vault's own branches (no network).",
+	"description": "Permissions for the main window: window basics and the app's own file commands (all limited to the open vault in Rust). The only network use is the update check, which the Settings button starts. The stopgap Update VaultOps button starts the maintainer's install script (which pulls and builds) and can start nothing else; its status check runs git fetch for main and develop in the code folder. vcs_detect only looks for an installed git vcs_status reads the vault's own history vcs_enable starts one in the vault folder vcs_save_point records a save point there vcs_log reads the list of save points vcs_show reads a file as it was at one, and the vcs_*_branch commands list, create, switch, rename and safely delete the vault's own branches, and the vcs_merge_* commands merge one into another (no network).",
 	"windows": ["main"],
 	"permissions": [
 		"core:event:default",
@@ -45,6 +45,11 @@
 		"allow-vcs-switch-branch",
 		"allow-vcs-rename-branch",
 		"allow-vcs-delete-branch",
+		"allow-vcs-merge-start",
+		"allow-vcs-merge-stages",
+		"allow-vcs-merge-mark-resolved",
+		"allow-vcs-merge-finish",
+		"allow-vcs-merge-abort",
 		"updater:allow-check",
 		"updater:allow-download",
 		"updater:allow-install",

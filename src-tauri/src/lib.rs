@@ -89,6 +89,47 @@ fn vcs_show(
     vcs::show(&vcs::vault_root(&state)?, &commit, &path)
 }
 
+#[tauri::command(async)]
+fn vcs_branches(
+    state: tauri::State<'_, VaultState>,
+) -> Result<Vec<vcs::Branch>, git_ops::GitError> {
+    vcs::branches(&vcs::vault_root(&state)?)
+}
+
+#[tauri::command(async)]
+fn vcs_create_branch(
+    state: tauri::State<'_, VaultState>,
+    name: String,
+    switch_to: bool,
+) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::create_branch(&vcs::vault_root(&state)?, &name, switch_to)
+}
+
+#[tauri::command(async)]
+fn vcs_switch_branch(
+    state: tauri::State<'_, VaultState>,
+    name: String,
+) -> Result<vcs::Status, git_ops::GitError> {
+    vcs::switch_branch(&vcs::vault_root(&state)?, &name)
+}
+
+#[tauri::command(async)]
+fn vcs_rename_branch(
+    state: tauri::State<'_, VaultState>,
+    from: String,
+    to: String,
+) -> Result<Vec<vcs::Branch>, git_ops::GitError> {
+    vcs::rename_branch(&vcs::vault_root(&state)?, &from, &to)
+}
+
+#[tauri::command(async)]
+fn vcs_delete_branch(
+    state: tauri::State<'_, VaultState>,
+    name: String,
+) -> Result<Vec<vcs::Branch>, git_ops::GitError> {
+    vcs::delete_branch(&vcs::vault_root(&state)?, &name)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -611,7 +652,12 @@ pub fn run() {
             vcs_enable,
             vcs_save_point,
             vcs_log,
-            vcs_show
+            vcs_show,
+            vcs_branches,
+            vcs_create_branch,
+            vcs_switch_branch,
+            vcs_rename_branch,
+            vcs_delete_branch
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

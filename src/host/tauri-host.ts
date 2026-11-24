@@ -14,6 +14,7 @@ import {
 	type UpdateChannels,
 	type UpdateScriptStatus,
 	VCS_ERROR_CODES,
+	type VcsBranch,
 	VcsError,
 	type VcsErrorCode,
 	type VcsLog,
@@ -95,6 +96,13 @@ export const tauriHost: Host = {
 				allBranches: allBranches ?? false,
 			}),
 		show: (commit, path) => vcsCall<string>("vcs_show", { commit, path }),
+		branches: () => vcsCall<VcsBranch[]>("vcs_branches"),
+		createBranch: (name, switchTo) =>
+			vcsCall<VcsStatus>("vcs_create_branch", { name, switchTo }),
+		switchBranch: (name) => vcsCall<VcsStatus>("vcs_switch_branch", { name }),
+		renameBranch: (from, to) =>
+			vcsCall<VcsBranch[]>("vcs_rename_branch", { from, to }),
+		deleteBranch: (name) => vcsCall<VcsBranch[]>("vcs_delete_branch", { name }),
 		savePoint: (message, paths) =>
 			vcsCall<SavePointResult>("vcs_save_point", {
 				message,

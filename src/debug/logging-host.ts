@@ -83,6 +83,19 @@ export function loggingHost(host: Host, logger: Logger): Host {
 			show: timed("vcs.show", (commit: string, path: string) =>
 				host.vcs.show(commit, path),
 			),
+			branches: timed("vcs.branches", () => host.vcs.branches()),
+			createBranch: timed("vcs.createBranch", (name: string, to: boolean) =>
+				host.vcs.createBranch(name, to),
+			),
+			switchBranch: timed("vcs.switchBranch", (name: string) =>
+				host.vcs.switchBranch(name),
+			),
+			renameBranch: timed("vcs.renameBranch", (from: string, to: string) =>
+				host.vcs.renameBranch(from, to),
+			),
+			deleteBranch: timed("vcs.deleteBranch", (name: string) =>
+				host.vcs.deleteBranch(name),
+			),
 			savePoint: timed("vcs.savePoint", (message: string, paths?: string[]) =>
 				host.vcs.savePoint(message, paths),
 			),

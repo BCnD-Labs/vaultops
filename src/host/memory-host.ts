@@ -61,6 +61,14 @@ export class MemoryHost implements Host {
 		/** Every save point, oldest first. */
 		log: { message: string; files: string[]; snapshot: Map<string, string> }[];
 	} | null = null;
+	/** Other branches' saved files and save points (the current one is in `history`). */
+	private otherBranches = new Map<
+		string,
+		{
+			saved: Map<string, string>;
+			log: NonNullable<MemoryHost["history"]>["log"];
+		}
+	>();
 	/** Test helper: the folder already is someone else's git repo. */
 	otherRepo = false;
 	/** Test helper: the cloud service syncing the folder. */
@@ -85,6 +93,44 @@ export class MemoryHost implements Host {
 	saveAll(): void {
 		if (!this.history) throw new HostError("io", "history is off");
 		this.history.saved = this.allFiles();
+	}
+
+	private requireHistory() {
+		if (!this.history)
+			throw new VcsError("invalid-argument", "history is off for this vault");
+		return this.history;
+	}
+
+	private async requireClean() {
+		if ((await this.vcs.status()).changes.length > 0)
+			throw new VcsError(
+				"invalid-argument",
+				"make a save point first: switching branches needs every change saved in history",
+			);
+	}
+
+	private branchList() {
+		const history = this.requireHistory();
+		const row = (name: string, log: typeof history.log, current: boolean) => ({
+			name,
+			current,
+			shortId: log.length.toString(16).padStart(7, "0"),
+			subject: (log.at(-1)?.message ?? "").split("\n")[0] ?? "",
+		});
+		return [
+			row(history.branch, history.log, true),
+			...[...this.otherBranches].map(([name, b]) => row(name, b.log, false)),
+		].sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	/** Every file replaced by `files` (text only), like git checking out a branch. */
+	private async writeAll(files: Map<string, string>) {
+		this.root.children.clear();
+		for (const [path, text] of files) {
+			const slash = path.lastIndexOf("/");
+			if (slash > 0) await this.makeFolder(path.slice(0, slash));
+			await this.writeTextAtomic(path, text);
+		}
 	}
 
 	/** Every file as `path -> content` (bytes as a comparable string). */
@@ -211,6 +257,102 @@ export class MemoryHost implements Host {
 					`path '${path}' does not exist in '${commit}'`,
 				);
 			return text;
+		},
+		branches: async () => this.branchList(),
+		createBranch: async (raw, switchTo) => {
+			const history = this.requireHistory();
+			const name = raw.trim();
+			if (!/^[\w][\w./-]*$/.test(name) || name.includes(".."))
+				throw new VcsError("invalid-argument", "not a usable branch name");
+			if (
+				this.branchList().some(
+					(b) => b.name.toLowerCase() === name.toLowerCase(),
+				)
+			)
+				throw new VcsError(
+					"invalid-argument",
+					"there is already a branch with this name",
+				);
+			if (switchTo) await this.requireClean();
+			const copy = { saved: new Map(history.saved), log: [...history.log] };
+			if (switchTo) {
+				this.otherBranches.set(history.branch, {
+					saved: history.saved,
+					log: history.log,
+				});
+				history.branch = name;
+				history.saved = copy.saved;
+				history.log = copy.log;
+			} else this.otherBranches.set(name, copy);
+			return this.vcs.status();
+		},
+		switchBranch: async (name) => {
+			const history = this.requireHistory();
+			const target = this.otherBranches.get(name);
+			if (!target)
+				throw new VcsError(
+					"invalid-argument",
+					"there is no branch with this name",
+				);
+			await this.requireClean();
+			this.otherBranches.delete(name);
+			this.otherBranches.set(history.branch, {
+				saved: history.saved,
+				log: history.log,
+			});
+			history.branch = name;
+			history.saved = target.saved;
+			history.log = target.log;
+			await this.writeAll(target.saved);
+			return this.vcs.status();
+		},
+		renameBranch: async (from, to) => {
+			const history = this.requireHistory();
+			if (this.branchList().some((b) => b.name === to && b.name !== from))
+				throw new VcsError(
+					"invalid-argument",
+					"there is already a branch with this name",
+				);
+			if (history.branch === from) history.branch = to;
+			else {
+				const b = this.otherBranches.get(from);
+				if (!b)
+					throw new VcsError(
+						"invalid-argument",
+						"there is no branch with this name",
+					);
+				this.otherBranches.delete(from);
+				this.otherBranches.set(to, b);
+			}
+			return this.branchList();
+		},
+		deleteBranch: async (name) => {
+			const history = this.requireHistory();
+			if (history.branch === name)
+				throw new VcsError(
+					"invalid-argument",
+					"switch to another branch before deleting this one",
+				);
+			const b = this.otherBranches.get(name);
+			if (!b)
+				throw new VcsError(
+					"invalid-argument",
+					"there is no branch with this name",
+				);
+			// Merged = every save point of it is also in another branch.
+			const logs = [
+				history.log,
+				...[...this.otherBranches]
+					.filter(([n]) => n !== name)
+					.map(([, o]) => o.log),
+			];
+			if (!b.log.every((entry) => logs.some((log) => log.includes(entry))))
+				throw new VcsError(
+					"invalid-argument",
+					"this branch has save points that aren't merged into another branch, so it was kept",
+				);
+			this.otherBranches.delete(name);
+			return this.branchList();
 		},
 		savePoint: async (message, paths) => {
 			const history = this.history;

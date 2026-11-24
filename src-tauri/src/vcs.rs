@@ -473,6 +473,141 @@ pub fn show(root: &Path, commit: &str, path: &str) -> Result<String, GitError> {
     String::from_utf8(out).map_err(|_| GitError::invalid("this version is not text"))
 }
 
+/// One branch of the vault's history.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Branch {
+    pub name: String,
+    /// The branch the vault is on now.
+    pub current: bool,
+    /// Its newest save point's short id and description.
+    pub short_id: String,
+    pub subject: String,
+}
+
+fn enabled(root: &Path) -> Result<(), GitError> {
+    if is_enabled(root) {
+        Ok(())
+    } else {
+        Err(GitError::invalid("history is off for this vault"))
+    }
+}
+
+/// Every branch, the current one marked.
+pub fn branches(root: &Path) -> Result<Vec<Branch>, GitError> {
+    enabled(root)?;
+    let out = git_ops::run(
+        root,
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)%00%(HEAD)%00%(objectname:short)%00%(subject)",
+            "refs/heads/",
+        ],
+        None,
+        true,
+    )?;
+    Ok(String::from_utf8_lossy(&out)
+        .lines()
+        .filter_map(|line| {
+            let mut f = line.split('\0');
+            Some(Branch {
+                name: f.next()?.to_string(),
+                current: f.next()? == "*",
+                short_id: f.next()?.to_string(),
+                subject: f.next().unwrap_or("").to_string(),
+            })
+        })
+        .collect())
+}
+
+fn branch_exists(root: &Path, name: &str) -> Result<bool, GitError> {
+    Ok(branches(root)?
+        .iter()
+        .any(|b| b.name.eq_ignore_ascii_case(name)))
+}
+
+/// Unsaved changes would ride along to (or clash with) another branch, so
+/// switching only happens from a clean state.
+fn require_clean(root: &Path) -> Result<(), GitError> {
+    if status(root)?.changes.is_empty() {
+        Ok(())
+    } else {
+        Err(GitError::invalid(
+            "make a save point first: switching branches needs every change saved in history",
+        ))
+    }
+}
+
+/// A new branch at the current save point; switched to when `switch_to` is true.
+pub fn create_branch(root: &Path, name: &str, switch_to: bool) -> Result<Status, GitError> {
+    enabled(root)?;
+    let name = git_ops::checked_branch(name)?;
+    if branch_exists(root, name)? {
+        return Err(GitError::invalid(
+            "there is already a branch with this name",
+        ));
+    }
+    if switch_to {
+        require_clean(root)?;
+        git_ops::run(root, &["switch", "-q", "-c", name], None, false)?;
+    } else {
+        git_ops::run(root, &["branch", name], None, false)?;
+    }
+    status(root)
+}
+
+/// Move the vault to another branch: every note becomes that branch's version.
+pub fn switch_branch(root: &Path, name: &str) -> Result<Status, GitError> {
+    enabled(root)?;
+    let name = git_ops::checked_branch(name)?;
+    if !branch_exists(root, name)? {
+        return Err(GitError::invalid("there is no branch with this name"));
+    }
+    require_clean(root)?;
+    git_ops::run_long(root, &["switch", "-q", name], None)?;
+    status(root)
+}
+
+pub fn rename_branch(root: &Path, from: &str, to: &str) -> Result<Vec<Branch>, GitError> {
+    enabled(root)?;
+    let from = git_ops::checked_branch(from)?;
+    let to = git_ops::checked_branch(to)?;
+    if !branch_exists(root, from)? {
+        return Err(GitError::invalid("there is no branch with this name"));
+    }
+    if !from.eq_ignore_ascii_case(to) && branch_exists(root, to)? {
+        return Err(GitError::invalid(
+            "there is already a branch with this name",
+        ));
+    }
+    git_ops::run(root, &["branch", "-m", from, to], None, false)?;
+    branches(root)
+}
+
+/// Delete a branch whose save points are all merged somewhere (git's safe
+/// delete). The current branch, and one with unmerged save points, are kept.
+pub fn delete_branch(root: &Path, name: &str) -> Result<Vec<Branch>, GitError> {
+    enabled(root)?;
+    let name = git_ops::checked_branch(name)?;
+    let list = branches(root)?;
+    match list.iter().find(|b| b.name == name) {
+        None => return Err(GitError::invalid("there is no branch with this name")),
+        Some(b) if b.current => {
+            return Err(GitError::invalid(
+                "switch to another branch before deleting this one",
+            ));
+        }
+        Some(_) => {}
+    }
+    match git_ops::run(root, &["branch", "-d", name], None, false) {
+        Ok(_) => branches(root),
+        Err(e) if e.message.contains("not fully merged") => Err(GitError::invalid(
+            "this branch has save points that aren't merged into another branch, so it was kept",
+        )),
+        Err(e) => Err(e),
+    }
+}
+
 /// A display name for save points: trimmed, 1 to 80 characters, no control
 /// characters or `<>` (git uses them around the email).
 pub fn checked_name(raw: &str) -> Result<String, GitError> {
@@ -837,6 +972,40 @@ mod tests {
         assert!(show(root, "--output=/tmp/x", "a.vnote").is_err());
         assert!(show(root, &first, "../etc").is_err());
         assert!(show(root, &first, "missing.vnote").is_err());
+    }
+
+    #[test]
+    fn creates_switches_renames_and_deletes_branches_safely() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        create_branch(root, "try-out", true).unwrap();
+        std::fs::write(root.join("a.vnote"), "try-out text").unwrap();
+        // Unsaved changes block a switch.
+        assert!(switch_branch(root, "main").is_err());
+        save_point(root, "On try-out", None).unwrap();
+        switch_branch(root, "main").unwrap();
+        assert_eq!(std::fs::read_to_string(root.join("a.vnote")).unwrap(), "x");
+        let list = branches(root).unwrap();
+        let names: Vec<_> = list.iter().map(|b| (b.name.as_str(), b.current)).collect();
+        assert_eq!(names, vec![("main", true), ("try-out", false)]);
+        assert_eq!(list[1].subject, "On try-out");
+        // Unmerged work is kept, and the current branch can't be deleted.
+        assert!(
+            delete_branch(root, "try-out")
+                .unwrap_err()
+                .message
+                .contains("kept")
+        );
+        assert!(delete_branch(root, "main").is_err());
+        rename_branch(root, "try-out", "essay-v2").unwrap();
+        assert!(branches(root).unwrap().iter().any(|b| b.name == "essay-v2"));
+        create_branch(root, "empty", false).unwrap();
+        assert!(create_branch(root, "Empty", false).is_err());
+        assert_eq!(delete_branch(root, "empty").unwrap().len(), 2);
+        for bad in ["-d", "a..b", "x y"] {
+            assert!(create_branch(root, bad, false).is_err(), "{bad}");
+        }
+        assert!(switch_branch(root, "nope").is_err());
     }
 
     #[test]

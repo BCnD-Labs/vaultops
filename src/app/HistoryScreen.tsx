@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SegmentedInput } from "@/components/ui/segmented";
 import type { Host, VcsLogEntry, VcsStatus } from "../host/host";
+import { BranchMenu } from "./BranchMenu";
 import { HistoryGraph } from "./HistoryGraph";
 
 const MODE_KEY = "vaultops:history-view";
@@ -37,10 +38,16 @@ const when = (iso: string) => {
 export function HistoryScreen({
 	host,
 	onOpenSettings,
+	beforeSwitch,
+	onSwitched,
 }: {
 	host: Pick<Host, "vcs">;
 	/** History is off: open Settings → History to turn it on. */
 	onOpenSettings?: () => void;
+	/** Save open notes to disk before the branch changes; false when one couldn't be. */
+	beforeSwitch?: () => Promise<boolean>;
+	/** The vault's files changed (another branch): read the vault and open notes again. */
+	onSwitched?: () => void;
 }) {
 	const [status, setStatus] = useState<VcsStatus | null>(null);
 	const [entries, setEntries] = useState<VcsLogEntry[]>([]);
@@ -102,7 +109,15 @@ export function HistoryScreen({
 				<>
 					<div className="history-toolbar">
 						<p className="history-meta">
-							Branch {status.branch ?? "(none)"} ·{" "}
+							<BranchMenu
+								host={host}
+								current={status.branch}
+								beforeSwitch={beforeSwitch}
+								onChanged={(switched) => {
+									void load(0);
+									if (switched) onSwitched?.();
+								}}
+							/>{" "}
 							{plural(entries.length, "save point")}
 							{hasMore ? " shown" : ""}
 						</p>

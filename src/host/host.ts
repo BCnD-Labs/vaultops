@@ -124,6 +124,16 @@ export interface VcsLog {
 	hasMore: boolean;
 }
 
+/** One branch of the vault's history. */
+export interface VcsBranch {
+	name: string;
+	/** The branch the vault is on now. */
+	current: boolean;
+	/** Its newest save point's short id and description. */
+	shortId: string;
+	subject: string;
+}
+
 /** Same codes as `GitErrorCode` in src-tauri/src/git_ops.rs. */
 export const VCS_ERROR_CODES = [
 	"missing",
@@ -179,6 +189,22 @@ export interface VcsHost {
 	}): Promise<VcsLog>;
 	/** A file's text as it was at save point `commit` (an id from `log`). */
 	show(commit: string, path: string): Promise<string>;
+	/** Every branch, the current one marked. */
+	branches(): Promise<VcsBranch[]>;
+	/**
+	 * A new branch at the current save point; with `switchTo`, the vault moves to
+	 * it (refused while anything is unsaved in history).
+	 */
+	createBranch(name: string, switchTo: boolean): Promise<VcsStatus>;
+	/**
+	 * Move the vault to another branch: every file becomes that branch's version.
+	 * Refused while anything is unsaved in history. The caller saves open notes
+	 * first and reads them again afterwards.
+	 */
+	switchBranch(name: string): Promise<VcsStatus>;
+	renameBranch(from: string, to: string): Promise<VcsBranch[]>;
+	/** Delete a branch whose save points are merged elsewhere; never the current one. */
+	deleteBranch(name: string): Promise<VcsBranch[]>;
 }
 
 export type EntryKind = "file" | "folder";

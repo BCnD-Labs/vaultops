@@ -11,6 +11,7 @@ it("reports history off until it is turned on, then what changed since the last 
 		syncedFolder: null,
 		branch: null,
 		changes: [],
+		merging: false,
 	});
 	host.enableHistory();
 	expect((await host.vcs.status()).changes).toEqual([
@@ -32,6 +33,7 @@ it("reports history off until it is turned on, then what changed since the last 
 			{ path: "b.vnote", kind: "untracked" },
 			{ path: "Notes/a.vnote", kind: "untracked" },
 		],
+		merging: false,
 	});
 });
 
@@ -134,4 +136,48 @@ it("shows a file as it was at a save point", async () => {
 	await expect(host.vcs.show(first?.id ?? "", "b.vnote")).rejects.toMatchObject(
 		{ code: "failed" },
 	);
+});
+
+it("merges a branch: one-sided changes land, both-sided ones wait, then finish or cancel", async () => {
+	const host = new MemoryHost();
+	await host.writeTextAtomic("a.vnote", "base");
+	await host.writeTextAtomic("keep.vnote", "k");
+	await host.vcs.enable("Sam");
+	await host.vcs.createBranch("try-out", true);
+	await host.writeTextAtomic("a.vnote", "theirs");
+	await host.writeTextAtomic("new.vnote", "new");
+	await host.vcs.savePoint("try-out work");
+	await host.vcs.switchBranch("main");
+	await host.writeTextAtomic("a.vnote", "mine");
+	await host.vcs.savePoint("main work");
+	const started = await host.vcs.mergeStart("try-out");
+	expect(started).toEqual({
+		upToDate: false,
+		conflicted: ["a.vnote"],
+		changed: ["a.vnote", "new.vnote"],
+	});
+	expect(await host.readText("new.vnote")).toBe("new");
+	expect(await host.readText("a.vnote")).toBe("mine");
+	expect((await host.vcs.status()).merging).toBe(true);
+	expect(await host.vcs.mergeStages("a.vnote")).toEqual({
+		base: "base",
+		mine: "mine",
+		theirs: "theirs",
+	});
+	await expect(host.vcs.mergeFinish("x")).rejects.toMatchObject({
+		code: "invalid-argument",
+	});
+	// Cancel puts everything back; start again and finish.
+	await host.vcs.mergeAbort();
+	await expect(host.readText("new.vnote")).rejects.toThrow();
+	await host.vcs.mergeStart("try-out");
+	await host.writeTextAtomic("a.vnote", "merged");
+	await host.vcs.mergeMarkResolved(["a.vnote"]);
+	const done = await host.vcs.mergeFinish("Merged try-out into main");
+	expect(done).toMatchObject({ merging: false, changes: [] });
+	expect(host.historyLog.at(-1)).toBe("Merged try-out into main");
+	expect((await host.vcs.mergeStart("try-out")).upToDate).toBe(true);
+	expect((await host.vcs.deleteBranch("try-out")).map((b) => b.name)).toEqual([
+		"main",
+	]);
 });

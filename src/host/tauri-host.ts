@@ -10,6 +10,8 @@ import {
 	type Host,
 	HostError,
 	type HostErrorCode,
+	type MergeStages,
+	type MergeStart,
 	type SavePointResult,
 	type UpdateChannels,
 	type UpdateScriptStatus,
@@ -103,6 +105,13 @@ export const tauriHost: Host = {
 		renameBranch: (from, to) =>
 			vcsCall<VcsBranch[]>("vcs_rename_branch", { from, to }),
 		deleteBranch: (name) => vcsCall<VcsBranch[]>("vcs_delete_branch", { name }),
+		mergeStart: (branch) => vcsCall<MergeStart>("vcs_merge_start", { branch }),
+		mergeStages: (path) => vcsCall<MergeStages>("vcs_merge_stages", { path }),
+		mergeMarkResolved: (paths) =>
+			vcsCall<VcsStatus>("vcs_merge_mark_resolved", { paths }),
+		mergeFinish: (message) =>
+			vcsCall<VcsStatus>("vcs_merge_finish", { message }),
+		mergeAbort: () => vcsCall<VcsStatus>("vcs_merge_abort"),
 		savePoint: (message, paths) =>
 			vcsCall<SavePointResult>("vcs_save_point", {
 				message,

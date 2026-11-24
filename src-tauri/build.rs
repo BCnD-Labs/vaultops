@@ -40,6 +40,11 @@ const COMMANDS: &[&str] = &[
     "vcs_switch_branch",
     "vcs_rename_branch",
     "vcs_delete_branch",
+    "vcs_merge_start",
+    "vcs_merge_stages",
+    "vcs_merge_mark_resolved",
+    "vcs_merge_finish",
+    "vcs_merge_abort",
 ];
 
 fn main() {

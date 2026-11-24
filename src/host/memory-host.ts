@@ -69,6 +69,14 @@ export class MemoryHost implements Host {
 			log: NonNullable<MemoryHost["history"]>["log"];
 		}
 	>();
+	/** A merge in progress: the other branch, the three versions and what's left to resolve. */
+	private merge: {
+		branch: string;
+		base: Map<string, string>;
+		theirs: Map<string, string>;
+		theirsLog: NonNullable<MemoryHost["history"]>["log"];
+		conflicted: Set<string>;
+	} | null = null;
 	/** Test helper: the folder already is someone else's git repo. */
 	otherRepo = false;
 	/** Test helper: the cloud service syncing the folder. */
@@ -123,6 +131,21 @@ export class MemoryHost implements Host {
 		].sort((a, b) => a.name.localeCompare(b.name));
 	}
 
+	private async writeFile(path: string, text: string) {
+		const slash = path.lastIndexOf("/");
+		if (slash > 0) await this.makeFolder(path.slice(0, slash));
+		await this.writeTextAtomic(path, text);
+	}
+
+	private async removeFile(path: string) {
+		const parts = this.parts(path);
+		const name = parts.pop();
+		const folder = parts.length ? this.find(parts) : this.root;
+		if (folder?.kind === "folder" && name !== undefined)
+			for (const key of folder.children.keys())
+				if (key === nameKey(name)) folder.children.delete(key);
+	}
+
 	/** Every file replaced by `files` (text only), like git checking out a branch. */
 	private async writeAll(files: Map<string, string>) {
 		this.root.children.clear();
@@ -164,6 +187,7 @@ export class MemoryHost implements Host {
 					syncedFolder,
 					branch: null,
 					changes: [],
+					merging: false,
 				};
 			const now = this.allFiles();
 			const { saved, branch } = this.history;
@@ -182,6 +206,7 @@ export class MemoryHost implements Host {
 				syncedFolder,
 				branch,
 				changes,
+				merging: this.merge !== null,
 			};
 		},
 		enable: async (raw) => {
@@ -353,6 +378,97 @@ export class MemoryHost implements Host {
 				);
 			this.otherBranches.delete(name);
 			return this.branchList();
+		},
+		mergeStart: async (branch) => {
+			const history = this.requireHistory();
+			const other = this.otherBranches.get(branch);
+			if (!other)
+				throw new VcsError(
+					"invalid-argument",
+					"there is no branch with this name",
+				);
+			if (this.merge)
+				throw new VcsError(
+					"invalid-argument",
+					"a merge is already in progress; finish or cancel it first",
+				);
+			await this.requireClean();
+			// The newest save point both branches share is the base.
+			const shared = [...other.log]
+				.reverse()
+				.find((e) => history.log.includes(e));
+			const base = shared?.snapshot ?? new Map<string, string>();
+			const mine = history.saved;
+			const theirs = other.saved;
+			const conflicted = new Set<string>();
+			const changed: string[] = [];
+			for (const path of new Set([
+				...mine.keys(),
+				...theirs.keys(),
+				...base.keys(),
+			])) {
+				const b = base.get(path);
+				const m = mine.get(path);
+				const t = theirs.get(path);
+				if (m === t || t === b) continue;
+				changed.push(path);
+				if (m === b) {
+					if (t === undefined) await this.removeFile(path);
+					else await this.writeFile(path, t);
+				} else conflicted.add(path);
+			}
+			if (
+				changed.length === 0 &&
+				other.log.every((e) => history.log.includes(e))
+			)
+				return { upToDate: true, conflicted: [], changed: [] };
+			this.merge = { branch, base, theirs, theirsLog: other.log, conflicted };
+			return {
+				upToDate: false,
+				conflicted: [...conflicted].sort(),
+				changed: changed.sort(),
+			};
+		},
+		mergeStages: async (path) => {
+			const merge = this.merge;
+			if (!merge)
+				throw new VcsError("invalid-argument", "no merge is in progress");
+			return {
+				base: merge.base.get(path) ?? null,
+				mine: this.requireHistory().saved.get(path) ?? null,
+				theirs: merge.theirs.get(path) ?? null,
+			};
+		},
+		mergeMarkResolved: async (paths) => {
+			if (!this.merge)
+				throw new VcsError("invalid-argument", "no merge is in progress");
+			for (const path of paths) this.merge.conflicted.delete(path);
+			return this.vcs.status();
+		},
+		mergeFinish: async (message) => {
+			const merge = this.merge;
+			const history = this.requireHistory();
+			if (!merge)
+				throw new VcsError("invalid-argument", "no merge is in progress");
+			if (merge.conflicted.size > 0)
+				throw new VcsError("invalid-argument", "some files are not merged yet");
+			for (const entry of merge.theirsLog)
+				if (!history.log.includes(entry)) history.log.push(entry);
+			history.saved = this.allFiles();
+			history.log.push({
+				message: message.trim() || "Merge",
+				files: [],
+				snapshot: new Map(history.saved),
+			});
+			this.merge = null;
+			return this.vcs.status();
+		},
+		mergeAbort: async () => {
+			if (!this.merge)
+				throw new VcsError("invalid-argument", "no merge is in progress");
+			this.merge = null;
+			await this.writeAll(this.requireHistory().saved);
+			return this.vcs.status();
 		},
 		savePoint: async (message, paths) => {
 			const history = this.history;

@@ -85,6 +85,28 @@ export interface VcsStatus {
 	/** The current branch, or null when detached or before the first save point. */
 	branch: string | null;
 	changes: VcsChange[];
+	/** A merge has started and is waiting to be finished or cancelled. */
+	merging: boolean;
+}
+
+/** What starting a merge did. */
+export interface MergeStart {
+	/** Nothing to merge: the current branch already has everything. */
+	upToDate: boolean;
+	/**
+	 * Files changed on both sides, still holding the current branch's version.
+	 * The app merges the notes among them block by block.
+	 */
+	conflicted: string[];
+	/** Every file the merge changes (including the conflicted ones). */
+	changed: string[];
+}
+
+/** A conflicted file's three versions; null where a side added or deleted it. */
+export interface MergeStages {
+	base: string | null;
+	mine: string | null;
+	theirs: string | null;
 }
 
 /** The result of a save point. */
@@ -205,6 +227,19 @@ export interface VcsHost {
 	renameBranch(from: string, to: string): Promise<VcsBranch[]>;
 	/** Delete a branch whose save points are merged elsewhere; never the current one. */
 	deleteBranch(name: string): Promise<VcsBranch[]>;
+	/**
+	 * Start merging `branch` into the current branch, without the save point yet.
+	 * Refused while anything is unsaved in history or a merge is in progress.
+	 */
+	mergeStart(branch: string): Promise<MergeStart>;
+	/** During a merge: a conflicted file's base, mine and theirs. */
+	mergeStages(path: string): Promise<MergeStages>;
+	/** During a merge: these files now hold their merged result (or are gone). */
+	mergeMarkResolved(paths: string[]): Promise<VcsStatus>;
+	/** Make the merge's save point; refused while a file is unresolved. */
+	mergeFinish(message: string): Promise<VcsStatus>;
+	/** Cancel the merge: every file goes back to the current branch's last save point. */
+	mergeAbort(): Promise<VcsStatus>;
 }
 
 export type EntryKind = "file" | "folder";

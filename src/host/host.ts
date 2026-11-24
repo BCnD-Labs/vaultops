@@ -78,6 +78,10 @@ export interface VcsChange {
 export interface VcsStatus {
 	/** False when history is off for this vault; the rest is then empty. */
 	enabled: boolean;
+	/** History is off because the folder already is someone else's git repo. */
+	otherRepo: boolean;
+	/** The cloud service syncing the vault folder ("iCloud Drive"…), or null. */
+	syncedFolder: string | null;
 	/** The current branch, or null when detached or before the first save point. */
 	branch: string | null;
 	changes: VcsChange[];
@@ -112,6 +116,12 @@ export interface VcsHost {
 	detect(): Promise<GitInfo>;
 	/** What changed since the last save point, or `enabled: false`. */
 	status(): Promise<VcsStatus>;
+	/**
+	 * Turn history on: a repo on branch `main` with the vault's ignore rules,
+	 * `name` shown on save points, and a first save point of everything.
+	 * Refused when history is already on or the folder is another git repo.
+	 */
+	enable(name: string): Promise<VcsStatus>;
 }
 
 export type EntryKind = "file" | "folder";

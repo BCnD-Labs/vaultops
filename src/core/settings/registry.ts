@@ -104,6 +104,7 @@ export const SECTIONS: readonly SettingSection[] = [
 	{ id: "templates", label: "Templates & Resources" },
 	{ id: "shortcuts", label: "Shortcuts" },
 	{ id: "files", label: "Files & Vault" },
+	{ id: "history", label: "History" },
 	{ id: "advanced", label: "Advanced" },
 ];
 

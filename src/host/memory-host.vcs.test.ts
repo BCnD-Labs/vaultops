@@ -7,6 +7,8 @@ it("reports history off until it is turned on, then what changed since the last 
 	await host.writeTextAtomic("a.vnote", "one");
 	expect(await host.vcs.status()).toEqual({
 		enabled: false,
+		otherRepo: false,
+		syncedFolder: null,
 		branch: null,
 		changes: [],
 	});
@@ -22,6 +24,8 @@ it("reports history off until it is turned on, then what changed since the last 
 	await host.move("a.vnote", "Notes/a.vnote");
 	expect(await host.vcs.status()).toEqual({
 		enabled: true,
+		otherRepo: false,
+		syncedFolder: null,
 		branch: "main",
 		changes: [
 			{ path: "a.vnote", kind: "deleted" },
@@ -41,4 +45,23 @@ it("can say git is missing, and a read-only vault still reads its history", asyn
 		needsDeveloperTools: true,
 	});
 	expect((await ro.vcs.status()).enabled).toBe(false);
+});
+
+it("turns history on with a first save point, and refuses twice or someone else's repo", async () => {
+	const host = new MemoryHost();
+	await host.writeTextAtomic("a.vnote", "one");
+	const on = await host.vcs.enable("  Sam   Rivera ");
+	expect(on).toMatchObject({ enabled: true, branch: "main", changes: [] });
+	expect(host.historyAuthor).toBe("Sam Rivera");
+	await expect(host.vcs.enable("Sam")).rejects.toMatchObject({
+		code: "invalid-argument",
+	});
+	const other = new MemoryHost();
+	other.otherRepo = true;
+	await expect(other.vcs.enable("Sam")).rejects.toMatchObject({
+		message: expect.stringContaining("already is a git repository"),
+	});
+	await expect(
+		readOnlyHost(new MemoryHost()).vcs.enable("Sam"),
+	).rejects.toThrow(/read-only/);
 });

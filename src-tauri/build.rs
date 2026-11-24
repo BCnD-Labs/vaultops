@@ -31,6 +31,7 @@ const COMMANDS: &[&str] = &[
     "update_channels",
     "vcs_detect",
     "vcs_status",
+    "vcs_enable",
 ];
 
 fn main() {

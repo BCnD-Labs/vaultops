@@ -216,6 +216,14 @@ describe("tauriHost version control", () => {
 			code: "missing",
 			message: "git is not installed",
 		});
+		invoke.mockResolvedValue({ saved: true, commit: "abc1234", status: {} });
+		await tauriHost.vcs.savePoint("Packed");
+		await tauriHost.vcs.savePoint("Just b", ["b.vnote"]);
+		expect(invoke.mock.calls.slice(-2)).toEqual([
+			["vcs_save_point", { message: "Packed", paths: null }],
+			["vcs_save_point", { message: "Just b", paths: ["b.vnote"] }],
+		]);
+		invoke.mockReset();
 		invoke.mockRejectedValueOnce("command not allowed");
 		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });
 	});

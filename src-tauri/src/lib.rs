@@ -51,6 +51,16 @@ fn vcs_enable(
     vcs::enable(&vcs::vault_root(&state)?, &name)
 }
 
+/// Make a save point of everything, or of the given vault-relative paths.
+#[tauri::command(async)]
+fn vcs_save_point(
+    state: tauri::State<'_, VaultState>,
+    message: String,
+    paths: Option<Vec<String>>,
+) -> Result<vcs::SavePoint, git_ops::GitError> {
+    vcs::save_point(&vcs::vault_root(&state)?, &message, paths.as_deref())
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -570,7 +580,8 @@ pub fn run() {
             update_channels,
             vcs_detect,
             vcs_status,
-            vcs_enable
+            vcs_enable,
+            vcs_save_point
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

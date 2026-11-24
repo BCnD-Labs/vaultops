@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { TextStats } from "../core/notes/text-stats";
 
 const number = new Intl.NumberFormat();
@@ -7,11 +8,14 @@ export function StatusBar({
 	vault,
 	stats,
 	build = null,
+	extra,
 }: {
 	vault: string;
 	stats: TextStats | null;
 	/** The short commit this app was built from; nothing is shown without it. */
 	build?: string | null;
+	/** Controls shown at the end of the bar. */
+	extra?: ReactNode;
 }) {
 	return (
 		<div className="status-bar">
@@ -37,6 +41,7 @@ export function StatusBar({
 					</span>
 				</span>
 			)}
+			{extra && <span className="status-bar-extra">{extra}</span>}
 		</div>
 	);
 }

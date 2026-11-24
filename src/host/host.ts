@@ -87,6 +87,15 @@ export interface VcsStatus {
 	changes: VcsChange[];
 }
 
+/** The result of a save point. */
+export interface SavePointResult {
+	/** False when there was nothing to save; no save point was made. */
+	saved: boolean;
+	/** The new save point's short id, or null. */
+	commit: string | null;
+	status: VcsStatus;
+}
+
 /** Same codes as `GitErrorCode` in src-tauri/src/git_ops.rs. */
 export const VCS_ERROR_CODES = [
 	"missing",
@@ -122,6 +131,12 @@ export interface VcsHost {
 	 * Refused when history is already on or the folder is another git repo.
 	 */
 	enable(name: string): Promise<VcsStatus>;
+	/**
+	 * Make a save point of every change, or only of `paths` (vault-relative).
+	 * An empty description becomes "Save point". Nothing to save resolves with
+	 * `saved: false`. The caller saves open notes to disk first.
+	 */
+	savePoint(message: string, paths?: string[]): Promise<SavePointResult>;
 }
 
 export type EntryKind = "file" | "folder";

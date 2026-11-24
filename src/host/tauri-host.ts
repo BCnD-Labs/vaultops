@@ -15,6 +15,7 @@ import {
 	type SavePointResult,
 	type UpdateChannels,
 	type UpdateScriptStatus,
+	type VaultRestore,
 	VCS_ERROR_CODES,
 	type VcsBranch,
 	VcsError,
@@ -112,6 +113,10 @@ export const tauriHost: Host = {
 		mergeFinish: (message) =>
 			vcsCall<VcsStatus>("vcs_merge_finish", { message }),
 		mergeAbort: () => vcsCall<VcsStatus>("vcs_merge_abort"),
+		restoreVault: (commit) =>
+			vcsCall<VaultRestore>("vcs_restore_vault", { commit }),
+		undoSavePoint: (commit) =>
+			vcsCall<VcsStatus>("vcs_undo_save_point", { commit }),
 		savePoint: (message, paths) =>
 			vcsCall<SavePointResult>("vcs_save_point", {
 				message,

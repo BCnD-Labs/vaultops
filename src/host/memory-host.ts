@@ -470,6 +470,47 @@ export class MemoryHost implements Host {
 			await this.writeAll(this.requireHistory().saved);
 			return this.vcs.status();
 		},
+		restoreVault: async (commit) => {
+			const history = this.requireHistory();
+			const entry = history.log[Number.parseInt(commit, 16) - 1];
+			if (!entry) throw new VcsError("failed", "unknown save point");
+			await this.requireClean();
+			for (const [path, text] of entry.snapshot)
+				await this.writeFile(path, text);
+			const newer = [...this.allFiles().keys()]
+				.filter((p) => !entry.snapshot.has(p))
+				.sort();
+			return {
+				restored: entry.snapshot.size,
+				newer,
+				status: await this.vcs.status(),
+			};
+		},
+		undoSavePoint: async (commit) => {
+			const history = this.requireHistory();
+			const index = Number.parseInt(commit, 16) - 1;
+			const entry = history.log[index];
+			const before = history.log[index - 1];
+			if (!entry || !before)
+				throw new VcsError(
+					"invalid-argument",
+					"this save point can't be undone on its own (it is a merge or the first one)",
+				);
+			await this.requireClean();
+			const later = history.log.slice(index + 1).flatMap((e) => e.files);
+			if (entry.files.some((f) => later.includes(f)))
+				throw new VcsError(
+					"invalid-argument",
+					"later save points changed the same notes, so this one can't be undone automatically; restore the notes from their History instead",
+				);
+			for (const path of entry.files) {
+				const old = before.snapshot.get(path);
+				if (old === undefined) await this.removeFile(path);
+				else await this.writeFile(path, old);
+			}
+			await this.vcs.savePoint(`Revert "${entry.message.split("\n")[0]}"`);
+			return this.vcs.status();
+		},
 		savePoint: async (message, paths) => {
 			const history = this.history;
 			if (!history)

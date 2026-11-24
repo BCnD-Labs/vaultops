@@ -1094,3 +1094,28 @@ select {
 	gap: var(--space-1);
 	font-size: var(--font-size-small);
 }
+
+/* One save point's actions (restore vault, undo). */
+.save-point-actions-menu {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--space-1);
+}
+.save-point-actions-menu > button {
+	justify-content: flex-start;
+}
+.restore-confirm {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	font-size: var(--font-size-small);
+}
+.restore-trash {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.history-actions {
+	margin-left: auto;
+}

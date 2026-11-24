@@ -5,6 +5,7 @@ import type { Host, VcsLogEntry, VcsStatus } from "../host/host";
 import { BranchMenu } from "./BranchMenu";
 import { HistoryGraph } from "./HistoryGraph";
 import { MergeReview } from "./MergeReview";
+import { SavePointActions } from "./SavePointActions";
 
 const MODE_KEY = "vaultops:history-view";
 type Mode = "list" | "graph";
@@ -42,7 +43,10 @@ export function HistoryScreen({
 	beforeSwitch,
 	onSwitched,
 }: {
-	host: Pick<Host, "vcs" | "writeTextAtomic" | "makeFolder" | "kindOf">;
+	host: Pick<
+		Host,
+		"vcs" | "writeTextAtomic" | "makeFolder" | "kindOf" | "move"
+	>;
 	/** History is off: open Settings → History to turn it on. */
 	onOpenSettings?: () => void;
 	/** Save open notes to disk before the branch changes; false when one couldn't be. */
@@ -58,6 +62,7 @@ export function HistoryScreen({
 	const [mode, setMode] = useState<Mode>(loadMode);
 	/** The branch being merged in, while its review is open. */
 	const [merging, setMerging] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 
 	const load = useCallback(
 		async (skip: number) => {
@@ -144,6 +149,11 @@ export function HistoryScreen({
 							}}
 						/>
 					</div>
+					{notice && (
+						<p role="status" className="notice">
+							{notice}
+						</p>
+					)}
 					{merging && (
 						<MergeReview
 							host={host}
@@ -191,6 +201,16 @@ export function HistoryScreen({
 							<li key={entry.id} className="history-row">
 								<span className="history-dot" aria-hidden="true" />
 								<span className="history-subject">{entry.subject}</span>
+								<SavePointActions
+									host={host}
+									entry={entry}
+									beforeChange={beforeSwitch}
+									onChanged={(message) => {
+										setNotice(message);
+										void load(0);
+										onSwitched?.();
+									}}
+								/>
 								<span className="history-detail">
 									<time dateTime={entry.date}>{when(entry.date)}</time> ·{" "}
 									{entry.author} · {plural(entry.filesChanged, "file")}

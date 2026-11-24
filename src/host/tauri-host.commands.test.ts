@@ -258,6 +258,12 @@ describe("tauriHost version control", () => {
 			["vcs_merge_finish", { message: "Merged" }],
 			["vcs_merge_abort", undefined],
 		]);
+		await tauriHost.vcs.restoreVault("abc1234");
+		await tauriHost.vcs.undoSavePoint("abc1234");
+		expect(invoke.mock.calls.slice(-2)).toEqual([
+			["vcs_restore_vault", { commit: "abc1234" }],
+			["vcs_undo_save_point", { commit: "abc1234" }],
+		]);
 		invoke.mockReset();
 		invoke.mockRejectedValueOnce("command not allowed");
 		await expect(tauriHost.vcs.status()).rejects.toMatchObject({ code: "io" });

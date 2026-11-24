@@ -2217,6 +2217,7 @@ export function App({ host }: { host: Host }) {
 									<SavePointButton
 										host={vaultHost}
 										flush={() => wsRef.current.flushAll()}
+										onOpenHistory={() => void navigate("history")}
 									/>
 								) : null
 							}
@@ -2387,6 +2388,8 @@ export function App({ host }: { host: Host }) {
 									onRestore={(p) => void changeTrash(p, true)}
 									onDelete={(p) => void changeTrash(p, false)}
 									onOpen={(path) => void open(path)}
+									historyHost={vaultHost}
+									onOpenSettings={() => void navigate("settings")}
 								/>
 							)}
 						</AppShell>

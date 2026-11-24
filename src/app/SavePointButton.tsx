@@ -21,10 +21,13 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export function SavePointButton({
 	host,
 	flush,
+	onOpenHistory,
 }: {
 	host: Pick<Host, "vcs">;
 	/** Save every open note to disk; false when one couldn't be saved. */
 	flush: () => Promise<boolean>;
+	/** Open the History screen. */
+	onOpenHistory?: () => void;
 }) {
 	const [status, setStatus] = useState<VcsStatus | null>(null);
 	const [open, setOpen] = useState(false);
@@ -135,9 +138,24 @@ export function SavePointButton({
 							{notice}
 						</p>
 					)}
-					<Button type="submit" size="sm" disabled={busy || count === 0}>
-						{busy ? "Saving…" : "Make save point"}
-					</Button>
+					<div className="save-point-actions">
+						{onOpenHistory && (
+							<Button
+								type="button"
+								variant="link"
+								size="sm"
+								onClick={() => {
+									setOpen(false);
+									onOpenHistory();
+								}}
+							>
+								View history
+							</Button>
+						)}
+						<Button type="submit" size="sm" disabled={busy || count === 0}>
+							{busy ? "Saving…" : "Make save point"}
+						</Button>
+					</div>
 				</form>
 			</PopoverContent>
 		</Popover>

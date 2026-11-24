@@ -96,6 +96,28 @@ export interface SavePointResult {
 	status: VcsStatus;
 }
 
+/** One save point in the history list (src-tauri/src/vcs.rs `LogEntry`). */
+export interface VcsLogEntry {
+	id: string;
+	shortId: string;
+	author: string;
+	/** ISO 8601 time. */
+	date: string;
+	/** Parent ids (two for a merge). */
+	parents: string[];
+	/** The description's first line. */
+	subject: string;
+	/** The rest of the description ("" when none). */
+	body: string;
+	filesChanged: number;
+}
+
+export interface VcsLog {
+	entries: VcsLogEntry[];
+	/** True when older save points follow. */
+	hasMore: boolean;
+}
+
 /** Same codes as `GitErrorCode` in src-tauri/src/git_ops.rs. */
 export const VCS_ERROR_CODES = [
 	"missing",
@@ -137,6 +159,12 @@ export interface VcsHost {
 	 * `saved: false`. The caller saves open notes to disk first.
 	 */
 	savePoint(message: string, paths?: string[]): Promise<SavePointResult>;
+	/**
+	 * A page of save points on the current branch, newest first: skip `skip`,
+	 * then up to `limit` (at most 200). With `path`, only those that changed
+	 * that file, following renames.
+	 */
+	log(options: { path?: string; skip: number; limit: number }): Promise<VcsLog>;
 }
 
 export type EntryKind = "file" | "folder";

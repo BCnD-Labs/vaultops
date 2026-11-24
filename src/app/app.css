@@ -581,9 +581,6 @@ body {
 	flex-direction: column;
 	gap: var(--space-2);
 }
-.save-point-popover button[type="submit"] {
-	align-self: flex-end;
-}
 
 .outline-list {
 	margin: 0;
@@ -880,4 +877,66 @@ select {
 	fill: var(--foreground);
 	font-size: var(--font-size-small);
 	pointer-events: none;
+}
+
+/* History: unsaved changes on top, then save points newest first. */
+.history-screen {
+	max-width: var(--editor-width);
+	margin: 0 auto;
+	padding: var(--space-3);
+}
+.history-meta {
+	margin: 0 0 var(--space-2);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.history-list {
+	list-style: none;
+	margin: 0 0 var(--space-3);
+	padding: 0;
+	border-left: var(--border-width) solid var(--line);
+}
+.history-row {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-1) var(--space-2);
+	padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+}
+.history-dot {
+	position: absolute;
+	top: calc(var(--space-2) + 0.45em);
+	left: -5px;
+	width: 9px;
+	height: 9px;
+	border-radius: var(--radius-round);
+	background: var(--muted-foreground);
+}
+.history-unsaved .history-dot {
+	background: transparent;
+	border: var(--border-width) solid var(--muted-foreground);
+}
+.history-subject {
+	font-weight: 600;
+}
+.history-unsaved .history-subject {
+	font-weight: 400;
+	color: var(--muted-foreground);
+}
+.history-detail {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.history-body {
+	flex-basis: 100%;
+	margin: 0;
+	white-space: pre-wrap;
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.save-point-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }

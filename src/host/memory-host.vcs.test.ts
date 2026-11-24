@@ -86,3 +86,35 @@ it("makes save points of everything or chosen files, and nothing when nothing ch
 		code: "invalid-argument",
 	});
 });
+
+it("lists save points newest first, in pages and per file", async () => {
+	const host = new MemoryHost();
+	await host.writeTextAtomic("a.vnote", "1");
+	await host.vcs.enable("Sam");
+	await host.writeTextAtomic("a.vnote", "2");
+	await host.vcs.savePoint("Edited a\n\nMore");
+	await host.writeTextAtomic("b.vnote", "new");
+	await host.vcs.savePoint("Added b");
+	const all = await host.vcs.log({ skip: 0, limit: 50 });
+	expect(all.entries.map((e) => e.subject)).toEqual([
+		"Added b",
+		"Edited a",
+		"History turned on",
+	]);
+	expect(all.entries[1]).toMatchObject({
+		body: "More",
+		author: "Sam",
+		filesChanged: 1,
+	});
+	expect(all.entries[1]?.parents).toEqual([all.entries[2]?.id]);
+	const page = await host.vcs.log({ skip: 1, limit: 1 });
+	expect(page).toMatchObject({
+		hasMore: true,
+		entries: [{ subject: "Edited a" }],
+	});
+	const ofA = await host.vcs.log({ path: "a.vnote", skip: 0, limit: 50 });
+	expect(ofA.entries.map((e) => e.subject)).toEqual([
+		"Edited a",
+		"History turned on",
+	]);
+});

@@ -61,6 +61,17 @@ fn vcs_save_point(
     vcs::save_point(&vcs::vault_root(&state)?, &message, paths.as_deref())
 }
 
+/// A page of save points, newest first; with `path`, only that file's.
+#[tauri::command(async)]
+fn vcs_log(
+    state: tauri::State<'_, VaultState>,
+    path: Option<String>,
+    skip: u32,
+    limit: u32,
+) -> Result<vcs::Log, git_ops::GitError> {
+    vcs::log(&vcs::vault_root(&state)?, path.as_deref(), skip, limit)
+}
+
 /// Whether a working git is installed, for the History settings.
 #[tauri::command]
 fn vcs_detect() -> git_ops::GitInfo {
@@ -581,7 +592,8 @@ pub fn run() {
             vcs_detect,
             vcs_status,
             vcs_enable,
-            vcs_save_point
+            vcs_save_point,
+            vcs_log
         ])
         .build(tauri::generate_context!())
         .expect("error while building the VaultOps app")

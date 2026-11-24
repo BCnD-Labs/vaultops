@@ -89,7 +89,7 @@ export function CommandBar({
 	onCreateNote: (folder: string, title: string) => void;
 	onNewFolder: () => void;
 	onToggle: (side: "left" | "right") => void;
-	onNavigate: (screen: "trash" | "health" | "settings") => void;
+	onNavigate: (screen: "trash" | "health" | "history" | "settings") => void;
 	onToggleReading?: () => void;
 	onOpenTemplates?: () => void;
 	onNewCanvasFromTemplate?: () => void;

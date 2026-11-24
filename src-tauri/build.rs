@@ -33,6 +33,7 @@ const COMMANDS: &[&str] = &[
     "vcs_status",
     "vcs_enable",
     "vcs_save_point",
+    "vcs_log",
 ];
 
 fn main() {

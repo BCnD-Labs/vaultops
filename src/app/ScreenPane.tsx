@@ -2,7 +2,9 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { TrashedNote } from "../core/notes/trash";
+import type { Host } from "../host/host";
 import { HealthScreen } from "./HealthScreen";
+import { HistoryScreen } from "./HistoryScreen";
 import { type JournalOptions, JournalSpace } from "./journal/JournalSpace";
 import { PlannerScreen } from "./planner/PlannerScreen";
 import type { Screen, VaultView } from "./session";
@@ -30,6 +32,9 @@ interface ScreenPaneProps {
 	onRestore: (path: string) => void;
 	onDelete: (path: string) => void;
 	onOpen: (path: string) => void;
+	/** For the History screen. */
+	historyHost?: Pick<Host, "vcs">;
+	onOpenSettings?: () => void;
 }
 
 /**
@@ -54,6 +59,8 @@ export function ScreenPane({
 	onRestore,
 	onDelete,
 	onOpen,
+	historyHost,
+	onOpenSettings,
 }: ScreenPaneProps) {
 	const [trashView, setTrashView] = useState(loadTrashView);
 	if (screen === "planner") {
@@ -121,6 +128,9 @@ export function ScreenPane({
 					onRestore={(p) => onRestore(p)}
 					onDelete={(p) => onDelete(p)}
 				/>
+			)}
+			{screen === "history" && historyHost && (
+				<HistoryScreen host={historyHost} onOpenSettings={onOpenSettings} />
 			)}
 			{screen === "health" && view && (
 				<HealthScreen report={view.report} onOpen={onOpen} />

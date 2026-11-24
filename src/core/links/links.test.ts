@@ -143,9 +143,9 @@ describe("backlinks", () => {
 			note("sam", "Self", [link("note", "sam")]),
 		);
 		expect(await backlinks(host, "sam")).toEqual([
-			{ path: "a.vnote", title: "Alpha", kind: "note" },
-			{ path: "b.vnote", title: "Beta", kind: "note" },
-			{ path: "c.vnote", title: "Canvas one", kind: "canvas" },
+			{ path: "a.vnote", title: "Alpha", noteId: "a", kind: "note" },
+			{ path: "b.vnote", title: "Beta", noteId: "b", kind: "note" },
+			{ path: "c.vnote", title: "Canvas one", noteId: "c", kind: "canvas" },
 		]);
 		expect(await backlinks(host, "nobody")).toEqual([]);
 	});

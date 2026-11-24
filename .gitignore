@@ -5,6 +5,7 @@ spikes/
 # Dependencies and build output
 node_modules/
 dist/
+dist-mcp/
 target/
 coverage/
 shots/

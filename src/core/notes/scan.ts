@@ -134,13 +134,13 @@ export async function scanVault(host: VaultReadHost): Promise<{
 
 /** The first 160 characters of the body text, for lists. */
 export function previewOf(blocks: Block[]): string {
-	return plainText(blocks).slice(0, 160);
+	return plainTextOf(blocks).slice(0, 160);
 }
 
 /** All of a note's body text on one line (capped), for searching inside notes. */
 export const SEARCH_TEXT_LIMIT = 20000;
 export function searchTextOf(blocks: Block[]): string {
-	return plainText(blocks).slice(0, SEARCH_TEXT_LIMIT);
+	return plainTextOf(blocks).slice(0, SEARCH_TEXT_LIMIT);
 }
 
 /** A math block's LaTeX source: it is the block's text, so it is searchable. */
@@ -155,7 +155,7 @@ function latex(block: Block): string {
 }
 
 /** Plain body text only; never include marks or block IDs (a math block's LaTeX counts as its text). */
-function plainText(blocks: Block[]): string {
+export function plainTextOf(blocks: Block[]): string {
 	function text(value: JsonValue | undefined): string {
 		if (Array.isArray(value)) return value.map(text).join("");
 		if (!value || typeof value !== "object") return "";

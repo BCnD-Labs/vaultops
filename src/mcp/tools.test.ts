@@ -58,7 +58,7 @@ it("lists, searches and reads notes using saved blocks, tags and link IDs", asyn
 	]);
 	expect(await api.list_tags()).toEqual(["work/clients"]);
 	expect(await api.search_notes({ query: "forecast munchen" })).toMatchObject([
-		{ path: "Plan.vnote" },
+		{ path: "Plan.vnote", noteId: "plan" },
 	]);
 	const result = await api.read_note({ path: "Plan.vnote" });
 	expect(result).toMatchObject({
@@ -70,7 +70,7 @@ it("lists, searches and reads notes using saved blocks, tags and link IDs", asyn
 		{ kind: "note", target: "budget", label: "Old title" },
 	]);
 	expect(await api.get_backlinks({ noteId: "budget" })).toEqual([
-		{ path: "Plan.vnote", title: "Plan", kind: "note" },
+		{ path: "Plan.vnote", title: "Plan", noteId: "plan", kind: "note" },
 	]);
 });
 

@@ -39,6 +39,9 @@ export function createReadTools(host: VaultReadHost) {
 		async search_notes({ query }: { query: string }) {
 			const index = createSearchIndex();
 			const { notes } = await scan();
+			const idByPath = new Map(
+				notes.map(({ path, note }) => [path, note.header.noteId]),
+			);
 			for (const scanned of notes) {
 				index.add({
 					...noteSummary(scanned),
@@ -46,7 +49,9 @@ export function createReadTools(host: VaultReadHost) {
 					text: searchTextOf(scanned.note.blocks),
 				});
 			}
-			return index.search(query);
+			return index
+				.search(query)
+				.map((hit) => ({ ...hit, noteId: idByPath.get(hit.path) ?? null }));
 		},
 		async read_note({ path }: { path: string }) {
 			const { notes, report } = await scan();

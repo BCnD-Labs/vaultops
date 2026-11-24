@@ -188,6 +188,7 @@ export function searchMentions(
 export interface Backlink {
 	path: string;
 	title: string;
+	noteId: string;
 	kind: "note" | "canvas";
 }
 
@@ -206,6 +207,7 @@ export async function backlinks(
 		out.push({
 			path: scanned.path,
 			title: typeof title === "string" && title !== "" ? title : scanned.path,
+			noteId: scanned.note.header.noteId,
 			kind: scanned.kind,
 		});
 	}

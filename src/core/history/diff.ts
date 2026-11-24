@@ -8,6 +8,7 @@
  * was deleted (everything removed). Block types this version doesn't know are
  * compared like any other and summarised as "changed", never an error.
  */
+import { diffWordsWithSpace } from "diff";
 import type { Block, JsonValue, Note } from "../note-format";
 import {
 	findName,
@@ -301,4 +302,14 @@ export function summarizeDiff(diff: NoteDiff): string {
 	return [blockParts.join(", "), headerParts.join(", ")]
 		.filter((part) => part !== "")
 		.join(" · ");
+}
+
+export type WordPart = { text: string; kind: "same" | "added" | "removed" };
+
+/** A block's text change word by word, for showing like tracked changes. */
+export function wordChanges(before: string, after: string): WordPart[] {
+	return diffWordsWithSpace(before, after).map((part) => ({
+		text: part.value,
+		kind: part.added ? "added" : part.removed ? "removed" : "same",
+	}));
 }

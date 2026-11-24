@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { blockText, diffNotes, summarizeDiff } from "../core/history/diff";
+import { SegmentedInput } from "@/components/ui/segmented";
+import {
+	blockText,
+	diffNotes,
+	type NoteDiff,
+	summarizeDiff,
+} from "../core/history/diff";
 import { copyBlockBack, restoreVersion } from "../core/history/restore";
 import { type Note, parseNote } from "../core/note-format";
 import type { Host, VcsLogEntry } from "../host/host";
 import { NoteBlocks } from "./CanvasCard";
+import { NoteDiffView } from "./NoteDiffView";
 
 const PAGE = 30;
 
@@ -21,7 +28,7 @@ const when = (iso: string) => {
 type Version =
 	| { state: "loading" }
 	| { state: "error"; message: string }
-	| { state: "ready"; note: Note; compared: string };
+	| { state: "ready"; note: Note; compared: string; diff: NoteDiff };
 
 /**
  * The open note's history in the side panel: every save point that changed
@@ -53,6 +60,7 @@ export function NoteHistoryPanel({
 	const [picked, setPicked] = useState<VcsLogEntry | null>(null);
 	const [version, setVersion] = useState<Version | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
+	const [show, setShow] = useState<"version" | "changes">("version");
 	const [busy, setBusy] = useState(false);
 
 	const apply = async (
@@ -115,6 +123,7 @@ export function NoteHistoryPanel({
 			setVersion({
 				state: "ready",
 				note: old,
+				diff,
 				compared: diff.same
 					? "Same as now"
 					: `Since then: ${summarizeDiff(diff)}`,
@@ -254,12 +263,27 @@ export function NoteHistoryPanel({
 							</ul>
 						</details>
 					)}
-					{version.state === "ready" && (
-						<div className="note-editor note-history-blocks">
-							<h3>{String(version.note.header.title ?? "")}</h3>
-							<NoteBlocks blocks={version.note.blocks} />
-						</div>
+					{version.state === "ready" && !version.diff.same && (
+						<SegmentedInput
+							label="Show"
+							clearable={false}
+							options={[
+								{ value: "version", label: "This version" },
+								{ value: "changes", label: "Changes since then" },
+							]}
+							value={show}
+							onChange={(v) => setShow(v === "changes" ? "changes" : "version")}
+						/>
 					)}
+					{version.state === "ready" &&
+						(show === "changes" && !version.diff.same ? (
+							<NoteDiffView diff={version.diff} />
+						) : (
+							<div className="note-editor note-history-blocks">
+								<h3>{String(version.note.header.title ?? "")}</h3>
+								<NoteBlocks blocks={version.note.blocks} />
+							</div>
+						))}
 				</section>
 			)}
 		</section>

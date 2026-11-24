@@ -25,6 +25,8 @@ export interface LinkRef {
 /** Something a link can point at, with a hint line for the picker. */
 export interface LinkTarget extends LinkRef {
 	hint?: string;
+	/** A resource's type name (Book, Contact…), which `@` lists as a category. */
+	group?: string;
 }
 
 export function isLinkKind(value: unknown): value is LinkKind {
@@ -98,6 +100,86 @@ export function searchTargets(
 					}),
 			);
 		for (const hit of hits.slice(0, perKind)) out.push(hit.t);
+	}
+	return out;
+}
+
+/** A resource type offered by `@`, with how many resources it has. */
+export interface MentionCategory {
+	name: string;
+	count: number;
+}
+
+export type MentionHit =
+	| { kind: "category"; category: MentionCategory }
+	| { kind: "target"; link: LinkTarget };
+
+/** A name as compared by `@`: lower case, letters and digits only. */
+const squash = (text: string) =>
+	text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+/** The category `prefix` names: the exact name first, else the shortest that starts with it. */
+function categoryFor(
+	categories: MentionCategory[],
+	prefix: string,
+): MentionCategory | null {
+	const key = squash(prefix);
+	if (key === "") return null;
+	const exact = categories.find((c) => squash(c.name) === key);
+	if (exact) return exact;
+	const starts = categories
+		.filter((c) => squash(c.name).startsWith(key))
+		.sort((a, b) => a.name.length - b.name.length);
+	return starts[0] ?? null;
+}
+
+/**
+ * What `@` offers for what was typed. With nothing typed: every resource type
+ * (most used first), then resources. `@boo` lists the types that start with
+ * it (Book) above the resources that match. `@book/` (or `@books/`, ignoring
+ * capitals and punctuation) lists only that type's resources, filtered by what
+ * comes after the `/`.
+ */
+export function searchMentions(
+	targets: LinkTarget[],
+	query: string,
+	limit = 12,
+): MentionHit[] {
+	const resources = targets.filter((t) => t.kind === "resource");
+	const counts = new Map<string, MentionCategory>();
+	for (const r of resources) {
+		if (!r.group) continue;
+		const key = squash(r.group);
+		const known = counts.get(key);
+		if (known) known.count++;
+		else counts.set(key, { name: r.group, count: 1 });
+	}
+	const categories = [...counts.values()].sort(
+		(a, b) =>
+			b.count - a.count ||
+			a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+	);
+	const slash = query.indexOf("/");
+	const scoped =
+		slash >= 0 ? categoryFor(categories, query.slice(0, slash)) : null;
+	const text = scoped ? query.slice(slash + 1) : query;
+	const pool = scoped
+		? resources.filter(
+				(r) => r.group && squash(r.group) === squash(scoped.name),
+			)
+		: resources;
+	const out: MentionHit[] = [];
+	if (!scoped) {
+		const key = squash(text);
+		for (const category of categories) {
+			const name = squash(category.name);
+			if (key === "" || name.startsWith(key) || name.includes(key)) {
+				out.push({ kind: "category", category });
+			}
+		}
+	}
+	for (const link of searchTargets(pool, text, "resource", limit)) {
+		out.push({ kind: "target", link });
 	}
 	return out;
 }

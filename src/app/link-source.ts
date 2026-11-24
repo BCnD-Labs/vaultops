@@ -2,6 +2,7 @@ import {
 	type LinkKind,
 	type LinkRef,
 	type LinkTarget,
+	searchMentions,
 	searchTargets,
 } from "../core/links/links";
 import {
@@ -44,6 +45,7 @@ export function linkTargets(
 			kind: "resource",
 			target: card.noteId,
 			label: card.title,
+			...(type ? { group: type.name } : {}),
 			hint:
 				[type?.name, detail?.trim().slice(0, 24)].filter(Boolean).join(" · ") ||
 				undefined,
@@ -63,6 +65,7 @@ export function buildLinkSource(
 		byKey.set(`${target.kind}:${target.target}`, target);
 	return {
 		search: (query, scope) => searchTargets(targets, query, scope),
+		mentions: (query) => searchMentions(targets, query),
 		describe: (kind: LinkKind, target) =>
 			byKey.get(`${kind}:${target}`)?.label ?? null,
 		open,

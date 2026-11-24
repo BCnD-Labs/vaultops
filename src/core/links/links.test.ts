@@ -7,6 +7,7 @@ import {
 	LINK_NODE,
 	type LinkTarget,
 	linksIn,
+	searchMentions,
 	searchTargets,
 } from "./links";
 
@@ -165,5 +166,32 @@ describe("previewOf", () => {
 				},
 			]),
 		).toBe("call Sam Rivera");
+	});
+});
+
+describe("searchMentions", () => {
+	const targets = [
+		{ kind: "note", target: "n1", label: "Book club" },
+		{ kind: "resource", target: "b1", label: "Dune", group: "Books" },
+		{ kind: "resource", target: "b2", label: "Emma", group: "Books" },
+		{ kind: "resource", target: "p1", label: "Bob", group: "Contact" },
+	] as const;
+	const show = (query: string) =>
+		searchMentions([...targets], query).map((hit) =>
+			hit.kind === "category" ? `${hit.category.name}/` : hit.link.label,
+		);
+	it("lists types (most used first) then resources, never notes", () => {
+		expect(show("")).toEqual(["Books/", "Contact/", "Bob", "Dune", "Emma"]);
+	});
+	it("puts matching types above matching resources", () => {
+		expect(show("bo")).toEqual(["Books/", "Bob"]);
+	});
+	it("narrows to a type named before a slash, loosely", () => {
+		expect(show("book/")).toEqual(["Dune", "Emma"]);
+		expect(show("BOOKS/em")).toEqual(["Emma"]);
+		expect(show("contact/")).toEqual(["Bob"]);
+	});
+	it("treats a slash after an unknown type as plain text", () => {
+		expect(show("zz/")).toEqual([]);
 	});
 });

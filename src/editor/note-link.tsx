@@ -12,7 +12,7 @@ import {
 	ReactNodeViewRenderer,
 } from "@tiptap/react";
 import Suggestion, { type SuggestionKeyDownProps } from "@tiptap/suggestion";
-import { Contact, FileText, LayoutDashboard } from "lucide-react";
+import { Contact, FileText, FolderOpen, LayoutDashboard } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import {
 	type LinkKind,
 	type LinkRef,
 	type LinkTarget,
+	type MentionHit,
 } from "../core/links/links";
 import { createPopup, type PopupItem } from "./slash-menu";
 
@@ -34,6 +35,8 @@ export interface LinkSource {
 	completionRows?: readonly import("../core/complete").CompletionNote[];
 	/** What the picker offers for what was typed; `resource` is the `@` shortcut. */
 	search: (query: string, scope: "all" | "resource") => LinkTarget[];
+	/** What `@` offers: resource types to narrow to, then resources. Falls back to `search`. */
+	mentions?: (query: string) => MentionHit[];
 	/** The target's name now, or null when it can't be found any more. */
 	describe: (kind: LinkKind, target: string) => string | null;
 	/** Open the target: a note or canvas in a tab, a resource in the manager. */
@@ -113,19 +116,45 @@ const ICONS = {
 /** The icon that goes with a kind of link, in the picker and in the text. */
 export const linkIcon = (kind: LinkKind) => ICONS[kind];
 
-interface LinkItem extends PopupItem {
-	link: LinkTarget;
-}
+/** A row of a link picker: something to link to, or (for `@`) a type to narrow to. */
+type LinkItem = PopupItem &
+	(
+		| { link: LinkTarget; category?: undefined }
+		| { link?: undefined; category: string }
+	);
 
-function toItem(link: LinkTarget): LinkItem {
+function toItem(link: LinkTarget, section?: string): LinkItem {
 	return {
 		id: `${link.kind}:${link.target}`,
 		label: link.label,
-		section: LINK_SECTIONS[link.kind],
+		section: section ?? LINK_SECTIONS[link.kind],
 		icon: ICONS[link.kind],
 		hint: link.hint,
 		link,
 	};
+}
+
+/** `@` rows: types first ("Book/" narrows to books), then resources. */
+function mentionItems(hits: MentionHit[], query: string): LinkItem[] {
+	const slash = query.indexOf("/");
+	const scopedTo =
+		slash >= 0 && hits.every((h) => h.kind === "target")
+			? hits[0]?.kind === "target"
+				? hits[0].link.group
+				: undefined
+			: undefined;
+	return hits.map((hit) =>
+		hit.kind === "category"
+			? {
+					id: `category:${hit.category.name}`,
+					label: `${hit.category.name}/`,
+					section: "Resource types",
+					icon: FolderOpen,
+					hint: String(hit.category.count),
+					category: hit.category.name,
+				}
+			: toItem(hit.link, scopedTo ?? LINK_SECTIONS.resource),
+	);
 }
 
 function LinkView({ node, editor, getPos }: NodeViewProps) {
@@ -288,12 +317,31 @@ function linkMenu(
 			if (!source) return [];
 			// A closing ]] typed by habit is not part of the name.
 			const typed = query.replace(/\]+$/, "");
+			if (scope === "resource" && source.mentions) {
+				return mentionItems(
+					source
+						.mentions(typed)
+						.filter(
+							(hit) => hit.kind === "category" || hit.link.target !== self,
+						),
+					typed,
+				);
+			}
 			return source
 				.search(typed, scope)
 				.filter((link) => link.target !== self)
-				.map(toItem);
+				.map((link) => toItem(link));
 		},
 		command: ({ editor: current, range, props }) => {
+			if (props.category !== undefined) {
+				// Narrow to a type: the menu stays open and lists only its resources.
+				current
+					.chain()
+					.focus()
+					.insertContentAt(range, `${char}${props.category}/`)
+					.run();
+				return;
+			}
 			const { kind, target, label } = props.link;
 			current
 				.chain()

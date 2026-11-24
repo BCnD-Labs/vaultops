@@ -3,7 +3,11 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { type Editor, EditorContent, useEditor } from "@tiptap/react";
 import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { searchTargets } from "../core/links/links";
+import {
+	type LinkTarget,
+	searchMentions,
+	searchTargets,
+} from "../core/links/links";
 import { createExtensions, INLINE_EXTRA_ATTR } from "./extensions";
 import { type LinkSource, setLinkSource } from "./note-link";
 
@@ -358,4 +362,47 @@ it("copies as plain text with the name", async () => {
 	const editor = open(source(), undefined, linkDoc("n1", "Trip plan"));
 	await settle();
 	expect(editor.getText()).toBe("see Trip plan now");
+});
+
+const TYPED: LinkTarget[] = [
+	{ kind: "resource", target: "b1", label: "Dune", group: "Book" },
+	{ kind: "resource", target: "b2", label: "Boolean Logic", group: "Book" },
+	{ kind: "resource", target: "p1", label: "Sam Rivera", group: "Contact" },
+];
+
+function typedSource(): LinkSource {
+	return {
+		search: (query, scope) => searchTargets(TYPED, query, scope),
+		mentions: (query) => searchMentions(TYPED, query),
+		describe: (_kind, target) =>
+			TYPED.find((t) => t.target === target)?.label ?? null,
+		open: vi.fn(),
+	};
+}
+
+it("@ lists resource types above the resources, and a type narrows the list", async () => {
+	const editor = open(typedSource());
+	await insert(editor, "@");
+	expect(sections()).toEqual(["Resource types", "Resources"]);
+	expect(labels()).toEqual([
+		"Book/",
+		"Contact/",
+		"Boolean Logic",
+		"Dune",
+		"Sam Rivera",
+	]);
+	await insert(editor, "boo");
+	expect(labels()).toEqual(["Book/", "Boolean Logic"]);
+	await pick("category:Book");
+	await settle();
+	expect(editor.getText()).toBe("@Book/");
+	expect(sections()).toEqual(["Book"]);
+	expect(labels()).toEqual(["Boolean Logic", "Dune"]);
+	await insert(editor, "du");
+	expect(labels()).toEqual(["Dune"]);
+	await pick("resource:b1");
+	expect(editor.getJSON().content?.[0]?.content?.[0]).toMatchObject({
+		type: "noteLink",
+		attrs: { kind: "resource", target: "b1" },
+	});
 });

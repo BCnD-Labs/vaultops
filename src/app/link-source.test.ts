@@ -46,7 +46,13 @@ it("lists notes, canvases and cards by their ids, skipping notes that have none"
 	expect(targets).toEqual([
 		{ kind: "note", target: "n1", label: "Trip", hint: "Travel" },
 		{ kind: "canvas", target: "c1", label: "Map", hint: undefined },
-		{ kind: "resource", target: "r1", label: "Sam", hint: "Contact" },
+		{
+			kind: "resource",
+			target: "r1",
+			label: "Sam",
+			hint: "Contact",
+			group: "Contact",
+		},
 	]);
 });
 

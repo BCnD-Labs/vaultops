@@ -1,4 +1,4 @@
-import type { Host } from "../../host/host";
+import type { VaultReadHost } from "../../host/host";
 import type { Block, JsonValue, Note } from "../note-format";
 import { isInsideVaultOps } from "../vault/vault";
 import { listNotes, loadNote } from "./repository";
@@ -25,7 +25,7 @@ export interface HealthEntry {
 }
 
 /** Read the entire vault without repairing, rewriting or assigning new IDs. */
-export async function scanVault(host: Host): Promise<{
+export async function scanVault(host: VaultReadHost): Promise<{
 	notes: ScannedNote[];
 	report: HealthEntry[];
 	/** Every folder outside `.vaultops/`, empty ones included. */

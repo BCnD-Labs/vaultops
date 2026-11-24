@@ -1,4 +1,4 @@
-import type { Host } from "../../host/host";
+import type { Host, VaultReadHost } from "../../host/host";
 import { fileNameFor, NOTE_EXT } from "../file-name/file-name";
 import {
 	type Block,
@@ -239,7 +239,7 @@ function parseTypes(data: unknown): ResourceType[] {
  * The resource types: what is saved, or the built-in ones before anything is.
  * A types file that can't be read throws and is never overwritten.
  */
-export async function loadTypes(host: Host): Promise<ResourceType[]> {
+export async function loadTypes(host: VaultReadHost): Promise<ResourceType[]> {
 	if ((await host.kindOf(TYPES_FILE)) !== "file") {
 		return structuredClone(DEFAULT_TYPES) as ResourceType[];
 	}
@@ -486,7 +486,7 @@ function readCard(path: string, text: string): ResourceCard {
 }
 
 /** Every card, sorted by title. A file that can't be read is listed with a problem. */
-export async function listCards(host: Host): Promise<ResourceCard[]> {
+export async function listCards(host: VaultReadHost): Promise<ResourceCard[]> {
 	if ((await host.kindOf(CARDS)) !== "folder") return [];
 	const cards: ResourceCard[] = [];
 	for (const entry of await host.list(CARDS)) {

@@ -1,4 +1,4 @@
-import type { Host } from "../../host/host";
+import type { VaultReadHost } from "../../host/host";
 import type { Block, JsonValue } from "../note-format";
 import { scanVault } from "../notes/scan";
 
@@ -193,7 +193,7 @@ export interface Backlink {
 
 /** Every note and canvas that links to `target` (a `noteId`), by title. Reads, never writes. */
 export async function backlinks(
-	host: Host,
+	host: VaultReadHost,
 	target: string,
 ): Promise<Backlink[]> {
 	const { notes } = await scanVault(host);

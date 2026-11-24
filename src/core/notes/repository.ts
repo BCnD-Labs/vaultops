@@ -1,4 +1,4 @@
-import type { Host } from "../../host/host";
+import type { Host, VaultReadHost } from "../../host/host";
 import { fileNameFor, NOTE_EXT } from "../file-name/file-name";
 import { saveWithPending } from "../history/pending";
 import {
@@ -95,7 +95,10 @@ export function createCanvas(
 }
 
 /** Read without repairing or rewriting, including all parser diagnostics. */
-export async function loadNote(host: Host, path: string): Promise<ParseResult> {
+export async function loadNote(
+	host: VaultReadHost,
+	path: string,
+): Promise<ParseResult> {
 	return parseNote(await host.readText(path));
 }
 
@@ -111,7 +114,10 @@ export async function saveNote(
 }
 
 /** Vault-relative paths to note files directly in this folder, sorted by name. */
-export async function listNotes(host: Host, folder = ""): Promise<string[]> {
+export async function listNotes(
+	host: VaultReadHost,
+	folder = "",
+): Promise<string[]> {
 	if (isInsideVaultOps(folder)) return [];
 	return (await host.list(folder))
 		.filter(

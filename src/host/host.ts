@@ -286,6 +286,9 @@ export interface Host {
 	updateChannels(): Promise<UpdateChannels>;
 }
 
+/** The vault file operations needed by read-only core features. */
+export type VaultReadHost = Pick<Host, "readText" | "list" | "kindOf">;
+
 /** Same limit as `MAX_IMAGE_BYTES` in src-tauri/src/file_ops.rs. */
 export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 

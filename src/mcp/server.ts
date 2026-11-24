@@ -6,6 +6,8 @@ import {
 } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
+import { linksIn } from "../core/links/links";
+import { readProps } from "../core/notes/properties";
 import { checkVaultPath } from "../core/vault-path/vault-path";
 import { openNodeHost } from "../host/node-host";
 import { formatGuide, formatUri, guideTitle, helpText } from "./guide";
@@ -245,7 +247,7 @@ async function start() {
 	);
 	register(
 		"read_note",
-		'Returns a saved note or canvas as block text or typed properties. Use it with a path from search_notes or list_notes. For resource cards, use read_resource. For journal entries grouped by section, use read_journal_day. For example, call read_note({"path":"Notes/Trip.vnote"}).',
+		'Returns a saved note or canvas as block text plus its properties (due date, status, tags and so on). Use it with a path from search_notes or list_notes. For resource cards, use read_resource. For journal entries grouped by section, use read_journal_day. For example, call read_note({"path":"Notes/Trip.vnote"}).',
 		z.strictObject(
 			{ path: notePath, section, offset },
 			{
@@ -264,21 +266,52 @@ async function start() {
 				: args.section === "blocks"
 					? blockRows(note.blocks)
 					: propertyRows(note.properties);
+			const paged = page(
+				"read_note",
+				args,
+				rows as object[],
+				!found
+					? `No note at ${args.path}. ${notePathHint}`
+					: !note
+						? "The note cannot be read. Call check_vault_health to see the file problem."
+						: `This note has no ${args.section}. Report that and stop paging.`,
+			);
+			// Text reads also carry the properties (due dates, status…), so a small
+			// model that only reads the text still sees them, and a pointer to links.
+			const props =
+				note && args.section === "blocks"
+					? readProps(note.properties ?? {}).map((prop) => {
+							const value = prop.known ? prop.value : null;
+							const text = Array.isArray(value)
+								? value.join(", ")
+								: value === null
+									? ""
+									: String(value);
+							return {
+								name: titlePreview(prop.name),
+								value: titlePreview(text),
+							};
+						})
+					: [];
+			const links = note ? linksIn(note.blocks).length : 0;
 			return {
 				path: args.path,
 				title: note ? titlePreview(note.title) : null,
 				id: note?.noteId ?? null,
 				file_status: fileStatus(found?.health.group),
-				...page(
-					"read_note",
-					args,
-					rows as object[],
-					!found
-						? `No note at ${args.path}. ${notePathHint}`
-						: !note
-							? "The note cannot be read. Call check_vault_health to see the file problem."
-							: `This note has no ${args.section}. Report that and stop paging.`,
-				),
+				...(args.section === "blocks" && note
+					? {
+							properties: props.slice(0, pageSize),
+						}
+					: {}),
+				...paged,
+				next_step:
+					paged.next_step ??
+					(props.length > pageSize
+						? `This note has more properties. Call read_note({"path":${JSON.stringify(args.path)},"section":"properties"}) to see them all.`
+						: links > 0 && args.section === "blocks"
+							? `This note has ${links} link${links === 1 ? "" : "s"}. To follow them, call get_links({"path":${JSON.stringify(args.path)}}).`
+							: null),
 			};
 		},
 	);

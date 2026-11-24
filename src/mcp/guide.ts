@@ -25,10 +25,10 @@ export const helpText = {
 	tools_in_order: [
 		"search_notes: find notes by words in the title, text, properties or tags (not people or books: those are cards)",
 		"list_notes: browse all notes, one folder (folder), one tag (tag) or a link id (id)",
-		"read_note: read one note's blocks or properties, using a path from search_notes or list_notes",
+		"read_note: read one note's text and properties (due date, status, tags), using a path from search_notes or list_notes",
 		"list_tags: see every tag before listing notes by tag",
-		"get_links: links going out of one note",
-		"get_backlinks: notes that link to a note, canvas or resource id",
+		"get_links: links going out of one note (call it with the note's path)",
+		"get_backlinks: notes that link IN to a note, card or canvas (call it with that note's id from read_note or list_notes)",
 		"list_journal_days: saved journal days",
 		"read_journal_day: one day's entries by section",
 		"list_resources: people, books and other resource cards; start here for a person's or book's name",

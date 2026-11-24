@@ -156,6 +156,12 @@ test("serves tools, the format guide and the prompt over stdio", async () => {
 			'list_notes does not take \\"query\\". It takes: id, tag, folder, offset. To find words inside notes, use search_notes.',
 		);
 
+		const linked = await tool("read_note", { path: "note-links.vnote" });
+		expect(linked.properties).toEqual(expect.any(Array));
+		expect(linked.next_step).toMatch(
+			/call get_links\(\{"path":"note-links\.vnote"\}\)/,
+		);
+
 		const path = "columns.vnote";
 		const first = await tool("read_note", { path });
 		expect(first).toMatchObject({

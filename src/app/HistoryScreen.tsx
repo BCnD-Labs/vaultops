@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SegmentedInput } from "@/components/ui/segmented";
 import type { Host, VcsLogEntry, VcsStatus } from "../host/host";
+import { HistoryGraph } from "./HistoryGraph";
+
+const MODE_KEY = "vaultops:history-view";
+type Mode = "list" | "graph";
+const loadMode = (): Mode => {
+	try {
+		return localStorage.getItem(MODE_KEY) === "graph" ? "graph" : "list";
+	} catch {
+		return "list";
+	}
+};
 
 /** Save points per page. */
 export const HISTORY_PAGE = 50;
@@ -19,7 +31,8 @@ const when = (iso: string) => {
 
 /**
  * The vault's history: unsaved changes on top, then every save point on the
- * current branch, newest first, a page at a time.
+ * current branch, newest first, a page at a time. The Graph view shows every
+ * branch with its lanes instead.
  */
 export function HistoryScreen({
 	host,
@@ -34,6 +47,7 @@ export function HistoryScreen({
 	const [hasMore, setHasMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [mode, setMode] = useState<Mode>(loadMode);
 
 	const load = useCallback(
 		async (skip: number) => {
@@ -43,7 +57,12 @@ export function HistoryScreen({
 				const s = await host.vcs.status();
 				setStatus(s);
 				if (!s.enabled) return;
-				const page = await host.vcs.log({ skip, limit: HISTORY_PAGE });
+				// The graph shows every branch; the list, the current one.
+				const page = await host.vcs.log({
+					skip,
+					limit: HISTORY_PAGE,
+					allBranches: mode === "graph",
+				});
 				setEntries((old) =>
 					skip === 0 ? page.entries : [...old, ...page.entries],
 				);
@@ -54,7 +73,7 @@ export function HistoryScreen({
 				setLoading(false);
 			}
 		},
-		[host],
+		[host, mode],
 	);
 
 	useEffect(() => {
@@ -81,12 +100,33 @@ export function HistoryScreen({
 			)}
 			{status?.enabled && (
 				<>
-					<p className="history-meta">
-						Branch {status.branch ?? "(none)"} ·{" "}
-						{plural(entries.length, "save point")}
-						{hasMore ? " shown" : ""}
-					</p>
-					<ol className="history-list">
+					<div className="history-toolbar">
+						<p className="history-meta">
+							Branch {status.branch ?? "(none)"} ·{" "}
+							{plural(entries.length, "save point")}
+							{hasMore ? " shown" : ""}
+						</p>
+						<SegmentedInput
+							label="History view"
+							clearable={false}
+							options={[
+								{ value: "list", label: "List" },
+								{ value: "graph", label: "Graph" },
+							]}
+							value={mode}
+							onChange={(next) => {
+								const m: Mode = next === "graph" ? "graph" : "list";
+								setMode(m);
+								try {
+									localStorage.setItem(MODE_KEY, m);
+								} catch {
+									/* Storage is optional. */
+								}
+							}}
+						/>
+					</div>
+					{mode === "graph" && <HistoryGraph entries={entries} />}
+					<ol className="history-list" hidden={mode === "graph"}>
 						<li
 							className="history-row history-unsaved"
 							aria-label="Unsaved changes"

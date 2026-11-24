@@ -227,7 +227,7 @@ describe("tauriHost version control", () => {
 		await tauriHost.vcs.log({ skip: 50, limit: 50 });
 		expect(invoke.mock.calls.at(-1)).toEqual([
 			"vcs_log",
-			{ path: null, skip: 50, limit: 50 },
+			{ path: null, skip: 50, limit: 50, allBranches: false },
 		]);
 		invoke.mockResolvedValueOnce("text");
 		await tauriHost.vcs.show("abc1234", "a.vnote");

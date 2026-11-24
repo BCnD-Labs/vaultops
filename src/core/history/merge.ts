@@ -17,12 +17,13 @@
  * - The order follows mine; blocks only theirs has go after their nearest
  *   neighbour from theirs. A block whose parent is gone moves to the top level.
  *
- * Moves made only in theirs (a new place among the same siblings) don't carry
- * over; text is never lost by it. A word-level merge of a paragraph edited on
- * both sides waits for the word-diff library (#154); until then both versions
- * are kept as above.
+ * A paragraph whose text both sides edited is merged word by word when it is
+ * plain text and the edits touch different words; otherwise both versions are
+ * kept as above. Moves made only in theirs (a new place among the same
+ * siblings) don't carry over; text is never lost by it.
  */
 import type { Block, JsonValue, Note, NoteHeader } from "../note-format";
+import { mergeWords } from "./word-merge";
 
 export type MergeConflict =
 	| { kind: "title"; mine: string; theirs: string }
@@ -201,6 +202,44 @@ function mergeHeader(
 	return out as NoteHeader;
 }
 
+/** The text of plain content: text runs without marks only; null otherwise. */
+function plainText(content: JsonValue | undefined): string | null {
+	if (!Array.isArray(content)) return null;
+	let text = "";
+	for (const item of content) {
+		if (!isObj(item) || item.type !== "text" || typeof item.text !== "string")
+			return null;
+		if (Array.isArray(item.marks) && item.marks.length > 0) return null;
+		text += item.text;
+	}
+	return text;
+}
+
+/**
+ * Both sides edited the text of the same block: merge it word by word when
+ * all three versions are plain text (no bold, links and so on) and the edits
+ * touch different words. Null keeps both versions.
+ */
+function mergeContentWords(
+	base: JsonValue | undefined,
+	mine: JsonValue | undefined,
+	theirs: JsonValue | undefined,
+): JsonValue | null {
+	const [b, m, t] = [base, mine, theirs].map(plainText);
+	if (
+		b === null ||
+		b === undefined ||
+		m === null ||
+		m === undefined ||
+		t === null ||
+		t === undefined
+	)
+		return null;
+	const merged = mergeWords(b, m, t);
+	if (merged === null) return null;
+	return merged === "" ? [] : [{ type: "text", text: merged }];
+}
+
 /** A block's fields merged one by one; null when a field changed differently on both sides. */
 function mergeFields(
 	base: Block | undefined,
@@ -216,6 +255,16 @@ function mergeFields(
 	]);
 	for (const key of keys) {
 		const { value, clash } = pick(base[key], mine[key], theirs[key]);
+		if (clash && key === "content") {
+			const words = mergeContentWords(
+				base.content,
+				mine.content,
+				theirs.content,
+			);
+			if (words === null) return null;
+			out.content = words;
+			continue;
+		}
 		if (clash) return null;
 		if (value !== undefined) out[key] = value;
 	}

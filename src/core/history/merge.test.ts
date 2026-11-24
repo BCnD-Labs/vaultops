@@ -71,6 +71,34 @@ describe("mergeNotes blocks", () => {
 		expect(conflicts).toEqual([]);
 	});
 
+	it("merges edits to different words of the same paragraph", () => {
+		const base = note([p("a", "The fox jumps over the dog.")]);
+		const { note: merged, conflicts } = mergeNotes(
+			base,
+			note([p("a", "The brown fox jumps over the dog.")]),
+			note([p("a", "The fox jumps over the lazy dog.")]),
+			options,
+		);
+		expect(texts(merged)).toEqual(["The brown fox jumps over the lazy dog."]);
+		expect(conflicts).toEqual([]);
+	});
+
+	it("keeps both versions when formatting is involved, rather than merging words", () => {
+		const bold = (id: string, text: string): Block => ({
+			id,
+			type: "paragraph",
+			parent: null,
+			content: [{ type: "text", text, marks: [{ type: "bold" }] }],
+		});
+		const { conflicts } = mergeNotes(
+			note([bold("a", "one two three")]),
+			note([bold("a", "ONE two three")]),
+			note([bold("a", "one two THREE")]),
+			options,
+		);
+		expect(conflicts.map((c) => c.kind)).toEqual(["block"]);
+	});
+
 	it("keeps both versions when the same paragraph changed on both sides", () => {
 		n = 0;
 		const base = note([p("a", "Draft")]);

@@ -214,6 +214,51 @@ pub fn status(root: &Path) -> Result<Status, GitError> {
     })
 }
 
+/// One history change at a time: every command that writes to the repo holds
+/// this for its whole run, so two of the app's own changes never interleave.
+static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// A lock file git leaves behind when it is stopped mid-write (a crash, a
+/// force quit). Younger than this, another git program may still be working.
+const STALE_LOCK: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+/// Where cleared locks are noted (inside `.git`, so never in the vault or synced).
+const RECOVERY_LOG: &str = ".git/vaultops-recovery.log";
+
+/// Take the write turn, after dealing with a lock git left behind: a recent
+/// one means "busy, try again"; one older than ten minutes is from a crash and
+/// is cleared, with a line in `.git/vaultops-recovery.log`.
+fn write_turn(root: &Path) -> Result<std::sync::MutexGuard<'static, ()>, GitError> {
+    let guard = WRITING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let lock = root.join(".git/index.lock");
+    if let Ok(meta) = std::fs::metadata(&lock) {
+        let age = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .unwrap_or_default();
+        if age < STALE_LOCK {
+            return Err(GitError::busy());
+        }
+        std::fs::remove_file(&lock).map_err(|_| GitError::busy())?;
+        let line = format!(
+            "{:?}: removed a git lock left behind {} minutes earlier (an interrupted save point)\n",
+            std::time::SystemTime::now(),
+            age.as_secs() / 60
+        );
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(root.join(RECOVERY_LOG))
+        {
+            let _ = f.write_all(line.as_bytes());
+        }
+    }
+    Ok(guard)
+}
+
 /// The longest description a save point keeps (characters).
 const MAX_MESSAGE_CHARS: usize = 10_000;
 
@@ -237,6 +282,7 @@ pub fn save_point(
     if !is_enabled(root) {
         return Err(GitError::invalid("history is off for this vault"));
     }
+    let _turn = write_turn(root)?;
     let trimmed = message.trim();
     let text: String = if trimmed.is_empty() {
         "Save point".to_string()
@@ -545,6 +591,7 @@ fn require_clean(root: &Path) -> Result<(), GitError> {
 /// A new branch at the current save point; switched to when `switch_to` is true.
 pub fn create_branch(root: &Path, name: &str, switch_to: bool) -> Result<Status, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let name = git_ops::checked_branch(name)?;
     if branch_exists(root, name)? {
         return Err(GitError::invalid(
@@ -563,6 +610,7 @@ pub fn create_branch(root: &Path, name: &str, switch_to: bool) -> Result<Status,
 /// Move the vault to another branch: every note becomes that branch's version.
 pub fn switch_branch(root: &Path, name: &str) -> Result<Status, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let name = git_ops::checked_branch(name)?;
     if !branch_exists(root, name)? {
         return Err(GitError::invalid("there is no branch with this name"));
@@ -574,6 +622,7 @@ pub fn switch_branch(root: &Path, name: &str) -> Result<Status, GitError> {
 
 pub fn rename_branch(root: &Path, from: &str, to: &str) -> Result<Vec<Branch>, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let from = git_ops::checked_branch(from)?;
     let to = git_ops::checked_branch(to)?;
     if !branch_exists(root, from)? {
@@ -592,6 +641,7 @@ pub fn rename_branch(root: &Path, from: &str, to: &str) -> Result<Vec<Branch>, G
 /// delete). The current branch, and one with unmerged save points, are kept.
 pub fn delete_branch(root: &Path, name: &str) -> Result<Vec<Branch>, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let name = git_ops::checked_branch(name)?;
     let list = branches(root)?;
     match list.iter().find(|b| b.name == name) {
@@ -647,6 +697,7 @@ fn require_merging(root: &Path) -> Result<(), GitError> {
 /// `conflicted` for the app to merge.
 pub fn merge_start(root: &Path, branch: &str) -> Result<MergeStart, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let name = git_ops::checked_branch(branch)?;
     let list = branches(root)?;
     match list.iter().find(|b| b.name == name) {
@@ -730,6 +781,7 @@ pub fn merge_stages(root: &Path, path: &str) -> Result<MergeStages, GitError> {
 /// Mark files as resolved after the app wrote (or removed) their merged result.
 pub fn merge_mark_resolved(root: &Path, paths: &[String]) -> Result<Status, GitError> {
     require_merging(root)?;
+    let _turn = write_turn(root)?;
     if paths.is_empty() {
         return status(root);
     }
@@ -746,6 +798,7 @@ pub fn merge_mark_resolved(root: &Path, paths: &[String]) -> Result<Status, GitE
 /// Make the merge's save point. Refused while any file is still unresolved.
 pub fn merge_finish(root: &Path, message: &str) -> Result<Status, GitError> {
     require_merging(root)?;
+    let _turn = write_turn(root)?;
     let unresolved = nul_list(&git_ops::run(
         root,
         &["diff", "--name-only", "-z", "--diff-filter=U"],
@@ -772,6 +825,7 @@ pub fn merge_finish(root: &Path, message: &str) -> Result<Status, GitError> {
 /// Cancel a merge: every file goes back to the current branch's last save point.
 pub fn merge_abort(root: &Path) -> Result<Status, GitError> {
     require_merging(root)?;
+    let _turn = write_turn(root)?;
     git_ops::run(root, &["merge", "--abort"], None, false)?;
     status(root)
 }
@@ -793,6 +847,7 @@ pub struct VaultRestore {
 /// the "Restored to …" save point. Refused while anything is unsaved.
 pub fn restore_vault(root: &Path, commit: &str) -> Result<VaultRestore, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let commit = git_ops::checked_commit(commit)?;
     require_clean(root)?;
     let then = nul_list(&git_ops::run(
@@ -828,6 +883,7 @@ pub fn restore_vault(root: &Path, commit: &str) -> Result<VaultRestore, GitError
 /// points changed the same files, nothing is changed and the reason is given.
 pub fn undo_save_point(root: &Path, commit: &str) -> Result<Status, GitError> {
     enabled(root)?;
+    let _turn = write_turn(root)?;
     let commit = git_ops::checked_commit(commit)?;
     require_clean(root)?;
     let parents = git_ops::run(root, &["log", "-1", "--format=%P", commit], None, true)?;
@@ -941,6 +997,15 @@ pub fn enable(root: &Path, raw_name: &str) -> Result<Status, GitError> {
 }
 
 impl GitError {
+    /// Git is already working on this vault (another program, or a moment ago).
+    pub fn busy() -> Self {
+        Self {
+            code: GitErrorCode::Busy,
+            message: "history is busy: git is still working on this vault. Try again in a moment."
+                .to_string(),
+        }
+    }
+
     pub fn io(message: &str) -> Self {
         Self {
             code: GitErrorCode::Io,
@@ -1377,6 +1442,65 @@ mod tests {
             std::fs::read_to_string(root.join("a.vnote")).unwrap(),
             "two"
         );
+    }
+
+    #[test]
+    fn a_fresh_lock_means_busy_and_a_stale_one_is_cleared_and_noted() {
+        let dir = enabled_vault();
+        let root = dir.path();
+        std::fs::write(root.join("a.vnote"), "changed").unwrap();
+        let lock = root.join(".git/index.lock");
+        std::fs::write(&lock, "").unwrap();
+        let err = save_point(root, "x", None).unwrap_err();
+        assert_eq!(err.code, GitErrorCode::Busy);
+        assert!(lock.exists());
+        // Make the lock look like it was left by a crash 20 minutes ago.
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(20 * 60);
+        std::fs::File::options()
+            .write(true)
+            .open(&lock)
+            .unwrap()
+            .set_modified(old)
+            .unwrap();
+        assert!(save_point(root, "after the crash", None).unwrap().saved);
+        assert!(!lock.exists());
+        let log = std::fs::read_to_string(root.join(RECOVERY_LOG)).unwrap();
+        assert!(log.contains("removed a git lock left behind 20 minutes earlier"));
+        assert_eq!(
+            git_out(root, &["log", "-1", "--format=%s"]),
+            "after the crash"
+        );
+    }
+
+    #[test]
+    fn save_points_from_two_threads_never_mix_their_files() {
+        let dir = enabled_vault();
+        let root = dir.path().to_path_buf();
+        std::fs::write(root.join("one.vnote"), "1").unwrap();
+        std::fs::write(root.join("two.vnote"), "2").unwrap();
+        let a = {
+            let root = root.clone();
+            std::thread::spawn(move || save_point(&root, "one", Some(&["one.vnote".into()])))
+        };
+        let b = {
+            let root = root.clone();
+            std::thread::spawn(move || save_point(&root, "two", Some(&["two.vnote".into()])))
+        };
+        a.join().unwrap().unwrap();
+        b.join().unwrap().unwrap();
+        for (subject, file) in [("one", "one.vnote"), ("two", "two.vnote")] {
+            let files = git_out(
+                &root,
+                &[
+                    "log",
+                    "-1",
+                    "--format=",
+                    "--name-only",
+                    &format!("--grep=^{subject}$"),
+                ],
+            );
+            assert_eq!(files, file);
+        }
     }
 
     #[test]

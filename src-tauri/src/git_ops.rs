@@ -59,6 +59,8 @@ pub enum GitErrorCode {
     /// git ran and failed.
     Failed,
     TimedOut,
+    /// Git is already working on this vault; try again in a moment.
+    Busy,
     Io,
 }
 

@@ -818,3 +818,13 @@
 .tag-spacer {
 	width: var(--control-height-sm);
 }
+
+/* A note (or a folder holding one) changed since the last save point. */
+.change-dot {
+	flex: none;
+	width: 6px;
+	height: 6px;
+	margin-inline: var(--space-1);
+	border-radius: var(--radius-round);
+	background: var(--tone-orange);
+}

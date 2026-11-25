@@ -34,6 +34,7 @@ import {
 import type { ResourceType } from "../core/resources/resources";
 import { useAppearance } from "./AppearanceContext";
 import { type ItemStyle, rowPaint } from "./appearance";
+import { ChangeDot, hasChange, useChanged } from "./change-dots";
 import { ICON_BY_NAME, resolveIcon } from "./iconCatalog";
 import { StylePopover } from "./StylePopover";
 import { type TreeMenuEntry, TreeRowMenu } from "./TreeRowMenu";
@@ -472,6 +473,7 @@ function noteEntries(node: NoteNode, ctx: Ctx): TreeMenuEntry[] {
 }
 
 function NoteRow({ node, ctx }: { node: NoteNode; ctx: Ctx }) {
+	const changed = useChanged();
 	const what = node.canvas ? "canvas" : "note";
 	if (ctx.editing?.mode === "renameNote" && ctx.editing.path === node.path) {
 		return (
@@ -539,6 +541,7 @@ function NoteRow({ node, ctx }: { node: NoteNode; ctx: Ctx }) {
 								);
 							})()}
 							<span className="tree-name">{node.name}</span>
+							{hasChange(changed, node.path, false) && <ChangeDot />}
 							{node.readOnly && (
 								<span className="read-only-tag">read-only</span>
 							)}
@@ -620,6 +623,7 @@ function folderEntries(node: FolderNode, ctx: Ctx): TreeMenuEntry[] {
 }
 
 function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
+	const changed = useChanged();
 	const isOpen = ctx.expandAll || ctx.open.has(node.path);
 	const renaming =
 		ctx.editing?.mode === "rename" && ctx.editing.path === node.path;
@@ -742,6 +746,7 @@ function FolderRow({ node, ctx }: { node: FolderNode; ctx: Ctx }) {
 						);
 					})()}
 					<span className="tree-name">{node.name}</span>
+					{hasChange(changed, node.path, true) && <ChangeDot folder />}
 					{notes > 0 && <span className="sidebar-count">{notes}</span>}
 				</button>
 			</div>

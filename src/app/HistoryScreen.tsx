@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { SegmentedInput } from "@/components/ui/segmented";
 import type { Host, VcsLogEntry, VcsStatus } from "../host/host";
 import { BranchMenu } from "./BranchMenu";
+import { historyChanged } from "./change-dots";
 import { HistoryGraph } from "./HistoryGraph";
 import { MergeReview } from "./MergeReview";
 import { SavePointActions } from "./SavePointActions";
@@ -71,6 +72,8 @@ export function HistoryScreen({
 			try {
 				const s = await host.vcs.status();
 				setStatus(s);
+				// The dots follow whatever this screen just changed (switch, merge, restore).
+				historyChanged();
 				if (!s.enabled) return;
 				// The graph shows every branch; the list, the current one.
 				const page = await host.vcs.log({

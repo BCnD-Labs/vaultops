@@ -1,7 +1,6 @@
 import { getSchema, type JSONContent } from "@tiptap/core";
 import { EditorState } from "@tiptap/pm/state";
 import { describe, expect, it, vi } from "vitest";
-import { readPending } from "../core/history/pending";
 import { type Note, serializeBlock, serializeNote } from "../core/note-format";
 import { createNote, saveNote } from "../core/notes/repository";
 import { openVault } from "../core/vault/vault";
@@ -101,7 +100,7 @@ describe("open and save in the editor", () => {
 	});
 
 	it("allows deliberate deletion of a whole block with future inline attrs", async () => {
-		const { host, path, note } = await withNote([
+		const { host, path } = await withNote([
 			futureBlock(),
 			{ id: "keep", type: "paragraph", parent: null, content: text("keep") },
 		]);
@@ -113,11 +112,6 @@ describe("open and save in the editor", () => {
 		expect(
 			(await openNote(host, path)).note?.blocks.map((block) => block.id),
 		).toEqual(["keep"]);
-		expect(
-			(await readPending(host, note.header.noteId)).some(
-				(entry) => entry.blockId === "future" && entry.after === null,
-			),
-		).toBe(true);
 	});
 	it("saves Enter between two future-attr owners (the second moves to a new block)", async () => {
 		const { host, path } = await withNote([futureBlock()]);
@@ -168,7 +162,6 @@ describe("open and save in the editor", () => {
 	it("refuses deleting one future-attr owner inside a surviving block", async () => {
 		const { host, path, note } = await withNote([futureBlock()]);
 		const before = await host.readText(path);
-		const pendingBefore = await readPending(host, note.header.noteId);
 		const opened = await openNote(host, path);
 		const doc = getSchema(createExtensions()).nodeFromJSON(opened.doc).toJSON();
 		doc.content[0].content.shift();
@@ -178,7 +171,6 @@ describe("open and save in the editor", () => {
 		if (!result.ok) expect(result.message).toBe(INLINE_SAVE_REFUSAL);
 		expect(write).not.toHaveBeenCalled();
 		expect(await host.readText(path)).toBe(before);
-		expect(await readPending(host, note.header.noteId)).toEqual(pendingBefore);
 	});
 
 	it("round-trips unknown inline node and mark attrs while editing another block", async () => {
@@ -193,7 +185,6 @@ describe("open and save in the editor", () => {
 		];
 		const { host, path, note } = await withNote(blocks);
 		const originalLine = (await host.readText(path)).split("\n")[1];
-		const pendingBefore = await readPending(host, note.header.noteId);
 		const opened = await openNote(host, path);
 		expect(opened.editable).toBe(true);
 		const editorDoc = getSchema(createExtensions())
@@ -203,11 +194,8 @@ describe("open and save in the editor", () => {
 		const result = await saveDoc(host, opened, editorDoc);
 		expect(result.ok).toBe(true);
 		expect((await host.readText(path)).split("\n")[1]).toBe(originalLine);
-		expect(
-			(await readPending(host, note.header.noteId))
-				.slice(pendingBefore.length)
-				.map((entry) => entry.blockId),
-		).toEqual(["edited"]);
+		// History is git's job now: saving writes no separate change list.
+		expect(await host.kindOf(".vaultops/pending")).toBeNull();
 	});
 
 	it("retains unknown attrs when their owning inline node and mark are edited", async () => {
@@ -223,7 +211,7 @@ describe("open and save in the editor", () => {
 		expect(saved[1]?.marks?.[0]?.attrs?.future).toEqual([1, 2]);
 	});
 
-	it("refuses unsupported inline shapes before writing note or pending", async () => {
+	it("refuses unsupported inline shapes before writing the note", async () => {
 		const { host, path, note } = await withNote([
 			{
 				id: "p",
@@ -236,7 +224,6 @@ describe("open and save in the editor", () => {
 			{ id: "q", type: "paragraph", parent: null, content: text("before") },
 		]);
 		const before = await host.readText(path);
-		const pendingBefore = await readPending(host, note.header.noteId);
 		const opened = await openNote(host, path);
 		expect(opened.editable).toBe(true);
 		const doc = getSchema(createExtensions()).nodeFromJSON(opened.doc).toJSON();
@@ -247,7 +234,6 @@ describe("open and save in the editor", () => {
 		if (!result.ok) expect(result.message).toBe(INLINE_SAVE_REFUSAL);
 		expect(write).not.toHaveBeenCalled();
 		expect(await host.readText(path)).toBe(before);
-		expect(await readPending(host, note.header.noteId)).toEqual(pendingBefore);
 	});
 
 	it.each(["node", "mark"])(
@@ -255,7 +241,6 @@ describe("open and save in the editor", () => {
 		async (owner) => {
 			const { host, path, note } = await withNote([futureBlock()]);
 			const before = await host.readText(path);
-			const pendingBefore = await readPending(host, note.header.noteId);
 			const opened = await openNote(host, path);
 			expect(opened.editable).toBe(true);
 			const doc = getSchema(createExtensions())
@@ -272,9 +257,6 @@ describe("open and save in the editor", () => {
 			if (!result.ok) expect(result.message).toBe(INLINE_SAVE_REFUSAL);
 			expect(write).not.toHaveBeenCalled();
 			expect(await host.readText(path)).toBe(before);
-			expect(await readPending(host, note.header.noteId)).toEqual(
-				pendingBefore,
-			);
 		},
 	);
 	it("opens an understood note as editable and re-saves an unedited one to identical bytes", async () => {
@@ -439,7 +421,7 @@ describe("consent to edit a truncated note", () => {
 		expect(
 			(await saveDraft(host, editable, { ...draft, doc: edited })).ok,
 		).toBe(true);
-		// The note itself is written once; saving also records its pending change.
+		// The note itself is written once.
 		expect(write.mock.calls.filter(([p]) => p === path)).toHaveLength(1);
 		expect((await openNote(host, path)).note?.blocks).toEqual([
 			...note.blocks,

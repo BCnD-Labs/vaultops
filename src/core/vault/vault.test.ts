@@ -3,7 +3,7 @@ import { HostError } from "../../host/host";
 import { MemoryHost } from "../../host/memory-host";
 import { isInsideVaultOps, openVault, VAULT_FORMAT_VERSION } from "./vault";
 
-const folders = ["pending", "history", "archive", "trash", "index"];
+const folders = ["history", "archive", "trash", "index"];
 const configPath = ".vaultops/config.json";
 const configText = '{"formatVersion": 1}\n';
 
@@ -32,7 +32,34 @@ function expectNoWrites(spies: ReturnType<typeof watchWrites>) {
 }
 
 describe("openVault", () => {
-	it("creates exactly the config and five empty folders in an empty root", async () => {
+	it("moves the old pending change lists into the recovery folder once, never deleting them", async () => {
+		const host = await existingVault();
+		await host.makeFolder(".vaultops/pending");
+		await host.writeTextAtomic(
+			".vaultops/pending/n.jsonl",
+			'{"blockId":"a"}\n',
+		);
+		expect((await openVault(host)).status).toBe("opened");
+		expect(await host.kindOf(".vaultops/pending")).toBeNull();
+		const [kept] = await host.list(".vaultops/recovery");
+		expect(kept?.name).toMatch(/^old change lists /);
+		expect(
+			await host.readText(`.vaultops/recovery/${kept?.name}/n.jsonl`),
+		).toContain("blockId");
+		// Opening again changes nothing.
+		const spies = watchWrites(host);
+		await openVault(host);
+		expectNoWrites(spies);
+	});
+
+	it("leaves the old pending folder alone in a vault opened read-only", async () => {
+		const host = await existingVault('{"formatVersion": 99}\n');
+		await host.makeFolder(".vaultops/pending");
+		expect((await openVault(host)).status).toBe("read-only");
+		expect(await host.kindOf(".vaultops/pending")).toBe("folder");
+	});
+
+	it("creates exactly the config and four empty folders in an empty root", async () => {
 		const host = new MemoryHost();
 		expect(VAULT_FORMAT_VERSION).toBe(1);
 		expect(await openVault(host)).toEqual({
@@ -48,7 +75,6 @@ describe("openVault", () => {
 			{ name: "config.json", kind: "file" },
 			{ name: "history", kind: "folder" },
 			{ name: "index", kind: "folder" },
-			{ name: "pending", kind: "folder" },
 			{ name: "trash", kind: "folder" },
 		]);
 		expect(await host.readText(configPath)).toBe(configText);

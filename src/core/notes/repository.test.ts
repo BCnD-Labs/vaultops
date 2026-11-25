@@ -69,10 +69,11 @@ describe("note repository", () => {
 			},
 			blocks: [{ id: expect.any(String), type: "paragraph", parent: null }],
 		});
-		expect(write).toHaveBeenCalledTimes(2);
-		expect(write.mock.calls[1]?.[0]).toBe(path);
+		// One write, the note itself: no separate change list any more.
+		expect(write).toHaveBeenCalledTimes(1);
+		expect(write.mock.calls[0]?.[0]).toBe(path);
 		expect(await host.list(".vaultops/history")).toEqual([]);
-		expect(await host.list(".vaultops/pending")).toHaveLength(1);
+		expect(await host.kindOf(".vaultops/pending")).toBeNull();
 
 		note.blocks.push({
 			id: "block-1",

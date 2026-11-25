@@ -2288,6 +2288,15 @@ export function App({ host }: { host: Host }) {
 									historyHost={vaultHost}
 									notePath={session?.opened?.path}
 									onApplyVersion={applyVersion}
+									changes={
+										view?.writable
+											? {
+													host: vaultHost,
+													flush: () => wsRef.current.flushAll(),
+													onFilesChanged: () => void afterBranchSwitch(),
+												}
+											: undefined
+									}
 									onOpenNote={(path) => void open(path)}
 									hasNote={screen === "note" && !!session?.opened}
 									props={session?.props ?? null}

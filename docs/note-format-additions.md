@@ -448,8 +448,10 @@ unchanged, a v2 file round-trips) and `src/core/types/apply.test.ts`.
   removal, so names never clash.
 - The app does not list or open this folder; the files are ordinary notes and
   can be copied back by hand (or restored by a future "Recovered" screen).
-- The only true erase left is internal bookkeeping (`pending.jsonl`), never a
-  note or template.
+- Nothing is truly erased. The old per-note change lists (`.vaultops/pending/`)
+  are retired: the vault's git history tracks changes now, and a leftover
+  folder is moved here once (as `old change lists <time>/`) when the vault
+  opens.
 
 ## Note links (new inline item)
 

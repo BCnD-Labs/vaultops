@@ -1,11 +1,11 @@
 import type { JSONContent } from "@tiptap/core";
-import { saveWithPending } from "../core/history/pending";
 import {
 	describeSaveProblems,
 	type Note,
 	type ParseResult,
 	parseNote,
 } from "../core/note-format";
+import { saveNote } from "../core/notes/repository";
 import { scanVault } from "../core/notes/scan";
 import { type Host, HostError } from "../host/host";
 import {
@@ -185,12 +185,7 @@ export async function saveDoc(
 			note.blocks,
 		);
 		if (inlineProblem) return { ok: false, message: inlineProblem };
-		const check = await saveWithPending(
-			host,
-			opened.path,
-			note,
-			opened.note.blocks,
-		);
+		const check = await saveNote(host, opened.path, note);
 		if (!check.ok) {
 			return { ok: false, message: describeSaveProblems(check.problems) };
 		}

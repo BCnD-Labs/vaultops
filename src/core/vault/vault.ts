@@ -5,7 +5,9 @@ export const VAULT_FORMAT_VERSION = 1;
 
 const ROOT = ".vaultops";
 const CONFIG = `${ROOT}/config.json`;
-const FOLDERS = ["pending", "history", "archive", "trash", "index"];
+const FOLDERS = ["history", "archive", "trash", "index"];
+/** The old per-note change lists, replaced by the vault's git history. */
+const OLD_PENDING = `${ROOT}/pending`;
 
 export interface VaultResult {
 	status: "opened" | "created" | "read-only" | "damaged" | "not-a-vault";
@@ -133,6 +135,12 @@ export async function openVault(host: Host): Promise<VaultResult> {
 				warnings.push(`Recreated missing folder: ${path}.`);
 			}
 		}
+	}
+	if (!readOnly && (await host.kindOf(OLD_PENDING)) === "folder") {
+		// Moved aside once, never deleted: history now tracks changes.
+		const target = `${ROOT}/recovery/old change lists ${new Date().toISOString().replace(/[:.]/g, "-")}`;
+		await host.makeFolder(`${ROOT}/recovery`);
+		await host.move(OLD_PENDING, target);
 	}
 	return { status: readOnly ? "read-only" : "opened", warnings, problems: [] };
 }

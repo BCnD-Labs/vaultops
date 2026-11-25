@@ -1,6 +1,5 @@
 import type { Host, VaultReadHost } from "../../host/host";
 import { fileNameFor, NOTE_EXT } from "../file-name/file-name";
-import { saveWithPending } from "../history/pending";
 import {
 	type Block,
 	NOTE_FORMAT,
@@ -71,7 +70,7 @@ async function createNoteNow(
 			{ id: crypto.randomUUID(), type: "paragraph", parent: null },
 		],
 	};
-	const result = await saveWithPending(host, path, note, []);
+	const result = await saveNote(host, path, note);
 	if (!result.ok) throw new Error("New note failed the save check");
 	return { path, note };
 }

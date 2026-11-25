@@ -9,6 +9,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { savePointSummary } from "../core/history/summary";
 import type { Host, VcsStatus } from "../host/host";
+import { historyChanged } from "./change-dots";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -70,6 +71,7 @@ export function SavePointButton({
 				message.trim() || savePointSummary(fresh.changes),
 			);
 			setStatus(result.status);
+			historyChanged();
 			if (result.saved) {
 				setMessage("");
 				setOpen(false);

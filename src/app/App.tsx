@@ -95,6 +95,7 @@ import { AppShell } from "./AppShell";
 import { CanvasPane } from "./CanvasPane";
 import { CanvasTemplateDialog } from "./CanvasTemplateDialog";
 import { lastCanvas } from "./canvas-layout";
+import { ChangedPaths, useChangedPaths } from "./change-dots";
 import { COMMANDS, type CommandContext, filterCommands } from "./commands";
 import { FloatingNotes } from "./FloatingNotes";
 import { FolderPickerDialog, VAULT_ROOT } from "./FolderPickerDialog";
@@ -262,6 +263,8 @@ export function App({ host }: { host: Host }) {
 	// Live views read these rows; typing in a note does not wake them.
 	const [viewRows] = useState(createViewRows);
 	useEffect(() => viewRows.sync(view?.notes ?? []), [viewRows, view?.notes]);
+	// Dots on notes changed since the last save point, read again after saves.
+	const changedPaths = useChangedPaths(vaultHost, view?.notes);
 	const vaultTags = useMemo(() => knownTags(view?.notes ?? []), [view?.notes]);
 	const changeView = useCallback(
 		(next: VaultView | null | ((v: VaultView | null) => VaultView | null)) => {
@@ -2581,7 +2584,11 @@ export function App({ host }: { host: Host }) {
 	);
 	return (
 		<SendToBlock.Provider value={sendEnabled ? openSend : null}>
-			<VaultTags.Provider value={vaultTags}>{app}</VaultTags.Provider>
+			<VaultTags.Provider value={vaultTags}>
+				<ChangedPaths.Provider value={changedPaths}>
+					{app}
+				</ChangedPaths.Provider>
+			</VaultTags.Provider>
 			{sendDialog}
 		</SendToBlock.Provider>
 	);

@@ -176,7 +176,7 @@ async function recoveryTarget(
  * the file is moved, never erased.
  */
 export async function moveToRecovery(
-	host: Host,
+	host: Pick<Host, "makeFolder" | "kindOf" | "move">,
 	path: string,
 	keptAs: string,
 	now: Date = new Date(),

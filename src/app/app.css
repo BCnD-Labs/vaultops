@@ -1152,3 +1152,56 @@ select {
 	color: var(--muted-foreground);
 	font-size: var(--font-size-small);
 }
+
+/* The Changes tab: what changed since the last save point. */
+.changes-group h3 {
+	margin: var(--space-2) 0 var(--space-1);
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.changes-group ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.changes-row {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.changes-name {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	padding: var(--space-1);
+	border: 0;
+	border-radius: var(--radius-control);
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+.changes-name:hover {
+	background: var(--accent);
+}
+.changes-name > span:first-child {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.changes-summary,
+.changes-confirm {
+	color: var(--muted-foreground);
+	font-size: var(--font-size-small);
+}
+.changes-save {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	margin-top: var(--space-2);
+}
+.changes-save button {
+	align-self: flex-end;
+}

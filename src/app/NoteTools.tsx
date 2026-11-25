@@ -22,6 +22,7 @@ import type { HighlightItem } from "../core/notes/highlights";
 import type { OutlineItem } from "../core/notes/outline";
 import type { Host } from "../host/host";
 import { ShellNavigation } from "./AppShell";
+import { ChangesPanel } from "./ChangesPanel";
 import { HighlightsPanel } from "./HighlightsPanel";
 import { LinkedFromPanel } from "./LinkedFromPanel";
 import { NoteHistoryPanel } from "./NoteHistoryPanel";
@@ -76,12 +77,15 @@ export function NoteTools({
 	historyHost,
 	notePath,
 	onApplyVersion,
+	changes: changesProps,
 	...properties
 }: ComponentProps<typeof PropertiesPanel> & {
 	/** For the History tab. */
 	historyHost?: Pick<Host, "vcs" | "readText">;
 	/** The open note's vault path, for the History tab. */
 	notePath?: string;
+	/** For the Changes tab. */
+	changes?: ComponentProps<typeof ChangesPanel>;
 	/** Write a note version built from history (see NoteHistoryPanel). */
 	onApplyVersion?: (
 		path: string,
@@ -256,8 +260,11 @@ export function NoteTools({
 				)}
 			</TabsContent>
 			<TabsContent value="changes">
-				<p>Commit, history and sync arrive soon.</p>
-				<p>No changes to show yet.</p>
+				{changesProps ? (
+					<ChangesPanel {...changesProps} />
+				) : (
+					<p className="settings-note">Open a vault to see its changes.</p>
+				)}
 			</TabsContent>
 		</Tabs>
 	);

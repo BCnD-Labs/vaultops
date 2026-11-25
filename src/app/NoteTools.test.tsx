@@ -39,8 +39,7 @@ it.each([true, false])("renders both tabs with hasNote=%s", (hasNote) => {
 		expect(html).toContain("Properties");
 		expect(html).toContain("Changes");
 		if (tab === "changes") {
-			expect(html).toContain("Commit, history and sync arrive soon.");
-			expect(html).toContain("No changes to show yet.");
+			expect(html).toContain("Open a vault to see its changes.");
 			expect(html).not.toContain("Summary");
 		} else {
 			expect(html).toContain(
@@ -74,7 +73,7 @@ it("remembers the chosen tab across remounts and tolerates unavailable storage",
 	render(tools);
 	expect(screen.getByText("Open a note to see its properties.")).toBeTruthy();
 	await user.click(screen.getByRole("tab", { name: "Changes" }));
-	expect(screen.getByText("No changes to show yet.")).toBeTruthy();
+	expect(screen.getByText("Open a vault to see its changes.")).toBeTruthy();
 });
 
 function Editable() {

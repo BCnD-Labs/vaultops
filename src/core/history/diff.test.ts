@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Block, Note } from "../note-format";
-import { blockText, diffNotes, summarizeDiff } from "./diff";
+import { blockText, diffNotes, summarizeDiff, wordChanges } from "./diff";
 
 const p = (id: string, text: string, parent: string | null = null): Block => ({
 	id,
@@ -147,5 +147,20 @@ describe("summarizeDiff", () => {
 			"2 blocks added, 1 changed · Status changed, 1 tag added",
 		);
 		expect(summarizeDiff(diffNotes(null, null))).toBe("No changes");
+	});
+});
+
+describe("wordChanges", () => {
+	it("marks added and removed words and keeps the rest", () => {
+		expect(wordChanges("The quick fox", "The slow fox jumps")).toEqual([
+			{ text: "The ", kind: "same" },
+			{ text: "quick", kind: "removed" },
+			{ text: "slow", kind: "added" },
+			{ text: " fox", kind: "same" },
+			{ text: " jumps", kind: "added" },
+		]);
+		expect(wordChanges("same", "same")).toEqual([
+			{ text: "same", kind: "same" },
+		]);
 	});
 });
